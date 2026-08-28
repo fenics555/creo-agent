@@ -1,0 +1,1 @@
+python D:\AI\tools\agent\ctl.py restart --browser

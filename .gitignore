@@ -1,0 +1,11 @@
+data/
+config.json
+*.sqlite
+*.log
+*.pid
+*.bak
+*.pyc
+__pycache__/
+images/
+pdf_out/
+backup_models/
