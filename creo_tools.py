@@ -167,12 +167,17 @@ def tool_audit_folder(**kw):
     if not wd: return "не узнал рабочую папку"
     sess = set(_flex_list((creo_call("file", "list", {}, 10) or {}).get("data")))
     seen, names = set(), []
-    for mask in ("*.prt.*", "*.asm.*"):
-        lst = _flex_list((creo_call("creo", "list_files", {"filename": mask}, 20) or {}).get("data"))
-        for x in lst:
-            base = re.sub(r"\.(prt|asm)\.\d+$", "", str(x), flags=re.I)
-            if base not in seen:
-                seen.add(base); names.append((base, str(x)))
+    _mre = re.compile(r"\.(prt|asm)(\.\d+)?$", re.I)
+    lst = _flex_list((creo_call("creo", "list_files", {"filename": "*"}, 20) or {}).get("data"))
+    if not lst:
+        lst = _flex_list((creo_call("creo", "list_files", {"filename": "."}, 20) or {}).get("data"))
+    for x in lst:
+        s2 = str(x)
+        if not _mre.search(s2):
+            continue
+        base = _mre.sub("", s2)
+        if base not in seen:
+            seen.add(base); names.append((base, s2))
     names = names[:limit]
     out = ["АУДИТ папки %s (%d моделей):" % (wd, len(names))]
     for base, fn in names:
