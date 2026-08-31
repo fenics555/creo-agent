@@ -1,12 +1,12 @@
 # -*- coding: utf-8 -*-
-r"""Индекс «где используется»: деталь -> родительские сборки (по текстовым ссылкам в .asm)."""
-import os, re, threading
+r"""Индекс «где используется» + прогресс построения."""
+import os, re, threading, sqlite3, time
 import core
 from core import trace
 import scanner as SC
 
 REF = re.compile(r"([A-Za-zА-Яа-я0-9_\-]+)\.(prt|asm)", re.I)
-STATE = {"busy": False}
+STATE = {"busy": False, "done": 0, "total": 0, "links": 0, "finished": "", "error": ""}
 
 def _db():
     c = core.db()
@@ -17,64 +17,85 @@ def _db():
 def build_usage():
     if STATE["busy"]:
         return
-    STATE["busy"] = True
+    STATE.update(busy=True, done=0, total=0, links=0, error="")
+    trace("USAGE build", "START", 0, "начали")
     try:
         c = _db()
         names = set()
         for (n,) in c.execute("SELECT name FROM models WHERE ext IN ('prt','asm')"):
             names.add(re.sub(r"\.\d+$", "", n).lower())
-        c.execute("DELETE FROM usage")
-        rows, pats = [], SC._pats()
+        c.execute("DELETE FROM usage"); c.commit()
+        pats = SC._pats()
+        tasks = []
         for root in SC.read_roots():
             if not os.path.exists(root):
                 continue
             for dp, dn, fns in os.walk(root):
                 dn[:] = [d for d in dn if not SC.is_excluded(os.path.join(dp, d) + "/", pats)]
-                for fn in fns:
-                    low = fn.lower()
-                    if not re.search(r"\.asm(?:\.\d+)?$", low):
-                        continue
-                    parent = re.sub(r"\.\d+$", "", low)
-                    try:
-                        txt = open(os.path.join(dp, fn), "rb").read().decode("utf-8", "ignore")
-                    except Exception:
-                        continue
-                    found = set()
-                    for mm in REF.finditer(txt):
-                        ref = mm.group(1).lower()
-                        if ref in names and ref != parent:
-                            found.add(ref)
-                    rows += [(ref, parent, os.path.join(dp, fn)) for ref in found]
+                tasks += [os.path.join(dp, fn) for fn in fns if re.search(r"\.asm(?:\.\d+)?$", fn.lower())]
+        STATE["total"] = len(tasks)
+        rows = []
+        for path in tasks:
+            parent = re.sub(r"\.\d+$", "", os.path.basename(path).lower())
+            try:
+                txt = open(path, "rb").read().decode("utf-8", "ignore")
+            except Exception:
+                txt = ""
+            found = set()
+            for mm in REF.finditer(txt):
+                ref = mm.group(1).lower()
+                if ref in names and ref != parent:
+                    found.add(ref)
+            rows += [(ref, parent, path) for ref in found]
+            STATE["done"] += 1
         c.executemany("INSERT INTO usage(child,parent,parent_path) VALUES(?,?,?)", rows)
         c.commit(); c.close()
+        STATE["links"] = len(rows)
+        STATE["finished"] = time.strftime("%d.%m %H:%M")
         trace("USAGE build", "OK", 0, "%d ссылок" % len(rows))
+    except Exception as e:
+        STATE["error"] = str(e)[:200]
+        trace("USAGE build", "ERR", 0, str(e)[:120])
     finally:
         STATE["busy"] = False
 
 def tool_usage_build(**kw):
     threading.Thread(target=build_usage, daemon=True).start()
-    return "индекс «где используется» строится в фоне"
+    return "индекс строится в фоне; прогресс — usage_state"
+
+def tool_usage_state(**kw):
+    if STATE["busy"]:
+        return "идёт построение: %d/%d файлов, пока %d ссылок" % (STATE["done"], STATE["total"], STATE["links"])
+    if STATE["error"]:
+        return "ошибка последнего построения: %s" % STATE["error"]
+    if STATE["finished"]:
+        return "индекс готов (%s): %d ссылок. Спрашивай models_where" % (STATE["finished"], STATE["links"])
+    return "индекс ещё не строили. Скажи: usage_build"
 
 def tool_models_where(q="", limit=30, **kw):
-    c = _db()
-    total = c.execute("SELECT COUNT(*) FROM usage").fetchone()[0]
-    if not total:
+    try:
+        c = _db()
+        total = c.execute("SELECT COUNT(*) FROM usage").fetchone()[0]
+        if not total:
+            c.close()
+            return "индекс ещё не построен — скажи: usage_build, и подожди"
+        toks = [t.lower() for t in re.findall(r"[A-Za-zА-Яа-я0-9][A-Za-zА-Яа-я0-9.\-]{2,}", q or "") if len(t) >= 3]
+        if not toks:
+            c.close()
+            return "укажи имя модели или ключевое слово"
+        out = []
+        for t in toks:
+            rows = c.execute("SELECT DISTINCT parent, parent_path FROM usage WHERE child LIKE ? LIMIT ?",
+                             ("%" + t + "%", int(limit) or 30)).fetchall()
+            out.append("'%s': входит в сборок: %d" % (t, len(rows)))
+            out += ["- %s  (%s)" % (p, pp) for p, pp in rows]
         c.close()
-        return "индекс «где используется» ещё не построен — скажи: usage_build"
-    toks = [t.lower() for t in re.findall(r"[A-Za-zА-Яа-я0-9][A-Za-zА-Яа-я0-9.\-]{2,}", q or "") if len(t) >= 3]
-    if not toks:
-        c.close()
-        return "укажи имя модели или ключевое слово"
-    out = []
-    for t in toks:
-        rows = c.execute("SELECT DISTINCT parent, parent_path FROM usage WHERE child LIKE ? LIMIT ?",
-                         ("%" + t + "%", int(limit) or 30)).fetchall()
-        out.append("'%s': входит в сборок: %d" % (t, len(rows)))
-        out += ["- %s  (%s)" % (p, pp) for p, pp in rows]
-    c.close()
-    return "\n".join(out)
+        return "\n".join(out)
+    except Exception as e:
+        return "ошибка: %s — если индекс строится прямо сейчас, подожди минуту" % e
 
 TOOLS = [
-    {"name": "models_where", "desc": "Показать сборки, в которых используется модель/деталь (по индексу ссылок)", "params": {"q": "имя или ключевое слово", "limit": "сколько строк"}, "approval": False, "fn": tool_models_where},
-    {"name": "usage_build", "desc": "Построить/обновить индекс «где используется» по всем папкам", "params": {}, "approval": False, "fn": tool_usage_build},
+    {"name": "models_where", "desc": "Показать сборки, в которых используется модель/деталь", "params": {"q": "имя или слово", "limit": "сколько строк"}, "approval": False, "fn": tool_models_where},
+    {"name": "usage_build", "desc": "Построить/обновить индекс «где используется»", "params": {}, "approval": False, "fn": tool_usage_build},
+    {"name": "usage_state", "desc": "Прогресс построения индекса: сколько файлов прошло, сколько ссылок", "params": {}, "approval": False, "fn": tool_usage_state},
 ]
