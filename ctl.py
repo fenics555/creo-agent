@@ -53,7 +53,7 @@ def start_agent(hidden):
     if hidden:
         subprocess.Popen('powershell -NoProfile -WindowStyle Hidden -Command "cmd /c cd /d %s && python agent.py >> %s\\agent_console.log 2>&1"' % (AG, TOOLS), shell=True)
     else:
-        subprocess.Popen('start "АГЕНТ v12" cmd /k "cd /d %s && python agent.py"' % AG, shell=True)
+        subprocess.Popen('start "АГЕНТ v12" cmd /c "cd /d %s && python agent.py"' % AG, shell=True)
 
 def up(browser=False, hidden=False):
     log("== ctl up ==")
