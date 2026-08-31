@@ -13,6 +13,7 @@ import settings
 import tools_registry as TR
 import scanner
 import users
+import chat_tools
 import panel
 import vision_tools as VI
 
@@ -261,7 +262,7 @@ button{background:#2b4a6f;color:#fff;border:0;border-radius:8px;padding:8px 14px
 #login input{background:#232b36;color:#dfe6ee;border:1px solid #334052;border-radius:8px;padding:10px}</style></head>
 <body>
 <div id="top"><b>АГЕНТ v12</b><span id="hdr"></span><span style="flex:1"></span>
-<button data-act="showlog">Лог</button><button data-act="panel">Панель</button><button data-act="showpro">👤</button> <button data-act="logout">Выйти</button></div>
+<button data-act="showlog">Лог</button><button data-act="panel">Панель</button><button data-act="showpro">👤</button><button data-act="showchat">💬</button> <button data-act="logout">Выйти</button></div>
 <div id="chat"></div>
 <div id="panel"></div>
 <div id="inp"><input id="q" placeholder="Задача для АГЕНТА... (Enter) | Ctrl+V — вставить скриншот">
@@ -291,6 +292,11 @@ button{background:#2b4a6f;color:#fff;border:0;border-radius:8px;padding:8px 14px
 </div>
 <button data-act="closeadm" style="background:#334052;color:#fff;border:0;border-radius:6px;padding:8px;cursor:pointer;margin-top:6px">Закрыть</button>
 </div></div>
+<div id="chatbox" style="display:none;position:fixed;top:44px;left:0;bottom:0;width:340px;background:#171d26;border-right:1px solid #243040;padding:10px;z-index:6;flex-direction:column;gap:8px">
+<b>💬 КОМАНДА</b><div id="cmsg" style="flex:1;overflow:auto;display:flex;flex-direction:column;gap:6px"></div>
+<div style="display:flex;gap:6px"><input id="cin" placeholder="Сообщение всем..." style="flex:1;background:#232b36;color:#dfe6ee;border:1px solid #334052;border-radius:6px;padding:8px">
+<button data-act="chatsend" style="background:#2b4a6f;color:#fff;border:0;border-radius:6px;padding:8px;cursor:pointer">➤</button></div>
+</div>
 <script>
 var TK=localStorage.getItem('tk')||'',IMG=null,CURM='';
 var chat=document.getElementById('chat'),panel=document.getElementById('panel'),
@@ -310,19 +316,19 @@ h+='<div>'+esc(String(r.answer).replace(/<\/?think>/g,''))+'</div>';
 var m=String(r.answer).match(/id (\d+)/);
 if(String(r.answer).indexOf('[СОГЛАСОВАНИЕ]')>=0&&m)h+='<div style="margin-top:8px"><button data-act="appr" data-pid="'+m[1]+'" data-ok="1">✅ выполнить</button> <button data-act="appr" data-pid="'+m[1]+'" data-ok="0">❌ отмена</button></div>';
 d.innerHTML=h;chat.scrollTop=chat.scrollHeight}
-function buildPanel(p){var h='<div class="grp"><h4 data-act="fold">▾ ⚙ ДЕЙСТВИЯ (без ИИ)</h4><div class="gbody">';
+function buildPanel(p){var h='<div class="grp"><h4 data-act="fold">▸ ⚙ ДЕЙСТВИЯ (без ИИ)</h4><div class="gbody" style="display:none">';
 p.actions.forEach(function(a){h+='<div class="tool" data-act="act" data-val="'+a.endpoint+'"><b>'+esc(a.label)+'</b></div>'});h+='</div></div>';
-h+='<div class="grp"><h4 data-act="fold">▾ 🧠 МОДЕЛЬ ИИ (клик — смена)</h4><div class="gbody">';
+h+='<div class="grp"><h4 data-act="fold">▸ 🧠 МОДЕЛЬ ИИ (клик — смена)</h4><div class="gbody" style="display:none">';
 p.models.forEach(function(m){h+='<div class="tool" data-act="setm" data-val="'+att(m)+'">'+esc(m)+(m==CURM?' ←':'')+'</div>'});h+='</div></div>';
-h+='<div class="grp"><h4 data-act="fold">▾ ⚡ БЫСТРЫЕ ЗАДАЧИ</h4><div class="gbody">';
+h+='<div class="grp"><h4 data-act="fold">▸ ⚡ БЫСТРЫЕ ЗАДАЧИ</h4><div class="gbody" style="display:none">';
 p.chips.forEach(function(c){h+='<div class="tool" data-act="chip" data-val="'+att(c)+'">'+esc(c)+'</div>'});h+='</div></div>';
-p.groups.forEach(function(g){h+='<div class="grp"><h4 data-act="fold">▾ '+esc(g.title)+' ('+g.tools.length+')</h4><div class="gbody">';
+p.groups.forEach(function(g){h+='<div class="grp"><h4 data-act="fold">▸ '+esc(g.title)+' ('+g.tools.length+')</h4><div class="gbody" style="display:none">';
 g.tools.forEach(function(t){h+='<div class="tool" data-act="chip" data-val="'+att(t.name)+'"><b>'+esc(t.name)+(t.approval?' 🔒':'')+'</b><small>'+esc(t.desc)+'</small></div>'});h+='</div></div>'});
 panel.innerHTML=h}
 function init(){J('/status').then(function(s){CURM=s.model;var u=localStorage.getItem('usr')||'';hdr.textContent=s.host+(u?' | '+u:'')+' | '+s.model+' | блоков: '+s.blocks;J('/panel').then(buildPanel)})}
 document.addEventListener('click',function(e){var el=e.target.closest('[data-act]');if(!el)return;var a=el.getAttribute('data-act');
 if(a=='think'){var n=el.nextElementSibling;n.style.display=n.style.display=='none'?'block':'none'}
-else if(a=='fold'){var b=el.nextElementSibling;b.style.display=b.style.display=='none'?'block':'none'}
+else if(a=='fold'){var b=el.nextElementSibling;var hid=b.style.display=='none';b.style.display=hid?'block':'none';el.textContent=(hid?'▾':'▸')+el.textContent.slice(1)}
 else if(a=='send')send();
 else if(a=='snap')J('/snap',{token:TK}).then(function(r){addMsg(esc(r.msg||'ок'))});
 else if(a=='showlog')J('/log').then(function(r){addMsg('<div class="log">'+esc(r.log)+'</div>')});
@@ -343,9 +349,21 @@ else if(a=='reg')J('/register',{login:lg.value,pw:pw.value}).then(function(r){al
 else if(a=='appr')J('/approve',{token:TK,pid:el.getAttribute('data-pid'),ok:el.getAttribute('data-ok')=='1'}).then(function(r){addMsg(esc((r.res||'')+((r.answer&&r.answer!==r.res)?'\n\n'+r.answer:'')))});
 else if(a=='setm')J('/setmodel',{token:TK,model:el.getAttribute('data-val')}).then(function(){init()});
 else if(a=='act'){var ep=el.getAttribute('data-val');if(ep=='/log'){J('/log').then(function(r){addMsg('<div class="log">'+esc(r.log)+'</div>')})}else J(ep,{token:TK}).then(function(r){addMsg('<div class="log">'+esc(JSON.stringify(r).slice(0,800))+'</div>')})}
-else if(a=='chip'){qinp.value=el.getAttribute('data-val');send()}});
-qinp.addEventListener('keydown',function(e){if(e.key=='Enter')send()});
+else if(a=='chip'){qinp.value=el.getAttribute('data-val');send()}
+else if(a=='showchat'){var cb=document.getElementById('chatbox');if(cb.style.display=='flex'){cb.style.display='none';if(CTMR){clearInterval(CTMR);CTMR=null}}else{cb.style.display='flex';CLAST=0;document.getElementById('cmsg').innerHTML='';chatPoll();if(CTMR)clearInterval(CTMR);CTMR=setInterval(chatPoll,5000);NEWMSG=0;chatBadge()}}
+else if(a=='closechat'){document.getElementById('chatbox').style.display='none';if(CTMR){clearInterval(CTMR);CTMR=null}}
+else if(a=='chatsend'){var t=document.getElementById('cin').value;J('/chat/send',{token:TK,text:t}).then(function(r){if(r.ok)document.getElementById('cin').value='';chatPoll()})}});
+var CLAST=0,CTMR=null;
+function chatRender(ms){var box=document.getElementById('cmsg');ms.forEach(function(m){if(m.id<=CLAST)return;CLAST=m.id;var d=document.createElement('div');d.style.cssText='background:#202834;border-radius:6px;padding:6px 8px';d.innerHTML='<b style="color:#7cc0f4">'+esc(m.name)+'</b> <small style="color:#8fa3b8">'+esc(m.ts)+'</small><br>'+esc(m.text);box.appendChild(d)});box.scrollTop=box.scrollHeight}
+function chatPoll(){J('/chat/poll',{token:TK,last:CLAST}).then(function(r){chatRender(r.msgs||[])})}
+var NEWMSG=0;
+function chatBadge(){var b=document.querySelector('[data-act="showchat"]');if(b)b.textContent=NEWMSG>0?'💬'+NEWMSG:'💬'}
+setInterval(function(){if(document.getElementById('chatbox').style.display!='flex'&&TK){J('/chat/poll',{token:TK,last:CLAST}).then(function(r){var ms=r.msgs||[];if(ms.length){NEWMSG+=ms.length;chatBadge()}})}},15000)
+qinp.addEventListener('keydown' ,function(e){if(e.key=='Enter')send()});
 document.addEventListener('paste',function(e){var it=null,items=e.clipboardData.items;for(var i=0;i<items.length;i++){if(items[i].type.indexOf('image')==0){it=items[i];break}}if(!it)return;var f=it.getAsFile();var rd=new FileReader();rd.onload=function(){IMG=rd.result.split(',')[1];addMsg('📷 скриншот прикреплён',true)};rd.readAsDataURL(f)});
+lg.addEventListener('keydown',function(e){if(e.key=='Enter')document.querySelector('[data-act="login"]').click()});
+pw.addEventListener('keydown',function(e){if(e.key=='Enter')document.querySelector('[data-act="login"]').click()});
+document.getElementById('cin').addEventListener('keydown',function(e){if(e.key=='Enter')document.querySelector('[data-act="chatsend"]').click()});
 if(TK)init();else showLogin();
 </script></body></html>"""
 
@@ -430,6 +448,10 @@ class Hd(BaseHTTPRequestHandler):
         elif p == "/setpw":
             okf, msg = users.change_password(cl, b.get("old") or "", b.get("new") or "")
             self._j({"ok": okf, "msg": msg})
+        elif p == "/chat/send":
+            self._j(chat_tools.chat_send(cl, b.get("text")))
+        elif p == "/chat/poll":
+            self._j({"msgs": chat_tools.chat_poll(b.get("last") or 0)})
         elif p == "/admin/users":
             if not users.can_manage_users(cl):
                 self._j({"error": "нет прав"}, 403); return
