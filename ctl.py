@@ -47,7 +47,7 @@ def start_ollama():
         subprocess.Popen('cmd /c start "" /B ollama serve', shell=True)
 
 def start_creoson():
-    subprocess.Popen('start "CREOSON" /D "%s" creoson_run.bat' % CREOSON_DIR, shell=True)
+    subprocess.Popen('cmd /c start "" /B /D "%s" creoson_run.bat' % CREOSON_DIR, shell=True)
 
 def start_agent(hidden):
     if hidden:
