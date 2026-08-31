@@ -296,7 +296,7 @@ var TK=localStorage.getItem('tk')||'',IMG=null,CURM='';
 var chat=document.getElementById('chat'),panel=document.getElementById('panel'),
 qinp=document.getElementById('q'),login=document.getElementById('login'),
 hdr=document.getElementById('hdr'),lg=document.getElementById('lg'),pw=document.getElementById('pw');
-function J(u,b){return fetch(u,{method:b?'POST':'GET',headers:{'Content-Type':'application/json'},body:b?JSON.stringify(b):undefined}).then(function(r){return r.json()})}
+function J(u,b){return fetch(u,{method:b?'POST':'GET',headers:{'Content-Type':'application/json','X-Token':TK||''},body:b?JSON.stringify(b):undefined}).then(function(r){return r.json()})}
 function esc(s){return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;')}
 function att(s){return esc(s).replace(/"/g,'&quot;')}
 function addMsg(html,me){var d=document.createElement('div');d.className='msg'+(me?' me':'');d.innerHTML=html;chat.appendChild(d);chat.scrollTop=chat.scrollHeight;return d}
@@ -419,7 +419,11 @@ class Hd(BaseHTTPRequestHandler):
             threading.Thread(target=scanner.scan_models, daemon=True).start()
             self._j({"msg": "скан моделей запущен"})
         elif p == "/profile":
-            self._j(users.get_profile(cl) or {"error": "нет профиля"})
+            __prof = users.get_profile(cl)
+            if __prof:
+                __prof = dict(__prof)
+                __prof["can_manage"] = users.can_manage_users(cl)
+            self._j(__prof or {"error": "нет профиля"})
         elif p == "/setname":
             okf, msg = users.update_display_name(cl, b.get("name"))
             self._j({"ok": okf, "msg": msg})
