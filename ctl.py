@@ -51,7 +51,7 @@ def start_creoson():
 
 def start_agent(hidden):
     if hidden:
-        subprocess.Popen('powershell -NoProfile -WindowStyle Hidden -Command "cmd /c cd /d %s && python agent.py >> %s\\agent_console.log 2>&1"' % (AG, TOOLS), shell=True)
+        subprocess.Popen('cmd /c cd /d %s && python agent.py >> %sagent_console.log 2>&1' % (AG, TOOLS), shell=True, creationflags=0x08000000)
     else:
         subprocess.Popen('start "АГЕНТ v12" cmd /c "cd /d %s && python agent.py"' % AG, shell=True)
 
@@ -101,6 +101,6 @@ if __name__ == "__main__":
     if "--watch" in a: watch()
     elif "up" in a: up("--browser" in a, "--hidden" in a)
     elif "down" in a: down()
-    elif "restart" in a: down(); up("--browser" in a)
+    elif "restart" in a: down(); up("--browser" in a, "--hidden" in a)
     elif "status" in a: status()
     else: print(__doc__)
