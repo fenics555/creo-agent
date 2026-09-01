@@ -23,6 +23,11 @@ def connect():
     global CREO_SESSION
     j = _post({"command": "connection", "function": "connect", "data": {}})
     CREO_SESSION = j.get("sessionId") or CREO_SESSION
+    if CREO_SESSION:
+        try:
+            _post({"sessionId": CREO_SESSION, "command": "creo", "function": "set_creo_version", "data": {"version": 12}})
+        except Exception:
+            pass
     return CREO_SESSION
 
 def creo_raw(cmd, fn, data=None, t=15):
@@ -180,6 +185,8 @@ def tool_read_trail(lines=60, **kw):
     dirs = []
     v = ((creo_call("creo", "get_config", {"name": "trail_dir"}, 10) or {}).get("data") or {}).get("values") or []
     if v: dirs.append(v[0])
+    for d in (settings.get("trail_dirs") or []):
+        dirs.append(d)
     dirs.append(r"D:\PTC\CREO-LOCAL-SETUP\TEMP\trails")
     files = []
     for d in dirs:
