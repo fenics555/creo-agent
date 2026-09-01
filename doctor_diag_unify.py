@@ -1,4 +1,6 @@
 # -*- coding: utf-8 -*-
+import io, os
+NEW = r'''# -*- coding: utf-8 -*-
 # АГЕНТ v12 — ЕДИНЫЙ БЛОК ДИАГНОСТИКИ (probe_tools поглощён и удалён).
 # Семантика: шаг с ошибкой = НЕ ПРОЙДЕН; в конце каждого теста — вердикт.
 # Полный лог запросов/ответов: diag_full.log; креосон-цикл дублируется в diag_creoson.log.
@@ -272,3 +274,11 @@ TOOLS = [
     {"name": "creoson_full_test", "desc": "CREOSON: чтения + пишущий цикл на копии (save ДО rename); любая ошибка = НЕ ПРОЙДЕН", "params": {}, "approval": True, "fn": tool_creoson_full_test},
     {"name": "diag_learn", "desc": "Тест обучения: model_learn + model_rules на активной модели, с traceback", "params": {}, "approval": True, "fn": tool_diag_learn},
 ]
+'''
+p = r"D:\AI\tools\agent\diagnostic_tools.py"
+io.open(p, "w", encoding="utf-8").write(NEW.lstrip("\n"))
+print("[+] diagnostic_tools.py переписан: единый блок ДИАГНОСТИКА")
+q = r"D:\AI\tools\agent\probe_tools.py"
+if os.path.exists(q):
+    os.remove(q); print("[+] probe_tools.py удалён (поглощён)")
+print("ТЕПЕРЬ: .\\AI_RESTART.bat")
