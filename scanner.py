@@ -54,7 +54,19 @@ def read_file_text(f):
     try: return f.read_text(encoding="utf-8", errors="ignore")
     except Exception: return None
 
-def _pats(): return core.load_exclude_patterns()
+def _pats():
+    from pathlib import Path as _P
+    import core as _c
+    pats = []
+    for base in (_c.BASE, _c.REPO):
+        f = _P(base) / "kb_exclude.txt"
+        if f.exists():
+            for ln in f.read_text(encoding="utf-8", errors="ignore").splitlines():
+                ln = ln.strip()
+                if ln and not ln.startswith("#"):
+                    pats.append(ln)
+            break
+    return pats
 
 def index_all():
     if STATE["indexing"]: return

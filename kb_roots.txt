@@ -1,0 +1,5 @@
+# одна папка в строке
+D:\PTC\CREO12\Creo 12.4.2.0\creo_help_pma\russian
+D:\AI\repo
+Z:\PTC\Work
+Z:\PTC\CREO-START

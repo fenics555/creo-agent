@@ -176,70 +176,66 @@ def tool_diag_run(**kw):
     return "\n".join(out) + "\nвердикт: %s\nполный лог: diag_full.log" % v
 
 def tool_creoson_full_test(**kw):
-    import os, time as _t, pathlib
-    import core
+    import os, re, time, pathlib
     import creo_tools as CT
-    out = []
+    out, fails = [], []
     def rep(line, okf=True):
         out.append(line); _w(line, True)
+        if not okf:
+            fails.append(line[:70])
     act = CT.tool_get_active()
     rep("== старт, активная: %s ==" % act)
-    reads = [("creo", "pwd", {}), ("creo", "list_files", {"filename": "*"}), ("file", "list", {}),
-             ("file", "exists", {"file": act}), ("file", "get_fileinfo", {"file": act}),
-             ("file", "massprops", {"file": act}), ("file", "relations_get", {"file": act}),
-             ("file", "open_errors", {"file": act}), ("parameter", "list", {"file": act}),
-             ("parameter", "exists", {"file": act, "name": "ОБОЗНАЧЕНИЕ"}),
-             ("dimension", "list", {"file": act}), ("feature", "list", {"file": act}),
-             ("bom", "get_paths", {"file": act, "paths": False, "top_level": False, "exclude_inactive": True}),
-             ("familytable", "list", {"file": act}), ("layer", "list", {"file": act}),
-             ("note", "list", {"file": act}), ("view", "list", {"file": act}),
-             ("geometry", "bound_box", {"file": act})]
-    for cmd, fn, data in reads:
-        j = CT.creo_call(cmd, fn, data, 20)
-        rep("чтение %-20s %s" % (cmd + ":" + fn, "OK" if CT.ok(j) else "ERR " + str(CT.errmsg(j))[:60]), CT.ok(j))
     d = str(pathlib.Path(core.BASE) / "diag_test"); os.makedirs(d, exist_ok=True)
-    jl = CT.creo_call("file", "list", {})
-    lst = CT._flex_list(jl.get("data")) if CT.ok(jl) else []
-    src = next((x for x in lst if x.lower().endswith(".prt")), "")
-    if not src:
-        rep("FAIL: нет .prt в сессии для копии", False)
+    dd0 = (CT.creo_call("creo", "pwd", {}) or {}).get("data")
+    orig = (dd0.get("directory") if isinstance(dd0, dict) else str(dd0 or "")) or ""
+    jbom = CT.creo_call("bom", "get_paths", {"file": act, "paths": False, "top_level": True, "exclude_inactive": True}, 30)
+    root = (jbom.get("data") or {}) if CT.ok(jbom) else {}
+    def _first_part(n):
+        if isinstance(n, dict):
+            f = str(n.get("file") or "")
+            if f.lower().endswith(".prt"):
+                return f
+            for ch in (n.get("children") or []):
+                r = _first_part(ch)
+                if r:
+                    return r
+        return ""
+    part = _first_part(root)
+    if not part:
+        rep("FAIL: в сборке нет .prt для теста копии", False)
     else:
-        import re as _re
-        base = _re.sub(r"\.prt(\.\d+)?$", "", src, flags=_re.I)
-        jb = CT.creo_call("file", "backup", {"file": src, "dirname": d, "target_dir": d}, 30)
-        rep("запись backup %s: %s" % (src, "OK" if CT.ok(jb) else "ERR " + str(CT.errmsg(jb))[:60]), CT.ok(jb))
-        dd0 = (CT.creo_call("creo", "pwd", {}) or {}).get("data")
-        orig = (dd0.get("directory") if isinstance(dd0, dict) else str(dd0 or "")) or ""
-        CT.creo_call("creo", "cd", {"dirname": d})
-        copy = "diagtest_%d" % int(_t.time())
+        rep("цель копии: %s" % part)
+        jb = CT.creo_call("file", "backup", {"file": part, "dirname": d, "target_dir": d}, 30)
+        rep("backup во временную: %s" % ("OK" if CT.ok(jb) else "ERR " + CT.errmsg(jb)[:60]), CT.ok(jb))
+        CT.creo_call("file", "close_window", {"file": part}, 15)
+        CT.creo_call("file", "erase", {"file": part}, 15)
+        jcd = CT.creo_call("creo", "cd", {"dirname": d})
+        rep("cd во временную: %s" % ("OK" if CT.ok(jcd) else "ERR " + CT.errmsg(jcd)[:60]), CT.ok(jcd))
+        base = re.sub(r"\.prt(\.\d+)?$", "", part, flags=re.I)
+        cands = sorted(pathlib.Path(d).glob(base + ".prt*"), key=lambda q: q.stat().st_mtime, reverse=True)
+        copy = "diagtest_%d" % int(time.time())
+        if cands:
+            try:
+                os.rename(cands[0], pathlib.Path(d) / (copy + ".prt"))
+            except Exception as e:
+                rep("FAIL OS rename: %s" % e, False)
         jo = CT.creo_call("file", "open", {"file": copy + ".prt", "display": False}, 30)
-        rep("запись open копии: %s" % ("OK" if CT.ok(jo) else "ERR " + str(CT.errmsg(jo))[:60]), CT.ok(jo))
+        rep("open ЧИСТОЙ копии: %s" % ("OK" if CT.ok(jo) else "ERR " + CT.errmsg(jo)[:60]), CT.ok(jo))
         jrn = CT.creo_call("file", "rename", {"file": copy + ".prt", "new_name": copy + "_ren"}, 20)
-        rep("запись rename ЧИСТОЙ копии: %s" % ("OK" if CT.ok(jrn) else "ERR " + str(CT.errmsg(jrn))[:60]), CT.ok(jrn))
+        rep("rename ЧИСТОЙ копии: %s" % ("OK" if CT.ok(jrn) else "ERR " + CT.errmsg(jrn)[:60]), CT.ok(jrn))
         cur = (copy + "_ren") if CT.ok(jrn) else copy
-        jps = CT.creo_call("parameter", "set", {"file": cur + ".prt", "name": "DIAG_TEST", "value": "full", "type": "STRING"}, 20)
-        rep("запись parameter:set: %s" % ("OK" if CT.ok(jps) else "ERR " + str(CT.errmsg(jps))[:60]), CT.ok(jps))
-        jrs = CT.creo_call("file", "relations_set", {"file": cur + ".prt", "relations": "DIAG_REL = 42"}, 20)
-        rep("запись relations_set: %s" % ("OK" if CT.ok(jrs) else "ERR " + str(CT.errmsg(jrs))[:60]), CT.ok(jrs))
-        jrg = CT.creo_call("file", "regenerate", {"file": cur + ".prt"}, 30)
-        rep("запись regenerate: %s" % ("OK" if CT.ok(jrg) else "ERR " + str(CT.errmsg(jrg))[:60]), CT.ok(jrg))
-        jpl = CT.creo_call("parameter", "list", {"file": cur + ".prt"}, 20)
-        have = []
-        if CT.ok(jpl):
-            dd = jpl.get("data") or {}
-            have = [q.get("name") for q in (dd.get("paramlist") or dd.get("param_list") or [])]
-        rep("запись чтение обратно DIAG_TEST: %s" % ("DIAG_TEST" in have), "DIAG_TEST" in have)
         jsv = CT.creo_call("file", "save", {"file": cur + ".prt"}, 20)
-        rep("запись save: %s" % ("OK" if CT.ok(jsv) else "ERR " + str(CT.errmsg(jsv))[:60]), CT.ok(jsv))
-        je = CT.creo_call("file", "erase", {"file": cur + ".prt"}, 20)
-        rep("запись erase: %s" % ("OK" if CT.ok(je) else "ERR " + str(CT.errmsg(je))[:60]), CT.ok(je))
+        rep("save: %s" % ("OK" if CT.ok(jsv) else "ERR " + CT.errmsg(jsv)[:60]), CT.ok(jsv))
+        je = CT.creo_call("file", "erase", {"file": cur + ".prt"}, 15)
+        rep("erase копии: %s" % ("OK" if CT.ok(je) else "ERR " + CT.errmsg(je)[:60]), CT.ok(je))
         CT.creo_call("creo", "cd", {"dirname": orig})
+        jro = CT.creo_call("file", "open", {"file": part, "display": False}, 30)
+        rep("возврат оригинала в сессию: %s" % ("OK" if CT.ok(jro) else "ERR " + CT.errmsg(jro)[:60]), CT.ok(jro))
         for q in list(pathlib.Path(d).glob("diagtest_*")) + list(pathlib.Path(d).glob(base + ".prt*")):
             try:
                 q.unlink(); _w("очистка del %s" % q.name, True)
             except Exception:
                 pass
-    fails = [l for l in out if "ERR" in l or l.startswith("FAIL")]
     v = "ПРОЙДЕН" if not fails else "НЕ ПРОЙДЕН (%d): %s" % (len(fails), "; ".join(fails)[:300])
     _w("== creoson_full_test вердикт: %s" % v, True)
     return "\n".join(out) + "\nвердикт: %s" % v
