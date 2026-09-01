@@ -8,6 +8,7 @@ import re
 from pathlib import Path
 import core
 import creo_tools as CT
+import settings
 
 ok, errmsg, cc = CT.ok, CT.errmsg, CT.creo_call
 
@@ -95,7 +96,7 @@ def tool_purge_versions(**kw):
 
 def tool_print_pdf(name="", dirname="", **kw):
     nm = name or CT.tool_get_active()
-    outdir = dirname or str(core.BASE / "pdf_out")
+    outdir = dirname or (settings.get("pdf_out") or str(core.BASE / "pdf_out"))
     Path(outdir).mkdir(parents=True, exist_ok=True)
     pdf = re.sub(r"\.(asm|prt|drw)(\.\d+)?$", "", nm, flags=re.I) + ".pdf"
     j = cc("interface", "export_pdf", {"file": nm, "filename": pdf, "dirname": outdir,

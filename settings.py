@@ -35,6 +35,12 @@ REGISTRY = [
     ("Память", "client_days", "Дней хранить сессии", "int", 365, "Автоочистка клиентов.", False),
     ("Сканер", "max_file_mb", "Макс файл МБ", "int", 4, "Крупнее — не индексируем.", True),
     ("Сканер", "retention", "Глубина бэкапов", "int", 7, "Копий базы храним.", True),
+    ("Пути", "creoson_url", "URL CREOSON", "str", "http://127.0.0.1:8080/creoson", "Мост Creo.", True),
+    ("Пути", "creoson_dir", "Папка CREOSON", "str", r"D:\AI\creoson\CreosonServer-3.0.2-win64", "Где creoson_run.bat.", True),
+    ("Пути", "pdf_out", "Папка PDF", "str", "", "Пусто = agent/pdf_out.", True),
+    ("Пути", "backup_dir", "Папка бэкапов", "str", "", "Пусто = data/backups.", True),
+    ("Creo", "bom_sections", "Порядок разделов спецы", "list", ["Документация", "Комплексы", "Сборочные единицы", "Детали", "Стандартные изделия", "Прочие изделия", "Материалы", "Комплекты"], "Порядок ГОСТ-разделов.", True),
+    ("Creo", "copy_synonyms", "Синонимы поиска", "str", "турновер=переворот, turnover=переворот, ворошитель=переворот", "Для models_find.", True),
 ]
 
 def _ensure():

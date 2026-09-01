@@ -11,7 +11,7 @@ from core import log, trace
 import settings
 import scanner
 
-CREOSON_URL = "http://127.0.0.1:8080/creoson"
+CREOSON_URL = settings.get("creoson_url") or "http://127.0.0.1:8080/creoson"
 CREO_SESSION = ""
 RUNNING = False
 

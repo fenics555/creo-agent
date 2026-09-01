@@ -9,7 +9,14 @@ import os, sys, time, socket, subprocess, datetime
 
 TOOLS = r"D:\AI\tools"
 AG = TOOLS + r"\agent"
-CREOSON_DIR = r"D:\AI\creoson\CreosonServer-3.0.2-win64"
+def _cfg(key, defl):
+    try:
+        import json as _j
+        d = _j.load(open(TOOLS + r"\agent\data\config.json", encoding="utf-8"))
+        return d.get(key) or defl
+    except Exception:
+        return defl
+CREOSON_DIR = _cfg("creoson_dir", r"D:\AI\creoson\CreosonServer-3.0.2-win64")
 LOG = TOOLS + r"\startup.log"
 
 def log(line):
