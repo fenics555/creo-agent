@@ -228,3 +228,37 @@ if __name__ == "__main__":
     except Exception as e:
         print("ДИАГНОСТИКА УПАЛА: %r" % e, flush=True)
         sys.exit(1)
+
+# ---- матрица CREOSON (поглощено из creoson_test.py) ----
+def tool_creoson_matrix(**kw):
+    import creo_tools as CT
+    act = CT.tool_get_active()
+    if act.startswith("не знаю"):
+        return "нет активной модели в Creo"
+    probes = [
+        ("creo", "pwd", {}), ("creo", "list_files", {"filename": "*"}),
+        ("file", "list", {}), ("file", "get_active", {}), ("file", "exists", {"file": act}),
+        ("file", "get_fileinfo", {"file": act}), ("file", "massprops", {"file": act}),
+        ("file", "relations_get", {"file": act}), ("parameter", "list", {"file": act}),
+        ("dimension", "list", {"file": act}), ("feature", "list", {"file": act}),
+        ("bom", "get_paths", {"file": act, "paths": False, "top_level": False, "exclude_inactive": True}),
+        ("familytable", "list", {"file": act}), ("layer", "list", {"file": act}),
+        ("note", "list", {"file": act}), ("view", "list", {"file": act}),
+        ("geometry", "bound_box", {"file": act}),
+    ]
+    out = ["МАТРИЦА CREOSON на %s:" % act]
+    for cmd, fn, data in probes:
+        j = CT.creo_call(cmd, fn, data, 20)
+        out.append("%s %s:%s" % ("V" if CT.ok(j) else "X", cmd, fn) + ("" if CT.ok(j) else " - %s" % CT.errmsg(j)[:60]))
+    out.append("- пишущие не дёргаем (под щитом): file:backup/rename/save, interface:export_pdf/mapkey")
+    return "\n".join(out)
+
+# ---- сырой ответ CREOSON (поглощено из diag_creoson.py) ----
+def tool_creoson_raw(cmd="parameter", fn="list", name="", **kw):
+    import creo_tools as CT, json
+    nm = name or CT.tool_get_active()
+    j = CT.creo_call(cmd, fn, {"file": nm}, 20)
+    return json.dumps(j, ensure_ascii=False)[:900]
+
+TOOLS.append({"name": "creoson_matrix", "desc": "ТЕСТ: матрица живых функций CREOSON на активной модели", "params": {}, "approval": False, "fn": tool_creoson_matrix})
+TOOLS.append({"name": "creoson_raw", "desc": "ТЕСТ: сырой JSON любого вызова CREOSON (cmd, fn, name)", "params": {"cmd": "группа", "fn": "функция", "name": "модель"}, "approval": False, "fn": tool_creoson_raw})

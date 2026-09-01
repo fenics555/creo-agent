@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-r"""FLEET: агенты офиса: кто жив, кто в Creo, кто когда запускал (трейлы)."""
+r"""FLEET: агенты офиса: кто жив, модель, блоки (через /status соседей)."""
 import json
 import urllib.request
 import settings
@@ -12,10 +12,9 @@ def _hosts():
 
 def _info(host, t=2):
     try:
-        with urllib.request.urlopen("http://%s:8765/fleet/info" % host, timeout=t) as r:
+        with urllib.request.urlopen("http://%s:8765/status" % host, timeout=t) as r:
             d = json.loads(r.read().decode("utf-8"))
-        d["alive"] = True
-        d["host"] = host
+        d["alive"] = True; d["host"] = host
         return d
     except Exception as e:
         return {"host": host, "alive": False, "error": str(e)[:60]}
@@ -25,13 +24,9 @@ def tool_fleet_status(**kw):
     for d in (_info(h) for h in _hosts()):
         if not d.get("alive"):
             out.append("- %s: недоступен (%s)" % (d["host"], d.get("error")))
-            continue
-        out.append("- %s | юзер: %s | агент жив | %s | блоков: %s | инструментов: %s"
-                   % (d["host"], d.get("user") or "?", d.get("model"), d.get("blocks"), d.get("tools")))
-        tr = (d.get("trails") or "").strip()
-        if tr:
-            lines = [l.strip() for l in tr.splitlines() if l.strip()]
-            out.append("  трейлы: " + " | ".join(lines[-3:]))
+        else:
+            out.append("- %s | жив | %s | блоков: %s | инструментов: %s"
+                       % (d["host"], d.get("model"), d.get("blocks"), d.get("tools")))
     return "\n".join(out) or "список хостов пуст"
 
 def tool_fleet_hosts(hosts="", **kw):
@@ -41,6 +36,6 @@ def tool_fleet_hosts(hosts="", **kw):
     return "текущие хосты: %s" % ", ".join(_hosts())
 
 TOOLS = [
-    {"name": "fleet_status", "desc": "Флот: кто жив, какой юзер, в Creo ли, последние трейлы по каждой машине", "params": {}, "approval": False, "fn": tool_fleet_status},
-    {"name": "fleet_hosts", "desc": "Показать/задать список машин флота (IP через запятую)", "params": {"hosts": "список IP, пусто = показать"}, "approval": False, "fn": tool_fleet_hosts},
+    {"name": "fleet_status", "desc": "Флот: какие агенты в сети живы (модель, блоки, инструменты)", "params": {}, "approval": False, "fn": tool_fleet_status},
+    {"name": "fleet_hosts", "desc": "Показать/задать список машин флота (IP через запятую)", "params": {"hosts": "список"}, "approval": False, "fn": tool_fleet_hosts},
 ]

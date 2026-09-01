@@ -55,7 +55,7 @@ def watch():
         if RUNNING != prev:
             trace("CREOSON watch", "Creo запущен: %s" % ("ДА" if RUNNING else "НЕТ"))
             prev = RUNNING
-        time.sleep(20)
+        time.sleep(60)
 threading.Thread(target=watch, daemon=True).start()
 
 def _kids(n):
