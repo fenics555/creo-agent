@@ -23,6 +23,7 @@ def tool_set_param(name="", value="", model="", **kw):
 
 def tool_set_relations(relations="", mode="merge", model="", **kw):
     m = model or CT.tool_get_active()
+    if isinstance(relations, list): relations = "\n".join(str(x) for x in relations)
     new_lines = [ln.strip() for ln in str(relations).replace("\r", "").split("\n") if ln.strip()]
     if not new_lines: return "нечего писать: relations пустые"
     if mode in ("merge", "append"):
@@ -96,7 +97,7 @@ def tool_print_pdf(name="", dirname="", **kw):
     nm = name or CT.tool_get_active()
     outdir = dirname or str(core.BASE / "pdf_out")
     Path(outdir).mkdir(parents=True, exist_ok=True)
-    pdf = re.sub(r"\.drw(\.\d+)?$", "", nm, flags=re.I) + ".pdf"
+    pdf = re.sub(r"\.(asm|prt|drw)(\.\d+)?$", "", nm, flags=re.I) + ".pdf"
     j = cc("interface", "export_pdf", {"file": nm, "filename": pdf, "dirname": outdir,
                                        "use_drawing_settings": True, "sheet_range": "all"}, 60)
     if not ok(j): return "экспорт PDF не удался: %s" % errmsg(j)

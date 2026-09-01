@@ -61,7 +61,10 @@ threading.Thread(target=watch, daemon=True).start()
 def _kids(n):
     if not isinstance(n, dict):
         return []
-    return n.get("children") or n.get("components") or n.get("models") or n.get("paths") or n.get("submodels") or []
+    c = n.get("children")
+    if isinstance(c, dict):
+        c = c.get("children") or []
+    return c or n.get("components") or n.get("models") or n.get("paths") or n.get("submodels") or []
 
 def _flex_list(d):
     if isinstance(d, list): return d
