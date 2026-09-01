@@ -97,11 +97,33 @@ def tool_find_model(q="", **kw):
     hits = scanner.name_search(q or "", 8)
     return "\n".join("• %s" % h for h in hits) or "не нашёл в индексе"
 
+def _name_variants(nm):
+    base = re.sub(r"\.(prt|asm|drw|mfg)(\.\d+)?$", "", str(nm), flags=re.I)
+    out, seen = [str(nm), base, base.upper()], set()
+    return [v for v in out if v and not (v in seen or seen.add(v))]
+
+def _param_list(nm):
+    for v in _name_variants(nm):
+        j = creo_call("parameter", "list", {"file": v}, 20)
+        if not ok(j):
+            continue
+        d = j.get("data")
+        pl = d.get("param_list") if isinstance(d, dict) else d
+        if pl:
+            return pl
+    return []
+
+def tool_param_raw(name="", **kw):
+    nm = name or tool_get_active()
+    out = []
+    for v in _name_variants(nm):
+        j = creo_call("parameter", "list", {"file": v}, 20)
+        out.append("%s -> %s" % (v, json.dumps(j, ensure_ascii=False)[:400]))
+    return "\n".join(out)
+
 def tool_get_params(name="", **kw):
     nm = name or tool_get_active()
-    j = creo_call("parameter", "list", {"file": nm}, 20)
-    if not ok(j): return "ошибка параметров: %s" % errmsg(j)
-    pl = (j.get("data") or {}).get("param_list") or []
+    pl = _param_list(nm)
     return "\n".join("• %s (%s) = %s" % (p.get("name"), p.get("type"), p.get("value")) for p in pl) or "параметров нет"
 
 def tool_get_relations(name="", **kw):
@@ -203,6 +225,7 @@ TOOLS = [
     {"name": "creo_pwd", "desc": "Текущая рабочая папка Creo", "params": {}, "approval": False, "fn": tool_pwd},
     {"name": "creo_list_files", "desc": "Список файлов в рабочей папке Creo по маске", "params": {"mask": "маска"}, "approval": False, "fn": tool_list_files},
     {"name": "creo_find_model", "desc": "Поиск модели по имени в индексе", "params": {"q": "имя/шифр"}, "approval": False, "fn": tool_find_model},
+    {"name": "creo_param_raw", "desc": "Сырой JSON ответа parameter:list (диагностика)", "params": {"name": "модель"}, "approval": False, "fn": tool_param_raw},
     {"name": "creo_get_params", "desc": "Все параметры модели Creo", "params": {"name": "имя модели"}, "approval": False, "fn": tool_get_params},
     {"name": "creo_get_relations", "desc": "Отношения (уравнения) модели", "params": {"name": "имя модели"}, "approval": False, "fn": tool_get_relations},
     {"name": "creo_get_mass", "desc": "Масса/объём/площадь модели", "params": {"name": "имя модели"}, "approval": False, "fn": tool_get_mass},
