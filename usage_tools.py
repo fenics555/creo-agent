@@ -36,7 +36,7 @@ def build_usage():
         STATE["total"] = len(tasks)
         rows = []
         for path in tasks:
-            parent = re.sub(r"\.\d+$", "", os.path.basename(path)).upper()
+            parent = re.sub(r"\.(prt|asm)(\.\d+)?$", "", os.path.basename(path)).upper()
             try:
                 data = open(path, "rb").read()
             except Exception:
