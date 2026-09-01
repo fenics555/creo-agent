@@ -1,103 +1,84 @@
 # -*- coding: utf-8 -*-
-r"""Копия детали/сборки с чертежом и таблицей семейств: Backup во временную -> rename там -> перенос файлов."""
-import os, re, json, shutil, tempfile, urllib.request
-import core
+r"""COPY v2: копия детали (в т.ч. с таблицей семейств) через временную папку.
+ОС-копия последних версий под новыми именами -> open нового generic в Creo (cd temp) ->
+regenerate -> save -> перенос в рабочую папку (конфликты не перезаписываются) -> возврат cd.
+Чертежи и сборки - следующая версия (нужен relink в сессии)."""
+import re, shutil, tempfile
+from pathlib import Path
+import creo_tools as CT
+ok, errmsg, cc = CT.ok, CT.errmsg, CT.creo_call
 
-CS = "http://127.0.0.1:8080/creoson"
+def _wd():
+    d = cc("creo", "pwd", {}, 10)
+    if not ok(d): return ""
+    dd = d.get("data")
+    return (dd.get("directory") if isinstance(dd, dict) else str(dd or "")) or ""
 
-def _cs(sid, command, function, data=None):
-    body = {"command": command, "function": function, "data": data or {}}
-    if sid: body["sessionId"] = sid
-    req = urllib.request.Request(CS, data=json.dumps(body).encode("utf-8"),
-                                 headers={"Content-Type": "application/json"})
-    try:
-        with urllib.request.urlopen(req, timeout=120) as r:
-            return json.loads(r.read().decode("utf-8"))
-    except Exception as e:
-        return {"status": {"error": True, "message": str(e)}}
+def _latest(pdir, stem, ext):
+    best, bv = None, -1
+    for p in Path(pdir).glob("%s.%s.*" % (stem, ext)):
+        v = p.name.rsplit(".", 1)[-1]
+        if v.isdigit() and int(v) > bv: bv, best = int(v), p
+    if best is None:
+        q = Path(pdir) / ("%s.%s" % (stem, ext))
+        if q.exists(): best = q
+    return best
 
-def _ok(r): return not (r.get("status") or {}).get("error")
-def _dat(r): return r.get("data") or {}
+def _plan_files(wd, old):
+    out, seen = [], set()
+    g = _latest(wd, old, "prt")
+    if g: out.append((g, "generic")); seen.add(g)
+    for p in sorted(Path(wd).glob("*<%s>.prt.*" % old)) + sorted(Path(wd).glob("*<%s>.prt" % old)):
+        if p not in seen: seen.add(p); out.append((p, "instance"))
+    return out
 
-def _connect():
-    r = _cs(None, "connection", "connect", {})
-    return _dat(r).get("sessionId") if _ok(r) else None
+def _new_base(old, new, fname):
+    base = re.sub(r"\.prt(\.\d+)?$", "", fname, flags=re.I)
+    if base.lower() == old.lower(): return new
+    tail = "<%s>" % old.lower()
+    if base.lower().endswith(tail): return base[:-len(tail)] + "<%s>" % new
+    return base
 
-def _workdir(sid):
-    d = _dat(_cs(sid, "creo", "pwd", {}))
-    return d.get("directory") if isinstance(d, dict) else str(d or "")
-
-def _family_instances(workdir, base):
-    suf = "<%s>.prt" % base
-    return sorted(f[: -len(suf)] for f in os.listdir(workdir)
-                  if f.lower().endswith(suf.lower())) if os.path.isdir(workdir) else []
-
-def _plan(sid, old, new):
-    wd = _workdir(sid)
-    if not wd or not os.path.isdir(wd):
-        return wd, None, "рабочая папка Creo не читается: %s" % wd
-    ext = next((e for e in ("prt", "asm") if os.path.exists(os.path.join(wd, old + "." + e))), "")
-    if not ext:
-        return wd, None, "в рабочей папке нет %s.prt/%s.asm" % (old, old)
-    items = [(old + "." + ext, new + "." + ext, "generic")]
-    drw = old + ".drw"
-    if os.path.exists(os.path.join(wd, drw)):
-        items.append((drw, new + ".drw", "drawing"))
-    for inst in _family_instances(wd, old):
-        items.append(("%s<%s>.prt" % (inst, old), "%s<%s>.prt" % (inst, new), "instance"))
-    return wd, items, ""
-
-def tool_copy_model(old="", new="", dry_run=True, **kw):
-    old = (old or "").strip().lower(); new = (new or "").strip().lower()
-    if not old or not new: return "нужны old и new (базовые имена, латиницей)"
-    if not re.match(r"^[a-z0-9_\-]+$", new): return "new: только латиница/цифры/_-"
-    if old == new: return "имена совпадают"
-    sid = _connect()
-    if not sid: return "CREOSON недоступен"
-    wd, items, err = _plan(sid, old, new)
-    if err: return err
-    if str(dry_run) in ("1", "true", "True", "да"):
-        out = ["ПЛАН (dry_run, ничего не меняется): папка %s" % wd]
-        out += ["- %s  ->  %s  [%s]" % (s, d, k) for s, d, k in items]
-        out.append("для выполнения: copy_model old=%s new=%s dry_run=0 (с согласованием)" % (old, new))
+def tool_copy_part(old="", new="", dry_run=True, **kw):
+    old = re.sub(r"\.(prt|asm)(\.\d+)?$", "", (old or "").strip(), flags=re.I)
+    new = re.sub(r"\.(prt|asm)(\.\d+)?$", "", (new or "").strip(), flags=re.I)
+    if not old or not new: return "нужны old и new (базовые имена без расширения)"
+    if not re.match(r"^[A-Za-z0-9_\-]+$", new): return "new: только латиница/цифры/_-"
+    wd = _wd()
+    if not wd: return "не узнал рабочую папку Creo"
+    files = _plan_files(wd, old)
+    if not files: return "в %s нет %s.prt и семейства" % (wd, old)
+    if str(dry_run) in ("1", "True", "true"):
+        out = ["ПЛАН копии %s -> %s (%d файлов):" % (old, new, len(files))]
+        out += ["- %s [%s] -> %s.prt.1" % (p.name, k, _new_base(old, new, p.name)) for p, k in files]
+        out.append("выполнить: copy_part old=%s new=%s dry_run=0" % (old, new))
         return "\n".join(out)
-    log = []
-    tmp = tempfile.mkdtemp(prefix="creo_copy_")
+    tmp = Path(tempfile.mkdtemp(prefix="creo_copy_"))
+    notes = []
     try:
-        for s, d, k in items:
-            r = _cs(sid, "file", "backup", {"file": s, "dirname": tmp})
-            if not _ok(r): return "STOP backup %s: %s" % (s, r.get("status", {}).get("message"))
-            log.append("backup %s" % s)
-        r = _cs(sid, "creo", "cd", {"dirname": tmp})
-        if not _ok(r): return "STOP cd temp: %s" % r.get("status", {}).get("message")
-        order = sorted(items, key=lambda it: {"instance": 0, "generic": 1, "drawing": 2}[it[2]])
-        for s, d, k in order:
-            _cs(sid, "file", "open", {"file": s, "dirname": tmp, "display": False})
-            r = _cs(sid, "file", "rename", {"file": s, "new_name": d.rsplit(".", 1)[0]})
-            if not _ok(r): return "STOP rename %s: %s" % (s, r.get("status", {}).get("message"))
-            log.append("rename %s -> %s" % (s, d))
-            _cs(sid, "file", "save", {"file": d})
-        _cs(sid, "creo", "cd", {"dirname": wd})
-        copied, occupied = [], []
-        for s, d, k in items:
-            src = os.path.join(tmp, d)
-            if not os.path.exists(src):
-                src = next((os.path.join(tmp, f) for f in os.listdir(tmp)
-                            if f.lower().startswith(d.rsplit(".", 1)[0] + ".") ), "")
-            dst = os.path.join(wd, d)
-            if os.path.exists(dst): occupied.append(d); continue
-            if src and os.path.exists(src):
-                shutil.copy2(src, dst + ".1" if not dst.lower().endswith(".1") else dst)
-                copied.append(d)
-        _cs(sid, "file", "erase_not_displayed", {})
-        log.append("перенесено в рабочую папку: %s" % ", ".join(copied) or "ничего")
-        if occupied: log.append("ВНИМАНИЕ, имя занято (не тронуто): %s" % ", ".join(occupied))
-        return "\n".join(log)
+        for p, k in files: shutil.copy2(p, tmp / p.name)
+        for p, k in files:
+            src = tmp / p.name
+            if src.exists(): src.rename(tmp / (_new_base(old, new, p.name) + ".prt.1"))
+        cc("creo", "cd", {"dirname": str(tmp)}, 15)
+        gnew = _new_base(old, new, old + ".prt")
+        jo = cc("file", "open", {"file": gnew + ".prt", "display": False}, 30)
+        if not ok(jo): return "не открылась копия %s: %s" % (gnew, errmsg(jo))
+        cc("file", "regenerate", {"file": gnew + ".prt"}, 30)
+        cc("file", "save", {"file": gnew + ".prt"}, 20)
+        cc("file", "erase", {"file": gnew + ".prt"}, 15)
+        cc("creo", "cd", {"dirname": wd}, 15)
+        moved = 0
+        for p in tmp.glob("*.prt.*"):
+            dst = Path(wd) / p.name
+            if dst.exists(): notes.append("конфликт, не перезаписан: %s" % dst.name); continue
+            shutil.copy2(p, dst); moved += 1
+        cc("file", "erase_not_displayed", {}, 15)
+        return "копия готова: %s -> %s, файлов в рабочей папке: %d%s" % (
+            old, new, moved, ("; " + "; ".join(notes)) if notes else "")
     finally:
         shutil.rmtree(tmp, ignore_errors=True)
 
 TOOLS = [
-    {"name": "copy_model", "desc": "Копия детали/сборки с чертежом и таблицей семейств (dry_run=1 — только план)",
-     "params": {"old": "исходное имя", "new": "новое имя", "dry_run": "1 план / 0 выполнять"},
-     "approval": True, "fn": tool_copy_model},
+    {"name": "copy_part", "desc": "Копия детали с таблицей семейств через временную папку (dry_run=1 - план)", "params": {"old": "старое базовое имя", "new": "новое базовое имя", "dry_run": "1 план / 0 выполнить"}, "approval": True, "fn": tool_copy_part},
 ]
