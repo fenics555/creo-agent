@@ -227,6 +227,8 @@ def tool_creoson_full_test(**kw):
         rep("запись чтение обратно DIAG_TEST: %s" % ("DIAG_TEST" in have), "DIAG_TEST" in have)
         jsv0 = CT.creo_call("file", "save", {"file": copy + ".prt"}, 20)
         rep("запись save ДО rename: %s" % ("OK" if CT.ok(jsv0) else "ERR"), CT.ok(jsv0))
+        # save до rename (фикс General Error)
+        CT.creo_call("file", "save", {"file": copy + ".prt"}, 20)
         jrn = CT.creo_call("file", "rename", {"file": copy + ".prt", "new_name": copy + "_ren"}, 20)
         rep("запись rename копии: %s" % ("OK" if CT.ok(jrn) else "ERR " + str(CT.errmsg(jrn))[:60]), CT.ok(jrn))
         cur = (copy + "_ren") if CT.ok(jrn) else copy

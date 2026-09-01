@@ -17,7 +17,8 @@ def tool_learn(name="", **kw):
     params = CT.tool_get_params(nm)
     rels = CT.tool_get_relations(nm)
     mass = CT.tool_get_mass(nm)
-    if not rels or rels == "отношений нет" or rels.startswith("ошибка"):
+    if isinstance(rels, list): rels = "\n".join(str(x) for x in rels)
+    if not rels or rels == "отношений нет" or str(rels).startswith("ошибка"):
         return "модель %s без отношений — учить нечему" % nm
     try:
         r = core.post("/api/chat", {"model": settings.get("llm_model") or "deepseek-r1:14b",
