@@ -736,7 +736,7 @@ def _params_of(f):
     j = CT.creo_call("parameter", "list", {"file": f}, 20)
     if not CT.ok(j):
         return []
-    return (j.get("data") or {}).get("param_list") or []
+    return (j.get("data") or {}).get("param_list") or (j.get("data") or {}).get("paramlist") or []
 
 def tool_spec_create_active(**kw):
     act = CT.tool_get_active()
@@ -748,7 +748,7 @@ def tool_spec_create_active(**kw):
     designation = str(_pval(ap, ["ОБОЗНАЧЕНИЕ", "DESIGNATION"]) or base)
     j = CT.creo_call("bom", "get_paths", {"file": act, "paths": False, "top_level": False, "exclude_inactive": True}, 30)
     root = (j.get("data") or {}) if CT.ok(j) else {}
-    seen, comps, stack = set(), [], list(root.get("children") or [])
+    seen, comps, stack = set(), [], list(CT._kids(root))
     while stack:
         node = stack.pop()
         if not isinstance(node, dict):
@@ -756,7 +756,7 @@ def tool_spec_create_active(**kw):
         f = str(node.get("file") or "")
         if f and f not in seen:
             seen.add(f); comps.append(f)
-        stack.extend(node.get("children") or [])
+        stack.extend(CT._kids(node))
     if not comps:
         return "сборка пуста или BOM не прочитался"
     rows = []

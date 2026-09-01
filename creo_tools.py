@@ -58,6 +58,11 @@ def watch():
         time.sleep(20)
 threading.Thread(target=watch, daemon=True).start()
 
+def _kids(n):
+    if not isinstance(n, dict):
+        return []
+    return n.get("children") or n.get("components") or n.get("models") or n.get("paths") or n.get("submodels") or []
+
 def _flex_list(d):
     if isinstance(d, list): return d
     d = d or {}
@@ -108,7 +113,7 @@ def _param_list(nm):
         if not ok(j):
             continue
         d = j.get("data")
-        pl = d.get("param_list") if isinstance(d, dict) else d
+        pl = (d.get("param_list") or d.get("paramlist")) if isinstance(d, dict) else d
         if pl:
             return pl
     return []
@@ -152,10 +157,15 @@ def tool_get_bom(name="", **kw):
         if isinstance(node, dict):
             f = node.get("file") or ""
             if f: out.append("  " * lvl + "• %s" % f)
-            for ch in (node.get("children") or []): stack.append((ch, lvl + 1))
+            for ch in _kids(node): stack.append((ch, lvl + 1))
         elif isinstance(node, list):
             for ch in node: stack.append((ch, lvl))
     return "\n".join(out) or "дерево пусто"
+
+def tool_bom_raw(name="", **kw):
+    nm = name or tool_get_active()
+    j = creo_call("bom", "get_paths", {"file": nm, "paths": False, "top_level": False, "exclude_inactive": True}, 30)
+    return json.dumps(j, ensure_ascii=False)[:900]
 
 def tool_open_errors(name="", **kw):
     nm = name or tool_get_active()
@@ -208,7 +218,7 @@ def tool_audit_folder(**kw):
         creo_call("file", "open", {"file": fn, "display": False}, 30)
         probs = []
         jp = creo_call("parameter", "list", {"file": fn}, 20)
-        have = set(p.get("name") for p in ((jp.get("data") or {}).get("param_list") or [])) if ok(jp) else set()
+        have = set(p.get("name") for p in ((jp.get("data") or {}).get("param_list") or (jp.get("data") or {}).get("paramlist") or [])) if ok(jp) else set()
         for r in req:
             if r == "MASS" and is_asm: continue
             if r not in have: probs.append("нет %s" % r)
@@ -233,6 +243,7 @@ TOOLS = [
     {"name": "creo_open_errors", "desc": "Ошибки открытия модели (для поиска битых файлов)", "params": {"name": "имя модели"}, "approval": False, "fn": tool_open_errors},
     {"name": "creo_read_trail", "desc": "Хвост трейл-файла Creo: ошибки, таймауты", "params": {"lines": "сколько строк"}, "approval": False, "fn": tool_read_trail},
     {"name": "creo_open", "desc": "Открыть модель или чертёж в Creo", "params": {"name": "имя файла"}, "approval": False, "fn": tool_open},
+    {"name": "creo_bom_raw", "desc": "Сырой JSON ответа bom:get_paths (диагностика)", "params": {"name": "сборка"}, "approval": False, "fn": tool_bom_raw},
     {"name": "creo_audit_folder", "desc": "Аудит рабочей папки Creo по эталону КБ", "params": {}, "approval": False, "fn": tool_audit_folder},
 ]
 
