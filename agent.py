@@ -253,6 +253,8 @@ PAGE = r"""<!DOCTYPE html><html><head><meta charset="utf-8"><title>АГЕНТ v1
 #inp{position:fixed;bottom:0;left:0;right:292px;background:#1b222b;padding:8px;display:flex;gap:8px}
 #q{flex:1;background:#232b36;color:#dfe6ee;border:1px solid #334052;border-radius:8px;padding:10px}
 button{background:#2b4a6f;color:#fff;border:0;border-radius:8px;padding:8px 14px;cursor:pointer}
+.spin{display:inline-block;width:16px;height:16px;border:2px solid #6db3f2;border-top-color:transparent;border-radius:50%;animation:rot .8s linear infinite;vertical-align:middle;margin-left:8px}
+@keyframes rot{to{transform:rotate(360deg)}}
 .grp{border:1px solid #243040;border-radius:8px;margin:6px 0;padding:6px}
 .grp h4{margin:2px 0 6px;color:#6db3f2;cursor:pointer}
 .tool{background:#202834;border-radius:6px;padding:6px;margin:4px 0;cursor:pointer}
@@ -266,7 +268,7 @@ button{background:#2b4a6f;color:#fff;border:0;border-radius:8px;padding:8px 14px
 <div id="chat"></div>
 <div id="panel"></div>
 <div id="inp"><input id="q" placeholder="Задача для АГЕНТА... (Enter) | Ctrl+V — вставить скриншот">
-<button data-act="snap">📷</button><button data-act="send">Спросить</button></div>
+<button data-act="snap">📷</button><button data-act="send">Спросить</button><span id="spin" class="spin" style="display:none"></span></div>
 <div id="login"><div>
 <input id="lg" placeholder="логин"><input id="pw" type="password" placeholder="пароль">
 <button data-act="login">Войти</button><button data-act="reg">Регистрация</button></div></div>
@@ -307,8 +309,8 @@ function esc(s){return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').repl
 function att(s){return esc(s).replace(/"/g,'&quot;')}
 function addMsg(html,me){var d=document.createElement('div');d.className='msg'+(me?' me':'');d.innerHTML=html;chat.appendChild(d);chat.scrollTop=chat.scrollHeight;return d}
 function showLogin(){login.style.display='flex'}
-function send(){var q=qinp.value;if(!q)return;qinp.value='';addMsg(esc(q),true);var d=addMsg('🤔 думаю...');
-J('/ask',{token:TK,q:q,image:IMG}).then(function(r){if(r&&r.error){localStorage.removeItem('tk');TK='';showLogin();d.innerHTML='⚠ нужен вход';return}IMG=null;render(d,r)}).catch(function(e){d.innerHTML='ошибка: '+esc(e)})}
+function send(){var q=qinp.value;if(!q)return;qinp.value='';addMsg(esc(q),true);var d=addMsg('🤔 думаю...');var sp=document.getElementById('spin');if(sp)sp.style.display='inline-block';
+J('/ask',{token:TK,q:q,image:IMG}).then(function(r){if(sp)sp.style.display='none';if(r&&r.error){localStorage.removeItem('tk');TK='';showLogin();d.innerHTML='⚠ нужен вход';return}IMG=null;render(d,r)}).catch(function(e){if(sp)sp.style.display='none';d.innerHTML='ошибка: '+esc(e)})}
 function render(d,r){var h='';
 if(r.think)h+='<div class="think" data-act="think">🧠 размышления (клик)</div><div class="thinkbody" style="display:none">'+esc(r.think)+'</div>';
 if(r.log&&r.log.length)h+='<div class="log">🔎 ХОД РАБОТЫ:\n'+r.log.map(esc).join('\n')+'</div>';
@@ -346,7 +348,7 @@ else if(a=='adduser'){J('/admin/users',{token:TK,op:'add',login:document.getElem
 
 else if(a=='login')J('/login',{login:document.getElementById('lg').value,pw:document.getElementById('pw').value}).catch(function(e){alert('сервер недоступен: '+e);throw e}).then(function(r){if(r.ok){TK=r.token;localStorage.setItem('tk',TK);localStorage.setItem('usr',lg.value);login.style.display='none';init()}else alert('неверный логин или пароль')});
 else if(a=='reg')J('/register',{login:lg.value,pw:pw.value}).then(function(r){alert(r.msg||'ок')});
-else if(a=='appr')J('/approve',{token:TK,pid:el.getAttribute('data-pid'),ok:el.getAttribute('data-ok')=='1'}).then(function(r){addMsg(esc((r.res||'')+((r.answer&&r.answer!==r.res)?'\n\n'+r.answer:'')))});
+else if(a=='appr'){var sp2=document.getElementById('spin');if(sp2)sp2.style.display='inline-block';J('/approve',{token:TK,pid:el.getAttribute('data-pid'),ok:el.getAttribute('data-ok')=='1'}).then(function(r){if(sp2)sp2.style.display='none';addMsg(esc((r.res||'')+((r.answer&&r.answer!==r.res)?'\n\n'+r.answer:'')))});}
 else if(a=='setm')J('/setmodel',{token:TK,model:el.getAttribute('data-val')}).then(function(){init()});
 else if(a=='act'){var ep=el.getAttribute('data-val');if(ep=='/log'){J('/log').then(function(r){addMsg('<div class="log">'+esc(r.log)+'</div>')})}else J(ep,{token:TK}).then(function(r){addMsg('<div class="log">'+esc(JSON.stringify(r).slice(0,800))+'</div>')})}
 else if(a=='chip'){qinp.value=el.getAttribute('data-val');send()}
