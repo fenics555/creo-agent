@@ -3,15 +3,18 @@ r"""Поиск моделей Creo по имени файла И по папка
 import re
 import core
 
-SYNONYMS = {"турновер": ["переворот", "turnover"], "turnover": ["переворот"],
-            "ворошитель": ["переворот"], "держатель": ["держател"]}
+SYNONYMS = {"турновер": ["переворот", "turnover"], "turnover": ["переворот", "турновер"],
+    "ворошитель": ["переворот"], "переворот": ["турновер", "turnover"],
+    "держатель": ["держател"]}
 
 def _tokens(q):
-    toks = [t.lower() for t in re.findall(r"[A-Za-zА-Яа-я0-9][A-Za-zА-Яа-я0-9.\-]{2,}", q or "") if len(t) >= 3]
+    toks = [t.lower() for t in re.findall(r"[A-Za-zА-Яа-я0-9][A-Za-zА-Яа-я0-9.-]{2,}", q or "") if len(t) >= 3]
     out = []
     for t in toks:
         out.append(t)
-        out += SYNONYMS.get(t, [])
+        for key, syns in SYNONYMS.items():
+            if key in t or t in key:
+                out += syns
     return list(dict.fromkeys(out))
 
 def _query(q, ext):
@@ -20,12 +23,14 @@ def _query(q, ext):
     if toks:
         per = []
         for t in toks:
-            per.append("(name LIKE ? OR path LIKE ?)")
-            args += ["%" + t + "%", "%" + t + "%"]
+            for v in (t, t.capitalize(), t.upper()):
+                per.append("(name LIKE ? OR path LIKE ?)")
+                args += ["%" + v + "%", "%" + v + "%"]
         conds.append("(" + " OR ".join(per) + ")")
     if ext:
-        conds.append("ext = ?"); args.append(ext.lower().strip(". "))
+        conds.append("ext = ?"); args.append(ext.lower().strip("."))
     return ((" WHERE " + " AND ".join(conds)) if conds else ""), args
+
 
 def _folder(path):
     parts = [p for p in re.split(r"[\\/]", path) if p]

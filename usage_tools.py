@@ -32,6 +32,7 @@ def build_usage(full=False):
         if has_old and not full:
             c.execute("CREATE INDEX IF NOT EXISTS ix_usage_pp ON usage(parent_path)")
             old_meta = dict(c.execute("SELECT path, mtime FROM usage_meta").fetchall())
+            if not full and not old_meta: full = True
         pats = SC._pats()
         tasks = []
         for root in SC.read_roots():
@@ -86,7 +87,7 @@ def build_usage(full=False):
 
 def tool_usage_build(full=0, **kw):
     threading.Thread(target=build_usage, args=(str(full) in ("1", "true", "True"),), daemon=True).start()
-    return "индекс строится в фоне: старое работает до swap, неизменное не перечитывается; прогресс — usage_state; full=1 — полная пересборка"
+    return "индекс строится в фоне (авто: полный, если пусто; иначе инкремент); прогресс — usage_state; full=1 — принудительно (необязательно)"
 
 def tool_usage_state(**kw):
     if STATE["busy"]:
