@@ -23,7 +23,7 @@ def build_usage():
         c = _db()
         names = set()
         for (n,) in c.execute("SELECT name FROM models WHERE ext IN ('prt','asm')"):
-            names.add(re.sub(r"\.\d+$", "", n).upper())
+            names.add(re.sub(r"\.(prt|asm)(\.\d+)?$", "", n).upper())
         c.execute("DELETE FROM usage"); c.commit()
         pats = SC._pats()
         tasks = []

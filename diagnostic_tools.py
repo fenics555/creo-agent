@@ -285,3 +285,19 @@ TOOLS = [
     {"name": "creoson_full_test", "desc": "CREOSON: чтения + пишущий цикл на копии (save ДО rename); любая ошибка = НЕ ПРОЙДЕН", "params": {}, "approval": True, "fn": tool_creoson_full_test},
     {"name": "diag_learn", "desc": "Тест обучения: model_learn + model_rules на активной модели, с traceback", "params": {}, "approval": True, "fn": tool_diag_learn},
 ]
+
+
+def tool_diag_usage(**kw):
+    import core
+    c = core.db()
+    total = c.execute("SELECT COUNT(*) FROM usage").fetchone()[0]
+    known = c.execute("SELECT COUNT(*) FROM usage WHERE child LIKE ? AND parent LIKE ?",
+                      ("creoson_tests-01-1%", "creoson_tests-01.%")).fetchone()[0]
+    c.close()
+    prob = []
+    if total == 0: prob.append("индекс пуст: 0 ссылок")
+    if known == 0: prob.append("известный ответ не найден: creoson_tests-01-1 в creoson_tests-01")
+    v = "ПРОЙДЕН" if not prob else "НЕ ПРОЙДЕН: " + "; ".join(prob)
+    return "ссылок: %d, известная пара: %d -> %s" % (total, known, v)
+
+TOOLS.append({"name": "diag_usage", "desc": "Семантический тест индекса «где используется»: ссылок>0 и известная пара на месте", "params": {}, "approval": False, "fn": tool_diag_usage})
