@@ -327,7 +327,14 @@ p.chips.forEach(function(c){h+='<div class="tool" data-act="chip" data-val="'+at
 p.groups.forEach(function(g){h+='<div class="grp"><h4 data-act="fold">▸ '+esc(g.title)+' ('+g.tools.length+')</h4><div class="gbody" style="display:none">';
 g.tools.forEach(function(t){h+='<div class="tool" data-act="chip" data-val="'+att(t.name)+'"><b>'+esc(t.name)+(t.approval?' 🔒':'')+'</b><small>'+esc(t.desc)+'</small></div>'});h+='</div></div>'});
 panel.innerHTML=h}
-function init(){J('/status').then(function(s){CURM=s.model;var u=localStorage.getItem('usr')||'';hdr.textContent=s.host+(u?' | '+u:'')+' | '+s.model+' | блоков: '+s.blocks;J('/panel').then(buildPanel)})}
+function buildSettings(s){var h='<div class="grp"><h4 data-act="fold">▸  НАСТРОЙКИ (ползунки)</h4><div class="gbody">';
+s.items.forEach(function(it){h+='<div class="tool"><small>'+esc(it.space)+' · '+esc(it.name)+'</small>';
+if(it.kind=='range'){h+='<input type="range" data-cfg="'+att(it.key)+'" min="'+it.min+'" max="'+it.max+'" step="'+it.step+'" value="'+it.value+'" style="width:100%"><b data-v="'+att(it.key)+'"> '+it.value+'</b>';}
+else if(it.kind=='check'){h+='<input type="checkbox" data-cfg="'+att(it.key)+'" '+(it.value?'checked':'')+'>';}
+else{h+='<input data-cfg="'+att(it.key)+'" value="'+att(String(it.value))+'" style="width:100%;background:#232b36;color:#dfe6ee;border:1px solid #334052;border-radius:6px;padding:4px">';}
+h+='</div>';});
+h+='</div></div>';panel.innerHTML+=h;}
+function init(){J('/status').then(function(s){CURM=s.model;var u=localStorage.getItem('usr')||'';hdr.textContent=s.host+(u?' | '+u:'')+' | '+s.model+' | блоков: '+s.blocks;J('/panel').then(function(p){buildPanel(p);J('/settings').then(buildSettings)})})}
 document.addEventListener('click',function(e){var el=e.target.closest('[data-act]');if(!el)return;var a=el.getAttribute('data-act');
 if(a=='think'){var n=el.nextElementSibling;n.style.display=n.style.display=='none'?'block':'none'}
 else if(a=='fold'){var b=el.nextElementSibling;var hid=b.style.display=='none';b.style.display=hid?'block':'none';el.textContent=(hid?'▾':'▸')+el.textContent.slice(1)}
@@ -401,6 +408,8 @@ class Hd(BaseHTTPRequestHandler):
                 self._j({"log": "\n".join(txt[-80:])})
             except Exception:
                 self._j({"log": "лога нет"})
+        elif p == "/settings":
+            self._j({"items": settings.list_ui()})
         elif p == "/fleet/info":
             import os as _os
             tail = ""
