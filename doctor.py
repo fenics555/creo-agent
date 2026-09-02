@@ -1,73 +1,86 @@
 # -*- coding: utf-8 -*-
-import io
-from pathlib import Path as _P
-fp = _P(r"D:\AI\tools\agent\find_tools.py")
-s = fp.read_text(encoding="utf-8")
-if "from pathlib import Path" not in s:
-    s = s.replace("import core\n", "import core\nfrom pathlib import Path\n", 1)
+import io, re, json
+from pathlib import Path
+AG = Path(r"D:\AI\tools\agent")
 
-NEW = r'''_FAMRUN = re.compile(rb"[A-Za-z0-9_\-]{3,}")
+# 1) scan_exclude: маркеры помоек
+cfg = AG / "data" / "config.json"
+d = json.loads(cfg.read_text(encoding="utf-8")) if cfg.exists() else {}
+se = d.get("scan_exclude") or []
+marks = ["не пользоваться", "старое", "хуйня", "учеба", "для копирования", "ремонт"]
+add = [m for m in marks if m not in [x.lower() for x in se]]
+if add:
+    se += add
+    d["scan_exclude"] = se
+    cfg.write_text(json.dumps(d, ensure_ascii=False, indent=1), encoding="utf-8")
+    print("[+] config: scan_exclude += %s" % ", ".join(add))
+else:
+    print("[~] config: маркеры уже в scan_exclude")
 
-def _fam_instances(dirp, gen):
-    gl = gen.lower()
-    res = []
-    for ip in dirp.iterdir():
-        if not ip.is_file(): continue
-        low = ip.name.lower()
-        if not re.search(r"\.(prt|xpr)(\.\d+)?$", low): continue
-        base = re.sub(r"\.(prt|xpr)(\.\d+)?$", "", low)
-        if base == gl: continue
-        if ("<%s>" % gl) in low or base.startswith(gl + "-") or base.startswith(gl + "_"):
-            res.append(ip)
-    return sorted(res, key=lambda p: p.name)
+# 2) find_tools: адаптивная группировка + limit 50
+ft = AG / "find_tools.py"
+s = ft.read_text(encoding="utf-8")
+NEW = '''def _folderN(path, n):
+    parts = [p for p in re.split(r"[\\\\/]", path) if p]
+    body = parts[:-1] or ["?"]
+    return "\\\\".join(body[:n]) if len(body) >= n else "\\\\".join(body)
 
-def _fam_row(name, gen):
-    base = re.sub(r"\.(prt|xpr)(\.\d+)?$", "", name, flags=re.I)
-    base = re.sub(r"<%s>$" % re.escape(gen), "", base, flags=re.I)
-    return base
+def tool_models_find(q="", ext="", limit=50, **kw):
+    where, args = _query(q, ext)
+    c = core.db()
+    rows = c.execute("SELECT name, ext, path FROM models " + where + " ORDER BY path LIMIT 5000", args).fetchall()
+    c.close()
+    seen = {}
+    for n, e, p in rows:
+        key = (re.sub(r"\\.\\d+$", "", n), e)
+        if key not in seen:
+            seen[key] = (key[0], e, p)
+    uniq = sorted(seen.values(), key=lambda x: x[2])
+    if not uniq:
+        return "по '%s' ничего не нашлось (ищу по именам файлов И папок). Попробуй другое слово." % (q or ext)
+    folders = {}
+    for depth in (2, 1, 3):
+        folders = {}
+        for b, e, p in uniq:
+            k = _folderN(p, depth)
+            folders[k] = folders.get(k, 0) + 1
+        if 3 <= len(folders) <= 40:
+            break
+    out = ["'%s': найдено %d моделей в %d папках." % (q or "все", len(uniq), len(folders))]
+    out += ["📁 %s — %d" % (f, n) for f, n in sorted(folders.items(), key=lambda x: -x[1])[:12]]
+    out.append("файлы:")
+    lim = int(limit) or 50
+    out += ["- %s (%s) %s" % (b, e, p) for b, e, p in uniq[:lim]]
+    if len(uniq) > lim:
+        out.append("…и ещё %d. Уточни папку или имя." % (len(uniq) - lim))
+    out.append("Дальше просто напиши имя модели или «вот этот» — продолжу работу с ней.")
+    return "\\n".join(out)
 
-def _fam_parse(gp):
-    gen = re.sub(r"\.(prt|xpr)(\.\d+)?$", "", gp.name, flags=re.I)
-    data = gp.read_bytes()
-    strs = {m.group(0).decode().lower() for m in _FAMRUN.finditer(data)}
-    rows, ghost = [], []
-    for ip in _fam_instances(gp.parent, gen):
-        row = _fam_row(ip.name, gen)
-        (rows if row.lower() in strs else ghost).append(row)
-    rows = sorted(set(rows)); ghost = sorted(set(ghost))
-    nested = sorted({r for r in rows if _fam_instances(gp.parent, r)})
-    missing = sorted(x for x in strs
-                     if x != gen.lower() and not re.fullmatch(r"d\d+", x)
-                     and x.startswith(gen.lower() + "-")
-                     and not _fam_instances(gp.parent, x))
-    return {"generic": gen, "rows": rows, "nested": nested, "missing": missing, "ghost": ghost}
-
-def tool_family_parse(q="", **kw):
-    q = (q or "").strip()
-    if not q: return "укажи имя generic или путь к .prt"
-    p = Path(q)
-    if not p.exists():
-        c = core.db()
-        row = c.execute("SELECT path FROM models WHERE LOWER(name)=? AND ext IN ('prt','xpr')", (q.lower() + ".prt",)).fetchone() \
-              or c.execute("SELECT path FROM models WHERE LOWER(name) LIKE ? AND ext IN ('prt','xpr') LIMIT 1", (q.lower() + "%",)).fetchone()
-        c.close()
-        if not row: return "не нашёл generic: %s" % q
-        p = Path(row[0])
-    r = _fam_parse(p)
-    out = ["GENERIC %s: строк таблицы %d (вложенных %d)" % (r["generic"], len(r["rows"]), len(r["nested"]))]
-    out += ["  - %s%s" % (x, "  <- вложенная таблица" if x in r["nested"] else "") for x in r["rows"][:40]]
-    if len(r["rows"]) > 40: out.append("  …и ещё %d" % (len(r["rows"]) - 40))
-    if r["nested"]: out.append("вложенные: %s" % ", ".join(r["nested"]))
-    if r["missing"]: out.append("строки без файлов на диске: %s" % ", ".join(r["missing"][:10]))
-    if r["ghost"]: out.append("файлы без строки в бинарнике: %s" % ", ".join(r["ghost"][:10]))
-    return "\n".join(out)
-
-if not any(t.get("name") == "family_parse" for t in TOOLS):
-    TOOLS.append({"name": "family_parse", "desc": "Таблица семейств без сессии Creo: строки, вложенные таблицы, строки без файлов (байт-парсер, оба именования)", "params": {"q": "имя generic или путь"}, "approval": False, "fn": tool_family_parse})
 '''
+m = re.search(r"def _folder\(path\):.*?(?=def tool_models_stats)", s, re.S)
+if m:
+    s = s[:m.start()] + NEW + s[m.end():]
+    ft.write_text(s, encoding="utf-8")
+    print("[+] find_tools: адаптивная группировка (2→1→3 уровня), limit=50")
+else:
+    print("[x] find_tools: якорь _folder не найден")
 
-i = s.find("_FAMRUN")
-s = s[:i] + NEW if i >= 0 else s + "\n" + NEW
-fp.write_text(s, encoding="utf-8")
-print("[+] find_tools: family_parse исправлен (Path, оба именования, вложенные)")
-print("ГОТОВО: .\\AI_RESTART.bat, затем: family_parse q=pin_split и family_parse q=DF-STP2-VP")
+# 3) agent.py: делегированные обработчики ползунков (числа обновляются всегда)
+ap = AG / "agent.py"
+a = ap.read_text(encoding="utf-8")
+FIX = """
+(function(){if(window.__slfix)return;window.__slfix=1;
+function sync(r){var lab=r.parentNode.querySelector('[data-v]')||r.nextElementSibling;if(lab)lab.textContent=r.value;}
+document.addEventListener('input',function(e){var r=e.target;if(r&&r.type=='range'&&r.getAttribute('data-cfg'))sync(r);});
+document.addEventListener('change',function(e){var r=e.target;if(r&&r.type=='range'&&r.getAttribute('data-cfg')){fetch('/setcfg',{method:'POST',headers:{'Content-Type':'application/json','X-Token':window.TK||''},body:JSON.stringify({key:r.getAttribute('data-cfg'),value:r.value})});}});
+var mo=new MutationObserver(function(){document.querySelectorAll('input[type=range][data-cfg]').forEach(function(r){var want=parseFloat(r.getAttribute('data-val')||r.value);if(!isNaN(want)){if(parseFloat(r.max)<want)r.max=want;r.value=want;sync(r);}});});
+mo.observe(document.body,{childList:true,subtree:true});})();
+"""
+if "__slfix" not in a and "</script>" in a:
+    i = a.rfind("</script>")
+    a = a[:i] + FIX + a[i:]
+    ap.write_text(a, encoding="utf-8")
+    print("[+] agent: ползунки — метка и /setcfg обновляются делегированно")
+else:
+    print("[~] agent: фикс ползунков уже стоит")
+print("ГОТОВО: .\\AI_RESTART.bat, затем index_run (перескан с новыми исключениями)")

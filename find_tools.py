@@ -122,12 +122,29 @@ def _fam_parse(gp):
         row = _fam_row(ip.name, gen)
         (rows if row.lower() in strs else ghost).append(row)
     rows = sorted(set(rows)); ghost = sorted(set(ghost))
-    nested = sorted({r for r in rows if _fam_instances(gp.parent, r)})
-    missing = sorted(x for x in strs
-                     if x != gen.lower() and not re.fullmatch(r"d\d+", x)
-                     and x.startswith(gen.lower() + "-")
-                     and not _fam_instances(gp.parent, x))
-    return {"generic": gen, "rows": rows, "nested": nested, "missing": missing, "ghost": ghost}
+    # вложенная таблица = строка со своими инстансами, отличными от инстансов верхнего generic
+    nested = []
+    for r in rows:
+        own = _fam_instances(gp.parent, r)
+        top = _fam_instances(gp.parent, gen)
+        top_basenames = {Path(p.name).stem.lower() for p in top}
+        if own and not all(Path(p.name).stem.lower() in top_basenames for p in own):
+            nested.append(r)
+    # строки вида gen-prefix без файлов — вероятные вложенные таблицы без инстансов
+    missing_nested = sorted(x for x in strs
+                            if x != gen.lower() and not re.fullmatch(r"d\d+", x)
+                            and x.startswith(gen.lower() + "-")
+                            and not _fam_instances(gp.parent, x)
+                            and not any(r.lower() == x for r in rows))
+    missing_plain = sorted(x for x in strs
+                           if x != gen.lower() and not re.fullmatch(r"d\d+", x)
+                           and x.startswith(gen.lower() + "-")
+                           and x not in missing_nested
+                           and not _fam_instances(gp.parent, x)
+                           and not any(r.lower() == x for r in rows))
+    ghost = [g for g in ghost if g != gen.lower()]
+    return {"generic": gen, "rows": rows, "nested": nested,
+            "missing_nested": missing_nested, "missing_plain": missing_plain, "ghost": ghost}
 
 def tool_family_parse(q="", **kw):
     q = (q or "").strip()
@@ -141,11 +158,12 @@ def tool_family_parse(q="", **kw):
         if not row: return "не нашёл generic: %s" % q
         p = Path(row[0])
     r = _fam_parse(p)
-    out = ["GENERIC %s: строк таблицы %d (вложенных %d)" % (r["generic"], len(r["rows"]), len(r["nested"]))]
+    out = ["GENERIC %s: строк %d (вложенных таблиц %d)" % (r["generic"], len(r["rows"]), len(r["nested"]))]
     out += ["  - %s%s" % (x, "  <- вложенная таблица" if x in r["nested"] else "") for x in r["rows"][:40]]
     if len(r["rows"]) > 40: out.append("  …и ещё %d" % (len(r["rows"]) - 40))
-    if r["nested"]: out.append("вложенные: %s" % ", ".join(r["nested"]))
-    if r["missing"]: out.append("строки без файлов на диске: %s" % ", ".join(r["missing"][:10]))
+    if r["nested"]: out.append("вложенные таблицы с инстансами: %s" % ", ".join(r["nested"]))
+    if r["missing_nested"]: out.append("вложенные таблицы БЕЗ инстансов: %s" % ", ".join(r["missing_nested"]))
+    if r["missing_plain"]: out.append("строки без файлов: %s" % ", ".join(r["missing_plain"][:10]))
     if r["ghost"]: out.append("файлы без строки в бинарнике: %s" % ", ".join(r["ghost"][:10]))
     return "\n".join(out)
 

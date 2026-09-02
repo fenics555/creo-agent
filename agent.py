@@ -375,6 +375,13 @@ pw.addEventListener('keydown',function(e){if(e.key=='Enter')document.querySelect
 document.getElementById('cin').addEventListener('keydown',function(e){if(e.key=='Enter')document.querySelector('[data-act="chatsend"]').click()});
 if(TK)init();else showLogin();
 (function(){var sp=document.getElementById('spin');if(!sp)return;var of=window.fetch;window.fetch=function(){sp.style.display='inline-block';return of.apply(this,arguments).finally(function(){sp.style.display='none';});};})();
+
+(function(){if(window.__slfix)return;window.__slfix=1;
+function sync(r){var lab=r.parentNode.querySelector('[data-v]')||r.nextElementSibling;if(lab)lab.textContent=r.value;}
+document.addEventListener('input',function(e){var r=e.target;if(r&&r.type=='range'&&r.getAttribute('data-cfg'))sync(r);});
+document.addEventListener('change',function(e){var r=e.target;if(r&&r.type=='range'&&r.getAttribute('data-cfg')){fetch('/setcfg',{method:'POST',headers:{'Content-Type':'application/json','X-Token':window.TK||''},body:JSON.stringify({key:r.getAttribute('data-cfg'),value:r.value})});}});
+var mo=new MutationObserver(function(){document.querySelectorAll('input[type=range][data-cfg]').forEach(function(r){var want=parseFloat(r.getAttribute('data-val')||r.value);if(!isNaN(want)){if(parseFloat(r.max)<want)r.max=want;r.value=want;sync(r);}});});
+mo.observe(document.body,{childList:true,subtree:true});})();
 </script></body></html>"""
 
 class Hd(BaseHTTPRequestHandler):
