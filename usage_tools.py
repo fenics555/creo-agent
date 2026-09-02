@@ -1,7 +1,7 @@
 # -*- coding: utf-8 -*-
 r"""Индекс «где используется»: деталь -> родительские сборки (слова из бинарных .asm).
 Таблицы usage/usage_meta — в общем SQLite (data/agent.sqlite), рядом с models."""
-import os, re, threading, time
+import os, re, threading, time, subprocess
 import core
 from core import trace
 import scanner as SC
@@ -17,6 +17,23 @@ def _db():
 
 def _base(n):
     return re.sub(r"\.(prt|asm)(\.\d+)?$", "", n, flags=re.I)
+
+
+def _unc_roots():
+    roots = core.read_roots()
+    m = {}
+    try:
+        out = subprocess.run(["net", "use"], capture_output=True, text=True).stdout
+        m = dict(re.findall(r"([A-Za-z]):\s+(\\\\\S+)", out))
+    except Exception:
+        pass
+    res = []
+    for r in roots:
+        d = r[:2]
+        if not os.path.exists(r) and d in m:
+            r = m[d] + r[2:]
+        res.append(r)
+    return res
 
 def build_usage(full=False):
     if STATE["busy"]: return
@@ -35,13 +52,14 @@ def build_usage(full=False):
         if not old_meta: full = True
         pats = core.load_exclude_patterns() if hasattr(SC, "_pats") else None
         tasks = []
-        for root in core.read_roots():
+        for root in _unc_roots():
             if not os.path.exists(root): continue
             for dp, dn, fns in os.walk(root):
                 if pats is not None:
                     dn[:] = [d for d in dn if not SC.is_excluded(os.path.join(dp, d) + "/", pats)]
                 tasks += [os.path.join(dp, fn) for fn in fns if re.search(r"\.asm(\.\d+)?$", fn, re.I)]
-        STATE["total"] = len(tasks)
+        STATE["roots_info"] = "; ".join("%s:%s" % (r, "есть" if os.path.exists(r) else "НЕТ") for r in _unc_roots())
+    STATE["total"] = len(tasks)
         c.execute("DROP TABLE IF EXISTS usage_new")
         c.execute("CREATE TABLE usage_new(child TEXT, parent TEXT, parent_path TEXT)")
         rows, new_meta, reused = [], {}, 0
@@ -91,7 +109,7 @@ def tool_usage_state(**kw):
     if STATE["error"]:
         return "ошибка последнего построения: %s" % STATE["error"]
     if STATE["finished"]:
-        return "индекс готов (%s): ссылок %d (имён в словаре %d, asm-файлов %d). Спрашивай models_where" % (STATE["finished"], STATE["links"], STATE["names"], STATE["total"])
+        return "индекс готов (%s): ссылок %d (имён %d, asm %d). Корни: %s. Спрашивай models_where" % (STATE["finished"], STATE["links"], STATE["names"], STATE["total"], STATE.get("roots_info", ""))
     return "индекс ещё не строили. Скажи: usage_build full=1"
 
 def tool_models_where(q="", limit=30, **kw):
