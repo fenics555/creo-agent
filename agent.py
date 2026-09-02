@@ -401,7 +401,12 @@ class Hd(BaseHTTPRequestHandler):
             prof = users.get_profile(cl2["login"]) if cl2 else None
             self._j({"host": HOSTNAME, "model": settings.get("llm_model"), "blocks": len(TR.BLOCKS), "tools": len(TR.TOOLS), "user": prof, "is_manager": users.can_manage_users(prof["login"]) if prof else False})
         elif p == "/panel":
-            self._j(panel.build())
+            d = panel.build()
+            _ui = users.token_info(self.headers.get("X-Token") or "")
+            if not (_ui and users.is_admin(_ui["login"])):
+                d["groups"] = [g for g in d.get("groups", []) if "НАСТРОЙКИ" not in str(g.get("title", "")).upper()]
+                d.pop("settings", None)
+            self._j(d)
         elif p == "/log":
             try:
                 txt = core.LOGF.read_text(encoding="utf-8", errors="ignore").splitlines()
@@ -451,6 +456,8 @@ class Hd(BaseHTTPRequestHandler):
         elif p == "/setauto":
             settings.set_val("auto_mode", 1 if b.get("on") else 0); self._j({"ok": True})
         elif p == "/setcfg":
+            if not users.is_admin(cl):
+                self._j({"error": "настройки — только админ"}, 403); return
             settings.set_val(b.get("key"), b.get("value")); self._j({"ok": True})
         elif p == "/snap":
             self._j({"msg": "скриншот принимается через Ctrl+V в поле ввода"})

@@ -96,7 +96,16 @@ def tool_purge_versions(**kw):
 
 def tool_print_pdf(name="", dirname="", **kw):
     nm = name or CT.tool_get_active()
-    outdir = dirname or (settings.get("pdf_out") or str(core.BASE / "pdf_out"))
+    outdir = dirname or (settings.get("pdf_out") or "")
+    if not outdir:
+        import os as _os
+        try:
+            _d = CT.creo_call("creo", "pwd", {}, 10).get("data") or {}
+            _wd = _d.get("directory", "") if isinstance(_d, dict) else str(_d or "")
+        except Exception:
+            _wd = ""
+        _p = str(name) if _os.path.isabs(str(name)) else _os.path.join(_wd, str(name))
+        outdir = _os.path.dirname(_p) or str(core.BASE / "pdf_out")
     Path(outdir).mkdir(parents=True, exist_ok=True)
     pdf = re.sub(r"\.(asm|prt|drw)(\.\d+)?$", "", nm, flags=re.I) + ".pdf"
     j = cc("interface", "export_pdf", {"file": nm, "filename": pdf, "dirname": outdir,
