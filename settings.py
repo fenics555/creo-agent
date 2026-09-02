@@ -38,7 +38,7 @@ REGISTRY = [
     ("Сканер", "retention", "Глубина бэкапов", "int", 7, "Копий базы храним.", True),
     ("Web", "web_quick_links", "Бегло: ссылочных страниц", "int", 10, "Беглый проход: сколько ссылок читать.", True),
     ("Web", "web_deep_pages", "Глубоко: страниц", "int", 50, "Глубокий проход: предел страниц.", True),
-    ("Web", "web_test_url", "URL для diag_web", "str", "https://cccp3d.ru", "Внешняя цель для diag_web.", True),
+    ("Web", "web_test_url", "URL для diag_web", "str", "https://www.ptc.com", "Внешняя цель для diag_web.", True),
     ("Пути", "creoson_url", "URL CREOSON", "str", "http://127.0.0.1:8080/creoson", "Мост Creo.", True),
     ("Пути", "creoson_dir", "Папка CREOSON", "str", r"D:\AI\creoson\CreosonServer-3.0.2-win64", "Где creoson_run.bat.", True),
     ("Пути", "pdf_out", "Папка PDF", "str", "", "Пусто = рядом с чертежом.", True),
