@@ -4,7 +4,7 @@ r"""
 ThreadingHTTPServer + pid + процедурный промт + invalid-парсер + approve в контекст.
 Финал: детерминированные чипы, своротка всех секций, вход вместо undefined, юзер в шапке.
 """
-import json, re, socket, threading, time, datetime
+import json, re, socket, threading, time, datetime, subprocess, sys
 from http.server import ThreadingHTTPServer, BaseHTTPRequestHandler
 from urllib.parse import urlparse
 import core
@@ -469,10 +469,10 @@ class Hd(BaseHTTPRequestHandler):
         elif p == "/snap":
             self._j({"msg": "скриншот принимается через Ctrl+V в поле ввода"})
         elif p == "/rescan":
-            threading.Thread(target=scanner.index_all, daemon=True).start()
+            subprocess.Popen([sys.executable, "-c", "import scanner; scanner.index_all()"], cwd=str(core.BASE))
             self._j({"msg": "переиндексация запущена"})
         elif p == "/scan":
-            threading.Thread(target=scanner.scan_models, daemon=True).start()
+            subprocess.Popen([sys.executable, "-c", "import scanner; scanner.scan_models()"], cwd=str(core.BASE))
             self._j({"msg": "скан моделей запущен"})
         elif p == "/profile":
             __prof = users.get_profile(cl)

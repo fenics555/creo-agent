@@ -1,44 +1,80 @@
 # -*- coding: utf-8 -*-
-import json
+import io
 from pathlib import Path
 AG = Path(r"D:\AI\tools\agent")
+BASE = AG.parent
+SHARE = Path(r"Z:\PTC\CREO-START\START-STD")
 
-# 1) config: убрать «ремонт» из исключений
-cp = AG / "data" / "config.json"
-d = json.loads(cp.read_text(encoding="utf-8")) if cp.exists() else {}
-se = d.get("scan_exclude") or []
-se2 = [x for x in se if x.strip().lower() != "ремонт"]
-if len(se2) != len(se):
-    d["scan_exclude"] = se2
-    cp.write_text(json.dumps(d, ensure_ascii=False, indent=1), encoding="utf-8")
-    print("[+] config: 'ремонт' убран из scan_exclude")
+PS1 = r'''# netdiag.ps1 — диагностика сети машина -> CREO-START (без Python, чистый PowerShell)
+$ErrorActionPreference = 'SilentlyContinue'
+$share = "Z:\PTC\CREO-START\START-STD"
+if (-not (Test-Path $share)) { $share = "\\192.168.88.159\PTC\CREO-START\START-STD" }
+$outDir = Join-Path $share "netdiag"
+New-Item -ItemType Directory -Force -Path $outDir | Out-Null
+$log = Join-Path $outDir "$env:COMPUTERNAME.log"
+$L = @()
+$L += ("== " + (Get-Date -Format "yyyy-MM-dd HH:mm:ss") + " $env:COMPUTERNAME user=$env:USERNAME ==")
+foreach ($a in (Get-NetAdapter | Where-Object Status -eq 'Up')) {
+    $L += ("ADAPTER: {0} | {1} | Link={2} | MAC={3}" -f $a.Name, $a.InterfaceDescription, $a.LinkSpeed, $a.MacAddress)
+}
+$netuse = (net use Z: 2>$null | Out-String) -replace "\s+"," "
+$L += ("NETUSE Z:" + $netuse.Trim())
+$server = ""
+if ($netuse -match '\\\\([A-Za-z0-9.\-]+)\\') { $server = $Matches[1] }
+if ($server) {
+    $p = Test-Connection -ComputerName $server -Count 3
+    if ($p) {
+        $lat = $p | ForEach-Object { if ($_.PSObject.Properties['Latency']) { $_.Latency } else { $_.ResponseTime } }
+        $L += ("PING {0}: avg {1:N0} ms" -f $server, (($lat | Measure-Object -Average).Average))
+    } else { $L += "PING $server: НЕТ ОТВЕТА" }
+}
+function Speed($mb) {
+    $tmp = Join-Path $outDir "tmp_$env:COMPUTERNAME.bin"
+    $data = New-Object byte[] ($mb * 1MB)
+    $sw = [System.Diagnostics.Stopwatch]::StartNew(); [IO.File]::WriteAllBytes($tmp, $data); $w = $sw.Elapsed.TotalSeconds
+    $sw = [System.Diagnostics.Stopwatch]::StartNew(); $null = [IO.File]::ReadAllBytes($tmp); $r = $sw.Elapsed.TotalSeconds
+    Remove-Item $tmp -Force
+    return ("SPEED {0} MB: запись {1:N1} MB/s | чтение {2:N1} MB/s" -f $mb, ($mb/$w), ($mb/$r))
+}
+$L += (Speed 1)
+$L += (Speed 100)
+$L | Out-File -FilePath $log -Encoding utf8 -Append
+'''
+
+nd = SHARE / "netdiag"
+nd.mkdir(parents=True, exist_ok=True)
+(nd / "netdiag.ps1").write_text(PS1, encoding="utf-8")
+(AG / "netdiag.ps1").write_text(PS1, encoding="utf-8")
+print("[+] netdiag.ps1 на шаре и локально")
+
+bat = SHARE / "CREO-START.bat"
+line = 'REM powershell -ExecutionPolicy Bypass -WindowStyle Hidden -File "%~dp0netdiag\\netdiag.ps1"'
+if bat.exists():
+    t = bat.read_text(encoding="utf-8", errors="ignore")
+    if "netdiag.ps1" not in t:
+        bat.write_text(t.rstrip() + "\n" + line + "\n", encoding="utf-8")
+        print("[+] CREO-START.bat: строка добавлена (REM — раскомментируй руками)")
+    else:
+        print("[~] CREO-START.bat: строка уже есть")
 else:
-    print("[~] config: 'ремонт' не найден")
+    print("[x] CREO-START.bat не найден на шаре")
 
-# 2) usage_tools: уступать GIL, чтобы веб не висел при сборке
-up = AG / "usage_tools.py"
-s = up.read_text(encoding="utf-8")
-old = '            STATE["done"] += 1'
-new = '            STATE["done"] += 1\n            if STATE["done"] % 20 == 0: time.sleep(0.001)'
-if "time.sleep(0.001)" not in s and old in s:
-    up.write_text(s.replace(old, new, 1), encoding="utf-8")
-    print("[+] usage_tools: GIL-уступка при построении")
-else:
-    print("[~] usage_tools: уже/якорь не найден")
-
-# 3) agent.py: спиннер с таймаутом, не крутится на poll
+# скан в отдельный процесс — веб больше не виснет
 ap = AG / "agent.py"
 a = ap.read_text(encoding="utf-8")
-oldw = "(function(){var sp=document.getElementById('spin');if(!sp)return;var of=window.fetch;window.fetch=function(){sp.style.display='inline-block';return of.apply(this,arguments).finally(function(){sp.style.display='none';});};})();"
-neww = "(function(){var sp=document.getElementById('spin');if(!sp)return;var of=window.fetch;window.fetch=function(u){var url=String(u);var bg=url.indexOf('/chat/poll')>=0||url.indexOf('/status')>=0;if(!bg)sp.style.display='inline-block';var p=of.apply(this,arguments);var t=new Promise(function(r,j){setTimeout(function(){j(new Error('таймаут 25с: '+url))},25000)});return Promise.race([p,t]).finally(function(){if(!bg)sp.style.display='none';});};})();"
-if oldw in a:
-    a = a.replace(oldw, neww, 1); print("[+] agent: спиннер с таймаутом")
-elif "таймаут 25с" not in a:
-    i = a.rfind("</script>")
-    a = a[:i] + neww + a[i:]; print("[+] agent: обёртка вставлена")
-oldi = "if(TK)init();else showLogin();"
-newi = "if(TK){Promise.resolve().then(init).catch(function(e){addMsg('ошибка инициализации: '+e,true)})}else showLogin();"
-if oldi in a:
-    a = a.replace(oldi, newi, 1); print("[+] agent: init с обработкой ошибки")
-ap.write_text(a, encoding="utf-8")
-print("ГОТОВО: .\\AI_RESTART.bat, затем в чате: scan_run (перескан без 'ремонт')")
+ch = False
+if "import subprocess" not in a:
+    a = a.replace("import json, re, socket, threading, time, datetime",
+                  "import json, re, socket, threading, time, datetime, subprocess, sys", 1); ch = True
+old1 = 'threading.Thread(target=scanner.index_all, daemon=True).start()'
+new1 = 'subprocess.Popen([sys.executable, "-c", "import scanner; scanner.index_all()"], cwd=str(core.BASE))'
+if old1 in a: a = a.replace(old1, new1, 1); ch = True
+old2 = 'threading.Thread(target=scanner.scan_models, daemon=True).start()'
+new2 = 'subprocess.Popen([sys.executable, "-c", "import scanner; scanner.scan_models()"], cwd=str(core.BASE))'
+if old2 in a: a = a.replace(old2, new2, 1); ch = True
+if ch:
+    ap.write_text(a, encoding="utf-8")
+    print("[+] agent: скан/индекс в отдельном процессе (GIL не душит веб)")
+else:
+    print("[~] agent: уже в отдельном процессе")
+print("ГОТОВО: .\\AI_RESTART.bat")
