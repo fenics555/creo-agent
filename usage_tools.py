@@ -65,6 +65,7 @@ def build_usage(full=False):
                         found.add(ref)
                 rows += [(ref.lower(), parent.lower(), path) for ref in found]
             STATE["done"] += 1
+            if STATE["done"] % 20 == 0: time.sleep(0.001)
             STATE["links"] = len(rows)
         c.executemany("INSERT INTO usage_new(child,parent,parent_path) VALUES(?,?,?)", rows)
         c.execute("DELETE FROM usage_meta")

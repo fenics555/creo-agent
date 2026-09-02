@@ -373,8 +373,8 @@ document.addEventListener('paste',function(e){var it=null,items=e.clipboardData.
 lg.addEventListener('keydown',function(e){if(e.key=='Enter')document.querySelector('[data-act="login"]').click()});
 pw.addEventListener('keydown',function(e){if(e.key=='Enter')document.querySelector('[data-act="login"]').click()});
 document.getElementById('cin').addEventListener('keydown',function(e){if(e.key=='Enter')document.querySelector('[data-act="chatsend"]').click()});
-if(TK)init();else showLogin();
-(function(){var sp=document.getElementById('spin');if(!sp)return;var of=window.fetch;window.fetch=function(){sp.style.display='inline-block';return of.apply(this,arguments).finally(function(){sp.style.display='none';});};})();
+if(TK){Promise.resolve().then(init).catch(function(e){addMsg('ошибка инициализации: '+e,true)})}else showLogin();
+(function(){var sp=document.getElementById('spin');if(!sp)return;var of=window.fetch;window.fetch=function(u){var url=String(u);var bg=url.indexOf('/chat/poll')>=0||url.indexOf('/status')>=0;if(!bg)sp.style.display='inline-block';var p=of.apply(this,arguments);var t=new Promise(function(r,j){setTimeout(function(){j(new Error('таймаут 25с: '+url))},25000)});return Promise.race([p,t]).finally(function(){if(!bg)sp.style.display='none';});};})();
 
 (function(){if(window.__slfix)return;window.__slfix=1;
 function sync(r){var lab=r.parentNode.querySelector('[data-v]')||r.nextElementSibling;if(lab)lab.textContent=r.value;}
