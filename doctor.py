@@ -1,44 +1,37 @@
 # -*- coding: utf-8 -*-
-import ast, sys, traceback
+import re, sys
 from pathlib import Path
-AG = Path(__file__).resolve().parent
-sys.path.insert(0, str(AG.parent)); sys.path.insert(0, str(AG))
+AG = Path(r"D:\AI\tools\agent")
+sp = AG / "settings.py"                      # <-- исправлено: settings.py в agent/
+s = sp.read_text(encoding="utf-8")
 
-sp = AG.parent / "settings.py"
-lines = sp.read_text(encoding="utf-8").split("\n")
-fixed = 0
-for i, ln in enumerate(lines):
-    s = ln.strip()
-    if not s.startswith('("'): continue
-    try:
-        t = ast.literal_eval(s.rstrip(","))
-    except Exception:
-        continue
-    if isinstance(t, tuple) and len(t) > 7 and t[3] == "list":
-        good = (t[0], t[1], t[2], "list", list(t[4:-2]), t[-2], t[-1])
-        lines[i] = ln[:len(ln) - len(ln.lstrip())] + repr(good) + ","
-        fixed += 1
-        print("[fix] строка %d: %s/%s -> список из %d" % (i + 1, t[0], t[1], len(t[4:-2])))
-    elif isinstance(t, tuple) and len(t) != 7:
-        print("[?] строка %d: кортеж из %d, проверь вручную" % (i + 1, len(t)))
-if fixed:
-    sp.write_text("\n".join(lines), encoding="utf-8")
-print("исправлено кортежей:", fixed)
+# 1) чиним битый Web-блок (9 элементов -> три нормальных кортежа)
+pat = re.compile(r'[ \t]*\("Web",\s*\n\s*\("Web",\s*"web_jina_key".*?"Внешняя цель для diag_web\.",\s*True\),', re.S)
+clean = ('    ("Web", "web_jina_key", "Ключ r.jina.ai", "str", "", "Если есть ключ — прокси оживает.", True),\n'
+         '    ("Web", "web_render", "Рендер браузером (Playwright)", "bool", False, "Вкл: при сбое fetch — headless Chrome.", True),\n'
+         '    ("Web", "web_test_url", "URL для diag_web", "str", "https://ya.ru", "Внешняя цель для diag_web.", True),')
+s, n = pat.subn(clean, s, count=1)
+print("[+] settings: битый Web-блок починен" if n else "[~] битый блок не найден")
 
+# 2) дедупликация ключей (оставляем первое вхождение)
+out, seen = [], set()
+for ln in s.split("\n"):
+    m = re.match(r'\s*\("[^"]+",\s*"([^"]+)",', ln)
+    if m:
+        if m.group(1) in seen: continue
+        seen.add(m.group(1))
+    out.append(ln)
+s = "\n".join(out)
+sp.write_text(s, encoding="utf-8")
+print("[+] settings: дубли убраны, ключей:", len(seen))
+
+# 3) проверка: все кортежи по 7
+sys.path.insert(0, str(AG)); sys.path.insert(0, str(AG.parent))
 try:
     import importlib, settings
     importlib.reload(settings)
-    bad = [r[1] for r in settings.REGISTRY if len(r) != 7]
+    bad = [e for e in settings.REGISTRY if not (isinstance(e, tuple) and len(e) == 7)]
     print("REGISTRY: записей %d, битых: %s" % (len(settings.REGISTRY), bad or "нет"))
-except Exception:
-    traceback.print_exc()
-
-for m in ("creo_tools", "creo_ops_tools", "copy_tools", "diagnostic_tools",
-          "learn_tools", "passport_tools", "spec_tools"):
-    try:
-        import importlib
-        importlib.import_module(m)
-        print("[+] %s: импорт ОК" % m)
-    except Exception as e:
-        print("[x] %s: %s" % (m, e))
-print("ТЕПЕРЬ: .\\AI_RESTART.bat  (блоков должно стать 23)")
+except Exception as e:
+    print("[x] импорт settings:", e)
+print("ГОТОВО: .\\AI_RESTART.bat")
