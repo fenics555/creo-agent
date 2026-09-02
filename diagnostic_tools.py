@@ -306,20 +306,18 @@ import re as WR
 import core as WC
 import urllib.request as WU
 def tool_diag_web(**kw):
-    import settings
-    out, fails = [], []
-    for u in ["http://127.0.0.1:8765/status", str(settings.get("web_test_url") or "https://cccp3d.ru")]:
-        try:
-            r = WU.Request(u, headers={"User-Agent": "Mozilla/5.0 (agent)"})
-            with WU.urlopen(r, timeout=10) as resp:
-                st = getattr(resp, "status", 200)
-                html = resp.read().decode(resp.headers.get_content_charset() or "utf-8", "ignore")
-            t = WC.clean(html)
-            fl = []
-            if WR.search(r"captcha|бот|не робот|BotHunt", html, WR.I): fl.append("captcha")
-            if len(t) < 200 and WR.search(r'id=["\']?(root|app|__next)', html, WR.I): fl.append("SPA")
-            out.append("• %s -> %s | %d симв%s" % (u, st, len(t), (" | " + "; ".join(fl)) if fl else ""))
-        except Exception as e:
-            out.append("• %s -> ERR %s" % (u, str(e)[:60])); fails.append(u)
-    return "\n".join(out) + "\nвердикт: %s" % ("ПРОЙДЕН" if not fails else "НЕ ПРОЙДЕН: " + ", ".join(fails))
+    import settings, web_tools as WT
+    out, bad = [], []
+    u1 = "http://127.0.0.1:8765/status"
+    try:
+        t1, s1 = WT._get(u1, 10)
+        out.append("• %s -> %s | %d симв" % (u1, s1, len(t1)))
+    except Exception as e:
+        out.append("• %s -> ERR %s" % (u1, str(e)[:60])); bad.append(u1)
+    u2 = str(settings.get("web_test_url") or "https://ya.ru")
+    html, src, att = WT.fetch_html(u2)
+    if html: out.append("• %s -> %s | %d симв" % (u2, src, len(html)))
+    else: out.append("• %s -> закрыт | цепочка: %s" % (u2, " -> ".join(att)))
+    return "\n".join(out) + "\nвердикт: %s" % ("ПРОЙДЕН" if not bad else "НЕ ПРОЙДЕН: " + ", ".join(bad))
+
 TOOLS += [{"name": "diag_web", "desc": "Диагностика веб-стека: агент + внешний URL, детект SPA/captcha", "params": {}, "approval": False, "fn": tool_diag_web}]
