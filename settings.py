@@ -52,6 +52,9 @@ REGISTRY = [
     ("Пути", "backup_dir", "Папка бэкапов", "str", "", "Пусто = data/backups.", True),
     ("Creo", "bom_sections", "Порядок разделов спецы", "list", ["Документация", "Комплексы", "Сборочные единицы", "Детали", "Стандартные изделия", "Прочие изделия", "Материалы", "Комплекты"], "Порядок ГОСТ-разделов.", True),
     ("Creo", "copy_synonyms", "Синонимы поиска", "str", "турновер=переворот, turnover=переворот, ворошитель=переворот", "Для models_find.", True),
+    ("Главное", "steps_max", "steps_max", "int", 6, "Из config.json (авто-регистрация).", True),
+    ("Сканер", "scan_roots", "scan_roots", "list", ["D:\\PTC\\CREO12\\Creo 12.4.2.0\\creo_help_pma\\russian", "D:\\AI\\repo", "Z:\\PTC\\Work", "Z:\\PTC\\CREO-START"], "Из config.json (авто-регистрация).", True),
+    ("Сканер", "scan_exclude", "scan_exclude", "list", [".git\\", "__pycache__\\", "node_modules\\", "venv\\", ".venv\\", "backup\\", "old\\", "temp\\", "tmp\\", "cache\\", ".idea\\", ".vscode\\", "Z:\\PTC\\Work\\000_03 401-LIT Литейное производство\\000_5 401-LIT-MO Модельная оснастка для литья\\000_10 СТОРОННИЕ РАЗРАБОТКИ\\", "Z:\\PTC\\Work\\УЧЕБА\\", "Z:\\PTC\\Work\\хуйня\\", "Thumbs.db", "desktop.ini", "*.tmp", "*.bak", "*~", "*.log", "*.sqlite", "*.db", "*.exe", "*.dll", "*.so", "*.o", "*.obj", "*.pyc", ".DS_Store"], "Из config.json (авто-регистрация).", True),
 ]
 
 def _ensure():
