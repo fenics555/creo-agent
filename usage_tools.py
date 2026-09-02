@@ -1,12 +1,12 @@
 # -*- coding: utf-8 -*-
 r"""Индекс «где используется»: деталь -> родительские сборки (слова из бинарных .asm).
 Таблицы usage/usage_meta — в общем SQLite (data/agent.sqlite), рядом с models."""
-import os, re, threading, time, subprocess
+import os, re, threading, time
 import core
 from core import trace
-import scanner as SC
 RUN = re.compile(rb"[A-Za-z0-9_-]{3,}")
-STATE = {"busy": False, "done": 0, "total": 0, "links": 0, "names": 0, "finished": "", "error": ""}
+STATE = {"busy": False, "done": 0, "total": 0, "links": 0, "names": 0,
+         "finished": "", "error": "", "roots_info": ""}
 
 def _db():
     c = core.db()
@@ -17,23 +17,6 @@ def _db():
 
 def _base(n):
     return re.sub(r"\.(prt|asm)(\.\d+)?$", "", n, flags=re.I)
-
-
-def _unc_roots():
-    roots = core.read_roots()
-    m = {}
-    try:
-        out = subprocess.run(["net", "use"], capture_output=True, text=True).stdout
-        m = dict(re.findall(r"([A-Za-z]):\s+(\\\\\S+)", out))
-    except Exception:
-        pass
-    res = []
-    for r in roots:
-        d = r[:2]
-        if not os.path.exists(r) and d in m:
-            r = m[d] + r[2:]
-        res.append(r)
-    return res
 
 def build_usage(full=False):
     if STATE["busy"]: return
@@ -50,16 +33,14 @@ def build_usage(full=False):
         if has_old and not full:
             old_meta = dict(c.execute("SELECT path, mtime FROM usage_meta").fetchall())
         if not old_meta: full = True
-        pats = core.load_exclude_patterns() if hasattr(SC, "_pats") else None
+        roots = core.read_roots()
+        STATE["roots_info"] = "; ".join("%s:%s" % (r, "есть" if os.path.exists(r) else "НЕТ") for r in roots)
         tasks = []
-        for root in _unc_roots():
+        for root in roots:
             if not os.path.exists(root): continue
             for dp, dn, fns in os.walk(root):
-                if pats is not None:
-                    dn[:] = [d for d in dn if not SC.is_excluded(os.path.join(dp, d) + "/", pats)]
                 tasks += [os.path.join(dp, fn) for fn in fns if re.search(r"\.asm(\.\d+)?$", fn, re.I)]
-        STATE["roots_info"] = "; ".join("%s:%s" % (r, "есть" if os.path.exists(r) else "НЕТ") for r in _unc_roots())
-    STATE["total"] = len(tasks)
+        STATE["total"] = len(tasks)
         c.execute("DROP TABLE IF EXISTS usage_new")
         c.execute("CREATE TABLE usage_new(child TEXT, parent TEXT, parent_path TEXT)")
         rows, new_meta, reused = [], {}, 0
@@ -109,7 +90,8 @@ def tool_usage_state(**kw):
     if STATE["error"]:
         return "ошибка последнего построения: %s" % STATE["error"]
     if STATE["finished"]:
-        return "индекс готов (%s): ссылок %d (имён %d, asm %d). Корни: %s. Спрашивай models_where" % (STATE["finished"], STATE["links"], STATE["names"], STATE["total"], STATE.get("roots_info", ""))
+        return "индекс готов (%s): ссылок %d (имён %d, asm %d). Корни: %s. Спрашивай models_where" % (
+            STATE["finished"], STATE["links"], STATE["names"], STATE["total"], STATE.get("roots_info", ""))
     return "индекс ещё не строили. Скажи: usage_build full=1"
 
 def tool_models_where(q="", limit=30, **kw):
@@ -118,13 +100,15 @@ def tool_models_where(q="", limit=30, **kw):
         total = c.execute("SELECT COUNT(*) FROM usage").fetchone()[0]
         if not total:
             c.close()
-            return "таблица usage пуста. Последний билд: имён=%d, asm=%d, ссылок=%d (%s). Запусти usage_build full=1 и проверь, что в scan_roots есть Z:\\PTC\\Work" % (STATE["names"], STATE["total"], STATE["links"], STATE["finished"] or "не было")
+            return "таблица usage пуста. Последний билд: имён=%d, asm=%d, ссылок=%d. Корни: %s. Запусти usage_build full=1" % (
+                STATE["names"], STATE["total"], STATE["links"], STATE.get("roots_info", ""))
         toks = [t.lower() for t in re.findall(r"[A-Za-zА-Яа-я0-9][A-Za-zА-Яа-я0-9.-]{2,}", q or "") if len(t) >= 3]
         if not toks:
             c.close(); return "укажи имя модели или ключевое слово"
         out = []
         for t in toks:
-            rows = c.execute("SELECT DISTINCT parent, parent_path FROM usage WHERE child LIKE ? LIMIT ?", ("%" + t + "%", int(limit) or 30)).fetchall()
+            rows = c.execute("SELECT DISTINCT parent, parent_path FROM usage WHERE child LIKE ? LIMIT ?",
+                             ("%" + t + "%", int(limit) or 30)).fetchall()
             out.append("'%s': входит в сборок: %d" % (t, len(rows)))
             out += ["- %s  (%s)" % (p, pp) for p, pp in rows]
         c.close()
@@ -135,5 +119,5 @@ def tool_models_where(q="", limit=30, **kw):
 TOOLS = [
     {"name": "models_where", "desc": "Показать сборки, в которых используется модель/деталь", "params": {"q": "имя или слово", "limit": "сколько строк"}, "approval": False, "fn": tool_models_where},
     {"name": "usage_build", "desc": "Построить/обновить индекс «где используется» (full=1 — полный)", "params": {"full": "1 принудительно полный"}, "approval": False, "fn": tool_usage_build},
-    {"name": "usage_state", "desc": "Прогресс и итоги индекса: сколько имён, asm-файлов, ссылок", "params": {}, "approval": False, "fn": tool_usage_state},
+    {"name": "usage_state", "desc": "Прогресс и итоги индекса + какие корни видит процесс агента", "params": {}, "approval": False, "fn": tool_usage_state},
 ]
