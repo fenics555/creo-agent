@@ -1,130 +1,83 @@
 # -*- coding: utf-8 -*-
-import io, os, shutil, glob
+import io
 from pathlib import Path
 AG = Path(r"D:\AI\tools\agent")
-WEB = AG / "copy_web"
-WEB.mkdir(exist_ok=True)
 
-# 1) backend копии (замена server.py Давыдовки), порт 8000
-SRV = '''# -*- coding: utf-8 -*-
-import json, shutil, tempfile, datetime
-from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
-from pathlib import Path
-from urllib.parse import parse_qs, unquote_plus
-PORT = 8000
-WEB = Path(__file__).resolve().parent / "copy_web"
-class H(BaseHTTPRequestHandler):
-    def log_message(self, *a): pass
-    def _send(self, code, body, ctype="application/json"):
-        data = body if isinstance(body, bytes) else body.encode("utf-8")
-        self.send_response(code)
-        self.send_header("Content-Type", ctype + "; charset=utf-8")
-        self.send_header("Content-Length", str(len(data)))
-        self.end_headers(); self.wfile.write(data)
-    def _frame(self, payload):
-        html = "<html><body><script>parent.postMessage({source:'creo-specification-pdf',payload:%s},'*');</script></body></html>" % json.dumps(payload)
-        self._send(200, html, "text/html")
-    def do_GET(self):
-        p = self.path.split("?")[0]
-        if p in ("/", "/copy"):
-            f = WEB / "copy.html"
-            return self._send(200, f.read_bytes(), "text/html") if f.exists() else self._send(404, "copy.html not found", "text/plain")
-        for n in ("creojs.js", "page.js", "copy.css"):
-            if p == "/" + n:
-                f = WEB / n
-                if f.exists():
-                    return self._send(200, f.read_bytes(), "text/javascript" if n.endswith(".js") else "text/css")
-        return self._send(404, "not found", "text/plain")
-    def do_POST(self):
-        ln = int(self.headers.get("Content-Length") or 0)
-        raw = self.rfile.read(ln).decode("utf-8", "ignore")
-        if raw.startswith("{"):
-            try: v = json.loads(raw)
-            except Exception: v = {}
-        else:
-            q = parse_qs(raw); v = {k: unquote_plus(q[k][0]) for k in q}
-        p = self.path.split("?")[0]
-        try:
-            if p == "/api/assembly-copy-workspace-frame": r = self._ws(v)
-            elif p == "/api/rename-copies-frame": r = self._copies(v)
-            elif p == "/api/save-rename-graph-frame": r = self._graph(v, True)
-            elif p == "/api/load-rename-graph-frame": r = self._graph(v, False)
-            else: r = {"ok": False, "error": "unknown " + p}
-        except Exception as e:
-            r = {"ok": False, "error": str(e)}
-        self._frame(r)
-    def _ws(self, v):
-        a = v.get("action")
-        if a == "prepare":
-            return {"ok": True, "directory": str(Path(tempfile.mkdtemp(prefix="creo_copy_")))}
-        if a == "collect":
-            src, dst = Path(v.get("source", "")), Path(v.get("target", ""))
-            names = json.loads(v.get("names") or "[]")
-            cp, oc, mi = [], [], []
-            for n in names:
-                s, d = src / n, dst / n
-                if not s.exists(): mi.append(n); continue
-                if d.exists(): oc.append(n); continue
-                shutil.copy2(s, d); cp.append(n)
-            return {"ok": True, "copied": cp, "occupied": oc, "missing": mi}
-        if a == "cleanup":
-            d = Path(v.get("directory", ""))
-            if d.exists() and "creo_copy_" in d.name: shutil.rmtree(d, ignore_errors=True)
-            return {"ok": True}
-        return {"ok": False, "error": "bad action"}
-    def _copies(self, v):
-        f = Path(v.get("directory", "")) / "rename_copies.json"
-        e = []
-        if f.exists():
-            try: e = json.loads(f.read_text(encoding="utf-8"))
-            except Exception: e = []
-        if v.get("action") == "append":
-            try: x = json.loads(v.get("entry") or "{}")
-            except Exception: x = {}
-            if x: e.append(x)
-            f.write_text(json.dumps(e, ensure_ascii=False, indent=1), encoding="utf-8")
-        return {"ok": True, "entries": e, "path": str(f)}
-    def _graph(self, v, save):
-        f = Path(v.get("directory", "")) / "rename_graph.json"
-        if save:
-            f.write_text(v.get("graph") or "{}", encoding="utf-8"); return {"ok": True, "path": str(f)}
-        return {"ok": True, "found": f.exists(), "graph": (json.loads(f.read_text(encoding="utf-8")) if f.exists() else None)}
-if __name__ == "__main__":
-    ThreadingHTTPServer(("127.0.0.1", PORT), H).serve_forever()
+up = AG / "users.py"; u = up.read_text(encoding="utf-8")
+MARK = "# == ROLE PERMS =="
+if MARK in u:
+    print("[~] users.py: role perms уже есть")
+else:
+    u += '''
+
+# == ROLE PERMS ==
+def _perms_db():
+    import core
+    c = core.db()
+    c.execute("CREATE TABLE IF NOT EXISTS role_deny(role TEXT, tool TEXT, UNIQUE(role, tool))")
+    c.commit()
+    return c
+
+def role_denied(role, tool):
+    try:
+        c = _perms_db()
+        r = c.execute("SELECT 1 FROM role_deny WHERE role=? AND tool=?", (role or "", tool or "")).fetchone()
+        c.close(); return bool(r)
+    except Exception:
+        return False
+
+def role_deny_set(role, tool, deny):
+    c = _perms_db()
+    if deny: c.execute("INSERT OR IGNORE INTO role_deny(role, tool) VALUES(?,?)", (role, tool))
+    else: c.execute("DELETE FROM role_deny WHERE role=? AND tool=?", (role, tool))
+    c.commit(); c.close()
+
+def role_deny_list(role):
+    c = _perms_db()
+    r = [x[0] for x in c.execute("SELECT tool FROM role_deny WHERE role=?", (role or "",))]
+    c.close(); return r
+
+def tool_role_tools_show(role="Инженер", **kw):
+    try:
+        import tools_registry as TR
+    except Exception:
+        return "tools_registry не найден"
+    denied = set(role_deny_list(role))
+    out = ["РОЛЬ %s — доступ к инструментам (%d всего, %d запрещено):" % (role, len(TR.TOOLS), len(denied))]
+    for t in sorted(TR.TOOLS, key=lambda x: x.get("name", "")):
+        n = t.get("name", "?")
+        out.append("%s %s  — %s" % ("⛔" if n in denied else "✅", n, t.get("desc", "")[:60]))
+    return "\\n".join(out)
+
+def tool_role_tools_set(role="Инженер", tool="", deny=1, **kw):
+    if not tool: return "укажи tool (имя инструмента)"
+    deny = str(deny) in ("1", "true", "да", "on")
+    role_deny_set(role, tool, deny)
+    return "роль %s: %s -> %s" % (role, tool, ("ЗАПРЕЩЕНО" if deny else "разрешено"))
+
+def tool_role_tools_search(role="Инженер", q="", **kw):
+    try:
+        import tools_registry as TR
+    except Exception:
+        return "tools_registry не найден"
+    q = (q or "").strip().lower()
+    denied = set(role_deny_list(role))
+    out = []
+    for t in TR.TOOLS:
+        n = t.get("name", "")
+        if q and q not in n.lower() and q not in (t.get("desc", "") or "").lower(): continue
+        out.append("%s %s" % ("⛔" if n in denied else "✅", n))
+    return "\\n".join(out) or ("по '%s' ничего" % q)
+
+TOOLS += [
+    {"name": "role_tools_show", "desc": "Админка: показать карту инструментов для роли (✅ разрешено / ⛔ запрещено)", "params": {"role": "роль (по умолч. Инженер)"}, "approval": False, "fn": tool_role_tools_show},
+    {"name": "role_tools_set", "desc": "Админка: запретить/разрешить роли конкретный инструмент", "params": {"role": "роль", "tool": "имя инструмента", "deny": "1 запрет / 0 разрешить"}, "approval": True, "fn": tool_role_tools_set},
+    {"name": "role_tools_search", "desc": "Поиск инструментов по роли и ключевому слову", "params": {"role": "роль", "q": "слово"}, "approval": False, "fn": tool_role_tools_search},
+]
 '''
-(AG / "copy_server.py").write_text(SRV, encoding="utf-8")
-print("[+] copy_server.py (порт 8000)")
+    up.write_text(u, encoding="utf-8")
+    print("[+] users.py: deny-лист ролей + 3 админ-инструмента")
 
-# 2) разложить фронтенд Давыдовки, если найдётся
-MAP = {"copy.html": ["index_rename*.html"], "creojs.js": ["*creojs*"], "page.js": ["rename.js", "rename*.js", "index_rename*.creojs*"], "copy.css": ["*rename*.css", "index_rename*.css"]}
-dirs = [AG, AG / "copy_src", AG.parent, Path(r"D:\AI"), Path.home() / "Downloads", Path.home() / "Desktop"]
-for dst, pats in MAP.items():
-    hit = None
-    for d in dirs:
-        if not d.exists(): continue
-        for pat in pats:
-            g = sorted(d.glob(pat))
-            if g: hit = g[0]; break
-        if hit: break
-    if hit and not (WEB / dst).exists():
-        shutil.copy2(hit, WEB / dst); print("[+] copy_web/%s <- %s" % (dst, hit.name))
-    elif not (WEB / dst).exists():
-        print("[!] copy_web/%s: положи вручную (index_rename.html / creosjs / rename.js / css)" % dst)
-
-# 3) ctl: автозапуск copy_server + статус
-cp = AG / "ctl.py"; s = cp.read_text(encoding="utf-8")
-if "start_copyserver" not in s:
-    s = s.replace("def start_agent(hidden):",
-        "def start_copyserver():\n    subprocess.Popen('cmd /c start \"\" /B /D \"%s\" python copy_server.py' % AG, shell=True)\n\ndef start_agent(hidden):", 1)
-    s = s.replace("if alive(8765):",
-        "if alive(8000): log(\" copy-server уже на 8000 \")\n    else:\n        log(\" поднимаю copy-server... \"); start_copyserver()\n        log(\" copy-server на 8000 \" if wait_port(8000, 30) else \" ВНИМАНИЕ: copy-server не поднялся \")\n    if alive(8765):", 1)
-    s = s.replace('("агент", 8765)', '("агент", 8765), ("copy", 8000)', 1)
-    cp.write_text(s, encoding="utf-8"); print("[+] ctl: copy-server в up/status")
-
-# 4) settings: порт копии
-sp = AG / "settings.py"; s = sp.read_text(encoding="utf-8")
-if "copy_port" not in s:
-    s = s.replace('("Creo", "audit_limit",', '("Creo", "copy_port", "Порт копии", "int", 8000, "Сервер страницы «Копия сборки».", True),\n    ("Creo", "audit_limit",', 1)
-    sp.write_text(s, encoding="utf-8"); print("[+] settings: copy_port")
-
-print("ГОТОВО: .\\AI_RESTART.bat, затем в браузере Creo открой http://127.0.0.1:8000/copy")
+print("ГОТОВО: .\\AI_RESTART.bat")
+print("Проверка в чате: role_tools_show role=Инженер -> role_tools_set role=Инженер tool=copy_part deny=1")
+print("Принуждение на сервере и страница в панели — следующим доктором (кинь agent.py + свежий users.py).")
