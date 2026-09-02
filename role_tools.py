@@ -34,7 +34,7 @@ def tool_role_tools_search(role="Инженер", q="", **kw):
         out.append("%s %s" % ("⛔" if n in denied else "✅", n))
     return "\n".join(out) or ("по '%s' ничего" % q)
 
-TOOLS += [
+TOOLS = [
     {"name": "role_tools_show", "desc": "Админка: показать карту инструментов для роли (✅ разрешено / ⛔ запрещено)", "params": {"role": "роль (по умолч. Инженер)"}, "approval": False, "fn": tool_role_tools_show},
     {"name": "role_tools_set", "desc": "Админка: запретить/разрешить роли конкретный инструмент", "params": {"role": "роль", "tool": "имя инструмента", "deny": "1 запрет / 0 разрешить"}, "approval": True, "fn": tool_role_tools_set},
     {"name": "role_tools_search", "desc": "Поиск инструментов по роли и ключевому слову", "params": {"role": "роль", "q": "слово"}, "approval": False, "fn": tool_role_tools_search},

@@ -10,7 +10,7 @@ def tool_list(**kw):
     return "\n".join("• %s — роль: %s — был: %s" % (u["login"], u["role"], str(u["last_seen"])[:16]) for u in us) or "пусто"
 
 def tool_role(login="", role="user", **kw):
-    return "роль %s → %s" % (login, role) if US.set_role(login, role) else "логин %s не найден" % login
+    return "роль %s → %s" % (login, role) if US.admin_set_role(login, role) else "логин %s не найден" % login
 
 TOOLS = [
     {"name": "user_add", "desc": "Создать пользователя системы", "params": {"login": "логин", "pw": "пароль", "role": "роль"}, "approval": True, "fn": tool_add},
