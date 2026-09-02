@@ -56,6 +56,9 @@ def start_ollama():
 def start_creoson():
     subprocess.Popen('cmd /c start "" /B /D "%s" creoson_run.bat' % CREOSON_DIR, shell=True)
 
+def start_copyserver():
+    subprocess.Popen('cmd /c start "" /B /D "%s" python copy_server.py' % AG, shell=True)
+
 def start_agent(hidden):
     if hidden:
         subprocess.Popen('cmd /c cd /d %s && python agent.py >> %sagent_console.log 2>&1' % (AG, TOOLS), shell=True, creationflags=0x08000000)
@@ -72,6 +75,10 @@ def up(browser=False, hidden=False):
     else:
         log("поднимаю CREOSON..."); start_creoson()
         log("CREOSON на 8080" if wait_port(8080, 60) else "ВНИМАНИЕ: CREOSON не поднялся за 60 сек")
+    if alive(8000): log(" copy-server уже на 8000 ")
+    else:
+        log(" поднимаю copy-server... "); start_copyserver()
+        log(" copy-server на 8000 " if wait_port(8000, 30) else " ВНИМАНИЕ: copy-server не поднялся ")
     if alive(8765): log("агент уже на 8765")
     else:
         kill_pid(AG + r"\agent.pid")
@@ -90,7 +97,7 @@ def down():
     log("стоп завершён")
 
 def status():
-    for name, port in (("Ollama", 11434), ("CREOSON", 8080), ("агент", 8765)):
+    for name, port in (("Ollama", 11434), ("CREOSON", 8080), ("агент", 8765), ("copy", 8000)):
         print("%-8s %-6s %s" % (name, port, "жив" if alive(port) else "МЁРТВ"))
 
 def watch():

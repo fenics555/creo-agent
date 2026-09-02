@@ -367,6 +367,7 @@ lg.addEventListener('keydown',function(e){if(e.key=='Enter')document.querySelect
 pw.addEventListener('keydown',function(e){if(e.key=='Enter')document.querySelector('[data-act="login"]').click()});
 document.getElementById('cin').addEventListener('keydown',function(e){if(e.key=='Enter')document.querySelector('[data-act="chatsend"]').click()});
 if(TK)init();else showLogin();
+(function(){var sp=document.getElementById('spin');if(!sp)return;var of=window.fetch;window.fetch=function(){sp.style.display='inline-block';return of.apply(this,arguments).finally(function(){sp.style.display='none';});};})();
 </script></body></html>"""
 
 class Hd(BaseHTTPRequestHandler):

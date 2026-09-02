@@ -1,12 +1,4 @@
 # -*- coding: utf-8 -*-
-import io, os, shutil, glob
-from pathlib import Path
-AG = Path(r"D:\AI\tools\agent")
-WEB = AG / "copy_web"
-WEB.mkdir(exist_ok=True)
-
-# 1) backend копии (замена server.py Давыдовки), порт 8000
-SRV = '''# -*- coding: utf-8 -*-
 import json, shutil, tempfile, datetime
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
@@ -91,40 +83,3 @@ class H(BaseHTTPRequestHandler):
         return {"ok": True, "found": f.exists(), "graph": (json.loads(f.read_text(encoding="utf-8")) if f.exists() else None)}
 if __name__ == "__main__":
     ThreadingHTTPServer(("127.0.0.1", PORT), H).serve_forever()
-'''
-(AG / "copy_server.py").write_text(SRV, encoding="utf-8")
-print("[+] copy_server.py (порт 8000)")
-
-# 2) разложить фронтенд Давыдовки, если найдётся
-MAP = {"copy.html": ["index_rename*.html"], "creojs.js": ["*creojs*"], "page.js": ["rename.js", "rename*.js", "index_rename*.creojs*"], "copy.css": ["*rename*.css", "index_rename*.css"]}
-dirs = [AG, AG / "copy_src", AG.parent, Path(r"D:\AI"), Path.home() / "Downloads", Path.home() / "Desktop"]
-for dst, pats in MAP.items():
-    hit = None
-    for d in dirs:
-        if not d.exists(): continue
-        for pat in pats:
-            g = sorted(d.glob(pat))
-            if g: hit = g[0]; break
-        if hit: break
-    if hit and not (WEB / dst).exists():
-        shutil.copy2(hit, WEB / dst); print("[+] copy_web/%s <- %s" % (dst, hit.name))
-    elif not (WEB / dst).exists():
-        print("[!] copy_web/%s: положи вручную (index_rename.html / creosjs / rename.js / css)" % dst)
-
-# 3) ctl: автозапуск copy_server + статус
-cp = AG / "ctl.py"; s = cp.read_text(encoding="utf-8")
-if "start_copyserver" not in s:
-    s = s.replace("def start_agent(hidden):",
-        "def start_copyserver():\n    subprocess.Popen('cmd /c start \"\" /B /D \"%s\" python copy_server.py' % AG, shell=True)\n\ndef start_agent(hidden):", 1)
-    s = s.replace("if alive(8765):",
-        "if alive(8000): log(\" copy-server уже на 8000 \")\n    else:\n        log(\" поднимаю copy-server... \"); start_copyserver()\n        log(\" copy-server на 8000 \" if wait_port(8000, 30) else \" ВНИМАНИЕ: copy-server не поднялся \")\n    if alive(8765):", 1)
-    s = s.replace('("агент", 8765)', '("агент", 8765), ("copy", 8000)', 1)
-    cp.write_text(s, encoding="utf-8"); print("[+] ctl: copy-server в up/status")
-
-# 4) settings: порт копии
-sp = AG / "settings.py"; s = sp.read_text(encoding="utf-8")
-if "copy_port" not in s:
-    s = s.replace('("Creo", "audit_limit",', '("Creo", "copy_port", "Порт копии", "int", 8000, "Сервер страницы «Копия сборки».", True),\n    ("Creo", "audit_limit",', 1)
-    sp.write_text(s, encoding="utf-8"); print("[+] settings: copy_port")
-
-print("ГОТОВО: .\\AI_RESTART.bat, затем в браузере Creo открой http://127.0.0.1:8000/copy")
