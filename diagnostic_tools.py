@@ -179,7 +179,6 @@ def tool_creoson_full_test(**kw):
     wd0 = CT.tool_pwd()
     try:
         import os, re, time, pathlib
-        import creo_tools as CT
         out, fails = [], []
         def rep(line, okf=True):
             out.append(line); _w(line, True)
