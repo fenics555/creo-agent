@@ -24,7 +24,7 @@ def build_usage(full=False):
         old_meta = {}
         if has_old and not full: old_meta = dict(c.execute("SELECT path, mtime FROM usage_meta").fetchall())
         if not old_meta: full = True
-        roots = core.read_roots()
+        roots = (__import__('scanner').read_roots())
         STATE["roots_info"] = "; ".join("%s:%s" % (r, "есть" if os.path.exists(r) else "НЕТ") for r in roots)
         tasks = []
         for root in roots:
