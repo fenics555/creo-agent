@@ -202,3 +202,8 @@ def dup_report():
         for (p,) in c.execute("SELECT path FROM models WHERE name=?", (n,)).fetchall(): out.append("     " + p)
     c.close()
     return "\n".join(out)
+# v14-fix-db: БД всегда рядом с этим файлом, независимо от core.BASE
+import sqlite3 as _sq
+from pathlib import Path as _P
+def db():
+    return _sq.connect(str(_P(__file__).resolve().parent / "data" / "agent.sqlite"), timeout=10)
