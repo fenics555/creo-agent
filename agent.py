@@ -4,12 +4,55 @@ r"""
 ThreadingHTTPServer + pid + процедурный промт + invalid-парсер + approve в контекст.
 Финал: детерминированные чипы, своротка всех секций, вход вместо undefined, юзер в шапке.
 """
-import json, re, socket, threading, time, datetime, subprocess, sys, subprocess, sys
+import json, re, socket, threading, time, datetime
+from concurrent.futures import ThreadPoolExecutor, subprocess, sys, subprocess, sys
 from http.server import ThreadingHTTPServer, BaseHTTPRequestHandler
-from urllib.parse import urlparse
+from urllib.parse import urlparse, parse_qs
 import core
 from core import log, trace
 import settings
+# === v14: стриминг токенов ===
+import urllib.request as _ur
+LIVE_TOK = {}
+_orig_core_post = core.post
+def _stream_post(path, payload, *a, **k):
+    push = getattr(threading.current_thread(), "_tokpush", None)
+    if path != "/api/chat" or not push or not settings.get("stream_tokens"):
+        return _orig_core_post(path, payload, *a, **k)
+    payload = dict(payload); payload["stream"] = True
+    parts = []; state = {"buf": "", "mode": None}; lastj = {}
+    req = _ur.Request(core.OLL + path, data=json.dumps(payload).encode(), headers={"Content-Type": "application/json"})
+    try:
+        with _ur.urlopen(req, timeout=600) as resp:
+            for line in resp:
+                line = line.strip()
+                if not line: continue
+                try: j = json.loads(line)
+                except Exception: continue
+                lastj = j
+                t = (j.get("message") or {}).get("content") or ""
+                if t:
+                    parts.append(t)
+                    if state["mode"] != "tool":
+                        state["buf"] += t
+                        if state["mode"] is None:
+                            if len(state["buf"]) >= 8:
+                                if state["buf"].lstrip().startswith("[TOOL"):
+                                    state["mode"] = "tool"
+                                else:
+                                    state["mode"] = "ans"; push(state["buf"]); state["buf"] = ""
+                        elif state["mode"] == "ans":
+                            push(state["buf"]); state["buf"] = ""
+    except Exception:
+        p2 = dict(payload); p2["stream"] = False
+        return _orig_core_post(path, p2, *a, **k)
+    r = {"message": {"content": "".join(parts)}}
+    for _kk in ("prompt_eval_count", "eval_count", "prompt_eval_duration", "eval_duration"):
+        if _kk in lastj: r[_kk] = lastj[_kk]
+    return r
+core.post = _stream_post
+# === конец стриминга ===
+
 import tools_registry as TR
 import scanner
 import users
@@ -20,6 +63,8 @@ import vision_tools as VI
 HOST, PORT = "0.0.0.0", 8765
 HOSTNAME = socket.gethostname()
 PENDING = {}
+LIVE = {}
+LAST_META = {"p": 0, "r": 0}
 
 DEFAULT_PROTO = """# ПРОТОКОЛ ИНЖЕНЕРА-НАПАРНИКА
 ## 1. РОЛЬ
@@ -50,9 +95,37 @@ def load_skill(name):
     try: return p.read_text(encoding="utf-8") if p.exists() else ""
     except Exception: return ""
 
+_SYS_CACHE = {}
 def build_system():
+    if _SYS_CACHE.get("v"): return _SYS_CACHE["v"]
     p = load_skill("SKILL_agent_protocol.md") or DEFAULT_PROTO
-    return p + "\n\n=== ТВОИ ИНСТРУМЕНТЫ (имя — описание — параметры) ===\n" + TR.describe()
+    _SYS_CACHE["v"] = p + "\n\n=== ТВОИ ИНСТРУМЕНТЫ (имя — описание — параметры) ===\n" + TR.describe()
+
+
+def _scheduler():
+    last_day = ""
+    while True:
+        try:
+            now = datetime.datetime.now()
+            if settings.get("night_enable"):
+                hh = int(settings.get("night_hour") or 2); mm = int(settings.get("night_minute") or 0)
+                if now.hour == hh and now.minute == mm and now.strftime("%Y-%m-%d") != last_day:
+                    last_day = now.strftime("%Y-%m-%d")
+                    for t in str(settings.get("night_tasks") or "scan,index,usage").split(","):
+                        t = t.strip()
+                        try:
+                            if t == "scan": scanner.scan_models()
+                            elif t == "index": scanner.index_all()
+                            elif t == "usage":
+                                import usage_tools; usage_tools.build_usage(True)
+                            elif t == "backup":
+                                import backup_tools; backup_tools.tool_make()
+                        except Exception as e:
+                            log("night %s err: %s" % (t, e))
+                    log("night run done")
+        except Exception:
+            pass
+        time.sleep(30)
 
 def beh():
     steps = int(settings.get("steps_max") or 6)
@@ -106,14 +179,16 @@ def hist_block(client):
         out.append({"role": "assistant", "content": a[:800]})
     return out
 
-def run_loop(messages, client, has_link=False):
+def run_loop(messages, client, has_link=False, on_step=None):
     opts, steps_max = beh()
+    LAST_META.update(p=0, r=0)
     steps_log, last_res, sig_prev, invalid_cnt = [], "", None, 0
+    def _log(line): _log(line); LIVE.setdefault(client, []).append(line)
     for step in range(steps_max):
         r = None
         for attempt in (1, 2):
             try:
-                r = core.post("/api/chat", {"model": settings.get("llm_model") or "deepseek-r1:14b",
+                r = core.post("/api/chat", {"model": settings.model_for("chat"),
                               "stream": False, "options": opts, "messages": messages}, t=600)
                 break
             except Exception as e:
@@ -123,13 +198,15 @@ def run_loop(messages, client, has_link=False):
         raw = (r.get("message") or {}).get("content") or ""
         think = re.search(r"<think>([\s\S]*?)</think>", raw)
         think = think.group(1).strip() if think else ""
-        kind, payload, args = parse_model(raw)
+        try: LAST_META["p"] += r.get("prompt_eval_count") or 0; LAST_META["r"] += r.get("eval_count") or 0
+    except Exception: pass
+    kind, payload, args = parse_model(raw)
         if kind == "answer":
             used_web = any("web_fetch" in s for s in steps_log)
             if has_link and not used_web and step < steps_max - 1 and len(payload) < 400:
                 messages.append({"role": "assistant", "content": raw})
                 messages.append({"role": "user", "content": "[СЛУЖЕБНОЕ] В задаче была ссылка http — сначала прочитай её через web_fetch, потом отвечай."})
-                steps_log.append("web_nudge"); continue
+                _log("web_nudge"); continue
             txt = payload
             if len(txt) < 40 and last_res: txt = last_res + "\n\n" + txt
             return {"answer": txt, "think": think, "steps": step + 1, "log": steps_log}
@@ -138,14 +215,33 @@ def run_loop(messages, client, has_link=False):
             if invalid_cnt < 2:
                 messages.append({"role": "assistant", "content": raw})
                 messages.append({"role": "user", "content": "[СЛУЖЕБНОЕ] Ответ не в формате. Дай ровно один блок: [TOOL: имя] {\"параметр\": \"значение\"} [/TOOL] или [ANSWER] текст [/ANSWER]. Ничего до и после. Повтори."})
-                steps_log.append("parse_invalid"); continue
+                _log("parse_invalid"); continue
             return {"answer": payload, "think": think, "steps": step + 1, "log": steps_log}
         name = payload
         sig = (name, json.dumps(args, sort_keys=True, ensure_ascii=False))
         if sig == sig_prev:
             return {"answer": last_res or "зацикливание остановлено", "think": think, "steps": step + 1, "log": steps_log}
         sig_prev = sig
-        t = TR.get(name)
+        if settings.get("parallel_tools"):
+        others = []
+        for m in re.finditer(r"\[TOOL:\s*([A-Za-z0-9_]+)\s*\]\s*(\{.*?\})\s*\[/TOOL\]", raw, re.S):
+            try: aa = json.loads(m.group(2))
+            except Exception: aa = {}
+            tt = TR.get(m.group(1))
+            if tt and not tt.get("approval"): others.append((m.group(1), aa))
+        if len(others) > 1:
+            def _one(oa):
+                nn, aa2 = oa
+                try: return "%s → %s" % (nn, str(TR.get(nn)["fn"](**aa2))[:600])
+                except Exception as e: return "%s → ошибка: %s" % (nn, e)
+            try:
+                with ThreadPoolExecutor(max_workers=4) as ex: res = "\n".join(ex.map(_one, others))
+                _log("parallel[%d]: %s" % (len(others), ", ".join(o[0] for o in others)))
+                last_res = res; sig_prev = sig
+                messages.append({"role": "assistant", "content": raw}); messages.append({"role": "user", "content": "[РЕЗУЛЬТАТ parallel]: %s" % res[:4000]})
+                continue
+            except Exception: pass
+    t = TR.get(name)
         if not t:
             res = "нет такого инструмента: %s" % name
         elif t.get("approval"):
@@ -160,14 +256,15 @@ def run_loop(messages, client, has_link=False):
             except Exception as e:
                 res = "ошибка исполнения %s: %s" % (name, e)
             trace("AGENT %s" % name, "OK", int((time.time() - t0) * 1000))
-        steps_log.append("%s(%s) → %s" % (name, "без параметров" if not args else json.dumps(args, ensure_ascii=False), res[:120]))
+        _log("%s(%s) → %s" % (name, "без параметров" if not args else json.dumps(args, ensure_ascii=False), res[:120]))
         last_res = res
         messages.append({"role": "assistant", "content": raw})
         messages.append({"role": "user", "content": "[РЕЗУЛЬТАТ %s]: %s" % (name, res[:4000])})
     return {"answer": last_res or "не уложился в шаги", "think": "", "steps": steps_max, "log": steps_log}
 
-def ask(q, client, image=None):
+def ask(q, client, image=None, on_step=None):
     q2 = VI.attach(q, image, client)
+    LIVE[client] = []
     name = q.strip()
     t = TR.get(name)
     if t and not image:
@@ -216,7 +313,13 @@ def ask(q, client, image=None):
         return {"answer": res, "think": "", "steps": 1, "log": ["%s(прямой вызов) → %s" % (name, res[:120])]}
     q2 = q2 + "\n\n[СЛУЖЕБНОЕ: отвечай только по-русски. Один ход = один [TOOL] или один [ANSWER]. Никакого текста до и после блока.]"
     messages = [{"role": "system", "content": build_system()}] + hist_block(client) + [{"role": "user", "content": q2}]
-    r = run_loop(messages, client, has_link=("http" in q))
+    _ta = time.time()
+    LIVE_TOK[client] = []
+    def _push(t): LIVE_TOK.setdefault(client, []).append(t)
+    threading.current_thread()._tokpush = _push
+    r = run_loop(messages, client, has_link=("http" in q), on_step=on_step)
+    if int(settings.get("log_mode") or 1) >= 1:
+        r.setdefault("log", []).append("⏱ %dмс · 🔢 %d ток (промт %d + ответ %d) · шагов: %d" % (int((time.time() - _ta) * 1000), LAST_META["p"] + LAST_META["r"], LAST_META["p"], LAST_META["r"], r.get("steps", 1)))
     c = core.db()
     c.execute("INSERT INTO history(client,q,a,ts) VALUES(?,?,?,?)",
               (client, q, r["answer"][:2000], datetime.datetime.now().isoformat()))
@@ -240,7 +343,7 @@ def do_approve(pid, okf):
         return {"res": res, "answer": r["answer"], "think": r.get("think", ""), "log": r.get("log", [])}
     return {"res": res}
 
-PAGE = r"""<!DOCTYPE html><html><head><meta charset="utf-8"><title>АГЕНТ v12</title>
+PAGE = r"""<!DOCTYPE html><html><head><meta charset="utf-8"><title>АГЕНТ v14</title>
 <style>body{margin:0;background:#14181f;color:#dfe6ee;font:14px/1.5 Segoe UI,sans-serif}
 #top{position:fixed;top:0;left:0;right:0;background:#1b222b;padding:8px 14px;display:flex;gap:10px;align-items:center;z-index:5}
 #top b{color:#6db3f2}#chat{margin:52px 300px 70px 12px;padding:8px;overflow-y:auto}
@@ -263,8 +366,8 @@ button{background:#2b4a6f;color:#fff;border:0;border-radius:8px;padding:8px 14px
 #login div{background:#1b222b;padding:24px;border-radius:12px;display:flex;flex-direction:column;gap:10px}
 #login input{background:#232b36;color:#dfe6ee;border:1px solid #334052;border-radius:8px;padding:10px}</style></head>
 <body>
-<div id="top"><b>АГЕНТ v12</b><span id="hdr"></span><span style="flex:1"></span>
-<button data-act="showlog">Лог</button><button data-act="panel">Панель</button><button data-act="showpro">👤</button><button data-act="showchat">💬</button> <button data-act="logout">Выйти</button></div>
+<div id="top"><b>АГЕНТ v14</b><span id="hdr"></span><span style="flex:1"></span>
+<button data-act="chip" data-val="guide">❓</button><button data-act="wizard">🧙</button><button data-act="showlog">Лог</button><button data-act="panel">Панель</button><button data-act="showpro">👤</button><button data-act="showchat">💬</button> <button data-act="logout">Выйти</button></div>
 <div id="chat"></div>
 <div id="panel"></div>
 <div id="inp"><input id="q" placeholder="Задача для АГЕНТА... (Enter) | Ctrl+V — вставить скриншот">
@@ -272,6 +375,20 @@ button{background:#2b4a6f;color:#fff;border:0;border-radius:8px;padding:8px 14px
 <div id="login"><div style="position:relative"><button data-act="closelogin" style="position:absolute;top:6px;right:6px;background:#334052;color:#fff;border:0;border-radius:6px;padding:2px 8px;cursor:pointer">✕</button>
 <input id="lg" placeholder="логин"><input id="pw" type="password" placeholder="пароль">
 <button data-act="login">Войти</button><button data-act="reg">Регистрация</button></div></div>
+<div id="wiz" style="display:none;position:fixed;inset:0;background:#0009;align-items:center;justify-content:center;z-index:11">
+<div style="background:#1b222b;padding:20px;border-radius:12px;width:430px;display:flex;flex-direction:column;gap:9px;border:1px solid #334052">
+<b>🧙 МАСТЕР ОПЕРАЦИЙ</b>
+<small style="color:#8fa3b8">Копия сборки (сначала план)</small>
+<input id="w_old" placeholder="старое имя (old)" style="background:#232b36;color:#dfe6ee;border:1px solid #334052;border-radius:6px;padding:8px">
+<input id="w_new" placeholder="новое имя (new)" style="background:#232b36;color:#dfe6ee;border:1px solid #334052;border-radius:6px;padding:8px">
+<label style="color:#8fa3b8"><input type="checkbox" id="w_dry" checked> только план (dry_run)</label>
+<button data-act="w_copy" style="background:#2b4a6f;color:#fff;border:0;border-radius:6px;padding:8px;cursor:pointer">📋 Сделать копию</button>
+<hr style="border-color:#243040">
+<button data-act="w_audit" style="background:#2b4a6f;color:#fff;border:0;border-radius:6px;padding:8px;cursor:pointer">🔍 Аудит папки Creo</button>
+<button data-act="w_usage" style="background:#2b4a6f;color:#fff;border:0;border-radius:6px;padding:8px;cursor:pointer">🧩 Пересобрать «где используется»</button>
+<button data-act="w_night" style="background:#2b4a6f;color:#fff;border:0;border-radius:6px;padding:8px;cursor:pointer">🌙 Ночной прогон</button>
+<button data-act="w_close" style="background:#334052;color:#fff;border:0;border-radius:6px;padding:8px;cursor:pointer">Закрыть</button>
+</div></div>
 <div id="pro" style="display:none;position:fixed;inset:0;background:#0009;align-items:center;justify-content:center;z-index:10">
 <div style="background:#1b222b;padding:24px;border-radius:12px;width:340px;display:flex;flex-direction:column;gap:10px;border:1px solid #334052">
 <b>👤 ПРОФИЛЬ</b><span id="proinfo" style="color:#9fb0c3;font-size:13px"></span>
@@ -310,7 +427,25 @@ function att(s){return esc(s).replace(/"/g,'&quot;')}
 function addMsg(html,me){var d=document.createElement('div');d.className='msg'+(me?' me':'');d.innerHTML=html;chat.appendChild(d);chat.scrollTop=chat.scrollHeight;return d}
 function showLogin(){login.style.display='flex';hdr.textContent='';panel.innerHTML=''}
 function send(){var q=qinp.value;if(!q)return;qinp.value='';addMsg(esc(q),true);var d=addMsg('🤔 думаю...');var sp=document.getElementById('spin');if(sp)sp.style.display='inline-block';
-J('/ask',{token:TK,q:q,image:IMG}).then(function(r){if(sp)sp.style.display='none';if(r&&r.error){localStorage.removeItem('tk');TK='';showLogin();d.innerHTML='⚠ нужен вход';return}IMG=null;render(d,r)}).catch(function(e){if(sp)sp.style.display='none';d.innerHTML='ошибка: '+esc(e)})}
+function legacy(){return var TKI=0,ST2=setInterval(function(){J('/livetoks?last='+TKI).then(function(g){(g.toks||[]).forEach(function(t){TKI++;var s=d.querySelector('.stream')||(function(){var e=document.createElement('div');e.className='stream';d.appendChild(e);return e})();s.textContent+=t;chat.scrollTop=chat.scrollHeight;});});},120);
+var LV=0,LT=setInterval(function(){J('/livesteps?last='+LV).then(function(g){(g.lines||[]).forEach(function(l){LV++;var lg=d.querySelector('.live')||(function(){var e=document.createElement('div');e.className='log live';d.appendChild(e);return e})();lg.textContent+='· '+l+'\n';chat.scrollTop=chat.scrollHeight;});});},700);J('/ask',{token:TK,q:q,image:IMG}).then(function(r){clearInterval(LT);clearInterval(ST2);if(sp)sp.style.display='none';if(r&&r.error){localStorage.removeItem('tk');TK='';showLogin();d.innerHTML='⚠ нужен вход';return}IMG=null;render(d,r)}).catch(function(e){clearInterval(LT);clearInterval(ST2);if(sp)sp.style.display='none';d.innerHTML='ошибка: '+esc(e)})}
+try{
+fetch('/ask_stream',{method:'POST',headers:{'Content-Type':'application/json','X-Token':TK||''},body:JSON.stringify({q:q,image:IMG})}).then(function(r){
+if(!r.ok||!r.body){return legacy()}
+var rd=r.body.getReader();var dec=new TextDecoder();var buf='';var log=[];
+function finish(rr){if(sp)sp.style.display='none';if(!rr){return legacy()}IMG=null;render(d,rr)}
+function pump(){return rd.read().then(function(o){if(o.done){return finish(null)}buf+=dec.decode(o.value,{stream:true});var i;while((i=buf.indexOf('
+
+'))>=0){var ev=buf.slice(0,i);buf=buf.slice(i+2);if(ev.indexOf('data: ')!==0)continue;var j;try{j=JSON.parse(ev.slice(6))}catch(e){continue}
+if(j.step){log.push(j.step);d.innerHTML='<div class="log">🔎 ХОД РАБОТЫ:
+'+log.map(esc).join('
+')+'</div><div>⏳ выполняю шаг...</div>';chat.scrollTop=chat.scrollHeight}
+else if(j.done){return finish(j.done)}}return pump()})}
+return pump()})
+.catch(function(e){return legacy()})
+}catch(e){legacy()}
+}
+
 function render(d,r){var h='';
 if(r.think)h+='<div class="think" data-act="think">🧠 размышления (клик)</div><div class="thinkbody" style="display:none">'+esc(r.think)+'</div>';
 if(r.log&&r.log.length)h+='<div class="log">🔎 ХОД РАБОТЫ:\n'+r.log.map(esc).join('\n')+'</div>';
@@ -339,6 +474,13 @@ document.addEventListener('click',function(e){var el=e.target.closest('[data-act
 if(a=='think'){var n=el.nextElementSibling;n.style.display=n.style.display=='none'?'block':'none'}
 else if(a=='fold'){var b=el.nextElementSibling;var hid=b.style.display=='none';b.style.display=hid?'block':'none';el.textContent=(hid?'▾':'▸')+el.textContent.slice(1)}
 else if(a=='send')send();
+else if(a=='wizard'){document.getElementById('wiz').style.display='flex'}
+else if(a=='w_close'){document.getElementById('wiz').style.display='none'}
+else if(a=='w_copy'){var o=document.getElementById('w_old').value,n=document.getElementById('w_new').value;if(!o||!n){alert('заполни old и new');return}document.getElementById('wiz').style.display='none';qinp.value='copy_model old='+o+' new='+n+' dry_run='+(document.getElementById('w_dry').checked?1:0);send()}
+else if(a=='w_audit'){document.getElementById('wiz').style.display='none';qinp.value='creo_audit_folder';send()}
+else if(a=='w_usage'){document.getElementById('wiz').style.display='none';qinp.value='usage_build full=1';send()}
+else if(a=='w_night'){document.getElementById('wiz').style.display='none';qinp.value='nightly_run';send()}
+
 else if(a=='snap')J('/snap',{token:TK}).then(function(r){addMsg(esc(r.msg||'ок'))});
 else if(a=='showlog')J('/log').then(function(r){addMsg('<div class="log">'+esc(r.log)+'</div>')});
 else if(a=='panel')panel.style.display=panel.style.display=='none'?'block':'none';
@@ -354,7 +496,7 @@ else if(a=='do_resetpw'){var lgn=el.getAttribute('data-login');var nw=prompt('Н
 else if(a=='adduser'){J('/admin/users',{token:TK,op:'add',login:document.getElementById('nlog').value,pw:document.getElementById('npw').value,role:document.getElementById('nrole').value}).then(function(r){alert(r.msg||'ок');if(r.ok){document.getElementById('nlog').value='';document.getElementById('npw').value='';document.getElementById('adm').style.display='none';setTimeout(function(){document.getElementById('adm').style.display='flex';document.querySelector('[data-act="openadm"]').click()},100)}})}
 
 else if(a=='closelogin'){login.style.display='none'}
-else if(a=='login')J('/login',{login:document.getElementById('lg').value,pw:document.getElementById('pw').value}).catch(function(e){alert('сервер недоступен: '+e);throw e}).then(function(r){if(r.ok){TK=r.token;localStorage.setItem('tk',TK);localStorage.setItem('usr',lg.value);login.style.display='none';init()}else alert('неверный логин или пароль')});
+else if(a=='login')J('/login',{login:document.getElementById('lg').value,pw:document.getElementById('pw').value}).catch(function(e){alert('сервер недоступен: '+e);throw e}).then(function(r){if(r.ok){TK=r.token;localStorage.setItem('tk',TK);localStorage.setItem('usr',lg.value);login.style.display='none';init();if(!localStorage.getItem('seen_guide')){localStorage.setItem('seen_guide','1');setTimeout(function(){qinp.value='guide';send()},400)}}else alert('неверный логин или пароль')});
 else if(a=='reg')J('/register',{login:lg.value,pw:pw.value}).then(function(r){alert(r.msg||'ок')});
 else if(a=='appr'){var sp2=document.getElementById('spin');if(sp2)sp2.style.display='inline-block';J('/approve',{token:TK,pid:el.getAttribute('data-pid'),ok:el.getAttribute('data-ok')=='1'}).then(function(r){if(sp2)sp2.style.display='none';addMsg(esc((r.res||'')+((r.answer&&r.answer!==r.res)?'\n\n'+r.answer:'')))});}
 else if(a=='setm')J('/setmodel',{token:TK,model:el.getAttribute('data-val')}).then(function(){init()});
@@ -418,14 +560,33 @@ class Hd(BaseHTTPRequestHandler):
                 d.pop("settings", None)
             self._j(d)
         elif p == "/log":
-            try:
-                txt = core.LOGF.read_text(encoding="utf-8", errors="ignore").splitlines()
-                self._j({"log": "\n".join(txt[-80:])})
-            except Exception:
-                self._j({"log": "лога нет"})
+            _tk = users.token_info(self.headers.get("X-Token") or "")
+            if _tk and not users.is_admin(_tk["login"]):
+                c = core.db()
+                rows = c.execute("SELECT q,a,ts FROM history WHERE client=? ORDER BY id DESC LIMIT 40", (_tk["login"],)).fetchall()
+                c.close()
+                self._j({"log": "\n".join("%s · %s → %s" % (ts[:16], q, a[:80]) for q, a, ts in reversed(rows)) or "история пуста"})
+            else:
+                try:
+                    txt = core.LOGF.read_text(encoding="utf-8", errors="ignore").splitlines()
+                    self._j({"log": "\n".join(txt[-80:])})
+                except Exception:
+                    self._j({"log": "лога нет"})
         elif p == "/settings":
             self._j({"items": settings.list_ui()})
-        elif p == "/fleet/info":
+        elif p == "/livetoks":
+    _cl6 = users.token_info(self.headers.get("X-Token") or "")
+    qs = parse_qs(urlparse(self.path).query)
+    last = int((qs.get("last") or ["0"])[0])
+    toks = LIVE_TOK.get(_cl6["login"] if _cl6 else "", [])
+    self._j({"toks": toks[last:], "last": len(toks)})
+elif p == "/livesteps":
+    _cl4 = users.token_info(self.headers.get("X-Token") or "")
+    qs = parse_qs(urlparse(self.path).query)
+    last = int((qs.get("last") or ["0"])[0])
+    lines = LIVE.get(_cl4["login"] if _cl4 else "", [])
+    self._j({"lines": lines[last:], "last": len(lines)})
+elif p == "/fleet/info":
             import os as _os
             tail = ""
             try:
@@ -459,13 +620,34 @@ class Hd(BaseHTTPRequestHandler):
             self._j({"error": "нужен вход"}, 401); return
         if p == "/ask":
             self._j(ask(b.get("q") or "", cl, b.get("image")))
-        elif p == "/approve":
+        elif p == "/ask_stream":
+        import queue as _q
+        qq = _q.Queue(); holder = {}
+        def _cb(line): qq.put(line)
+        def _run():
+            try: holder["r"] = ask(b.get("q") or "", cl, b.get("image"), on_step=_cb)
+            except Exception as e: holder["r"] = {"answer": "ошибка: %s" % e, "log": []}
+            finally: qq.put(None)
+        threading.Thread(target=_run, daemon=True).start()
+        self.send_response(200)
+        self.send_header("Content-Type", "text/event-stream; charset=utf-8")
+        self.send_header("Cache-Control", "no-store")
+        self.end_headers()
+        while True:
+            item = qq.get()
+            if item is None: break
+            self.wfile.write(("data: %s\n\n" % json.dumps({"step": item}, ensure_ascii=False)).encode()); self.wfile.flush()
+        self.wfile.write(("data: %s\n\n" % json.dumps({"done": holder.get("r", {})}, ensure_ascii=False)).encode()); self.wfile.flush()
+        return
+    elif p == "/approve":
             self._j(do_approve(b.get("pid"), b.get("ok")))
         elif p == "/setmodel":
             settings.set_val("llm_model", b.get("model")); self._j({"ok": True})
         elif p == "/setauto":
             settings.set_val("auto_mode", 1 if b.get("on") else 0); self._j({"ok": True})
         elif p == "/setcfg":
+    if (b.get("key") or "") in settings.PERSONAL_KEYS:
+        settings.set_for(cl, b.get("key"), b.get("value")); self._j({"ok": True}); return
             if not users.is_admin(cl):
                 self._j({"error": "настройки — только админ"}, 403); return
             settings.set_val(b.get("key"), b.get("value")); self._j({"ok": True})
@@ -519,6 +701,7 @@ if __name__ == "__main__":
     pidfile = core.BASE / "agent.pid"
     pidfile.write_text(str(os.getpid()), encoding="ascii")
     atexit.register(lambda: pidfile.unlink(missing_ok=True))
+    threading.Thread(target=_scheduler, daemon=True).start()
     try:
         ThreadingHTTPServer((HOST, PORT), Hd).serve_forever()
     finally:

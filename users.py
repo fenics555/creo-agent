@@ -108,7 +108,7 @@ if not _find(_load(), "admin"):
     add_user("admin", "admin", role="Администратор")
 
 
-# == ROLE PERMS ==
+# # == ROLE PERMS ==
 def _perms_db():
     import core
     c = core.db()

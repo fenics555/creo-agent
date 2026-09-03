@@ -16,6 +16,15 @@ REGISTRY = [
     ("Главное", "num_predict", "Макс токенов ответа", "int", 2048, "Чтобы не резало мысли.", True),
     ("Главное", "admin_password", "Пароль обучения", "str", "1945", "Для админ-действий.", True),
     ("Главное", "auto_mode", "Авторежим", "bool", True, "Вкл: температура 0.1 (инженер). Выкл: температура от креатива.", True),
+    ("Главное", "stream_tokens", "Стриминг токенов", "bool", True, "Печатать ответ по токенам по мере генерации.", True),
+    ("Флот", "fleet_autocommit", "Авто-коммит решений", "bool", False, "Коммитить новые скиллы/кейсы в creo-repo автоматически.", True),
+    ("Расписание", "night_enable", "Ночной прогон", "bool", True, "Автопрогон тяжёлых задач ночью.", True),
+    ("Расписание", "night_hour", "Час прогона", "int", 2, "0-23.", True),
+    ("Расписание", "night_minute", "Минута прогона", "int", 0, "0-59.", True),
+    ("Расписание", "night_tasks", "Задачи ночи", "str", "scan,index,usage", "scan/index/usage/backup через запятую.", True),
+    ("Главное", "parallel_tools", "Параллельные инструменты", "bool", False, "Несколько [TOOL] за ход — в потоках.", True),
+    ("Главное", "stream_ui", "Стриминг в веб", "bool", False, "Токены в чат по мере генерации.", True),
+    ("Главное", "log_mode", "Режим логов 0-3", "int", 1, "0 авто / 1 авто+токены / 2 отладка / 3 полный.", True),
     ("Разум", "log_days", "Дней хранить лог", "int", 14, "Автоочистка логов.", True),
     ("Разум", "verbose_trace", "Подробный trace", "bool", False, "Сырые JSON в trace-файл.", False),
     ("Поиск", "repo_boost", "Буст репозитория", "float", 1.2, "Умножение схожести для repo.", True),
@@ -50,6 +59,15 @@ REGISTRY = [
     ("Главное", "steps_max", "steps_max", "int", 6, "Из config.json (авто-регистрация).", True),
     ("Сканер", "scan_roots", "scan_roots", "list", ["D:\\PTC\\CREO12\\Creo 12.4.2.0\\creo_help_pma\\russian", "D:\\AI\\repo", "Z:\\PTC\\Work", "Z:\\PTC\\CREO-START"], "Из config.json (авто-регистрация).", True),
     ("Сканер", "scan_exclude", "scan_exclude", "list", [".git\\", "__pycache__\\", "node_modules\\", "venv\\", ".venv\\", "backup\\", "old\\", "temp\\", "tmp\\", "cache\\", ".idea\\", ".vscode\\", "Z:\\PTC\\Work\\000_03 401-LIT Литейное производство\\000_5 401-LIT-MO Модельная оснастка для литья\\000_10 СТОРОННИЕ РАЗРАБОТКИ\\", "Z:\\PTC\\Work\\УЧЕБА\\", "Z:\\PTC\\Work\\хуйня\\", "Thumbs.db", "desktop.ini", "*.tmp", "*.bak", "*~", "*.log", "*.sqlite", "*.db", "*.exe", "*.dll", "*.so", "*.o", "*.obj", "*.pyc", ".DS_Store"], "Из config.json (авто-регистрация).", True),
+    ("ИИ-роли", "model_index", "Модель индексации", "str", "nomic-embed-text:latest", "Эмбеддинги, без чата.", True),
+    ("ИИ-роли", "model_chat", "Модель чата", "str", "", "Пусто = llm_model.", True),
+    ("ИИ-роли", "model_fast", "Модель рутины", "str", "qwen2.5-coder:7b", "Быстрые/простые ходы.", True),
+    ("ИИ-роли", "model_creo", "Модель Creo", "str", "", "Пусто = llm_model.", False),
+    ("ИИ-роли", "model_vision", "Модель визии", "str", "minicpm-v:8b", "Скриншоты/чертежи.", True),
+    ("ИИ-роли", "model_spec", "Модель спец", "str", "", "Пусто = llm_model.", False),
+    ("ИИ-роли", "model_trail", "Модель трейлов", "str", "qwen2.5-coder:7b", "Диагностика трейлов.", True),
+    ("ИИ-роли", "model_web", "Модель веб", "str", "", "Пусто = llm_model.", False),
+    ("ИИ-роли", "model_audit", "Модель аудита", "str", "", "Пусто = llm_model.", False),
 ]
 
 def _ensure():
@@ -82,6 +100,17 @@ def set_val(key, value):
                 elif typ == "list" and isinstance(value, str): value = [x.strip() for x in value.split(",") if x.strip()]
             except Exception: pass
             d[key] = value
+    if key == "auto_mode" and str(value).lower() in ("1","true","yes","on","да"):  # auto_reset
+        for _, k2, _, _, defl2, _, _ in REGISTRY:
+            if k2 in ("creativity","auto_temperature","top_p","num_ctx","num_predict","steps_max"): d[k2] = defl2
+    if key == "auto_mode" and str(value).lower() in ("1", "true", "yes", "on", "да"):
+        for _, k2, _, _, defl2, _, _ in REGISTRY:
+            if k2 in ("creativity", "auto_temperature", "top_p", "num_ctx", "num_predict", "steps_max"):
+                d[k2] = defl2
+    if key == "auto_mode" and str(value).lower() in ("1", "true", "yes", "on", "да"):
+        for _, k2, _, _, defl2, _, _ in REGISTRY:
+            if k2 in ("creativity", "auto_temperature", "top_p", "num_ctx", "num_predict", "steps_max"):
+                d[k2] = defl2
             CONFIG_FILE.write_text(json.dumps(d, ensure_ascii=False, indent=1), encoding="utf-8")
             return True
     return False
@@ -95,7 +124,7 @@ def show_all():
 
 def list_ui():
     d = _raw()
-    B = {"creativity": (0, 100, 1), "auto_temperature": (0, 100, 1), "top_p": (0, 1, 0.05),
+    B = {"log_mode": (0,3,1), "night_hour": (0,23,1), "night_minute": (0,59,1), "log_mode": (0,3,1), "night_hour": (0,23,1), "night_minute": (0,59,1), "night_hour": (0, 23, 1), "night_minute": (0, 59, 1), "log_mode": (0, 3, 1), "creativity": (0, 100, 1), "auto_temperature": (0, 100, 1), "top_p": (0, 1, 0.05),
          "num_ctx": (1024, 32768, 1024), "num_predict": (256, 8192, 256),
          "log_days": (1, 365, 1), "image_days": (1, 60, 1), "history_days": (1, 365, 1),
          "client_days": (1, 365, 1), "top_chunks": (1, 12, 1), "chunk_chars": (200, 2000, 100),
@@ -115,3 +144,20 @@ def list_ui():
         else: e["kind"] = "text"
         out.append(e)
     return out
+
+
+def model_for(role):
+    v = get("model_" + role)
+    return v or get("llm_model")
+
+PERSONAL_KEYS = ["llm_model", "creativity", "auto_temperature", "top_p", "num_ctx", "num_predict", "steps_max", "auto_mode"]
+PREF_FILE = DATA_DIR / "user_prefs.json"
+def _prefs():
+    try: return json.loads(PREF_FILE.read_text(encoding="utf-8"))
+    except Exception: return {}
+def get_for(login, key, default=None):
+    return _prefs().get(login or "", {}).get(key, default)
+def set_for(login, key, value):
+    d = _prefs(); u = d.setdefault(login or "", {}); u[key] = value
+    PREF_FILE.write_text(json.dumps(d, ensure_ascii=False, indent=1), encoding="utf-8")
+    return True

@@ -198,7 +198,7 @@ def _llm_opinion(facts):
     prompt = ("Ты — инженер-диагност Creo Parametric. Думай и отвечай ТОЛЬКО на русском языке.\n"
               "Факты из трейлов:\n%s\nКоротко (до 10 строк): главные причины тормозов/ошибок и что делать инженеру." % facts)
     try:
-        r = core.post("/api/chat", {"model": settings.get("llm_model") or "deepseek-r1:14b", "stream": False,
+        r = core.post("/api/chat", {"model": settings.model_for("trail") or "deepseek-r1:14b", "stream": False,
                                     "options": {"temperature": 0.2, "num_predict": 1024},
                                     "messages": [{"role": "user", "content": prompt}]}, t=300)
         return re.sub(r"<think>[\s\S]*?</think>", "", r["message"]["content"]).strip() or "(мнения нет)"

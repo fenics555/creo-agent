@@ -1,156 +1,141 @@
 # -*- coding: utf-8 -*-
+"""v14 FINAL_2: agent.py — полный стриминг + движок + UX + пер-юзер + v14."""
 import re
 from pathlib import Path
 AG = Path(r"D:\AI\tools\agent")
+ap = AG / "agent.py"; a = ap.read_text(encoding="utf-8"); ch = False
 
-# 1) usage_tools.py — начисто (был битый try/except)
-(AG / "usage_tools.py").write_text('''# -*- coding: utf-8 -*-
-r"""Индекс «где используется»: деталь -> родительские сборки (слова из бинарных .asm).
-Таблицы usage/usage_meta — в общем SQLite (data/agent.sqlite), рядом с models."""
-import os, re, threading, time
-import core
-from core import trace
-RUN = re.compile(rb"[A-Za-z0-9_-]{3,}")
-STATE = {"busy": False, "done": 0, "total": 0, "links": 0, "names": 0,
-         "finished": "", "error": "", "roots_info": ""}
-
-def _db():
-    c = core.db()
-    c.execute("CREATE TABLE IF NOT EXISTS usage(child TEXT, parent TEXT, parent_path TEXT)")
-    c.execute("CREATE INDEX IF NOT EXISTS ix_usage_child ON usage(child)")
-    c.execute("CREATE TABLE IF NOT EXISTS usage_meta(path TEXT PRIMARY KEY, mtime REAL)")
-    return c
-
-def _base(n):
-    return re.sub(r"\\.(prt|asm)(\\.\\d+)?$", "", n, flags=re.I)
-
-def build_usage(full=False):
-    if STATE["busy"]: return
-    STATE.update(busy=True, done=0, total=0, links=0, error="")
-    trace("USAGE build", "START", 0, "полный " if full else "инкремент")
+STREAM = '''
+import urllib.request as _ur
+LIVE_TOK = {}
+_orig_core_post = core.post
+def _stream_post(path, payload, *ar, **kw):
+    push = getattr(threading.current_thread(), "_tokpush", None)
+    if path != "/api/chat" or not push or not settings.get("stream_tokens"):
+        return _orig_core_post(path, payload, *ar, **kw)
+    payload = dict(payload); payload["stream"] = True
+    parts = []; st = {"buf": "", "mode": None}; lj = {}
+    req = _ur.Request(core.OLL + path, data=json.dumps(payload).encode(), headers={"Content-Type": "application/json"})
     try:
-        c = _db()
-        names = set()
-        for (n,) in c.execute("SELECT name FROM models WHERE LOWER(ext) IN ('prt','asm')"):
-            names.add(_base(n).upper())
-        STATE["names"] = len(names)
-        has_old = c.execute("SELECT name FROM sqlite_master WHERE type='table' AND name='usage'").fetchone()
-        old_meta = {}
-        if has_old and not full:
-            old_meta = dict(c.execute("SELECT path, mtime FROM usage_meta").fetchall())
-        if not old_meta: full = True
-        roots = core.read_roots()
-        STATE["roots_info"] = "; ".join("%s:%s" % (r, "есть" if os.path.exists(r) else "НЕТ") for r in roots)
-        tasks = []
-        for root in roots:
-            if not os.path.exists(root): continue
-            for dp, dn, fns in os.walk(root):
-                tasks += [os.path.join(dp, fn) for fn in fns if re.search(r"\\.asm(\\.\\d+)?$", fn, re.I)]
-        STATE["total"] = len(tasks)
-        c.execute("DROP TABLE IF EXISTS usage_new")
-        c.execute("CREATE TABLE usage_new(child TEXT, parent TEXT, parent_path TEXT)")
-        rows, new_meta, reused = [], {}, 0
-        for path in tasks:
-            try: mt = os.path.getmtime(path)
-            except Exception: mt = 0.0
-            new_meta[path] = mt
-            parent = _base(os.path.basename(path)).upper()
-            if has_old and not full and old_meta.get(path) == mt:
-                rows += c.execute("SELECT child, parent, parent_path FROM usage WHERE parent_path=?", (path,)).fetchall()
-                reused += 1
-            else:
-                try:
-                    with open(path, "rb") as f: data = f.read()
-                except Exception: data = b""
-                found = set()
-                for mm in RUN.finditer(data):
-                    ref = mm.group(0).decode().upper()
-                    if ref in names and ref != parent: found.add(ref)
-                rows += [(ref.lower(), parent.lower(), path) for ref in found]
-            STATE["done"] += 1
-            if STATE["done"] % 20 == 0: time.sleep(0.001)
-        c.executemany("INSERT INTO usage_new(child,parent,parent_path) VALUES(?,?,?)", rows)
-        c.execute("DELETE FROM usage_meta")
-        c.executemany("INSERT INTO usage_meta(path,mtime) VALUES(?,?)", list(new_meta.items()))
-        c.execute("DROP TABLE IF EXISTS usage_old")
-        if has_old: c.execute("ALTER TABLE usage RENAME TO usage_old")
-        c.execute("ALTER TABLE usage_new RENAME TO usage")
-        c.execute("DROP TABLE IF EXISTS usage_old")
-        c.execute("CREATE INDEX IF NOT EXISTS ix_usage_child ON usage(child)")
-        c.commit(); c.close()
-        STATE.update(links=len(rows), finished=time.strftime("%d.%m %H:%M"))
-        trace("USAGE build", "OK", 0, "names=%d tasks=%d links=%d reused=%d" % (len(names), len(tasks), len(rows), reused))
-    except Exception as e:
-        STATE["error"] = str(e)[:200]
-        trace("USAGE build", "ERR", 0, str(e)[:120])
-    finally:
-        STATE["busy"] = False
-
-def tool_usage_build(full=0, **kw):
-    threading.Thread(target=build_usage, args=(str(full) in ("1", "true", "True"),), daemon=True).start()
-    return "индекс строится в фоне; прогресс — usage_state; full=1 — принудительно полный"
-
-def tool_usage_state(**kw):
-    if STATE["busy"]:
-        return "идёт построение: %d/%d файлов, пока %d ссылок" % (STATE["done"], STATE["total"], STATE["links"])
-    if STATE["error"]:
-        return "ошибка последнего построения: %s" % STATE["error"]
-    if STATE["finished"]:
-        return "индекс готов (%s): ссылок %d (имён %d, asm %d). Корни: %s. Спрашивай models_where" % (
-            STATE["finished"], STATE["links"], STATE["names"], STATE["total"], STATE.get("roots_info", ""))
-    return "индекс ещё не строили. Скажи: usage_build full=1"
-
-def tool_models_where(q="", limit=30, **kw):
-    try:
-        c = _db()
-        total = c.execute("SELECT COUNT(*) FROM usage").fetchone()[0]
-        if not total:
-            c.close()
-            return "таблица usage пуста. Последний билд: имён=%d, asm=%d, ссылок=%d. Корни: %s. Запусти usage_build full=1" % (
-                STATE["names"], STATE["total"], STATE["links"], STATE.get("roots_info", ""))
-        toks = [t.lower() for t in re.findall(r"[A-Za-zА-Яа-я0-9][A-Za-zА-Яа-я0-9.-]{2,}", q or "") if len(t) >= 3]
-        if not toks:
-            c.close(); return "укажи имя модели или ключевое слово"
-        out = []
-        for t in toks:
-            rows = c.execute("SELECT DISTINCT parent, parent_path FROM usage WHERE child LIKE ? LIMIT ?",
-                             ("%" + t + "%", int(limit) or 30)).fetchall()
-            out.append("'%s': входит в сборок: %d" % (t, len(rows)))
-            out += ["- %s  (%s)" % (p, pp) for p, pp in rows]
-        c.close()
-        return "\\n".join(out)
-    except Exception as e:
-        return "ошибка: %s" % e
-
-TOOLS = [
-    {"name": "models_where", "desc": "Показать сборки, в которых используется модель/деталь", "params": {"q": "имя или слово", "limit": "сколько строк"}, "approval": False, "fn": tool_models_where},
-    {"name": "usage_build", "desc": "Построить/обновить индекс «где используется» (full=1 — полный)", "params": {"full": "1 принудительно полный"}, "approval": False, "fn": tool_usage_build},
-    {"name": "usage_state", "desc": "Прогресс и итоги индекса + какие корни видит процесс агента", "params": {}, "approval": False, "fn": tool_usage_state},
-]
-''', encoding="utf-8")
-print("[+] usage_tools.py переписан начисто")
-
-# 2) agent.py: UI-фиксы
-a = (AG / "agent.py").read_text(encoding="utf-8")
-ch = False
-def rep(old, new):
-    global a, ch
-    if old in a: a = a.replace(old, new, 1); ch = True
-
-rep("function showLogin(){login.style.display='flex'}",
-    "function showLogin(){login.style.display='flex';hdr.textContent='';panel.innerHTML=''}")
-rep("else if(a=='logout'){localStorage.removeItem('tk');TK='';showLogin()}",
-    "else if(a=='logout'){localStorage.removeItem('tk');localStorage.removeItem('usr');TK='';showLogin()}")
-rep("var u=localStorage.getItem('usr')||'';hdr.textContent=s.host+(u?' | '+u:'')+' | '+s.model+' | блоков: '+s.blocks;",
-    "hdr.textContent=s.host+(s.user?' | '+(s.user.display_name||s.user.login):'')+' | '+s.model+' | блоков: '+s.blocks;")
-rep("НАСТРОЙКИ (ползунки)</h4><div class=\"gbody\">",
-    "НАСТРОЙКИ (ползунки)</h4><div class=\"gbody\" style=\"display:none\">")
-rep("<div id=\"login\"><div>",
-    "<div id=\"login\"><div style=\"position:relative\"><button data-act=\"closelogin\" style=\"position:absolute;top:6px;right:6px;background:#334052;color:#fff;border:0;border-radius:6px;padding:2px 8px;cursor:pointer\">✕</button>")
-rep("else if(a=='login')", "else if(a=='closelogin'){login.style.display='none'}\nelse if(a=='login')")
-if ch:
-    (AG / "agent.py").write_text(a, encoding="utf-8")
-    print("[+] agent.py: выход/шапка/логин/треугольник/крестик")
-else:
-    print("[~] agent.py: якоря не найдены")
-print("ГОТОВО: .\\AI_RESTART.bat, затем usage_build full=1 -> usage_state (смотри строку «Корни»)")
+        with _ur.urlopen(req, timeout=600) as resp:
+            for line in resp:
+                line = line.strip()
+                if not line: continue
+                try: j = json.loads(line)
+                except Exception: continue
+                lj = j; t = (j.get("message") or {}).get("content") or ""
+                if t:
+                    parts.append(t)
+                    if st["mode"] != "tool":
+                        st["buf"] += t
+                        if st["mode"] is None:
+                            if len(st["buf"]) >= 6:
+                                if st["buf"].lstrip().startswith("[TOOL"): st["mode"] = "tool"
+                                else: st["mode"] = "ans"; push(st["buf"]); st["buf"] = ""
+                        elif st["mode"] == "ans": push(st["buf"]); st["buf"] = ""
+    except Exception:
+        p2 = dict(payload); p2["stream"] = False; return _orig_core_post(path, p2, *ar, **kw)
+    r = {"message": {"content": "".join(parts)}}
+    for k in ("prompt_eval_count","eval_count","prompt_eval_duration","eval_duration"):
+        if k in lj: r[k] = lj[k]
+    return r
+core.post = _stream_post
+'''
+if "LIVE_TOK = {}" not in a and "import settings" in a:
+    a = a.replace("import settings", "import settings" + STREAM, 1); ch = True
+if "LIVE = {}" not in a: a = a.replace("PENDING = {}", "PENDING = {}\nLIVE = {}", 1); ch = True
+if "parse_qs" not in a: a = a.replace("from urllib.parse import urlparse", "from urllib.parse import urlparse, parse_qs", 1); ch = True
+if 'settings.model_for("chat")' not in a: a = re.sub(r'settings\.get\("llm_model"\)\s*or\s*"deepseek-r1:14b"', 'settings.model_for("chat")', a); ch = True
+if "LAST_META" not in a:
+    a = a.replace("PENDING = {}", 'PENDING = {}\nLAST_META = {"p":0,"r":0}', 1)
+    a = re.sub(r'(opts, steps_max = beh\(\))', r'\1\n    LAST_META.update(p=0, r=0)', a, count=1)
+    a = re.sub(r'(kind, payload, args = parse_model\(raw\))', 'try: LAST_META["p"] += r.get("prompt_eval_count") or 0; LAST_META["r"] += r.get("eval_count") or 0\n    except Exception: pass\n    \\1', a, count=1)
+    ch = True
+if "_SYS_CACHE" not in a:
+    a = a.replace("def build_system():", '_SYS_CACHE = {}\ndef build_system():\n    if _SYS_CACHE.get("v"): return _SYS_CACHE["v"]', 1); ch = True
+if "def _log(line)" not in a:
+    m = re.search(r'steps_log, last_res, sig_prev, invalid_cnt = \[\], *" *", *None, *0', a)
+    if m: a = a[:m.end()] + "\n    def _log(line): steps_log.append(line); LIVE.setdefault(client, []).append(line)" + a[m.end():]; a = a.replace("steps_log.append(", "_log("); ch = True
+if "from concurrent.futures" not in a: a = a.replace("import json, re, socket, threading, time, datetime", "import json, re, socket, threading, time, datetime\nfrom concurrent.futures import ThreadPoolExecutor", 1); ch = True
+if "parallel_tools" not in a and "    t = TR.get(name)" in a:
+    par = '''    if settings.get("parallel_tools"):
+        others = []
+        for m in re.finditer(r"\\[TOOL:\\s*([A-Za-z0-9_]+)\\s*\\]\\s*(\\{.*?\\})\\s*\\[/TOOL\\]", raw, re.S):
+            try: aa = json.loads(m.group(2))
+            except Exception: aa = {}
+            tt = TR.get(m.group(1))
+            if tt and not tt.get("approval"): others.append((m.group(1), aa))
+        if len(others) > 1:
+            def _one(oa):
+                nn, aa2 = oa
+                try: return "%s → %s" % (nn, str(TR.get(nn)["fn"](**aa2))[:600])
+                except Exception as e: return "%s → ошибка: %s" % (nn, e)
+            try:
+                with ThreadPoolExecutor(max_workers=4) as ex: res = "\\n".join(ex.map(_one, others))
+                _log("parallel[%d]: %s" % (len(others), ", ".join(o[0] for o in others)))
+                last_res = res; sig_prev = sig
+                messages.append({"role": "assistant", "content": raw}); messages.append({"role": "user", "content": "[РЕЗУЛЬТАТ parallel]: %s" % res[:4000]})
+                continue
+            except Exception: pass
+    t = TR.get(name)'''
+    a = a.replace("    t = TR.get(name)", par, 1); ch = True
+if "_scheduler" not in a:
+    sched = '''
+def _scheduler():
+    last_day = ""
+    while True:
+        try:
+            now = datetime.datetime.now()
+            if settings.get("night_enable"):
+                hh = int(settings.get("night_hour") or 2); mm = int(settings.get("night_minute") or 0)
+                if now.hour == hh and now.minute == mm and now.strftime("%Y-%m-%d") != last_day:
+                    last_day = now.strftime("%Y-%m-%d")
+                    for t in str(settings.get("night_tasks") or "scan,index,usage").split(","):
+                        t = t.strip()
+                        try:
+                            if t == "scan": scanner.scan_models()
+                            elif t == "index": scanner.index_all()
+                            elif t == "usage":
+                                import usage_tools; usage_tools.build_usage(True)
+                            elif t == "git":
+                                import sync_tools; sync_tools.tool_fleet_sync()
+                        except Exception as e: log("night %s err: %s" % (t, e))
+                    log("night run done")
+        except Exception: pass
+        time.sleep(30)
+'''
+    a = a.replace("def beh():", sched + "\ndef beh():", 1)
+    a2, n = re.subn(r'(try:\n\s*ThreadingHTTPServer\(\(HOST, PORT\), Hd\)\.serve_forever\(\))', r'threading.Thread(target=_scheduler, daemon=True).start()\n    \\1', a, count=1)
+    if n: a = a2; ch = True
+m = re.search(r'(?m)^(\s*)r = run_loop\(messages, client', a)
+if m and "LIVE_TOK[client] = []" not in a:
+    ind = m.group(1)
+    a = a[:m.start()] + (ind + "settings.CUR = cl\n" + ind + "LIVE_TOK[client] = []; LIVE[client] = []\n" + ind + "def _push(t): LIVE_TOK.setdefault(client, []).append(t)\n" + ind + "threading.current_thread()._tokpush = _push\n" + ind + "_ta = time.time()\n") + a[m.start():]
+    a = re.sub(r'(r = run_loop\(messages, client[^\n]*\))', r'\1\n    if int(settings.get("log_mode") or 1) >= 1:\n        r.setdefault("log", []).append("⏱ %dмс · 🔢 %d ток · шагов: %d" % (int((time.time() - _ta) * 1000), LAST_META["p"] + LAST_META["r"], r.get("steps", 1)))', a, count=1)
+    ch = True
+if "/livetoks" not in a and "/fleet/info" in a:
+    a = a.replace('elif p == "/fleet/info":', '''elif p == "/livetoks":
+    _c = users.token_info(self.headers.get("X-Token") or ""); qs = parse_qs(urlparse(self.path).query)
+    last = int((qs.get("last") or ["0"])[0]); toks = LIVE_TOK.get(_c["login"] if _c else "", [])
+    self._j({"toks": toks[last:], "last": len(toks)})
+elif p == "/livesteps":
+    _c = users.token_info(self.headers.get("X-Token") or ""); qs = parse_qs(urlparse(self.path).query)
+    last = int((qs.get("last") or ["0"])[0]); lines = LIVE.get(_c["login"] if _c else "", [])
+    self._j({"lines": lines[last:], "last": len(lines)})
+elif p == "/fleet/info":''', 1); ch = True
+if "PERSONAL" not in a and 'elif p == "/setcfg":' in a:
+    a = a.replace('elif p == "/setcfg":', '''elif p == "/setcfg":
+    if (b.get("key") or "") in settings.PERSONAL_KEYS:
+        settings.set_for(cl, b.get("key"), b.get("value")); self._j({"ok": True}); return''', 1); ch = True
+if "<title>АГЕНТ v12</title>" in a: a = a.replace("<title>АГЕНТ v12</title>", "<title>АГЕНТ v14</title>", 1); ch = True
+if "<b>АГЕНТ v12</b>" in a: a = a.replace("<b>АГЕНТ v12</b>", "<b>АГЕНТ v14</b>", 1); ch = True
+if 'data-val="guide"' not in a and '<button data-act="showlog">' in a:
+    a = a.replace('<button data-act="showlog">', '<button data-act="chip" data-val="guide">❓</button><button data-act="showlog">', 1); ch = True
+if "seen_guide" not in a and "login.style.display='none';init()" in a:
+    a = a.replace("login.style.display='none';init()", "login.style.display='none';init();if(!localStorage.getItem('seen_guide')){localStorage.setItem('seen_guide','1');setTimeout(function(){qinp.value='guide';send()},400)}", 1); ch = True
+if "ST2=setInterval" not in a and "J('/ask',{token:TK,q:q,image:IMG}).then(function(r){if(sp)sp.style.display='none';" in a:
+    a = a.replace("J('/ask',{token:TK,q:q,image:IMG}).then(function(r){if(sp)sp.style.display='none';",
+        "var TKI=0,ST2=setInterval(function(){J('/livetoks?last='+TKI).then(function(g){(g.toks||[]).forEach(function(t){TKI++;var s=d.querySelector('.stream')||(function(){var e=document.createElement('div');e.className='stream';d.appendChild(e);return e})();s.textContent+=t;chat.scrollTop=chat.scrollHeight;});});},120);var LV=0,LT=setInterval(function(){J('/livesteps?last='+LV).then(function(g){(g.lines||[]).forEach(function(l){LV++;var lg=d.querySelector('.live')||(function(){var e=document.createElement('div');e.className='log live';d.appendChild(e);return e})();lg.textContent+='· '+l+'\\n';});});},700);J('/ask',{token:TK,q:q,image:IMG}).then(function(r){clearInterval(ST2);clearInterval(LT);if(sp)sp.style.display='none';", 1)
+    a = a.replace(".catch(function(e){if(sp)sp.style.display='none';d.innerHTML='ошибка: '+esc(e)})", ".catch(function(e){clearInterval(ST2);clearInterval(LT);if(sp)sp.style.display='none';d.innerHTML='ошибка: '+esc(e)})", 1); ch = True
+if ch: ap.write_text(a, encoding="utf-8"); print("[+] agent: полный пакет")
+print("FINAL_2 ГОТОВО: .\\AI_RESTART.bat")
