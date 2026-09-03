@@ -1,51 +1,15 @@
 # -*- coding: utf-8 -*-
-import re
+import shutil
 from pathlib import Path
-AG = Path(r"D:\AI\tools\agent")
-ap = AG / "agent.py"; a = ap.read_text(encoding="utf-8"); ch = False
-
-# 1) send() -> чистая, БЕЗ \n-литералов
-GOOD_SEND = ("function send(){var q=qinp.value;if(!q)return;qinp.value='';addMsg(esc(q),true);var d=addMsg('🤔 думаю...');var sp=document.getElementById('spin');if(sp)sp.style.display='inline-block';\n"
-"var TKI=0,ST2=setInterval(function(){J('/livetoks?last='+TKI).then(function(g){(g.toks||[]).forEach(function(t){TKI++;var s=d.querySelector('.stream')||(function(){var e=document.createElement('div');e.className='stream';d.appendChild(e);return e})();s.textContent+=t;chat.scrollTop=chat.scrollHeight;});});},120);\n"
-"var LV=0,LT=setInterval(function(){J('/livesteps?last='+LV).then(function(g){(g.lines||[]).forEach(function(l){LV++;var lg=d.querySelector('.live')||(function(){var e=document.createElement('div');e.className='log live';d.appendChild(e);return e})();lg.textContent+=String.fromCharCode(10)+'· '+l;chat.scrollTop=chat.scrollHeight;});});},700);\n"
-"J('/ask',{token:TK,q:q,image:IMG}).then(function(r){clearInterval(LT);clearInterval(ST2);if(sp)sp.style.display='none';if(r&&r.error){localStorage.removeItem('tk');TK='';showLogin();d.innerHTML='⚠ нужен вход';return}IMG=null;render(d,r)}).catch(function(e){clearInterval(LT);clearInterval(ST2);if(sp)sp.style.display='none';d.innerHTML='ошибка: '+esc(e)})}\n")
-a2, n = re.subn(r"function send\(\)\{[\s\S]*?\nfunction render\(", GOOD_SEND + "function render(", a, count=1)
-if n: a = a2; ch = True; print("[+] send() заменена (без \\n)")
-
-# 2) fetch-обёртка 300с, /ask вне гонки
-GOOD_WRAP = "(function(){var sp=document.getElementById('spin');if(!sp)return;var of=window.fetch;window.fetch=function(u){var url=String(u);var bg=url.indexOf('/chat/poll')>=0||url.indexOf('/status')>=0||url.indexOf('/ask')>=0;if(!bg)sp.style.display='inline-block';var p=of.apply(this,arguments);var t=new Promise(function(r,j){setTimeout(function(){j(new Error('таймаут 300с: '+url))},300000)});return Promise.race([p,t]).finally(function(){if(!bg)sp.style.display='none';});};})();"
-a2, n = re.subn(r"\(function\(\)\{var sp=document\.getElementById\('spin'\)[\s\S]*?\}\)\(\);", GOOD_WRAP, a, count=1)
-if n: a = a2; ch = True; print("[+] fetch-обёртка 300с")
-
-# 3) _log рекурсия
-if "def _log(line): _log(line);" in a:
-    a = a.replace("def _log(line): _log(line); LIVE.setdefault(client, []).append(line)",
-                  "def _log(line): steps_log.append(line); LIVE.setdefault(client, []).append(line)", 1)
-    ch = True; print("[+] _log")
-
-# 4) build_system return
-i = a.find('_SYS_CACHE["v"] = p + ')
-if i >= 0:
-    j = a.find("\n", i)
-    if "return _SYS_CACHE" not in a[j+1:j+40]:
-        a = a[:j+1] + '    return _SYS_CACHE["v"]\n' + a[j+1:]; ch = True; print("[+] build_system return")
-
-# 5) битый импорт
-bad = "from concurrent.futures import ThreadPoolExecutor, subprocess, sys, subprocess, sys"
-if bad in a:
-    a = a.replace(bad, "from concurrent.futures import ThreadPoolExecutor\nimport subprocess, sys", 1)
-    ch = True; print("[+] импорт")
-
-# 6) cwd
-if "cwd=str(core.BASE)" in a:
-    a = a.replace("cwd=str(core.BASE)", 'cwd=r"D:\\AI\\tools\\agent"'); ch = True; print("[+] cwd")
-
-if ch: ap.write_text(a, encoding="utf-8")
-
-# CHECK: строки 79-92 страницы — строка 83 должна быть чистой
-s = ap.read_text(encoding="utf-8")
-m = re.search(r'PAGE = r"""([\s\S]*?)"""', s)
-if m:
-    L = m.group(1).split("\n")
-    for i in range(78, min(92, len(L))): print(i + 1, "|", L[i][:100])
+p = Path(r"D:\AI\repo\SKILL_agent_protocol.md")
+if p.exists():
+    t = p.read_text(encoding="utf-8", errors="ignore")
+    print("ГОЛОВА ФАЙЛА:", t[:400].replace("\n", " | "))
+    if "[TOOL:" not in t or ("ОДИН БЛОК" not in t and "ФОРМАТ" not in t):
+        shutil.move(str(p), str(p) + ".bak")
+        print("[+] SKILL_agent_protocol.md -> .bak; включится DEFAULT_PROTO")
+    else:
+        print("[=] файл похож на протокол, не трогаю")
+else:
+    print("[=] файла нет, работает DEFAULT_PROTO")
 print("ГОТОВО: .\\AI_RESTART.bat + Ctrl+F5")
