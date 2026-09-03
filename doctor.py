@@ -2,41 +2,54 @@
 import re
 from pathlib import Path
 AG = Path(r"D:\AI\tools\agent")
-ap = AG / "agent.py"; a = ap.read_text(encoding="utf-8"); ch = False
 
-if "def _log(line): _log(line);" in a:
-    a = a.replace("def _log(line): _log(line); LIVE.setdefault(client, []).append(line)",
-                  "def _log(line): steps_log.append(line); LIVE.setdefault(client, []).append(line)", 1)
-    ch = True; print("[+] _log: рекурсия убрана")
+# 1) plm: db() -> _db() (3 мёртвых инструмента)
+pp = AG / "plm_tools.py"; u = pp.read_text(encoding="utf-8"); ch = False
+n = len(re.findall(r"c =\s*db\(\)", u))
+if n:
+    u = re.sub(r"c =\s*db\(\)", "c = _db()", u); ch = True
+    print("[+] plm: db()->_db() в %d местах" % n)
+# 5) usage-таблица в _db
+if 'CREATE TABLE IF NOT EXISTS usage' not in u and 'CREATE TABLE IF NOT EXISTS items' in u:
+    u = u.replace('c.execute("CREATE TABLE IF NOT EXISTS items',
+                  'c.execute("CREATE TABLE IF NOT EXISTS usage(child TEXT, parent TEXT, parent_path TEXT)")\n    c.execute("CREATE TABLE IF NOT EXISTS items', 1)
+    ch = True; print("[+] plm: usage создаётся заранее")
+# 6) _base: двойной бэкслеш -> одинарный
+old_re = 'r"\\\\.(prt|asm|drw)(\\\\.\\d+)?$"'
+if old_re in u:
+    u = u.replace(old_re, 'r"\\.(prt|asm|drw)(\\.\\d+)?$"', 1); ch = True
+    print("[+] plm: _base регекс исправлен")
+if ch: pp.write_text(u, encoding="utf-8")
 
-i = a.find('_SYS_CACHE["v"] = p + ')
-if i >= 0:
-    j = a.find("\n", i)
-    if "return _SYS_CACHE" not in a[j+1:j+40]:
-        a = a[:j+1] + '    return _SYS_CACHE["v"]\n' + a[j+1:]
-        ch = True; print("[+] build_system: return возвращён")
+# 2) web_tools: алиас fetch_html для diag_web
+wp = AG / "web_tools.py"; w = wp.read_text(encoding="utf-8")
+if "def fetch_html" not in w:
+    w += "\ndef fetch_html(u):\n    return fetch(u)\n"
+    wp.write_text(w, encoding="utf-8"); print("[+] web_tools: fetch_html = fetch (diag_web оживает)")
 
-GOOD_SEND = r'''function send(){var q=qinp.value;if(!q)return;qinp.value='';addMsg(esc(q),true);var d=addMsg('🤔 думаю...');var sp=document.getElementById('spin');if(sp)sp.style.display='inline-block';
-var TKI=0,ST2=setInterval(function(){J('/livetoks?last='+TKI).then(function(g){(g.toks||[]).forEach(function(t){TKI++;var s=d.querySelector('.stream')||(function(){var e=document.createElement('div');e.className='stream';d.appendChild(e);return e})();s.textContent+=t;chat.scrollTop=chat.scrollHeight;});});},120);
-var LV=0,LT=setInterval(function(){J('/livesteps?last='+LV).then(function(g){(g.lines||[]).forEach(function(l){LV++;var lg=d.querySelector('.live')||(function(){var e=document.createElement('div');e.className='log live';d.appendChild(e);return e})();lg.textContent+='· '+l+'\n';chat.scrollTop=chat.scrollHeight;});});},700);
-J('/ask',{token:TK,q:q,image:IMG}).then(function(r){clearInterval(LT);clearInterval(ST2);if(sp)sp.style.display='none';if(r&&r.error){localStorage.removeItem('tk');TK='';showLogin();d.innerHTML='⚠ нужен вход';return}IMG=null;render(d,r)}).catch(function(e){clearInterval(LT);clearInterval(ST2);if(sp)sp.style.display='none';d.innerHTML='ошибка: '+esc(e)})}
-'''
-a2, n = re.subn(r"function send\(\)\{[\s\S]*?\nfunction render\(", GOOD_SEND + "function render(", a, count=1)
-if n: a = a2; ch = True; print("[+] send(): заменена на проверенную")
+# 3) core: chunker не зависает
+cp = AG / "core.py"; c = cp.read_text(encoding="utf-8"); ch = False
+if "s += size - ov" in c:
+    c = c.replace("s += size - ov", "s += max(1, size - ov)", 1); ch = True
+    print("[+] core: chunker защищён от overlap>=size")
+# 4) ROOTS/EXCLUDE: фолбэк в папку агента
+for var, fn in (("ROOTS", "kb_roots.txt"), ("EXCLUDE_FILE", "kb_exclude.txt")):
+    line = '%s = BASE / "%s"' % (var, fn)
+    if line in c and ('if not %s.exists(): %s = BASE / "agent"' % (var, var)) not in c:
+        c = c.replace(line, line + '\nif not %s.exists(): %s = BASE / "agent" / "%s"' % (var, var, fn), 1)
+        ch = True; print("[+] core: %s смотрит в agent/" % var)
+if ch: cp.write_text(c, encoding="utf-8")
 
-GOOD_WRAP = r'''(function(){var sp=document.getElementById('spin');if(!sp)return;var of=window.fetch;window.fetch=function(u){var url=String(u);var bg=url.indexOf('/chat/poll')>=0||url.indexOf('/status')>=0||url.indexOf('/ask')>=0;if(!bg)sp.style.display='inline-block';var p=of.apply(this,arguments);var t=new Promise(function(r,j){setTimeout(function(){j(new Error('таймаут 300с: '+url))},300000)});return Promise.race([p,t]).finally(function(){if(!bg)sp.style.display='none';});};})();'''
-a2, n = re.subn(r"\(function\(\)\{var sp=document\.getElementById\('spin'\)[\s\S]*?\}\)\(\);", GOOD_WRAP, a, count=1)
-if n: a = a2; ch = True; print("[+] fetch-обёртка: 300с, /ask вне гонки")
+# 4b) find_tools: корни от сканера, если core пуст
+fp = AG / "find_tools.py"; f = fp.read_text(encoding="utf-8")
+if "core.read_roots()" in f and "scanner" not in f.split("core.read_roots()")[1][:60]:
+    f = f.replace("roots = core.read_roots()", "roots = core.read_roots() or (__import__('scanner').read_roots())", 1)
+    fp.write_text(f, encoding="utf-8"); print("[+] find_tools: корни от сканера")
 
-if "cwd=str(core.BASE)" in a:
-    a = a.replace("cwd=str(core.BASE)", 'cwd=r"D:\\AI\\tools\\agent"')
-    ch = True; print("[+] /rescan,/scan: cwd = папка агента")
-
-if ch: ap.write_text(a, encoding="utf-8")
-s = ap.read_text(encoding="utf-8")
-print("CHECK _log:", [l.strip() for l in s.split("\n") if "def _log" in l])
-print("CHECK return:", [l.strip() for l in s.split("\n") if "return _SYS_CACHE" in l])
-print("CHECK legacy(должно False):", "function legacy" in s)
-print("CHECK bg:", [l.strip() for l in s.split("\n") if "var bg=" in l][0][:140])
-print("CHECK cwd:", [l.strip() for l in s.split("\n") if "cwd=" in l])
-print("ГОТОВО: .\\AI_RESTART.bat + Ctrl+F5")
+# CHECK
+u2 = (AG / "plm_tools.py").read_text(encoding="utf-8")
+print("CHECK plm db():", len(re.findall(r"c =\s*db\(\)", u2)), "| _db():", u2.count("c = _db()"))
+print("CHECK fetch_html:", "def fetch_html" in (AG / "web_tools.py").read_text(encoding="utf-8"))
+c2 = (AG / "core.py").read_text(encoding="utf-8")
+print("CHECK chunker:", "max(1, size - ov)" in c2, "| ROOTS-фолбэк:", 'BASE / "agent" / "kb_roots.txt"' in c2)
+print("ГОТОВО: .\\AI_RESTART.bat, затем GIT_SYNC.bat")

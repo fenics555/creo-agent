@@ -69,3 +69,6 @@ TOOLS = [
  {"name": "web_study", "desc": "Изучить ссылку + пересказ", "params": {"url": "ссылка", "mode": "quick/deep"}, "approval": False, "fn": tool_web_study},
  {"name": "web_save_rule", "desc": "Записать итог в репо", "params": {"kind": "skill/err", "name": "имя", "text": "суть"}, "approval": False, "fn": tool_web_save_rule},
 ]
+
+def fetch_html(u):
+    return fetch(u)

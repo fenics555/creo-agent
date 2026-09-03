@@ -4,6 +4,7 @@ import os, re, time, datetime
 import core
 def _db():
     c = core.db()
+    c.execute("CREATE TABLE IF NOT EXISTS usage(child TEXT, parent TEXT, parent_path TEXT)")
     c.execute("CREATE TABLE IF NOT EXISTS items(designation TEXT PRIMARY KEY, name TEXT, type TEXT, material TEXT, format TEXT, mass REAL, lifecycle TEXT, rev TEXT, source TEXT, updated TEXT)")
     c.execute("CREATE TABLE IF NOT EXISTS bom(parent TEXT, child TEXT, qty REAL, source TEXT, PRIMARY KEY(parent, child))")
     c.execute("CREATE TABLE IF NOT EXISTS revisions(id INTEGER PRIMARY KEY AUTOINCREMENT, item TEXT, rev TEXT, status TEXT, author TEXT, comment TEXT, ts TEXT)")

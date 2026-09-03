@@ -35,7 +35,7 @@ def _rel_parts(path):
     low = str(path).replace("\\", "/").lower()
     best = ""
     try:
-        roots = core.read_roots()
+        roots = core.read_roots() or (__import__('scanner').read_roots())
     except Exception:
         roots = []
     for r in roots:

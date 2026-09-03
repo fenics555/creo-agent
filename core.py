@@ -13,7 +13,9 @@ DATA_DIR = BASE / "agent" / "data"
 DB = DATA_DIR / "agent.sqlite"
 CONFIG_FILE = DATA_DIR / "config.json"
 ROOTS = BASE / "kb_roots.txt"
+if not ROOTS.exists(): ROOTS = BASE / "agent" / "kb_roots.txt"
 EXCLUDE_FILE = BASE / "kb_exclude.txt"
+if not EXCLUDE_FILE.exists(): EXCLUDE_FILE = BASE / "agent" / "kb_exclude.txt"
 LOGF = BASE / ("agent_log_%s.txt" % HOST)
 TRACEF = BASE / ("agent_trace_%s.txt" % HOST)
 CRASH = BASE / ("crash_%s.txt" % HOST)
@@ -99,7 +101,7 @@ def clean(t):
 def chunker(t, size=1500, ov=200):
     s = 0
     while s < len(t):
-        yield t[s:s + size]; s += size - ov
+        yield t[s:s + size]; s += max(1, size - ov)
 
 CREO_EXTS = (".prt", ".asm", ".drw", ".frm", ".sec", ".lay")
 def is_creo(fn):
