@@ -470,6 +470,7 @@ document.addEventListener('change',function(e){var r=e.target;var k=r.getAttribu
 var mo=new MutationObserver(function(){if(busy)return;busy=true;try{document.querySelectorAll('input[type=range][data-cfg]').forEach(function(r){var want=parseFloat(r.getAttribute('data-val')||r.value);if(!isNaN(want)){if(parseFloat(r.max)<want)r.max=want;if(String(r.value)!==String(want))r.value=want;sync(r);}});}finally{busy=false;}});
 mo.observe(document.body,{childList:true,subtree:true});
 window.addEventListener('unhandledrejection',function(){var sp=document.getElementById('spin');if(sp)sp.style.display='none';});})();
+/*lm-deco*/(function(){var N=['авто','авто+токены','отладка','полный'];function dec(){var b=document.querySelector('[data-v="log_mode"]');if(!b)return;var v=parseInt(b.textContent,10);var w=v+' · '+(N[v]||'');if(b.textContent!=w)b.textContent=w;}document.addEventListener('input',function(e){var t=e.target;if(t&&t.getAttribute&&t.getAttribute('data-cfg')=='log_mode')setTimeout(dec,0);});setInterval(dec,1000);dec();})();
 </script></body></html>"""
 
 class Hd(BaseHTTPRequestHandler):
