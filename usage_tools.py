@@ -70,6 +70,10 @@ def tool_usage_state(**kw):
     if STATE["busy"]: return "идёт построение: %d/%d файлов, пока %d ссылок" % (STATE["done"], STATE["total"], STATE["links"])
     if STATE["error"]: return "ошибка: %s" % STATE["error"]
     if STATE["finished"]: return "индекс готов (%s): ссылок %d (имён %d, asm %d). Корни: %s" % (STATE["finished"], STATE["links"], STATE["names"], STATE["total"], STATE.get("roots_info",""))
+    try:
+        _c = _db(); _tot = _c.execute("SELECT COUNT(*) FROM usage").fetchone()[0]; _c.close()
+        if _tot: return "индекс готов (из базы): ссылок %d (имён %d). Корни: %s" % (_tot, STATE["names"], STATE.get("roots_info", ""))
+    except Exception: pass
     return "индекс ещё не строили. Скажи: usage_build full=1"
 def tool_models_where(q="", limit=30, **kw):
     try:
