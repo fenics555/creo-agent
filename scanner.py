@@ -20,6 +20,37 @@ try:
 except Exception:
     KN = None
 
+def read_roots():
+    """Список корней для скана из kb_roots.txt или scan_roots из settings."""
+    try:
+        from pathlib import Path
+        import settings
+        r = Path(__file__).parent / "kb_roots.txt"
+        if r.exists():
+            lines = r.read_text(encoding="utf-8").splitlines()
+            return [l.strip() for l in lines if l.strip() and not l.strip().startswith("#")]
+        raw = settings.get("scan_roots") or []
+        return raw if isinstance(raw, list) else [raw]
+    except Exception:
+        return []
+
+def _pats():
+    """Паттерны исключения из kb_exclude.txt."""
+    try:
+        from pathlib import Path
+        p = Path(__file__).parent / "kb_exclude.txt"
+        if p.exists():
+            return [l.strip() for l in p.read_text(encoding="utf-8").splitlines() if l.strip() and not l.strip().startswith("#")]
+        return []
+    except Exception:
+        return []
+
+def is_excluded(path, pats):
+    """Проверка исключения по паттернам."""
+    p = path.lower()
+    return any(pat.lower() in p for pat in (pats or []))
+
+
 EXTS = {".htm", ".html", ".md", ".txt", ".py", ".xml", ".json", ".csv",
         ".pro", ".dtl", ".pnt", ".pdf", ".mil", ".drl"}
 STATE = {"indexing": False, "done": 0, "total": 0, "errors": 0, "fscan": False, "fcount": 0}
