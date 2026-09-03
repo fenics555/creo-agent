@@ -597,10 +597,10 @@ class Hd(BaseHTTPRequestHandler):
         elif p == "/snap":
             self._j({"msg": "скриншот принимается через Ctrl+V в поле ввода"})
         elif p == "/rescan":
-            subprocess.Popen([sys.executable, "-c", "import scanner; scanner.index_all()"], cwd=str(core.BASE))
+            subprocess.Popen([sys.executable, "-c", "import scanner; scanner.index_all()"], cwd=r"D:\AI\tools\agent")
             self._j({"msg": "переиндексация запущена"})
         elif p == "/scan":
-            subprocess.Popen([sys.executable, "-c", "import scanner; scanner.scan_models()"], cwd=str(core.BASE))
+            subprocess.Popen([sys.executable, "-c", "import scanner; scanner.scan_models()"], cwd=r"D:\AI\tools\agent")
             self._j({"msg": "скан моделей запущен"})
         elif p == "/profile":
             __prof = users.get_profile(cl)

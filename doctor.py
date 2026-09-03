@@ -1,51 +1,38 @@
 # -*- coding: utf-8 -*-
-import sys, importlib
+import re, ast, sys
 from pathlib import Path
 AG = Path(r"D:\AI\tools\agent"); sys.path.insert(0, str(AG))
-sp = AG / "scanner.py"; s = sp.read_text(encoding="utf-8")
-if "# v14-fix-excl" not in s:
-    s += r'''
-# v14-fix-excl: is_excluded/_pats — понимают Path и читают kb_exclude.txt
-import fnmatch as _fm2
-from pathlib import Path as _P2
-def _pats():
-    try:
-        p = _P2(__file__).resolve().parent / "kb_exclude.txt"
-        out = []
-        if p.exists():
-            for l in p.read_text(encoding="utf-8").splitlines():
-                l = l.strip()
-                if l and not l.startswith("#"): out.append(l)
-        return out
-    except Exception:
-        return []
-def is_excluded(path, pats):
-    st = str(path).lower().replace("/", "\\")
-    for pat in (pats or []):
-        q = pat.lower().replace("/", "\\")
-        if "*" in q:
-            if _fm2.fnmatch(st.split("\\")[-1], q) or _fm2.fnmatch(st, q): return True
-        elif q in st:
-            return True
-    return False
-'''
-    sp.write_text(s, encoding="utf-8")
-    print("[+] scanner.py: is_excluded/_pats исправлены")
 
-import scanner; importlib.reload(scanner)
-pats = scanner._pats()
-print("pats:", len(pats), "пример:", pats[:3])
-print("is_excluded(md):", scanner.is_excluded(Path(r"D:\AI\repo\SKILL_agent_protocol.md"), pats))
-print("is_excluded(bak):", scanner.is_excluded(Path(r"Z:\PTC\Work\x\file.bak"), pats))
-n = 0
-for r in scanner.read_roots():
-    rp = Path(r)
-    if not rp.exists(): continue
-    for f in rp.rglob("*"):
-        try:
-            if f.is_file() and f.suffix.lower() in scanner.EXTS and not scanner.is_excluded(f, pats):
-                n += 1
-        except Exception as e:
-            print("EXC:", e); break
-print("кандидатов на индекс:", n)
-print("ДАЛЬШЕ: в панели index_run (или python -c \"import scanner; scanner.index_all()\"), через 5-10 мин index_state")
+for fn in ("agent.py", "scanner.py", "settings.py", "core.py"):
+    try:
+        ast.parse((AG / fn).read_text(encoding="utf-8"))
+        print("[OK] %s: синтаксис" % fn)
+    except SyntaxError as e:
+        print("[CRITICAL] %s: SyntaxError стр %d: %s" % (fn, e.lineno, e.msg))
+
+a = (AG / "agent.py").read_text(encoding="utf-8")
+m = re.search(r"def _log\(line\):.*", a)
+print("\n_log:", m.group(0).strip() if m else "нет")
+if m and "_log(line);" in m.group(0):
+    a = a.replace(m.group(0), "def _log(line): steps_log.append(line); LIVE.setdefault(client, []).append(line)")
+    print("[FIX] _log: рекурсия убрана")
+    ch = True
+else: ch = False
+
+print("concurrent-импорт:", [l.strip() for l in a.splitlines() if "concurrent" in l])
+print("__main__:", [l.strip() for l in a.splitlines() if "__main__" in l][:1])
+print("дубли прямого вызова в ask:", a.count("name = q.strip()"))
+
+import core
+base = str(getattr(core, "BASE", ""))
+print("\ncore.BASE =", base, "| совпадает с папкой агента:", base == str(AG))
+if base != str(AG) and "cwd=str(core.BASE)" in a:
+    a = a.replace("cwd=str(core.BASE)", 'cwd=r"D:\\AI\\tools\\agent"')
+    print("[FIX] /rescan,/scan: cwd -> папка агента"); ch = True
+if ch: (AG / "agent.py").write_text(a, encoding="utf-8")
+
+s = (AG / "scanner.py").read_text(encoding="utf-8")
+for fn in ("def _pats", "def is_excluded", "def db", "def read_roots"):
+    print("%s(: определений %d (работает последняя)" % (fn, s.count(fn + "(")))
+print("\nJS-опечатки с пробелами:", [w for w in ("creo_au dit", "copy_mode l", "wi zard", "d ocument") if w in a] or "нет")
+print("\nГОТОВО: .\\AI_RESTART.bat, затем спроси в чате что-нибудь с шагом инструмента (например «какая модель открыта») — если ответ приходит без «ошибки», рекурсия мертва")
