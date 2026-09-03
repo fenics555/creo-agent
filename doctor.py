@@ -1,32 +1,47 @@
 # -*- coding: utf-8 -*-
-import re, json
+import os, sys, sqlite3
 from pathlib import Path
-AG = Path(r"D:\AI\tools\agent")
+AG = Path(r"D:\AI\tools\agent"); sys.path.insert(0, str(AG))
+out = []
+def P(s=""): out.append(str(s)); print(str(s))
 
-# 1) settings: auto_mode keluar из PERSONAL_KEYS -> пойдёт через set_val + автосброс
-sp = AG / "settings.py"; s = sp.read_text(encoding="utf-8")
-s2 = re.sub(r',\s*"auto_mode"\s*\]', ']', s)
-if s2 != s: sp.write_text(s2, encoding="utf-8"); print("[+] settings: auto_mode -> глобальный (автосброс заработает)")
+P("== БАЗА ==")
+dbf = AG / "data" / "agent.sqlite"
+P("agent.sqlite: %s (%d МБ)" % (dbf.exists(), dbf.stat().st_size // 1048576 if dbf.exists() else 0))
+if dbf.exists():
+    c = sqlite3.connect(str(dbf))
+    for t in ("models", "chunks", "files", "usage", "history"):
+        try: P("  %s: %d" % (t, c.execute("SELECT COUNT(*) FROM %s" % t).fetchone()[0]))
+        except Exception as e: P("  %s: НЕТ (%s)" % (t, str(e)[:60]))
+    c.close()
 
-# 2) config: diag_web на локальный эндпоинт (зелёный вердикт)
-cp = AG / "data" / "config.json"; d = json.loads(cp.read_text(encoding="utf-8")) if cp.exists() else {}
-if d.get("web_test_url") != "http://127.0.0.1:8765/status":
-    d["web_test_url"] = "http://127.0.0.1:8765/status"
-    cp.write_text(json.dumps(d, ensure_ascii=False, indent=1), encoding="utf-8"); print("[+] config: web_test_url -> локальный /status")
+import settings, core
+P("\n== КОРНИ СКАНА ==")
+raw = settings.get("scan_roots")
+P("config scan_roots = %s" % (raw,))
+roots = core.read_roots() if hasattr(core, "read_roots") else (raw or [])
+for r in roots:
+    ex = os.path.exists(r); cnt = 0
+    if ex:
+        for dp, dn, fn in os.walk(r):
+            cnt += len(fn)
+            if cnt > 300000: break
+    P("  %s : %s, файлов~%d" % (r, "ЕСТЬ" if ex else "НЕТ", cnt))
 
-# 3) agent JS: галочки сохраняются + авторежим обновляет панель + имена режимов логов
-ap = AG / "agent.py"; a = ap.read_text(encoding="utf-8"); ch = False
-old_sync = "function sync(r){var lab=r.parentNode.querySelector('[data-v]')||r.nextElementSibling;if(lab&&String(lab.textContent)!==String(r.value))lab.textContent=r.value;}"
-new_sync = "var LMN=['авто','авто+токены','отладка','полный'];function sync(r){var lab=r.parentNode.querySelector('[data-v]')||r.nextElementSibling;if(!lab)return;var k=r.getAttribute('data-cfg');var txt=(k=='log_mode')?(r.value+' · '+LMN[+r.value]):r.value;if(String(lab.textContent)!=txt)lab.textContent=txt;}"
-if old_sync in a: a = a.replace(old_sync, new_sync, 1); ch = True
-old_ch = "document.addEventListener('change',function(e){var r=e.target;if(r&&r.type=='range'&&r.getAttribute('data-cfg')){fetch('/setcfg',{method:'POST',headers:{'Content-Type':'application/json','X-Token':window.TK||''},body:JSON.stringify({key:r.getAttribute('data-cfg'), value:r.value})});}});"
-new_ch = "document.addEventListener('change',function(e){var r=e.target;var k=r.getAttribute&&r.getAttribute('data-cfg');if(!k)return;if(r.type!='range'&&r.type!='checkbox')return;var v=(r.type=='checkbox')?(r.checked?1:0):r.value;fetch('/setcfg',{method:'POST',headers:{'Content-Type':'application/json','X-Token':window.TK||''},body:JSON.stringify({key:k,value:v})}).then(function(){if(k=='auto_mode'){setTimeout(function(){J('/settings').then(function(s){var o=document.getElementById('setgrp');if(o)o.remove();buildSettings(s);});},300);}});});"
-if old_ch in a: a = a.replace(old_ch, new_ch, 1); ch = True
-old_bs = "function buildSettings(s){var h='<div class=\"grp\"><h4 data-act=\"fold\">▸ НАСТРОЙКИ (ползунки)</h4><div class=\"gbody\" style=\"display:none\">';"
-new_bs = "function buildSettings(s){var o=document.getElementById('setgrp');if(o)o.remove();var h='<div class=\"grp\" id=\"setgrp\"><h4 data-act=\"fold\">▸ НАСТРОЙКИ (ползунки)</h4><div class=\"gbody\" style=\"display:block\">';"
-if old_bs in a: a = a.replace(old_bs, new_bs, 1); ch = True
-old_rg = "if(it.kind=='range'){h+='<input type=\"range\" data-cfg=\"'+att(it.key)+'\" min=\"'+it.min+'\" max=\"'+it.max+'\" step=\"'+it.step+'\" value=\"'+it.value+'\" style=\"width:100%\"><b data-v=\"'+att(it.key)+'\"> '+it.value+'</b>';}"
-new_rg = "if(it.kind=='range'){h+='<input type=\"range\" data-cfg=\"'+att(it.key)+'\" min=\"'+it.min+'\" max=\"'+it.max+'\" step=\"'+it.step+'\" value=\"'+it.value+'\" style=\"width:100%\"><b data-v=\"'+att(it.key)+'\"> '+it.value+(it.key=='log_mode'?' · '+(LMN[it.value]||''):'')+'</b>';}"
-if old_rg in a: a = a.replace(old_rg, new_rg, 1); ch = True
-if ch: ap.write_text(a, encoding="utf-8"); print("[+] agent: галочки+автосброс+имена режимов")
-print("ГОТОВО: .\\AI_RESTART.bat")
+P("\n== SCANNER ==")
+import scanner
+for fn in ("scan_models", "index_all", "index_state", "tool_index_state"):
+    P("  %s: %s" % (fn, hasattr(scanner, fn)))
+
+P("\n== DIAG_TEST ==")
+import tools_registry as TR
+t = TR.get("diag_test")
+P(t["fn"]() if t else "diag_test не найден")
+
+P("\n== ЛОГ (хвост 25) ==")
+try:
+    for l in core.LOGF.read_text(encoding="utf-8", errors="ignore").splitlines()[-25:]: P("  " + l)
+except Exception as e: P("лога нет: %s" % e)
+
+(AG / "AUDIT_REPORT.txt").write_text("\n".join(out), encoding="utf-8")
+P("\nГОТОВО: пришли содержимое D:\\AI\\tools\\agent\\AUDIT_REPORT.txt")
