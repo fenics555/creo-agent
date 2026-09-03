@@ -1,58 +1,4 @@
-# Создаем полный исправленный agent.py
-from pathlib import Path
-
-# Критические исправления (применяем ко всему файлу)
-fixes = [
-    # 1. Рекурсия в _log (ГЛАВНАЯ ОШИБКА)
-    ('def _log(line): _log(line); LIVE.setdefault(client, []).append(line)',
-     'def _log(line): steps_log.append(line); LIVE.setdefault(client, []).append(line)'),
-    
-    # 2. Мусорные конструкции (остатки неправильных замен)
-    ('str(TR.get(nn) ["fn](**aa2) ["](**aa2) )[:600]', 'str(TR.get(nn)["fn"](**aa2))[:600]'),
-    ('str(t ["fn]() ["]() )', 'str(t["fn"]())'),
-    ('str(t ["fn](**args) ["](**args) )', 'str(t["fn"](**args))'),
-    ('str(t ["fn](**p["args"]) ["](**p["args"]) )', 'str(t["fn"](**p["args"]))'),
-    
-    # 3. Опечатки с пробелами (критические для JS)
-    ('d ocument', 'document'), ('addM sg', 'addMsg'), ('TK I', 'TKI'),
-    ('r eturn', 'return'), ('funct ion', 'function'), ('chat.s crollTop', 'chat.scrollTop'),
-    ('dis play', 'display'), ('wi zard', 'wizard'), ('getElemen tById', 'getElementById'),
-    ('copy_mode l', 'copy_model'), ('creo_au dit_folder', 'creo_audit_folder'),
-    ('sh owLogin', 'showLogin'), ('docu ment', 'document'), ("'block':'non e'", "'block':'none'"),
-    ('querySelec tor', 'querySelector'), ('pr ompt', 'prompt'), ('/admin/use rs', '/admin/users'),
-    ('r.ms g', 'r.msg'), ('documen t', 'document'), ('functio n', 'function'), ('ini t()', 'init()'),
-    ('get Attribute', 'getAttribute'), ('disp lay', 'display'), ('set Interval', 'setInterval'),
-    ("' chatsend'", "'chatsend'"), ('i f(e', 'if(e'), ('i <items', 'i<items'),
-    ("split(',') [1]", "split(',')[1]"), ("'spin') ;if", "'spin');if"), ('P romise', 'Promise'),
-    ('lab & &String', 'lab&&String'), ("r & &r.type=='range' & &r.getAttribute", "r&&r.type=='range'&&r.getAttribute"),
-    ('par seFloat', 'parseFloat'), ('r.max) <want', 'r.max)<want'),
-    ('addEventListene r', 'addEventListener'), ('send_heade r', 'send_header'),
-    ('h as_link', 'has_link'), ('бл оков', 'блоков'), ('r.log & &r.log.length', 'r.log&&r.log.length'),
-    ('& &m', '&&m'), ('r.answer & &r.answer', 'r.answer&&r.answer'),
-    
-    # 4. Не комментарии → комментарии
-    ('=== v14: стриминг токенов ===', '# === v14: стриминг токенов ==='),
-    ('=== конец стриминга ===', '# === конец стриминга ==='),
-    
-    # 5. Дублирование импортов
-    ('from concurrent.futures import ThreadPoolExecutor, subprocess, sys, subprocess, sys',
-     'from concurrent.futures import ThreadPoolExecutor\nimport subprocess, sys'),
-    
-    # 6. name == "main" → __name__
-    ('if name == "main":', 'if __name__ == "__main__":'),
-    
-    # 7. Разделитель в split
-    ('split( ", ")', 'split(",")'),
-    
-    # 8. Пробелы в строках
-    ('last_day =  " "', 'last_day = ""'),
-    ('log( "night run done ")', 'log("night run done")'),
-]
-
-# Читаем файл из контекста (он был в предыдущем сообщении пользователя)
-# Так как файл не найден на диске, создаем его заново с нуля на основе содержимого
-
-agent_content = r'''# -*- coding: utf-8 -*-
+# -*- coding: utf-8 -*-
 r"""АГЕНТ v14 — agent.py (полная сборка)
 ThreadingHTTPServer + стриминг токенов + параллельные инструменты + планировщик.
 """
@@ -704,18 +650,3 @@ if __name__ == "__main__":
     finally:
         try: pidfile.unlink(missing_ok=True)
         except Exception: pass
-'''
-
-# Сохраняем исправленный файл
-Path(r"D:\AI\tools\agent\agent.py").write_text(agent_content, encoding="utf-8")
-print("✓ Файл agent.py полностью переписан")
-print("✓ Исправлена рекурсия в _log (steps_log.append вместо _log)")
-print("✓ Убран мусор в строках кода")
-print("✓ Исправлены все опечатки с пробелами")
-print("✓ Добавлен префикс r к регулярным выражениям")
-print("✓ Удалено дублирование кода в ask")
-print("✓ Исправлены комментарии === → # ===")
-print("✓ Убраны дубли импортов")
-print("✓ Исправлен __name__ == '__main__'")
-print("✓ Файл готов к запуску")
-
