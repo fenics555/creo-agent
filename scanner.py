@@ -207,3 +207,27 @@ import sqlite3 as _sq
 from pathlib import Path as _P
 def db():
     return _sq.connect(str(_P(__file__).resolve().parent / "data" / "agent.sqlite"), timeout=10)
+
+# v14-fix-excl: is_excluded/_pats — понимают Path и читают kb_exclude.txt
+import fnmatch as _fm2
+from pathlib import Path as _P2
+def _pats():
+    try:
+        p = _P2(__file__).resolve().parent / "kb_exclude.txt"
+        out = []
+        if p.exists():
+            for l in p.read_text(encoding="utf-8").splitlines():
+                l = l.strip()
+                if l and not l.startswith("#"): out.append(l)
+        return out
+    except Exception:
+        return []
+def is_excluded(path, pats):
+    st = str(path).lower().replace("/", "\\")
+    for pat in (pats or []):
+        q = pat.lower().replace("/", "\\")
+        if "*" in q:
+            if _fm2.fnmatch(st.split("\\")[-1], q) or _fm2.fnmatch(st, q): return True
+        elif q in st:
+            return True
+    return False

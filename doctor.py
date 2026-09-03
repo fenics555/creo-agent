@@ -1,35 +1,51 @@
 # -*- coding: utf-8 -*-
-import sys, inspect
+import sys, importlib
 from pathlib import Path
-sys.path.insert(0, r"D:\AI\tools\agent")
-import scanner, settings
+AG = Path(r"D:\AI\tools\agent"); sys.path.insert(0, str(AG))
+sp = AG / "scanner.py"; s = sp.read_text(encoding="utf-8")
+if "# v14-fix-excl" not in s:
+    s += r'''
+# v14-fix-excl: is_excluded/_pats — понимают Path и читают kb_exclude.txt
+import fnmatch as _fm2
+from pathlib import Path as _P2
+def _pats():
+    try:
+        p = _P2(__file__).resolve().parent / "kb_exclude.txt"
+        out = []
+        if p.exists():
+            for l in p.read_text(encoding="utf-8").splitlines():
+                l = l.strip()
+                if l and not l.startswith("#"): out.append(l)
+        return out
+    except Exception:
+        return []
+def is_excluded(path, pats):
+    st = str(path).lower().replace("/", "\\")
+    for pat in (pats or []):
+        q = pat.lower().replace("/", "\\")
+        if "*" in q:
+            if _fm2.fnmatch(st.split("\\")[-1], q) or _fm2.fnmatch(st, q): return True
+        elif q in st:
+            return True
+    return False
+'''
+    sp.write_text(s, encoding="utf-8")
+    print("[+] scanner.py: is_excluded/_pats исправлены")
 
-print("== ИСХОДНИК index_all (на диске) ==")
-try: print(inspect.getsource(scanner.index_all)[:2500])
-except Exception as e: print("err:", e)
-
-print("\n== read_roots ==" , scanner.read_roots())
-print("EXTS =", getattr(scanner, "EXTS", None))
-print("max_file_mb =", repr(settings.get("max_file_mb")))
-print("pats =", scanner._pats())
-
-EXTS = getattr(scanner, "EXTS", set()) or set()
+import scanner; importlib.reload(scanner)
+pats = scanner._pats()
+print("pats:", len(pats), "пример:", pats[:3])
+print("is_excluded(md):", scanner.is_excluded(Path(r"D:\AI\repo\SKILL_agent_protocol.md"), pats))
+print("is_excluded(bak):", scanner.is_excluded(Path(r"Z:\PTC\Work\x\file.bak"), pats))
+n = 0
 for r in scanner.read_roots():
     rp = Path(r)
-    print("\nROOT:", r, "| exists:", rp.exists())
     if not rp.exists(): continue
-    n = matched = 0; suff = {}; first_exc = None
     for f in rp.rglob("*"):
         try:
-            if f.is_file():
-                n += 1; s = f.suffix.lower(); suff[s] = suff.get(s, 0) + 1
-                if s in EXTS and f.stat().st_size < (settings.get("max_file_mb") or 4) * 1048576 \
-                   and not scanner.is_excluded(f, scanner._pats()):
-                    matched += 1
+            if f.is_file() and f.suffix.lower() in scanner.EXTS and not scanner.is_excluded(f, pats):
+                n += 1
         except Exception as e:
-            if first_exc is None: first_exc = "%s: %s" % (type(e).__name__, e)
-        if n > 30000: break
-    print("  файлов:", n, "| подходят под индекс:", matched)
-    print("  топ расширений:", sorted(suff.items(), key=lambda x: -x[1])[:8])
-    if first_exc: print("  ПЕРВОЕ ИСКЛЮЧЕНИЕ:", first_exc)
-print("\nГОТОВО: пришли вывод целиком")
+            print("EXC:", e); break
+print("кандидатов на индекс:", n)
+print("ДАЛЬШЕ: в панели index_run (или python -c \"import scanner; scanner.index_all()\"), через 5-10 мин index_state")
