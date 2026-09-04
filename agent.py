@@ -159,6 +159,13 @@ def parse_model(text):
             try: args = json.loads(mj.group(1))
             except Exception: args = {}
         return "tool", m.group(1), args
+    m = re.search(r"\[TOOL\]\s*([A-Za-z0-9_]+)\s*(\{.*?\})?\s*(?:\[/TOOL\])?", text, re.S)
+    if m and TR.get(m.group(1)):
+        args = {}
+        if m.group(2):
+            try: args = json.loads(m.group(2))
+            except Exception: args = {}
+        return "tool", m.group(1), args
     for mm in re.finditer(r"^\s*([A-Za-z0-9_]+)\s*(\{[^\n]+\})\s*$", text, re.M):
         if TR.get(mm.group(1)):
             try: args = json.loads(mm.group(2))
@@ -166,7 +173,11 @@ def parse_model(text):
             return "tool", mm.group(1), args
     m = re.search(r"\[ANSWER\]\s*(.*?)\[/ANSWER\]", text, re.S)
     if m: return "answer", m.group(1).strip(), None
+    ts = text.strip()
+    if TR.get(ts): return "tool", ts, {}
     return "invalid", text.strip(), None
+
+_NUDGE = "[СЛУЖЕБНОЕ] Ответ не в формате. Дай ровно один блок: [TOOL: имя] {\"параметр\": \"значение\"} [/TOOL] или [ANSWER] краткий ответ по-русски [/ANSWER]. Слово «текст» само по себе — не ответ. Ничего до и после блока."
 
 def hist_block(client):
     c = core.db()
@@ -209,13 +220,18 @@ def run_loop(messages, client, has_link=False, on_step=None):
             txt = payload
             if len(txt) < 40 and last_res: txt = last_res + "\n\n" + txt
             return {"answer": txt, "think": think, "steps": step + 1, "log": steps_log}
+        if kind == "answer" and len(payload) < 80 and payload.strip().lower() in _NUDGE.lower():
+            _log("echo_guard: %r" % payload[:40]); kind, payload = "invalid", raw
         if kind == "invalid":
             invalid_cnt += 1
             if invalid_cnt < 2:
                 messages.append({"role": "assistant", "content": raw})
-                messages.append({"role": "user", "content": "[СЛУЖЕБНОЕ] Ответ не в формате. Дай ровно один блок: [TOOL: имя] {\"параметр\": \"значение\"} [/TOOL] или [ANSWER] текст [/ANSWER]. Ничего до и после. Повтори."})
+                messages.append({"role": "user", "content": _NUDGE})
                 _log("parse_invalid"); continue
-            return {"answer": payload, "think": think, "steps": step + 1, "log": steps_log}
+            pl = (payload or "").strip(); lo = pl.lower()
+            if (len(pl) < 80 and lo in _NUDGE.lower()) or lo.rstrip(" .!") in ("текст", "text", "ответ", "answer") or (len(pl) < 60 and "текст" in lo and "answer" in lo):
+                pl = "Ответ модели не распознан. Попробуйте переспросить или упростить вопрос."
+            return {"answer": pl, "think": think, "steps": step + 1, "log": steps_log}
         name = payload
         sig = (name, json.dumps(args, sort_keys=True, ensure_ascii=False))
         if sig == sig_prev:
