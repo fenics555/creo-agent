@@ -206,7 +206,9 @@ def dup_report():
 import sqlite3 as _sq
 from pathlib import Path as _P
 def db():
-    return _sq.connect(str(_P(__file__).resolve().parent / "data" / "agent.sqlite"), timeout=10)
+    c = _sq.connect(str(_P(__file__).resolve().parent / "data" / "agent.sqlite"), timeout=10)
+    c.execute("PRAGMA journal_mode=WAL")
+    return c
 
 # v14-fix-excl: is_excluded/_pats — понимают Path и читают kb_exclude.txt
 import fnmatch as _fm2

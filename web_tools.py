@@ -67,7 +67,7 @@ def tool_web_save_rule(kind="skill", name="", text="", **kw):
 TOOLS = [
  {"name": "web_fetch", "desc": "Скачать страницу (цепочка фолбэков)", "params": {"url": "ссылка"}, "approval": False, "fn": tool_web_fetch},
  {"name": "web_study", "desc": "Изучить ссылку + пересказ", "params": {"url": "ссылка", "mode": "quick/deep"}, "approval": False, "fn": tool_web_study},
- {"name": "web_save_rule", "desc": "Записать итог в репо", "params": {"kind": "skill/err", "name": "имя", "text": "суть"}, "approval": False, "fn": tool_web_save_rule},
+ {"name": "web_save_rule", "desc": "Записать итог в репо", "params": {"kind": "skill/err", "name": "имя", "text": "суть"}, "approval": True, "fn": tool_web_save_rule},
 ]
 
 def fetch_html(u):

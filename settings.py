@@ -113,7 +113,8 @@ def set_val(key, value):
                 d[k2] = defl2
             CONFIG_FILE.write_text(json.dumps(d, ensure_ascii=False, indent=1), encoding="utf-8")
             return True
-    return False
+    CONFIG_FILE.write_text(json.dumps(d, ensure_ascii=False, indent=1), encoding="utf-8")
+    return True
 
 def show_all():
     d = _raw()

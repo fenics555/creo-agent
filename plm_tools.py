@@ -92,7 +92,7 @@ def tool_param_audit(**kw):
     c.close()
     return "АУДИТ ПЛМ: изделий %d; без материала %d; без формата %d; дубли: %s" % (tot, nomat, nofmt, ", ".join("%s×%d" % (n, k) for n, k in dup) or "нет")
 TOOLS = [
- {"name": "plm_mine", "desc": "Наполнить реестр изделий+BOM (models+usage+XML)", "params": {"xml_dir": "папка XML"}, "approval": False, "fn": tool_plm_mine},
+ {"name": "plm_mine", "desc": "Наполнить реестр изделий+BOM (models+usage+XML)", "params": {"xml_dir": "папка XML"}, "approval": True, "fn": tool_plm_mine},
  {"name": "plm_item", "desc": "Карточка изделия", "params": {"q": "обозначение"}, "approval": False, "fn": tool_plm_item},
  {"name": "plm_bom", "desc": "Состав сборки", "params": {"q": "сборка", "depth": "глубина"}, "approval": False, "fn": tool_plm_bom},
  {"name": "plm_where", "desc": "Куда входит деталь", "params": {"q": "деталь"}, "approval": False, "fn": tool_plm_where},
