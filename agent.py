@@ -88,6 +88,8 @@ DEFAULT_PROTO = """# ПРОТОКОЛ ИНЖЕНЕРА-НАПАРНИКА
 5. ПОРЯДОК
 Определи, каких данных не хватает. 2. Вызови инструмент, жди [РЕЗУЛЬТАТ].
 Мало — следующий; достаточно — [ANSWER] только из фактов [РЕЗУЛЬТАТ].
+После [РЕЗУЛЬТАТ] НИКОГДА не отвечай «не понял/уточните» — данные уже в [РЕЗУЛЬТАТ],
+кратко перескажи их в [ANSWER].
 
 6. ПИШУЩИЕ ОПЕРАЦИИ
 [СОГЛАСОВАНИЕ] меняет данные; вызывай только по прямой просьбе.
@@ -218,12 +220,19 @@ def run_loop(messages, client, has_link=False, on_step=None):
                 messages.append({"role": "user", "content": "[СЛУЖЕБНОЕ] В задаче была ссылка http — сначала прочитай её через web_fetch, потом отвечай."})
                 _log("web_nudge"); continue
             txt = payload
-            if len(txt) < 40 and last_res: txt = last_res + "\n\n" + txt
+            low = txt.lower()
+            if last_res and any(w in low for w in ("не понял", "уточните", "уточни", "переформулируй")):
+                txt = last_res
+            elif len(txt) < 40 and last_res:
+                txt = last_res + "\n\n" + txt
             return {"answer": txt, "think": think, "steps": step + 1, "log": steps_log}
         if kind == "answer" and len(payload) < 80 and payload.strip().lower() in _NUDGE.lower():
             _log("echo_guard: %r" % payload[:40]); kind, payload = "invalid", raw
         if kind == "invalid":
             invalid_cnt += 1
+            if last_res and len(payload or "") > 150:
+                _log("parse_invalid -> проза после результата = ответ")
+                return {"answer": payload, "think": think, "steps": step + 1, "log": steps_log}
             if invalid_cnt < 2:
                 messages.append({"role": "assistant", "content": raw})
                 messages.append({"role": "user", "content": _NUDGE})

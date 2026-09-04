@@ -8,7 +8,7 @@ from __future__ import annotations
 import re
 from io import BytesIO
 from xml.etree import ElementTree
-from zipfile import BadZipFile, ZipFile
+from zipfile import BadZipFile
 
 
 COLUMN_TITLES = {
@@ -164,7 +164,6 @@ def read_specification_xlsx(content):
 """Создание простого XLSX-файла спецификации без внешних зависимостей."""
 
 import json
-import os
 import re
 import tempfile
 import time

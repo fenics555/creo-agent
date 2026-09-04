@@ -3,7 +3,7 @@ r"""COPY v2: копия детали/семейства под новым име
 ОС-копия версионных файлов -> валидация в Creo (open/regenerate/save/erase).
 Оригиналы не трогаем; библиотека/стандарт не копируются.
 Чертежи по умолчанию НЕ копируются (async не relink). family=1 по умолчанию."""
-import os, re, shutil
+import re, shutil
 from pathlib import Path
 import creo_tools as CT
 

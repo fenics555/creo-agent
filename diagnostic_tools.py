@@ -2,10 +2,9 @@
 # АГЕНТ v12 — ЕДИНЫЙ БЛОК ДИАГНОСТИКИ (probe_tools поглощён и удалён).
 # Семантика: шаг с ошибкой = НЕ ПРОЙДЕН; в конце каждого теста — вердикт.
 # Полный лог запросов/ответов: diag_full.log; креосон-цикл дублируется в diag_creoson.log.
-import ast, json, re, time, socket, urllib.request, traceback
+import ast, json, time, urllib.request, traceback
 from pathlib import Path
 import core
-from core import log, trace
 import settings
 import tools_registry as TR
 import creo_tools as CT
@@ -302,9 +301,6 @@ def tool_diag_usage(**kw):
 TOOLS.append({"name": "diag_usage", "desc": "Семантический тест индекса «где используется»: ссылок>0 и известная пара на месте", "params": {}, "approval": False, "fn": tool_diag_usage})
 
 
-import re as WR
-import core as WC
-import urllib.request as WU
 def tool_diag_web(**kw):
     import settings, web_tools as WT
     out, bad = [], []

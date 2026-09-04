@@ -7,7 +7,6 @@ done растёт только на успехе; исчезнувшие фай�
 import os, re, time, threading
 from pathlib import Path
 import numpy as np
-import core
 from core import log, embed, clean, chunker, is_creo, is_excluded, read_roots, db, trace
 import settings
 try:
