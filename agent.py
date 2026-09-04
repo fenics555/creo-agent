@@ -229,7 +229,6 @@ def run_loop(messages, client, has_link=False, on_step=None):
                 tt = TR.get(m.group(1))
                 if tt and not tt.get("approval"): others.append((m.group(1), aa))
             others = [o for o in others if (o[0], json.dumps(o[1], sort_keys=True, ensure_ascii=False)) != (name, json.dumps(args, sort_keys=True, ensure_ascii=False))]
-            others = [o for o in others if (o[0], json.dumps(o[1], sort_keys=True, ensure_ascii=False)) != (name, json.dumps(args, sort_keys=True, ensure_ascii=False))]
             if len(others) > 1:
                 def _one(oa):
                     nn, aa2 = oa
