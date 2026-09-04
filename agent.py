@@ -58,6 +58,25 @@ import tools_registry as TR
 import scanner
 import users
 import chat_tools
+import tools_registry as TR
+import scanner
+import users
+import chat_tools
+import panel
+import vision_tools as VI
+
+
+def _role_check(client, tool):
+    """Вердикт: None = роль разрешает, строка = сообщение о запрете."""
+    if not client or not tool:
+        return None
+    prof = users.get_profile(client)
+    if not prof:
+        return None
+    role = prof.get("role", "Инженер")
+    if users.role_denied(role, tool):
+        return "⛔ роль «%s» не может выполнить «%s» (запрет администратора)" % (role, tool)
+    return None
 import panel
 import vision_tools as VI
 
@@ -285,6 +304,12 @@ def run_loop(messages, client, has_link=False, on_step=None):
             if len(others) > 1:
                 def _one(oa):
                     nn, aa2 = oa
+                    if msg := _role_check(client, nn):
+                        return "%s → %s" % (nn, msg)
+                    try: return "%s → %s" % (nn, str(TR.get(nn)["fn"](**aa2))[:600])
+                    except Exception as e: return "%s → ошибка: %s" % (nn, e)
+                def _one(oa):
+                    nn, aa2 = oa
                     try: return "%s → %s" % (nn, str(TR.get(nn)["fn"](**aa2))[:600])
                     except Exception as e: return "%s → ошибка: %s" % (nn, e)
                 try:
@@ -297,6 +322,9 @@ def run_loop(messages, client, has_link=False, on_step=None):
         t = TR.get(name)
         if not t:
             res = "нет такого инструмента: %s" % name
+        elif msg := _role_check(client, name):
+            res = msg
+            _log("%s(%s) → ЗАПРЕТ РОЛИ" % (name, "без параметров" if not args else json.dumps(args, ensure_ascii=False)))
         elif t.get("approval"):
             pid = datetime.datetime.now().strftime("%H%M%S%f")
             PENDING[pid] = {"name": name, "args": args, "client": client, "messages": messages, "raw": raw}
@@ -317,6 +345,118 @@ def ask(q, client, image=None, on_step=None):
     q2 = VI.attach(q, image, client)
     LIVE[client] = []
     name = q.strip()
+    t = TR.get(name)
+    if t and not image:
+        if msg := _role_check(client, name):
+            return {"answer": msg, "think": "", "steps": 1, "log": ["%s(прямой вызов) → ЗАПРЕТ РОЛИ" % name]}
+        if t.get("approval"):
+            pid = datetime.datetime.now().strftime("%H%M%S%f")
+            PENDING[pid] = {"name": name, "args": {}, "client": client, "messages": [], "raw": ""}
+            return {"answer": "[СОГЛАСОВАНИЕ] операция %s ждёт подтверждения пользователя (id %s)" % (name, pid), "think": "", "steps": 1, "log": ["%s(прямой вызов)" % name]}
+        t0 = time.time()
+        try:
+            try: res = str(t["fn"]())
+            except TypeError: res = str(t["fn"]({k: "" for k in t.get("params", {})}))
+        except Exception as e: res = "ошибка исполнения %s: %s" % (name, e)
+        trace("AGENT %s" % name, "OK", int((time.time() - t0) * 1000))
+        c = core.db()
+        c.execute("INSERT INTO history(client,q,a,ts) VALUES(?,?,?,?)", (client, q, res[:2000], datetime.datetime.now().isoformat()))
+        c.commit(); c.close()
+        return {"answer": res, "think": "", "steps": 1, "log": ["%s(прямой вызов) → %s" % (name, res[:120])]}
+    q2 = q2 + "\n\n[СЛУЖЕБНОЕ: отвечай только по-русски. Один ход = один [TOOL] или один [ANSWER]. Никакого текста до и после блока.]"
+    messages = [{"role": "system", "content": build_system()}] + hist_block(client) + [{"role": "user", "content": q2}]
+    _ta = time.time()
+    LIVE_TOK[client] = []
+    def _push(t): LIVE_TOK.setdefault(client, []).append(t)
+    threading.current_thread()._tokpush = _push
+    r = run_loop(messages, client, has_link=("http" in q), on_step=on_step)
+    if int(settings.get("log_mode") or 1) >= 1:
+        r.setdefault("log", []).append("⏱ %dмс · 🔢 %d ток (промт %d + ответ %d) · шагов: %d" % (int((time.time() - _ta) * 1000), LAST_META["p"] + LAST_META["r"], LAST_META["p"], LAST_META["r"], r.get("steps", 1)))
+    c = core.db()
+    c.execute("INSERT INTO history(client,q,a,ts) VALUES(?,?,?,?)", (client, q, r["answer"][:2000], datetime.datetime.now().isoformat()))
+    c.commit(); c.close()
+    return r
+def ask(q, client, image=None, on_step=None):
+    q2 = VI.attach(q, image, client)
+    LIVE[client] = []
+    name = q.strip()
+    t = TR.get(name)
+    if t and not image:
+        if msg := _role_check(client, name):
+            return {"answer": msg, "think": "", "steps": 1, "log": ["%s(прямой вызов) → ЗАПРЕТ РОЛИ" % name]}
+        if t.get("approval"):
+            pid = datetime.datetime.now().strftime("%H%M%S%f")
+            PENDING[pid] = {"name": name, "args": {}, "client": client, "messages": [], "raw": ""}
+            return {"answer": "[СОГЛАСОВАНИЕ] операция %s ждёт подтверждения пользователя (id %s)" % (name, pid), "think": "", "steps": 1, "log": ["%s(прямой вызов)" % name]}
+        t0 = time.time()
+        try:
+            try: res = str(t["fn"]())
+            except TypeError: res = str(t["fn"]({k: "" for k in t.get("params", {})}))
+        except Exception as e: res = "ошибка исполнения %s: %s" % (name, e)
+        trace("AGENT %s" % name, "OK", int((time.time() - t0) * 1000))
+        c = core.db()
+        c.execute("INSERT INTO history(client,q,a,ts) VALUES(?,?,?,?)", (client, q, res[:2000], datetime.datetime.now().isoformat()))
+        c.commit(); c.close()
+        return {"answer": res, "think": "", "steps": 1, "log": ["%s(прямой вызов) → %s" % (name, res[:120])]}
+
+def ask(q, client, image=None, on_step=None):
+            messages.append({"role": "user", "content": "[РЕЗУЛЬТАТ %s]: %s" % (name, res[:4000])})
+    return {"answer": last_res or "не уложился в шаги", "think": "", "steps": steps_max, "log": steps_log}
+            messages.append({"role": "user", "content": "[РЕЗУЛЬТАТ %s]: %s" % (name, res[:4000])})
+        t = TR.get(name)
+        if not t:
+            res = "нет такого инструмента: %s" % name
+        elif msg := _role_check(client, name):
+            res = msg
+            _log("%s(%s) → ЗАПРЕТ РОЛИ" % (name, "без параметров" if not args else json.dumps(args, ensure_ascii=False)))
+        elif t.get("approval"):
+        t = TR.get(name)
+        if not t:
+            res = "нет такого инструмента: %s" % name
+        elif t.get("approval"):
+            pid = datetime.datetime.now().strftime("%H%M%S%f")
+            PENDING[pid] = {"name": name, "args": args, "client": client, "messages": messages, "raw": raw}
+            return {"answer": "[СОГЛАСОВАНИЕ] операция %s ждёт подтверждения пользователя (id %s)" % (name, pid),
+                    "think": think, "steps": step + 1, "log": steps_log}
+        else:
+            t0 = time.time()
+            try: res = str(t["fn"](**args))
+            except Exception as e: res = "ошибка исполнения %s: %s" % (name, e)
+            trace("AGENT %s" % name, "OK", int((time.time() - t0) * 1000))
+            _log("%s(%s) → %s" % (name, "без параметров" if not args else json.dumps(args, ensure_ascii=False), res[:120]))
+            last_res = res
+            messages.append({"role": "assistant", "content": raw})
+            messages.append({"role": "user", "content": "[РЕЗУЛЬТАТ %s]: %s" % (name, res[:4000])})
+def do_approve(pid, okf):
+    p = PENDING.pop(pid, None)
+    if not p: return {"res": "заявка не найдена"}
+    if not okf: return {"res": "отменено пользователем"}
+    t = TR.get(p["name"])
+    if msg := _role_check(p.get("client"), p["name"]):
+        return {"res": msg}
+    try: res = str(t["fn"](**p["args"]))
+    except Exception as e: return {"res": "ошибка исполнения: %s" % e}
+    msgs = p.get("messages")
+    if msgs:
+        msgs.append({"role": "assistant", "content": p.get("raw", "")})
+        msgs.append({"role": "user", "content": "[РЕЗУЛЬТАТ %s]: %s" % (p["name"], res[:4000])})
+        r = run_loop(msgs, p.get("client"), has_link=False)
+        return {"res": res, "answer": r["answer"], "think": r.get("think", ""), "log": r.get("log", [])}
+    return {"res": res}
+
+
+PAGE = r"""<!DOCTYPE html><html><head><meta charset="utf-8"><title>АГЕНТ v14</title>
+    return {"answer": last_res or "не уложился в шаги", "think": "", "steps": steps_max, "log": steps_log}
+
+def ask(q, client, image=None, on_step=None):
+    q2 = VI.attach(q, image, client)
+    LIVE[client] = []
+    name = q.strip()
+    t = TR.get(name)
+    if t and not image:
+        if msg := _role_check(client, name):
+            return {"answer": msg, "think": "", "steps": 1, "log": ["%s(прямой вызов) → ЗАПРЕТ РОЛИ" % name]}
+        if t.get("approval"):
     t = TR.get(name)
     if t and not image:
         if t.get("approval"):
@@ -351,6 +491,10 @@ def do_approve(pid, okf):
     p = PENDING.pop(pid, None)
     if not p: return {"res": "заявка не найдена"}
     if not okf: return {"res": "отменено пользователем"}
+    t = TR.get(p["name"])
+    if msg := _role_check(p.get("client"), p["name"]):
+        return {"res": msg}
+    try: res = str(t["fn"](**p["args"]))
     t = TR.get(p["name"])
     try: res = str(t["fn"](**p["args"]))
     except Exception as e: return {"res": "ошибка исполнения: %s" % e}

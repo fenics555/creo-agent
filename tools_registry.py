@@ -33,6 +33,24 @@ def get(name):
         if t["name"] == name: return t
     return None
 
+def execute(name, args, client=None):
+    t = get(name)
+    if not t: return "инструмент %s не найден" % name
+    if client:
+        prof = __import__('users').get_profile(client)
+        if prof and __import__('users').role_denied(prof.get("role", "Инженер"), name):
+            return "⛔ роль «%s» не может выполнить «%s» (запрет администратора)" % (prof.get("role", "?"), name)
+    try:
+        return str(t["fn"](**(args or {})))
+    except Exception as e:
+        log("tool %s err: %s" % (name, e))
+        return "ошибка исполнения %s: %s" % (name, e)
+
+
+def describe():
+    except Exception as e:
+        log("tool %s err: %s" % (name, e))
+        return "ошибка исполнения %s: %s" % (name, e)
 def execute(name, args):
     t = get(name)
     if not t: return "инструмент %s не найден" % name
