@@ -43,6 +43,19 @@ TOOLS = [
     {"name": "hello", "desc": "Пример", "params": {"q": "текст"},
      "approval": False, "fn": tool_hello},
 ]
+## Двухъярусный промт (agent.py:108-130)
+Системный промт автоматически делит инструменты на два яруса:
+- **Ядро (15)** — частые, с полным описанием и параметрами в системном промпте:
+  `creo_get_active, creo_status, creo_session, creo_list_files, models_find,
+  models_where, models_stats, usage_state, search_kb, read_file, trail_predict,
+  trail_problems, settings_show, help, tools_help`.
+- **Остальные (94)** — только имена компактным списком. Полное описание блока
+  доступно по запросу: `[TOOL: tools_help] {"block": "creo"} [/TOOL]` (или
+  `web/trail/plm/...`).
+
+Это сокращает промт на ~25% и радикально улучшает соблюдение моделью формата.
+
+## Требования и старт
 ```
 
 ## Требования и старт
@@ -87,6 +100,14 @@ Windows 10/11, Python 3.10+, Ollama, CREOSON 3.x, Creo 8–13.
 
 ## Правки: workflow doctor
 Один файл `doctor.py`: перезаписать содержимое → `python doctor.py` →
+ | `diag_web` FAIL | нет `fetch_html` → алиас `fetch_html = fetch` |
+ | `plm_where/plm_lifecycle/plm_ii` NameError | `db()` вместо `_db()` |
+ | Индекс виснет при overlap ≥ size | `chunker`: `s += max(1, size - ov)` |
+ | Скан 0 моделей | `scanner.db()` на локальную `data/agent.sqlite`; `is_excluded` понимает Path |
+ | Ответ «текст» / «не понял ваш запрос» | echo_guard: модель копирует подсказку → детектится, пользователю отдаётся результат инструмента (`last_res`), а не мусор; refusal guard: «нет доступа/не могу» → ретрай с подсказкой `_ACCESS_NUDGE` «доступ ЕСТЬ, у тесть БД/CRE/SKILL» |
+ | `[TOOL] имя` без двоеточия/JSON | парсер принимает и такой формат (fallback) |
+ | Настройки не сохраняются после рестарта | выключить `auto_mode` и панелью поставить дефолтные температуру/креатив |
+ | `REGISTRY` кортеж не 7 элементов | проверять через `list_ui`; фикс через doctor |
 `.\AI_RESTART.bat` → Ctrl+F5 → `GIT_SYNC.bat`.
 ⚠️ Старые doctor-скрипты повторно НЕ запускать — они ломают новые правки.
 Каждая правка — с guard-ом и CHECK-выводом дисковой правды.

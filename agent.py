@@ -84,6 +84,7 @@ DEFAULT_PROTO = """# ПРОТОКОЛ ИНЖЕНЕРА-НАПАРНИКА
 4. ПРОТИВ ВЫДУМЫВАНИЯ
 ЖИВЫЕ ДАННЫЕ (Creo, файлы, трейлы, база, 1С, настройки, история, пружины, стандарты, масса) — ТОЛЬКО через инструмент.
 Справочные факты — через search_kb/read_file. Пока нет [РЕЗУЛЬТАТ] — не называй имён, шифров, чисел.
+Доступ к базе, файлам и Creo у тебя ЕСТЬ — через инструменты из списка ниже. Никогда не говори «у меня нет доступа» — просто вызывай инструмент.
 
 5. ПОРЯДОК
 Определи, каких данных не хватает. 2. Вызови инструмент, жди [РЕЗУЛЬТАТ].
@@ -104,11 +105,28 @@ def load_skill(name):
     try: return p.read_text(encoding="utf-8") if p.exists() else ""
     except Exception: return ""
 
+_CORE = (
+    "creo_get_active", "creo_status", "creo_session", "creo_list_files",
+    "models_find", "models_where", "models_stats", "usage_state",
+    "search_kb", "read_file", "trail_predict", "trail_problems",
+    "settings_show", "help", "tools_help",
+)
+
 _SYS_CACHE = {}
 def build_system():
     if _SYS_CACHE.get("v"): return _SYS_CACHE["v"]
     p = load_skill("SKILL_agent_protocol.md") or DEFAULT_PROTO
-    _SYS_CACHE["v"] = p + "\n\n=== ТВОИ ИНСТРУМЕНТЫ (имя — описание — параметры) ===\n" + TR.describe()
+    core_lines, rest = [], []
+    for t in TR.TOOLS:
+        ps = ", ".join(t.get("params", {}).keys()) if t.get("params") else ""
+        d = (t.get("desc") or "").strip()
+        if len(d) > 45: d = d[:43].rstrip(" ,.;:-") + "…"
+        line = "- %s(%s) — %s%s" % (t["name"], ps, d, " [СОГЛАСОВАНИЕ]" if t.get("approval") else "")
+        (core_lines if t["name"] in _CORE else rest).append(t["name"] and line)
+    tail = "=== ТВОИ ИНСТРУМЕНТЫ — ОСНОВНЫЕ (частые, полные) ===\n" + "\n".join(core_lines)
+    tail += "\n\n=== ПРОЧИЕ ИНСТРУМЕНТЫ (только имена; описание блока — tools_help block=<имя>) ===\n"
+    tail += ", ".join(sorted({t["name"] for t in TR.TOOLS if t["name"] not in _CORE}))
+    _SYS_CACHE["v"] = p + "\n\n" + tail
     return _SYS_CACHE["v"]
 
 def _scheduler():
@@ -175,11 +193,19 @@ def parse_model(text):
             return "tool", mm.group(1), args
     m = re.search(r"\[ANSWER\]\s*(.*?)\[/ANSWER\]", text, re.S)
     if m: return "answer", m.group(1).strip(), None
+    if "[ANSWER]" in text and "[/ANSWER]" not in text:
+        return "answer", text.split("[ANSWER]", 1)[1].strip(), None
     ts = text.strip()
     if TR.get(ts): return "tool", ts, {}
     return "invalid", text.strip(), None
 
 _NUDGE = "[СЛУЖЕБНОЕ] Ответ не в формате. Дай ровно один блок: [TOOL: имя] {\"параметр\": \"значение\"} [/TOOL] или [ANSWER] краткий ответ по-русски [/ANSWER]. Слово «текст» само по себе — не ответ. Ничего до и после блока."
+_ACCESS_NUDGE = "[СЛУЖЕБНОЕ] Неверно. Доступ к базе, файлам и Creo у тебя ЕСТЬ через инструменты (список «ТВОИ ИНСТРУМЕНТЫ» выше). Никогда не отвечай «нет доступа». Повтори ровно один блок: [TOOL: имя] {\"параметр\": \"значение\"} [/TOOL] или [ANSWER] ответ [/ANSWER]."
+_REFUSAL = ("извините", "не могу", "не имею доступа", "нет доступа", "моя функциональность", "виртуальной среде", "не поня", "уточните", "переформулир", "как языковая модель", "к сожалению, я", "буду отвечать", "какой у вас вопрос", "давайте начнём")
+
+def _refusal(text):
+    lo = (text or "").lower()
+    return any(w in lo for w in _REFUSAL)
 
 def hist_block(client):
     c = core.db()
@@ -200,8 +226,10 @@ def run_loop(messages, client, has_link=False, on_step=None):
         r = None
         for attempt in (1, 2):
             try:
+                use_opts = dict(opts)
+                if invalid_cnt: use_opts = dict(use_opts, temperature=0)
                 r = core.post("/api/chat", {"model": settings.model_for("chat"),
-                    "stream": False, "options": opts, "messages": messages}, t=600)
+                    "stream": False, "options": use_opts, "messages": messages}, t=600)
                 break
             except Exception as e:
                 if attempt == 1 and "500" in str(e):
@@ -213,6 +241,8 @@ def run_loop(messages, client, has_link=False, on_step=None):
         try: LAST_META["p"] += r.get("prompt_eval_count") or 0; LAST_META["r"] += r.get("eval_count") or 0
         except Exception: pass
         kind, payload, args = parse_model(raw)
+        if kind == "answer" and (_refusal(payload) or (len(payload) < 80 and payload.strip().lower() in _NUDGE.lower())):
+            _log("refusal/echo_guard"); kind, payload = "invalid", raw
         if kind == "answer":
             used_web = any("web_fetch" in s for s in steps_log)
             if has_link and not used_web and step < steps_max - 1 and len(payload) < 400:
@@ -220,26 +250,24 @@ def run_loop(messages, client, has_link=False, on_step=None):
                 messages.append({"role": "user", "content": "[СЛУЖЕБНОЕ] В задаче была ссылка http — сначала прочитай её через web_fetch, потом отвечай."})
                 _log("web_nudge"); continue
             txt = payload
-            low = txt.lower()
-            if last_res and any(w in low for w in ("не понял", "уточните", "уточни", "переформулируй")):
-                txt = last_res
-            elif len(txt) < 40 and last_res:
-                txt = last_res + "\n\n" + txt
+            if len(txt) < 40 and last_res: txt = last_res + "\n\n" + txt
             return {"answer": txt, "think": think, "steps": step + 1, "log": steps_log}
         if kind == "answer" and len(payload) < 80 and payload.strip().lower() in _NUDGE.lower():
             _log("echo_guard: %r" % payload[:40]); kind, payload = "invalid", raw
         if kind == "invalid":
             invalid_cnt += 1
-            if last_res and len(payload or "") > 150:
+            if last_res and len(payload or "") > 150 and not _refusal(payload):
                 _log("parse_invalid -> проза после результата = ответ")
                 return {"answer": payload, "think": think, "steps": step + 1, "log": steps_log}
-            if invalid_cnt < 2:
+            if invalid_cnt < 3:
+                nudge = _ACCESS_NUDGE if _refusal(payload) else _NUDGE
                 messages.append({"role": "assistant", "content": raw})
-                messages.append({"role": "user", "content": _NUDGE})
+                messages.append({"role": "user", "content": nudge})
                 _log("parse_invalid"); continue
-            pl = (payload or "").strip(); lo = pl.lower()
-            if (len(pl) < 80 and lo in _NUDGE.lower()) or lo.rstrip(" .!") in ("текст", "text", "ответ", "answer") or (len(pl) < 60 and "текст" in lo and "answer" in lo):
-                pl = "Ответ модели не распознан. Попробуйте переспросить или упростить вопрос."
+            pl = (payload or "").strip()
+            tail = (" Инструмент вернул: «%s»." % last_res[:200]) if last_res else ""
+            if _refusal(pl) or (len(pl) < 80 and pl.lower() in _NUDGE.lower()):
+                pl = "Ответ модели не распознан." + tail + " Уточни запрос (пример: models_where q=<имя детали>) или введи прямую команду инструмента."
             return {"answer": pl, "think": think, "steps": step + 1, "log": steps_log}
         name = payload
         sig = (name, json.dumps(args, sort_keys=True, ensure_ascii=False))

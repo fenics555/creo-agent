@@ -45,6 +45,8 @@ def execute(name, args):
 def describe():
     out = []
     for t in TOOLS:
-        ps = ", ".join("%s: %s" % (k, v) for k, v in t.get("params", {}).items()) if t.get("params") else "без параметров"
-        out.append("- %s(%s) — %s%s" % (t["name"], ps, t["desc"], " [СОГЛАСОВАНИЕ]" if t.get("approval") else ""))
+        ps = ", ".join(t.get("params", {}).keys()) if t.get("params") else ""
+        d = (t.get("desc") or "").strip()
+        if len(d) > 45: d = d[:43].rstrip(" ,.;:-") + "…"
+        out.append("- %s(%s) — %s%s" % (t["name"], ps, d, " [СОГЛАСОВАНИЕ]" if t.get("approval") else ""))
     return "\n".join(out)
