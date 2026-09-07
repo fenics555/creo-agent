@@ -14,6 +14,7 @@ TITLES = {
     "passport_tools": "📋 ПАСПОРТ", "scanner_tools": "🔍 СКАНЕР", "settings_tools": "⚙ НАСТРОЙКИ",
     "trail_tools": "🧾 ТРЕЙЛЫ", "users_tools": "👥 ДОСТУПЫ", "vision_tools": "👁 ВИЗИЯ",
     "web_tools": "🌐 WEB", "diagnostic_tools": "🩺 ДИАГНОСТИКА", "backup_tools": "💾 БЭКАПЫ",
+    "calc_tools": "🧮 КАЛЬКУЛЯТОР",
 }
 CHIPS = [
     "статус Creo и открытые модели",
@@ -38,6 +39,7 @@ BEHAVIOR = [
     {"key": "top_p", "name": "Top-p", "min": 0, "max": 1, "step": 0.05},
     {"key": "num_predict", "name": "Макс токенов", "min": 256, "max": 4096, "step": 256},
     {"key": "auto_mode", "name": "Авторежим", "min": 0, "max": 1, "step": 1},
+    {"key": "think_mode", "name": "Рассуждения 0-2", "min": 0, "max": 2, "step": 1},
 ]
 
 def models():
