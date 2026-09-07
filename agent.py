@@ -145,7 +145,7 @@ def build_system():
     elif tm == 1:
         think_rule = "=== РАЗМЫШЛЕНИЯ (кратко, максимум 4 строки):\n1) суть задачи;\n2) объект;\n3) какой инструмент;\n4) что НЕ подходит.\nБлок: [THINK]...[/THINK], затем один блок: [TOOL] или [ANSWER]."
     else:
-        think_rule = "=== РАЗМЫШЛЕНИЯ (полно, на русском, 5-8 строк):\nнормализуй запрос;\nэтапы, если задача сложная;\nпочему именно этот инструмент;\nкакие альтернативы отверг и почему.\nБлок: [THINK]...[/THINK], затем один блок: [TOOL] или [ANSWER]."
+        think_rule = "=== РАЗМЫШЛЕНИЯ (полно, на русском, 5-8 строк):\nнормализуй запрос;\nэтапы, если задача сложная;\nпочему именно этот инструмент;\nкакие альтернативы отверг и почему.\nБлок: [THINK]...[/THINK], затем один блок: [TOOL] или [ANSWER].\nПРИМЕР:\n[THINK]\nНормализация: проверить активную модель.\nЭтапы: один.\nИнструмент: creo_get_active — читает живую сессию.\nОтверг: models_find — это поиск по базе, не сессия.\n[/THINK]\n[TOOL: creo_get_active] {} [/TOOL]"
     _SYS_CACHE["v"] = p + "\n\n" + tail + "\n\n" + think_rule
     return _SYS_CACHE["v"]
 
@@ -193,6 +193,11 @@ def parse_model(text):
     if mt:
         think_text = mt.group(1).strip()
         text = (text[:mt.start()] + text[mt.end():]).strip()
+    if not think_text:
+        mt2 = re.search(r"<think>([\s\S]*?)</think>", text, re.S)
+        if mt2:
+            think_text = mt2.group(1).strip()
+            text = (text[:mt2.start()] + text[mt2.end():]).strip()
     m = re.search(r"\[TOOL:\s*([A-Za-z0-9_]+)\s*\]\s*(\{.*?\})\s*\[/TOOL\]", text, re.S)
     if m:
         try: args = json.loads(m.group(2))

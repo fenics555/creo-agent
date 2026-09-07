@@ -29,8 +29,16 @@ FORMULAS = {
 def tool_calc(expr="", unit="", **kw):
     e = (expr or "").strip()
     if not e:
+        for alias in ("expression", "q", "text"):
+            v = kw.get(alias)
+            if isinstance(v, str) and v.strip():
+                e = v.strip()
+                break
+    if not e:
         return "укажи выражение. Примеры: 'перевести 150 Нм в кгсм', 'круг_площадь 50', 'цилиндр_объем 50 120'"
     m = re.match(r"перевести\s+([\d.]+)\s*([A-Za-zА-Яа-я0-9*_²³]+)\s+в\s+([A-Za-zА-Яа-я0-9*_²³]+)", e, re.I)
+    if not m:
+        m = re.match(r"([\d.]+)\s*([A-Za-zА-Яа-я0-9*_²³]+)\s+в\s+([A-Za-zА-Яа-я0-9*_²³]+)", e, re.I)
     if m:
         val, u_from, u_to = float(m.group(1)), m.group(2), m.group(3)
         if u_from not in UNITS or u_to not in UNITS:
