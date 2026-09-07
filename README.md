@@ -28,7 +28,7 @@
 (REGISTRY-кортежи ровно по 7 элементов), `tools_registry.py` (автоподключение
 `*_tools.py`), `scanner.py` (files/chunks/models), `agent.py` (сервер + PAGE).
 
-## Блоки (29, 109 инструментов)
+## Блоки (30, 113 инструментов)
 backup(2) · behavior(1) · chat(1) · copy(1) · creo_ops(16) · creo(17) ·
 diagnostic(7) · find(3) · fleet(2) · git(4) · help(1) · knowledge(3) ·
 learn(2) · memory(6) · nightly(2) · one_c(1) · passport(2) · plm(7) ·
@@ -49,7 +49,7 @@ TOOLS = [
   `creo_get_active, creo_status, creo_session, creo_list_files, models_find,
   models_where, models_stats, usage_state, search_kb, read_file, trail_predict,
   trail_problems, settings_show, help, tools_help`.
-- **Остальные (94)** — только имена компактным списком. Полное описание блока
+- **Остальные (98)** — только имена компактным списком. Полное описание блока
   доступно по запросу: `[TOOL: tools_help] {"block": "creo"} [/TOOL]` (или
   `web/trail/plm/...`).
 

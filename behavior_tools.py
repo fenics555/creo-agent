@@ -31,7 +31,7 @@ def run():
                           "messages": [{"role": "system", "content": agent.build_system()},
                                        {"role": "user", "content": q + "\n\n[СЛУЖЕБНОЕ: по-русски, один блок.]"}]}, t=300)
             raw = (r.get("message") or {}).get("content") or ""
-            kind, payload, args = agent.parse_model(raw)
+            kind, payload, args, _ = agent.parse_model(raw)
             ms = int((time.time() - t0) * 1000)
             if kind == "invalid": mark, note = "X", "формат не распознан"
             elif kind == "tool":
