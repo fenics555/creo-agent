@@ -133,7 +133,7 @@ def list_ui():
          "chunk_size": (500, 4000, 250), "chunk_overlap": (0, 1000, 50),
          "repo_boost": (0.5, 3, 0.1), "repo_boost_min_sim": (0, 1, 0.05),
          "vision_gpu": (0, 64, 1), "max_file_mb": (1, 100, 1), "retention": (1, 30, 1),
-         "audit_limit": (1, 100, 1), "steps_max": (1, 16, 1),
+         "audit_limit": (1, 100, 1), "steps_max": (1, 16, 1), "think_mode": (0, 2, 1),
          "web_quick_links": (0, 100, 1), "web_deep_pages": (0, 200, 5)}
     out = []
     for space, k, name, typ, defl, desc, ui in REGISTRY:

@@ -58,10 +58,6 @@ import tools_registry as TR
 import scanner
 import users
 import chat_tools
-import tools_registry as TR
-import scanner
-import users
-import chat_tools
 import panel
 import vision_tools as VI
 
@@ -77,8 +73,6 @@ def _role_check(client, tool):
     if users.role_denied(role, tool):
         return "⛔ роль «%s» не может выполнить «%s» (запрет администратора)" % (role, tool)
     return None
-import panel
-import vision_tools as VI
 
 HOST, PORT = "0.0.0.0", 8765
 HOSTNAME = socket.gethostname()
@@ -145,7 +139,14 @@ def build_system():
     tail = "=== ТВОИ ИНСТРУМЕНТЫ — ОСНОВНЫЕ (частые, полные) ===\n" + "\n".join(core_lines)
     tail += "\n\n=== ПРОЧИЕ ИНСТРУМЕНТЫ (только имена; описание блока — tools_help block=<имя>) ===\n"
     tail += ", ".join(sorted({t["name"] for t in TR.TOOLS if t["name"] not in _CORE}))
-    _SYS_CACHE["v"] = p + "\n\n" + tail
+    tm = int(settings.get("think_mode") or 0)
+    if tm == 0:
+        think_rule = "=== РАЗМЫШЛЕНИЯ: запрещены. Не выводи [THINK]...[/THINK]. Сразу один блок: [TOOL] или [ANSWER]."
+    elif tm == 1:
+        think_rule = "=== РАЗМЫШЛЕНИЯ (кратко, максимум 4 строки):\n1) суть задачи;\n2) объект;\n3) какой инструмент;\n4) что НЕ подходит.\nБлок: [THINK]...[/THINK], затем один блок: [TOOL] или [ANSWER]."
+    else:
+        think_rule = "=== РАЗМЫШЛЕНИЯ (полно, на русском, 5-8 строк):\nнормализуй запрос;\nэтапы, если задача сложная;\nпочему именно этот инструмент;\nкакие альтернативы отверг и почему.\nБлок: [THINK]...[/THINK], затем один блок: [TOOL] или [ANSWER]."
+    _SYS_CACHE["v"] = p + "\n\n" + tail + "\n\n" + think_rule
     return _SYS_CACHE["v"]
 
 def _scheduler():
@@ -159,6 +160,7 @@ def _scheduler():
                     last_day = now.strftime("%Y-%m-%d")
                     for t in str(settings.get("night_tasks") or "scan,index,usage").split(","):
                         t = t.strip()
+                        log("night start: %s" % t)
                         try:
                             if t == "scan": scanner.scan_models()
                             elif t == "index": scanner.index_all()
@@ -168,6 +170,8 @@ def _scheduler():
                                 import backup_tools; backup_tools.tool_make()
                         except Exception as e:
                             log("night %s err: %s" % (t, e))
+                        else:
+                            log("night ok: %s" % t)
                     log("night run done")
         except Exception:
             pass
@@ -184,11 +188,16 @@ def beh():
              "num_predict": int(settings.get("num_predict") or 1024)}, steps)
 
 def parse_model(text):
+    think_text = ""
+    mt = re.search(r"\[THINK\]\s*([\s\S]*?)\s*\[/THINK\]", text, re.S)
+    if mt:
+        think_text = mt.group(1).strip()
+        text = (text[:mt.start()] + text[mt.end():]).strip()
     m = re.search(r"\[TOOL:\s*([A-Za-z0-9_]+)\s*\]\s*(\{.*?\})\s*\[/TOOL\]", text, re.S)
     if m:
         try: args = json.loads(m.group(2))
         except Exception: args = {}
-        if TR.get(m.group(1)): return "tool", m.group(1), args
+        if TR.get(m.group(1)): return "tool", m.group(1), args, think_text
     m = re.search(r"\[TOOL:\s*([A-Za-z0-9_]+)\s*\]", text)
     if m and TR.get(m.group(1)):
         rest = text[m.end():m.end() + 800]
@@ -197,26 +206,26 @@ def parse_model(text):
         if mj:
             try: args = json.loads(mj.group(1))
             except Exception: args = {}
-        return "tool", m.group(1), args
+        return "tool", m.group(1), args, think_text
     m = re.search(r"\[TOOL\]\s*([A-Za-z0-9_]+)\s*(\{.*?\})?\s*(?:\[/TOOL\])?", text, re.S)
     if m and TR.get(m.group(1)):
         args = {}
         if m.group(2):
             try: args = json.loads(m.group(2))
             except Exception: args = {}
-        return "tool", m.group(1), args
+        return "tool", m.group(1), args, think_text
     for mm in re.finditer(r"^\s*([A-Za-z0-9_]+)\s*(\{[^\n]+\})\s*$", text, re.M):
         if TR.get(mm.group(1)):
             try: args = json.loads(mm.group(2))
             except Exception: args = {}
-            return "tool", mm.group(1), args
+            return "tool", mm.group(1), args, think_text
     m = re.search(r"\[ANSWER\]\s*(.*?)\[/ANSWER\]", text, re.S)
-    if m: return "answer", m.group(1).strip(), None
+    if m: return "answer", m.group(1).strip(), None, think_text
     if "[ANSWER]" in text and "[/ANSWER]" not in text:
-        return "answer", text.split("[ANSWER]", 1)[1].strip(), None
+        return "answer", text.split("[ANSWER]", 1)[1].strip(), None, think_text
     ts = text.strip()
-    if TR.get(ts): return "tool", ts, {}
-    return "invalid", text.strip(), None
+    if TR.get(ts): return "tool", ts, {}, think_text
+    return "invalid", text.strip(), None, think_text
 
 _NUDGE = "[СЛУЖЕБНОЕ] Ответ не в формате. Дай ровно один блок: [TOOL: имя] {\"параметр\": \"значение\"} [/TOOL] или [ANSWER] краткий ответ по-русски [/ANSWER]. Слово «текст» само по себе — не ответ. Ничего до и после блока."
 _ACCESS_NUDGE = "[СЛУЖЕБНОЕ] Неверно. Доступ к базе, файлам и Creo у тебя ЕСТЬ через инструменты (список «ТВОИ ИНСТРУМЕНТЫ» выше). Никогда не отвечай «нет доступа». Повтори ровно один блок: [TOOL: имя] {\"параметр\": \"значение\"} [/TOOL] или [ANSWER] ответ [/ANSWER]."
@@ -255,11 +264,11 @@ def run_loop(messages, client, has_link=False, on_step=None):
                     time.sleep(2); continue
                 return {"answer": "ошибка модели: %s" % e, "think": "", "steps": step + 1, "log": steps_log}
         raw = (r.get("message") or {}).get("content") or ""
-        think = re.search(r"<think>([\s\S]*?)</think>", raw)
-        think = think.group(1).strip() if think else ""
         try: LAST_META["p"] += r.get("prompt_eval_count") or 0; LAST_META["r"] += r.get("eval_count") or 0
         except Exception: pass
-        kind, payload, args = parse_model(raw)
+        kind, payload, args, think = parse_model(raw)
+        if think:
+            _log("[THINK] %s" % think[:400])
         if kind == "answer" and (_refusal(payload) or (len(payload) < 80 and payload.strip().lower() in _NUDGE.lower())):
             _log("refusal/echo_guard"); kind, payload = "invalid", raw
         if kind == "answer":
@@ -306,10 +315,6 @@ def run_loop(messages, client, has_link=False, on_step=None):
                     nn, aa2 = oa
                     if msg := _role_check(client, nn):
                         return "%s → %s" % (nn, msg)
-                    try: return "%s → %s" % (nn, str(TR.get(nn)["fn"](**aa2))[:600])
-                    except Exception as e: return "%s → ошибка: %s" % (nn, e)
-                def _one(oa):
-                    nn, aa2 = oa
                     try: return "%s → %s" % (nn, str(TR.get(nn)["fn"](**aa2))[:600])
                     except Exception as e: return "%s → ошибка: %s" % (nn, e)
                 try:
@@ -376,57 +381,7 @@ def ask(q, client, image=None, on_step=None):
     c.execute("INSERT INTO history(client,q,a,ts) VALUES(?,?,?,?)", (client, q, r["answer"][:2000], datetime.datetime.now().isoformat()))
     c.commit(); c.close()
     return r
-def ask(q, client, image=None, on_step=None):
-    q2 = VI.attach(q, image, client)
-    LIVE[client] = []
-    name = q.strip()
-    t = TR.get(name)
-    if t and not image:
-        if msg := _role_check(client, name):
-            return {"answer": msg, "think": "", "steps": 1, "log": ["%s(прямой вызов) → ЗАПРЕТ РОЛИ" % name]}
-        if t.get("approval"):
-            pid = datetime.datetime.now().strftime("%H%M%S%f")
-            PENDING[pid] = {"name": name, "args": {}, "client": client, "messages": [], "raw": ""}
-            return {"answer": "[СОГЛАСОВАНИЕ] операция %s ждёт подтверждения пользователя (id %s)" % (name, pid), "think": "", "steps": 1, "log": ["%s(прямой вызов)" % name]}
-        t0 = time.time()
-        try:
-            try: res = str(t["fn"]())
-            except TypeError: res = str(t["fn"]({k: "" for k in t.get("params", {})}))
-        except Exception as e: res = "ошибка исполнения %s: %s" % (name, e)
-        trace("AGENT %s" % name, "OK", int((time.time() - t0) * 1000))
-        c = core.db()
-        c.execute("INSERT INTO history(client,q,a,ts) VALUES(?,?,?,?)", (client, q, res[:2000], datetime.datetime.now().isoformat()))
-        c.commit(); c.close()
-        return {"answer": res, "think": "", "steps": 1, "log": ["%s(прямой вызов) → %s" % (name, res[:120])]}
 
-def ask(q, client, image=None, on_step=None):
-            messages.append({"role": "user", "content": "[РЕЗУЛЬТАТ %s]: %s" % (name, res[:4000])})
-    return {"answer": last_res or "не уложился в шаги", "think": "", "steps": steps_max, "log": steps_log}
-            messages.append({"role": "user", "content": "[РЕЗУЛЬТАТ %s]: %s" % (name, res[:4000])})
-        t = TR.get(name)
-        if not t:
-            res = "нет такого инструмента: %s" % name
-        elif msg := _role_check(client, name):
-            res = msg
-            _log("%s(%s) → ЗАПРЕТ РОЛИ" % (name, "без параметров" if not args else json.dumps(args, ensure_ascii=False)))
-        elif t.get("approval"):
-        t = TR.get(name)
-        if not t:
-            res = "нет такого инструмента: %s" % name
-        elif t.get("approval"):
-            pid = datetime.datetime.now().strftime("%H%M%S%f")
-            PENDING[pid] = {"name": name, "args": args, "client": client, "messages": messages, "raw": raw}
-            return {"answer": "[СОГЛАСОВАНИЕ] операция %s ждёт подтверждения пользователя (id %s)" % (name, pid),
-                    "think": think, "steps": step + 1, "log": steps_log}
-        else:
-            t0 = time.time()
-            try: res = str(t["fn"](**args))
-            except Exception as e: res = "ошибка исполнения %s: %s" % (name, e)
-            trace("AGENT %s" % name, "OK", int((time.time() - t0) * 1000))
-            _log("%s(%s) → %s" % (name, "без параметров" if not args else json.dumps(args, ensure_ascii=False), res[:120]))
-            last_res = res
-            messages.append({"role": "assistant", "content": raw})
-            messages.append({"role": "user", "content": "[РЕЗУЛЬТАТ %s]: %s" % (name, res[:4000])})
 def do_approve(pid, okf):
     p = PENDING.pop(pid, None)
     if not p: return {"res": "заявка не найдена"}
@@ -444,67 +399,6 @@ def do_approve(pid, okf):
         return {"res": res, "answer": r["answer"], "think": r.get("think", ""), "log": r.get("log", [])}
     return {"res": res}
 
-
-PAGE = r"""<!DOCTYPE html><html><head><meta charset="utf-8"><title>АГЕНТ v14</title>
-    return {"answer": last_res or "не уложился в шаги", "think": "", "steps": steps_max, "log": steps_log}
-
-def ask(q, client, image=None, on_step=None):
-    q2 = VI.attach(q, image, client)
-    LIVE[client] = []
-    name = q.strip()
-    t = TR.get(name)
-    if t and not image:
-        if msg := _role_check(client, name):
-            return {"answer": msg, "think": "", "steps": 1, "log": ["%s(прямой вызов) → ЗАПРЕТ РОЛИ" % name]}
-        if t.get("approval"):
-    t = TR.get(name)
-    if t and not image:
-        if t.get("approval"):
-            pid = datetime.datetime.now().strftime("%H%M%S%f")
-            PENDING[pid] = {"name": name, "args": {}, "client": client, "messages": [], "raw": ""}
-            return {"answer": "[СОГЛАСОВАНИЕ] операция %s ждёт подтверждения пользователя (id %s)" % (name, pid), "think": "", "steps": 1, "log": ["%s(прямой вызов)" % name]}
-        t0 = time.time()
-        try:
-            try: res = str(t["fn"]())
-            except TypeError: res = str(t["fn"]({k: "" for k in t.get("params", {})}))
-        except Exception as e: res = "ошибка исполнения %s: %s" % (name, e)
-        trace("AGENT %s" % name, "OK", int((time.time() - t0) * 1000))
-        c = core.db()
-        c.execute("INSERT INTO history(client,q,a,ts) VALUES(?,?,?,?)", (client, q, res[:2000], datetime.datetime.now().isoformat()))
-        c.commit(); c.close()
-        return {"answer": res, "think": "", "steps": 1, "log": ["%s(прямой вызов) → %s" % (name, res[:120])]}
-    q2 = q2 + "\n\n[СЛУЖЕБНОЕ: отвечай только по-русски. Один ход = один [TOOL] или один [ANSWER]. Никакого текста до и после блока.]"
-    messages = [{"role": "system", "content": build_system()}] + hist_block(client) + [{"role": "user", "content": q2}]
-    _ta = time.time()
-    LIVE_TOK[client] = []
-    def _push(t): LIVE_TOK.setdefault(client, []).append(t)
-    threading.current_thread()._tokpush = _push
-    r = run_loop(messages, client, has_link=("http" in q), on_step=on_step)
-    if int(settings.get("log_mode") or 1) >= 1:
-        r.setdefault("log", []).append("⏱ %dмс · 🔢 %d ток (промт %d + ответ %d) · шагов: %d" % (int((time.time() - _ta) * 1000), LAST_META["p"] + LAST_META["r"], LAST_META["p"], LAST_META["r"], r.get("steps", 1)))
-    c = core.db()
-    c.execute("INSERT INTO history(client,q,a,ts) VALUES(?,?,?,?)", (client, q, r["answer"][:2000], datetime.datetime.now().isoformat()))
-    c.commit(); c.close()
-    return r
-
-def do_approve(pid, okf):
-    p = PENDING.pop(pid, None)
-    if not p: return {"res": "заявка не найдена"}
-    if not okf: return {"res": "отменено пользователем"}
-    t = TR.get(p["name"])
-    if msg := _role_check(p.get("client"), p["name"]):
-        return {"res": msg}
-    try: res = str(t["fn"](**p["args"]))
-    t = TR.get(p["name"])
-    try: res = str(t["fn"](**p["args"]))
-    except Exception as e: return {"res": "ошибка исполнения: %s" % e}
-    msgs = p.get("messages")
-    if msgs:
-        msgs.append({"role": "assistant", "content": p.get("raw", "")})
-        msgs.append({"role": "user", "content": "[РЕЗУЛЬТАТ %s]: %s" % (p["name"], res[:4000])})
-        r = run_loop(msgs, p.get("client"), has_link=False)
-        return {"res": res, "answer": r["answer"], "think": r.get("think", ""), "log": r.get("log", [])}
-    return {"res": res}
 
 PAGE = r"""<!DOCTYPE html><html><head><meta charset="utf-8"><title>АГЕНТ v14</title>
 <style>body{margin:0;background:#14181f;color:#dfe6ee;font:14px/1.5 Segoe UI,sans-serif}
@@ -589,11 +483,13 @@ function showLogin(){login.style.display='flex';hdr.textContent='';panel.innerHT
 function send(){var q=qinp.value;if(!q)return;qinp.value='';addMsg(esc(q),true);var d=addMsg('🤔 думаю...');var sp=document.getElementById('spin');if(sp)sp.style.display='inline-block';
 var TKI=0,ST2=setInterval(function(){J('/livetoks?last='+TKI).then(function(g){(g.toks||[]).forEach(function(t){TKI++;var s=d.querySelector('.stream')||(function(){var e=document.createElement('div');e.className='stream';d.appendChild(e);return e})();s.textContent+=t;chat.scrollTop=chat.scrollHeight;});});},120);
 var LV=0,LT=setInterval(function(){J('/livesteps?last='+LV).then(function(g){(g.lines||[]).forEach(function(l){LV++;var lg=d.querySelector('.live')||(function(){var e=document.createElement('div');e.className='log live';d.appendChild(e);return e})();lg.textContent+=String.fromCharCode(10)+'· '+l;chat.scrollTop=chat.scrollHeight;});});},700);
-J('/ask',{token:TK,q:q,image:IMG}).then(function(r){clearInterval(LT);clearInterval(ST2);if(sp)sp.style.display='none';if(r&&r.error){localStorage.removeItem('tk');TK='';showLogin();d.innerHTML='⚠ нужен вход';return}IMG=null;render(d,r)}).catch(function(e){clearInterval(LT);clearInterval(ST2);if(sp)sp.style.display='none';d.innerHTML='ошибка: '+esc(e)})}
+J('/ask',{token:TK,q:q,image:IMG}).then(function(r){d._query=q;clearInterval(LT);clearInterval(ST2);if(sp)sp.style.display='none';if(r&&r.error){localStorage.removeItem('tk');TK='';showLogin();d.innerHTML='⚠ нужен вход';return}IMG=null;render(d,r)}).catch(function(e){clearInterval(LT);clearInterval(ST2);if(sp)sp.style.display='none';d.innerHTML='ошибка: '+esc(e)})}
 function render(d,r){var h='';
 if(r.think)h+='<div class="think" data-act="think">🧠 размышления (клик)</div><div class="thinkbody" style="display:none">'+esc(r.think)+'</div>';
 if(r.log&&r.log.length)h+='<div class="log">🔎 ХОД РАБОТЫ:\n'+r.log.map(esc).join('\n')+'</div>';
 h+='<div>'+esc(String(r.answer).replace(/<\/?think>/g,''))+'</div>';
+d._r=r;
+if(String(r.answer).indexOf('[СОГЛАСОВАНИЕ]')<0)h+='<div style="margin-top:6px"><button data-act="fb" data-ok="1">✅ попал</button> <button data-act="fb" data-ok="0">❌ не попал</button></div>';
 var m=String(r.answer).match(/id (\d+)/);
 if(String(r.answer).indexOf('[СОГЛАСОВАНИЕ]')>=0&&m)h+='<div style="margin-top:8px"><button data-act="appr" data-pid="'+m[1]+'" data-ok="1">✅ выполнить</button> <button data-act="appr" data-pid="'+m[1]+'" data-ok="0">❌ отмена</button></div>';
 d.innerHTML=h;chat.scrollTop=chat.scrollHeight}
@@ -641,6 +537,7 @@ else if(a=='closelogin'){login.style.display='none'}
 else if(a=='login')J('/login',{login:document.getElementById('lg').value,pw:document.getElementById('pw').value}).catch(function(e){alert('сервер недоступен: '+e);throw e}).then(function(r){if(r.ok){TK=r.token;localStorage.setItem('tk',TK);localStorage.setItem('usr',lg.value);login.style.display='none';init();if(!localStorage.getItem('seen_guide')){localStorage.setItem('seen_guide','1');setTimeout(function(){qinp.value='guide';send()},400)}}else alert('неверный логин или пароль')});
 else if(a=='reg')J('/register',{login:lg.value,pw:pw.value}).then(function(r){alert(r.msg||'ок')});
 else if(a=='appr'){var sp2=document.getElementById('spin');if(sp2)sp2.style.display='inline-block';J('/approve',{token:TK,pid:el.getAttribute('data-pid'),ok:el.getAttribute('data-ok')=='1'}).then(function(r){if(sp2)sp2.style.display='none';addMsg(esc((r.res||'')+((r.answer&&r.answer!==r.res)?'\n\n'+r.answer:'')))});}
+else if(a=='fb'){var okv=el.getAttribute('data-ok')=='1';var cm=okv?'':prompt('Короткий комментарий (почему не попал):','');if(!okv&&cm===null)return;var dd=el.closest('.msg');var rr=dd&&dd._r?dd._r:{};var tool='';if(rr.log&&rr.log.length){var mm=String(rr.log[rr.log.length-1]).match(/^([A-Za-z0-9_]+)\(/);if(mm)tool=mm[1]}J('/feedback',{token:TK,query:dd&&dd._query?dd._query:'',think:rr.think||'',tool:tool,result:rr.answer||'',ok:okv?1:0,comment:cm||''}).then(function(fb){el.parentNode.innerHTML='<span style="color:#8fa3b8">оценка сохранена</span>'})}
 else if(a=='setm')J('/setmodel',{token:TK,model:el.getAttribute('data-val')}).then(function(){init()});
 else if(a=='act'){var ep=el.getAttribute('data-val');if(ep=='/log'){J('/log').then(function(r){addMsg('<div class="log">'+esc(r.log)+'</div>')})}else J(ep,{token:TK}).then(function(r){addMsg('<div class="log">'+esc(JSON.stringify(r).slice(0,800))+'</div>')})}
 else if(a=='chip'){qinp.value=el.getAttribute('data-val');send()}
@@ -787,6 +684,17 @@ class Hd(BaseHTTPRequestHandler):
             settings.set_val("llm_model", b.get("model")); self._j({"ok": True})
         elif p == "/setauto":
             settings.set_val("auto_mode", 1 if b.get("on") else 0); self._j({"ok": True})
+        elif p == "/feedback":
+            try:
+                c = core.db()
+                c.execute("CREATE TABLE IF NOT EXISTS feedback(id INTEGER PRIMARY KEY AUTOINCREMENT, ts TEXT, client TEXT, query TEXT, think TEXT, tool TEXT, result TEXT, ok INTEGER, comment TEXT)")
+                c.execute("INSERT INTO feedback(ts,client,query,think,tool,result,ok,comment) VALUES(?,?,?,?,?,?,?,?)",
+                          (datetime.datetime.now().isoformat(), cl, (b.get("query") or "")[:2000], (b.get("think") or "")[:2000],
+                           (b.get("tool") or "")[:120], (b.get("result") or "")[:2000], 1 if b.get("ok") else 0, (b.get("comment") or "")[:500]))
+                c.commit(); c.close()
+            except Exception as e:
+                self._j({"ok": False, "msg": "оценка не сохранена: %s" % e}, 500); return
+            self._j({"ok": True, "msg": "оценка сохранена"})
         elif p == "/setcfg":
             if (b.get("key") or "") in settings.PERSONAL_KEYS:
                 settings.set_for(cl, b.get("key"), b.get("value")); self._j({"ok": True}); return

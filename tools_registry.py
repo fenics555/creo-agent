@@ -47,10 +47,6 @@ def execute(name, args, client=None):
         return "ошибка исполнения %s: %s" % (name, e)
 
 
-def describe():
-    except Exception as e:
-        log("tool %s err: %s" % (name, e))
-        return "ошибка исполнения %s: %s" % (name, e)
 def execute(name, args):
     t = get(name)
     if not t: return "инструмент %s не найден" % name
