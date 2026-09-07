@@ -134,3 +134,25 @@ def role_deny_list(role):
     c = _perms_db()
     r = [x[0] for x in c.execute("SELECT tool FROM role_deny WHERE role=?", (role or "",))]
     c.close(); return r
+
+
+def admin_delete_user(login):
+    """Удалить пользователя из users.json (любая форма файла). True, если удалил."""
+    import json as _json
+    from pathlib import Path as _P
+    p = _P(__file__).resolve().parent / "data" / "users.json"
+    d = _json.loads(p.read_text(encoding="utf-8"))
+    def _hit(x):
+        return isinstance(x, dict) and x.get("login") == login
+    ch = False
+    if isinstance(d, list):
+        n = [x for x in d if not _hit(x)]; ch = len(n) != len(d); out = n
+    elif isinstance(d, dict) and isinstance(d.get("users"), list):
+        n = [x for x in d["users"] if not _hit(x)]; ch = len(n) != len(d["users"]); d["users"] = n; out = d
+    elif isinstance(d, dict) and login in d:
+        d.pop(login); ch = True; out = d
+    else:
+        out = d
+    if ch:
+        p.write_text(_json.dumps(out, ensure_ascii=False, indent=1), encoding="utf-8")
+    return ch

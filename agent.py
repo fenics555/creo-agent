@@ -528,9 +528,10 @@ else if(a=='showpro'){J('/profile',{token:TK}).then(function(u){document.getElem
 else if(a=='closepro'){document.getElementById('pro').style.display='none'}
 else if(a=='savename'){var v=document.getElementById('pname').value;J('/setname',{token:TK,name:v}).then(function(r){alert(r.msg||'ок');if(r.ok){document.getElementById('pro').style.display='none';init()}})}
 else if(a=='savepw'){J('/setpw',{token:TK,old:document.getElementById('pold').value,'new':document.getElementById('pnew').value}).then(function(r){alert(r.msg||'ок');if(r.ok){document.getElementById('pold').value='';document.getElementById('pnew').value=''}})}
-else if(a=='openadm'){document.getElementById('pro').style.display='none';document.getElementById('adm').style.display='flex';J('/admin/users',{token:TK,op:'list'}).then(function(r){var out='';(r.users||[]).forEach(function(u){out+='<div style="padding:6px;background:#202834;border-radius:6px;margin:3px 0;display:flex;gap:6px;align-items:center"><b>'+esc(u.display_name)+'</b> <small style="color:#8fa3b8">('+esc(u.login)+')</small> ';out+='<select class="rsel" data-login="'+att(u.login)+'" style="background:#232b36;color:#dfe6ee;border:1px solid #334052;border-radius:4px;padding:4px">';(r.roles||[]).forEach(function(role){out+='<option'+(role===u.role?' selected':'')+'>'+esc(role)+'</option>'});out+='</select> ';out+='<button data-act="do_role" data-login="'+att(u.login)+'" style="background:#2b4a6f;color:#fff;border:0;border-radius:4px;padding:4px 8px;cursor:pointer">роль</button> ';out+='<button data-act="do_resetpw" data-login="'+att(u.login)+'" style="background:#6f4a2b;color:#fff;border:0;border-radius:4px;padding:4px 8px;cursor:pointer">сброс pw</button></div>'});document.getElementById('ulist').innerHTML=out||'(пусто)';var sel=document.getElementById('nrole');if(sel)sel.innerHTML=(r.roles||[]).map(function(x){return '<option>'+esc(x)+'</option>'}).join('')})}
+else if(a=='openadm'){document.getElementById('pro').style.display='none';document.getElementById('adm').style.display='flex';J('/admin/users',{token:TK,op:'list'}).then(function(r){var out='';(r.users||[]).forEach(function(u){out+='<div style="padding:6px;background:#202834;border-radius:6px;margin:3px 0;display:flex;gap:6px;align-items:center"><b>'+esc(u.display_name)+'</b> <small style="color:#8fa3b8">('+esc(u.login)+')</small> ';out+='<select class="rsel" data-login="'+att(u.login)+'" style="background:#232b36;color:#dfe6ee;border:1px solid #334052;border-radius:4px;padding:4px">';(r.roles||[]).forEach(function(role){out+='<option'+(role===u.role?' selected':'')+'>'+esc(role)+'</option>'});out+='</select> ';out+='<button data-act="do_role" data-login="'+att(u.login)+'" style="background:#2b4a6f;color:#fff;border:0;border-radius:4px;padding:4px 8px;cursor:pointer">роль</button> ';out+='<button data-act="do_resetpw" data-login="'+att(u.login)+'" style="background:#6f4a2b;color:#fff;border:0;border-radius:4px;padding:4px 8px;cursor:pointer">сброс pw</button> <button data-act="do_del" data-login="'+att(u.login)+'" style="background:#6f2b2b;color:#fff;border:0;border-radius:4px;padding:4px 8px;cursor:pointer">удалить</button></div>'});document.getElementById('ulist').innerHTML=out||'(пусто)';var sel=document.getElementById('nrole');if(sel)sel.innerHTML=(r.roles||[]).map(function(x){return '<option>'+esc(x)+'</option>'}).join('')})}
 else if(a=='closeadm'){document.getElementById('adm').style.display='none'}
 else if(a=='do_role'){var lgn=el.getAttribute('data-login');var sel=document.querySelector('.rsel[data-login="'+lgn+'"]');J('/admin/users',{token:TK,op:'role',login:lgn,role:sel.value}).then(function(r){alert(r.msg||'ок')})}
+else if(a=='do_del'){var lgn=el.getAttribute('data-login');if(!confirm('Удалить пользователя '+lgn+'?'))return;J('/admin/users',{token:TK,op:'delete',login:lgn}).then(function(r){alert(r.msg||'ок');if(r.ok){document.getElementById('adm').style.display='none';setTimeout(function(){document.getElementById('adm').style.display='flex';document.querySelector('[data-act="openadm"]').click()},100)}})}
 else if(a=='do_resetpw'){var lgn=el.getAttribute('data-login');var nw=prompt('Новый пароль для '+lgn+' (мин 4):');if(nw)J('/admin/users',{token:TK,op:'resetpw',login:lgn,pw:nw}).then(function(r){alert(r.msg||'ок')})}
 else if(a=='adduser'){J('/admin/users',{token:TK,op:'add',login:document.getElementById('nlog').value,pw:document.getElementById('npw').value,role:document.getElementById('nrole').value}).then(function(r){alert(r.msg||'ок');if(r.ok){document.getElementById('nlog').value='';document.getElementById('npw').value='';document.getElementById('adm').style.display='none';setTimeout(function(){document.getElementById('adm').style.display='flex';document.querySelector('[data-act="openadm"]').click()},100)}})}
 else if(a=='closelogin'){login.style.display='none'}
@@ -737,6 +738,21 @@ class Hd(BaseHTTPRequestHandler):
             elif op == "add":
                 okf = users.add_user(b.get("login") or "", b.get("pw") or "", b.get("role") or "Инженер")
                 self._j({"ok": okf, "msg": "создан" if okf else "логин занят или пустой"})
+            elif op == "delete":
+                lg = (b.get("login") or "").strip()
+                if not lg:
+                    self._j({"ok": False, "msg": "логин пустой"}, 400); return
+                if lg == cl:
+                    self._j({"ok": False, "msg": "нельзя удалить самого себя"}, 400); return
+                us = users.list_users()
+                tgt = [x for x in us if x.get("login") == lg]
+                if not tgt:
+                    self._j({"ok": False, "msg": "логин %s не найден" % lg}, 404); return
+                adm = [x for x in us if x.get("role") == "Администратор" and x.get("login") != lg]
+                if tgt[0].get("role") == "Администратор" and not adm:
+                    self._j({"ok": False, "msg": "нельзя удалить последнего администратора"}, 400); return
+                okf = users.admin_delete_user(lg)
+                self._j({"ok": okf, "msg": ("пользователь %s удалён" % lg) if okf else "ошибка удаления"})
             elif op == "resetpw":
                 okf, msg = users.admin_reset_password(b.get("login") or "", b.get("pw") or "")
                 self._j({"ok": okf, "msg": msg})
