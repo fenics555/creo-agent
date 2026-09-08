@@ -22,6 +22,7 @@ def _stream_post(path, payload, *ar, **kw):
         return _orig_core_post(path, payload, *ar, **kw)
     payload = dict(payload); payload["stream"] = True
     parts = []; state = {"buf": "", "mode": None}; lastj = {}
+    thparts = []
     req = _ur.Request(core.OLL + path, data=json.dumps(payload).encode(), headers={"Content-Type": "application/json"})
     try:
         with _ur.urlopen(req, timeout=600) as resp:
@@ -32,6 +33,8 @@ def _stream_post(path, payload, *ar, **kw):
                 except Exception: continue
                 lastj = j
                 t = (j.get("message") or {}).get("content") or ""
+                tth = (j.get("message") or {}).get("thinking") or ""
+                if tth: thparts.append(tth)
                 if t:
                     parts.append(t)
                     if state["mode"] != "tool":
@@ -47,11 +50,19 @@ def _stream_post(path, payload, *ar, **kw):
     except Exception:
         p2 = dict(payload); p2["stream"] = False
         return _orig_core_post(path, p2, *ar, **kw)
-    r = {"message": {"content": "".join(parts)}}
+    r = {"message": {"content": "".join(parts), "thinking": "".join(thparts)}}
     for _kk in ("prompt_eval_count", "eval_count", "prompt_eval_duration", "eval_duration"):
         if _kk in lastj: r[_kk] = lastj[_kk]
     return r
 core.post = _stream_post
+_post_before_think = core.post
+def _post_think_off(path, payload, *ar, **kw):
+    if path == "/api/chat" and isinstance(payload, dict):
+        payload = dict(payload)
+        if int(settings.get("think_mode") or 0) == 0:
+            payload["think"] = False
+    return _post_before_think(path, payload, *ar, **kw)
+core.post = _post_think_off
 # === конец стриминга ===
 
 import tools_registry as TR
@@ -272,6 +283,7 @@ def run_loop(messages, client, has_link=False, on_step=None):
         try: LAST_META["p"] += r.get("prompt_eval_count") or 0; LAST_META["r"] += r.get("eval_count") or 0
         except Exception: pass
         kind, payload, args, think = parse_model(raw)
+        think = think or (((r.get("message") or {}).get("thinking") or "").strip())
         if think:
             _log("[THINK] %s" % think[:400])
         if kind == "answer" and (_refusal(payload) or (len(payload) < 80 and payload.strip().lower() in _NUDGE.lower())):
