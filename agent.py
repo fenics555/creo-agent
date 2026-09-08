@@ -193,10 +193,10 @@ def beh():
     if settings.get("auto_mode"):
         return ({"temperature": (settings.get("auto_temperature") or 10) / 100.0,
                  "top_p": float(settings.get("top_p") or 0.9),
-                 "num_predict": int(settings.get("num_predict") or 1536)}, steps)
+                 "num_predict": int(settings.get("num_predict") or 1536), "num_ctx": int(settings.get("num_ctx") or 8192)}, steps)
     return ({"temperature": (settings.get("creativity") or 30) / 100.0,
              "top_p": float(settings.get("top_p") or 0.9),
-             "num_predict": int(settings.get("num_predict") or 1024)}, steps)
+             "num_predict": int(settings.get("num_predict") or 1024), "num_ctx": int(settings.get("num_ctx") or 8192)}, steps)
 
 def parse_model(text):
     think_text = ""
@@ -272,8 +272,9 @@ def run_loop(messages, client, has_link=False, on_step=None):
             try:
                 use_opts = dict(opts)
                 if invalid_cnt: use_opts = dict(use_opts, temperature=0)
+                _thk = int(settings.get("think_mode") or 0) > 0 and (settings.model_for("chat") or "").startswith(("qwen3", "deepseek"))
                 r = core.post("/api/chat", {"model": settings.model_for("chat"),
-                    "stream": False, "options": use_opts, "messages": messages}, t=600)
+                    "stream": False, "think": _thk, "options": use_opts, "messages": messages}, t=600)
                 break
             except Exception as e:
                 if attempt == 1 and "500" in str(e):
@@ -718,7 +719,7 @@ class Hd(BaseHTTPRequestHandler):
                 settings.set_for(cl, b.get("key"), b.get("value")); self._j({"ok": True}); return
             if not users.is_admin(cl):
                 self._j({"error": "настройки — только админ"}, 403); return
-            settings.set_val(b.get("key"), b.get("value")); self._j({"ok": True})
+            settings.set_val(b.get("key"), b.get("value")); _SYS_CACHE.clear(); self._j({"ok": True})
         elif p == "/snap":
             self._j({"msg": "скриншот принимается через Ctrl+V в поле ввода"})
         elif p == "/rescan":

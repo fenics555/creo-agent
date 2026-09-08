@@ -1,8 +1,11 @@
 ﻿# -*- coding: utf-8 -*-
-# DOCTOR v25 — видимые мысли: T1 читает message.thinking в run_loop,
-# T2 копит thinking в стриминге, T3 выключает нативные размышления при think_mode=0.
-# ЗАПУСКАТЬ ОДИН РАЗ. После: .\AI_RESTART.bat + Ctrl+F5
+# DOCTOR v24 — три фикса настроек агента:
+#   A) /setcfg сбрасывает кэш системного промта (think_mode и пр. живут без рестарта)
+#   B) num_ctx реально уходит в options запроса к Ollama
+#   C) параметр think в /api/chat для думающих семейств (qwen3/deepseek) по think_mode
+# ЗАПУСКАТЬ ОДИН РАЗ: python doctor.py   ПОТОМ: .\AI_RESTART.bat + Ctrl+F5
 from pathlib import Path
+
 AG = Path(r"D:\AI\tools\agent")
 FAILS = []; SKIPS = []
 
@@ -12,71 +15,65 @@ def py_ok(t, n):
     except SyntaxError as e:
         print("[SYNTAX] %s: %s" % (n, e)); return False
 
-def save(p, t):
-    if py_ok(t, str(p)):
-        p.write_text(t, encoding="utf-8"); return True
-    FAILS.append(p.name); return False
-
 a = (AG / "agent.py").read_text(encoding="utf-8")
 
-# T1: дочитывать нативные мысли из message.thinking
-anc1 = "kind, payload, args, think = parse_model(raw)"
-if "think = think or" in a:
-    SKIPS.append("T1"); print("[SKIP] T1 уже есть")
-elif anc1 in a:
-    a = a.replace(anc1, anc1 + '\n        think = think or (((r.get("message") or {}).get("thinking") or "").strip())', 1)
-    print("[OK] T1: thinking из message.thinking")
+# --- FIX A: инвалидация _SYS_CACHE в /setcfg ---
+old_a = 'settings.set_val(b.get("key"), b.get("value")); self._j({"ok": True})'
+new_a = 'settings.set_val(b.get("key"), b.get("value")); _SYS_CACHE.clear(); self._j({"ok": True})'
+if "_SYS_CACHE.clear()" in a:
+    SKIPS.append("A"); print("[SKIP] A: кэш уже сбрасывается")
+elif old_a in a:
+    a = a.replace(old_a, new_a, 1); print("[OK] A: _SYS_CACHE.clear() в /setcfg")
 else:
-    FAILS.append("T1 anchor"); print("[FAIL] T1: якорь не найден")
+    FAILS.append("A anchor"); print("[FAIL] A: якорь /setcfg не найден")
 
-# T2: стриминг тоже копит thinking
-if "thparts" in a:
-    SKIPS.append("T2"); print("[SKIP] T2 уже есть")
+# --- FIX B: num_ctx в options обеих ветвей beh() ---
+old_b1 = '"num_predict": int(settings.get("num_predict") or 1536)}, steps)'
+new_b1 = '"num_predict": int(settings.get("num_predict") or 1536), "num_ctx": int(settings.get("num_ctx") or 8192)}, steps)'
+old_b2 = '"num_predict": int(settings.get("num_predict") or 1024)}, steps)'
+new_b2 = '"num_predict": int(settings.get("num_predict") or 1024), "num_ctx": int(settings.get("num_ctx") or 8192)}, steps)'
+if a.count('"num_ctx": int(settings.get("num_ctx")') >= 2:
+    SKIPS.append("B"); print("[SKIP] B: num_ctx уже в options")
 else:
-    ok = True
-    a2 = 'parts = []; state = {"buf": "", "mode": None}; lastj = {}'
-    if a2 in a:
-        a = a.replace(a2, a2 + "\n    thparts = []", 1)
-    else:
-        ok = False; FAILS.append("T2a"); print("[FAIL] T2: якорь parts")
-    b2 = 't = (j.get("message") or {}).get("content") or ""'
-    if ok and b2 in a:
-        a = a.replace(b2, b2 + '\n                tth = (j.get("message") or {}).get("thinking") or ""\n                if tth: thparts.append(tth)', 1)
-    else:
-        ok = False; FAILS.append("T2b"); print("[FAIL] T2: якорь content")
-    c2 = 'r = {"message": {"content": "".join(parts)}}'
-    if ok and c2 in a:
-        a = a.replace(c2, 'r = {"message": {"content": "".join(parts), "thinking": "".join(thparts)}}', 1)
-    else:
-        ok = False; FAILS.append("T2c"); print("[FAIL] T2: якорь return")
-    if ok: print("[OK] T2: стриминг копит thinking")
+    ok_b = True
+    if old_b1 in a: a = a.replace(old_b1, new_b1, 1)
+    else: ok_b = False; FAILS.append("B1 anchor"); print("[FAIL] B: якорь 1536 не найден")
+    if old_b2 in a: a = a.replace(old_b2, new_b2, 1)
+    else: ok_b = False; FAILS.append("B2 anchor"); print("[FAIL] B: якорь 1024 не найден")
+    if ok_b: print("[OK] B: num_ctx в обеих ветвях beh()")
 
-# T3: при think_mode=0 просим Ollama не думать (экономия тех самых скрытых токенов)
-if "_post_think_off" in a:
-    SKIPS.append("T3"); print("[SKIP] T3 уже есть")
-elif "core.post = _stream_post" in a:
-    a = a.replace("core.post = _stream_post", '''core.post = _stream_post
-_post_before_think = core.post
-def _post_think_off(path, payload, *ar, **kw):
-    if path == "/api/chat" and isinstance(payload, dict):
-        payload = dict(payload)
-        if int(settings.get("think_mode") or 0) == 0:
-            payload["think"] = False
-    return _post_before_think(path, payload, *ar, **kw)
-core.post = _post_think_off''', 1)
-    print("[OK] T3: think_mode=0 выключает нативные размышления")
+# --- FIX C: параметр think в запросе /api/chat ---
+anc_c = 'if invalid_cnt: use_opts = dict(use_opts, temperature=0)'
+old_c = '"stream": False, "options": use_opts, "messages": messages}, t=600)'
+new_c = '"stream": False, "think": _thk, "options": use_opts, "messages": messages}, t=600)'
+thk_line = '_thk = int(settings.get("think_mode") or 0) > 0 and (settings.model_for("chat") or "").startswith(("qwen3", "deepseek"))'
+if '"think": _thk' in a:
+    SKIPS.append("C"); print("[SKIP] C: think уже в запросе")
+elif anc_c in a and old_c in a:
+    i = a.index(anc_c)
+    ls = a.rfind("\n", 0, i) + 1
+    ind = a[ls:i]
+    a = a.replace(anc_c, anc_c + "\n" + ind + thk_line, 1)
+    a = a.replace(old_c, new_c, 1)
+    print("[OK] C: параметр think в запросе (qwen3/deepseek, по think_mode)")
 else:
-    FAILS.append("T3 anchor"); print("[FAIL] T3: якорь не найден")
+    FAILS.append("C anchor"); print("[FAIL] C: якоря run_loop не найдены")
 
+# --- запись с гейтом компиляции ---
 if not FAILS:
-    if save(AG / "agent.py", a):
+    if py_ok(a, "agent.py"):
+        (AG / "agent.py").write_text(a, encoding="utf-8")
         print("[OK] agent.py записан")
+    else:
+        FAILS.append("compile"); print("[FAIL] компиляция, файл не записан")
+else:
+    print("[WARN] из-за FAIL файл НЕ записан")
 
 print("\n=== CHECK ===")
 ax = (AG / "agent.py").read_text(encoding="utf-8")
-print("T1:", "think = think or" in ax)
-print("T2:", "thparts" in ax)
-print("T3:", "_post_think_off" in ax)
+print("A: _SYS_CACHE.clear() в setcfg:", "_SYS_CACHE.clear()" in ax)
+print("B: вхождений num_ctx в options:", ax.count('"num_ctx": int(settings.get("num_ctx")'))
+print("C: think в запросе:", '"think": _thk' in ax)
 print()
 if FAILS: print("НЕ ПРИМЕНЕНО: " + "; ".join(FAILS))
 else: print("ГОТОВО: .\\AI_RESTART.bat + Ctrl+F5")
