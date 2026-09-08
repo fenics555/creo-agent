@@ -1,10 +1,8 @@
 ﻿# -*- coding: utf-8 -*-
-# DOCTOR v22 — удаление пользователей: функция в users.py, op delete в agent.py,
-# кнопка «удалить» в админке + чистка тестовых cline_fb / cline_fb2.
+# DOCTOR v25 — видимые мысли: T1 читает message.thinking в run_loop,
+# T2 копит thinking в стриминге, T3 выключает нативные размышления при think_mode=0.
 # ЗАПУСКАТЬ ОДИН РАЗ. После: .\AI_RESTART.bat + Ctrl+F5
-import sys
 from pathlib import Path
-
 AG = Path(r"D:\AI\tools\agent")
 FAILS = []; SKIPS = []
 
@@ -19,107 +17,66 @@ def save(p, t):
         p.write_text(t, encoding="utf-8"); return True
     FAILS.append(p.name); return False
 
-# --- 1. users.py: функция admin_delete_user (любая форма users.json) ---
-u = (AG / "users.py").read_text(encoding="utf-8")
-if "def admin_delete_user" in u:
-    SKIPS.append("users.py"); print("[SKIP] users.py: функция уже есть")
-else:
-    fn = '''
-
-def admin_delete_user(login):
-    """Удалить пользователя из users.json (любая форма файла). True, если удалил."""
-    import json as _json
-    from pathlib import Path as _P
-    p = _P(__file__).resolve().parent / "data" / "users.json"
-    d = _json.loads(p.read_text(encoding="utf-8"))
-    def _hit(x):
-        return isinstance(x, dict) and x.get("login") == login
-    ch = False
-    if isinstance(d, list):
-        n = [x for x in d if not _hit(x)]; ch = len(n) != len(d); out = n
-    elif isinstance(d, dict) and isinstance(d.get("users"), list):
-        n = [x for x in d["users"] if not _hit(x)]; ch = len(n) != len(d["users"]); d["users"] = n; out = d
-    elif isinstance(d, dict) and login in d:
-        d.pop(login); ch = True; out = d
-    else:
-        out = d
-    if ch:
-        p.write_text(_json.dumps(out, ensure_ascii=False, indent=1), encoding="utf-8")
-    return ch
-'''
-    if save(AG / "users.py", u + fn):
-        print("[OK] users.py: admin_delete_user добавлена")
-
-# --- 2. agent.py: операция delete в /admin/users ---
 a = (AG / "agent.py").read_text(encoding="utf-8")
-if 'op == "delete"' in a:
-    SKIPS.append("agent op"); print("[SKIP] agent.py: op delete уже есть")
+
+# T1: дочитывать нативные мысли из message.thinking
+anc1 = "kind, payload, args, think = parse_model(raw)"
+if "think = think or" in a:
+    SKIPS.append("T1"); print("[SKIP] T1 уже есть")
+elif anc1 in a:
+    a = a.replace(anc1, anc1 + '\n        think = think or (((r.get("message") or {}).get("thinking") or "").strip())', 1)
+    print("[OK] T1: thinking из message.thinking")
 else:
-    anchor = '            elif op == "resetpw":'
-    block = '''            elif op == "delete":
-                lg = (b.get("login") or "").strip()
-                if not lg:
-                    self._j({"ok": False, "msg": "логин пустой"}, 400); return
-                if lg == cl:
-                    self._j({"ok": False, "msg": "нельзя удалить самого себя"}, 400); return
-                us = users.list_users()
-                tgt = [x for x in us if x.get("login") == lg]
-                if not tgt:
-                    self._j({"ok": False, "msg": "логин %s не найден" % lg}, 404); return
-                adm = [x for x in us if x.get("role") == "Администратор" and x.get("login") != lg]
-                if tgt[0].get("role") == "Администратор" and not adm:
-                    self._j({"ok": False, "msg": "нельзя удалить последнего администратора"}, 400); return
-                okf = users.admin_delete_user(lg)
-                self._j({"ok": okf, "msg": ("пользователь %s удалён" % lg) if okf else "ошибка удаления"})
-'''
-    if anchor in a:
-        if save(AG / "agent.py", a.replace(anchor, block + anchor, 1)):
-            print("[OK] agent.py: op delete добавлен")
-    else:
-        FAILS.append("agent op anchor"); print("[FAIL] agent.py: якорь resetpw не найден")
+    FAILS.append("T1 anchor"); print("[FAIL] T1: якорь не найден")
 
-# --- 3. agent.py PAGE: кнопка «удалить» + обработчик клика ---
-a = (AG / "agent.py").read_text(encoding="utf-8")
-if 'data-act="do_del"' in a:
-    SKIPS.append("page"); print("[SKIP] PAGE: кнопка удаления уже есть")
+# T2: стриминг тоже копит thinking
+if "thparts" in a:
+    SKIPS.append("T2"); print("[SKIP] T2 уже есть")
 else:
-    old_btn = ">сброс pw</button>"
-    new_btn = '''>сброс pw</button> <button data-act="do_del" data-login="'+att(u.login)+'" style="background:#6f2b2b;color:#fff;border:0;border-radius:4px;padding:4px 8px;cursor:pointer">удалить</button>'''
-    old_h = "else if(a=='do_resetpw'){"
-    new_h = '''else if(a=='do_del'){var lgn=el.getAttribute('data-login');if(!confirm('Удалить пользователя '+lgn+'?'))return;J('/admin/users',{token:TK,op:'delete',login:lgn}).then(function(r){alert(r.msg||'ок');if(r.ok){document.getElementById('adm').style.display='none';setTimeout(function(){document.getElementById('adm').style.display='flex';document.querySelector('[data-act="openadm"]').click()},100)}})}
-else if(a=='do_resetpw'){'''
-    if old_btn in a and old_h in a:
-        a2 = a.replace(old_btn, new_btn, 1).replace(old_h, new_h, 1)
-        if save(AG / "agent.py", a2):
-            print("[OK] PAGE: кнопка и обработчик удаления добавлены")
+    ok = True
+    a2 = 'parts = []; state = {"buf": "", "mode": None}; lastj = {}'
+    if a2 in a:
+        a = a.replace(a2, a2 + "\n    thparts = []", 1)
     else:
-        FAILS.append("page anchors"); print("[FAIL] agent.py: якоря кнопки/обработчика не найдены")
-
-# --- 4. чистка тестовых пользователей новой функцией ---
-sys.path.insert(0, str(AG))
-try:
-    import users as US
-    if hasattr(US, "admin_delete_user"):
-        for lg in ("cline_fb", "cline_fb2"):
-            print("[OK] clean %s: %s" % (lg, US.admin_delete_user(lg)))
+        ok = False; FAILS.append("T2a"); print("[FAIL] T2: якорь parts")
+    b2 = 't = (j.get("message") or {}).get("content") or ""'
+    if ok and b2 in a:
+        a = a.replace(b2, b2 + '\n                tth = (j.get("message") or {}).get("thinking") or ""\n                if tth: thparts.append(tth)', 1)
     else:
-        FAILS.append("clean"); print("[FAIL] чистка: функция не появилась")
-except Exception as e:
-    FAILS.append("clean: %s" % e); print("[FAIL] чистка: %s" % e)
+        ok = False; FAILS.append("T2b"); print("[FAIL] T2: якорь content")
+    c2 = 'r = {"message": {"content": "".join(parts)}}'
+    if ok and c2 in a:
+        a = a.replace(c2, 'r = {"message": {"content": "".join(parts), "thinking": "".join(thparts)}}', 1)
+    else:
+        ok = False; FAILS.append("T2c"); print("[FAIL] T2: якорь return")
+    if ok: print("[OK] T2: стриминг копит thinking")
 
-# --- CHECK ---
+# T3: при think_mode=0 просим Ollama не думать (экономия тех самых скрытых токенов)
+if "_post_think_off" in a:
+    SKIPS.append("T3"); print("[SKIP] T3 уже есть")
+elif "core.post = _stream_post" in a:
+    a = a.replace("core.post = _stream_post", '''core.post = _stream_post
+_post_before_think = core.post
+def _post_think_off(path, payload, *ar, **kw):
+    if path == "/api/chat" and isinstance(payload, dict):
+        payload = dict(payload)
+        if int(settings.get("think_mode") or 0) == 0:
+            payload["think"] = False
+    return _post_before_think(path, payload, *ar, **kw)
+core.post = _post_think_off''', 1)
+    print("[OK] T3: think_mode=0 выключает нативные размышления")
+else:
+    FAILS.append("T3 anchor"); print("[FAIL] T3: якорь не найден")
+
+if not FAILS:
+    if save(AG / "agent.py", a):
+        print("[OK] agent.py записан")
+
 print("\n=== CHECK ===")
-ux = (AG / "users.py").read_text(encoding="utf-8")
 ax = (AG / "agent.py").read_text(encoding="utf-8")
-print("users fn:", "def admin_delete_user" in ux)
-print("op delete:", 'op == "delete"' in ax)
-print("btn:", 'data-act="do_del"' in ax)
-print("handler:", "a=='do_del'" in ax)
-try:
-    import users as US2
-    print("остались:", [x["login"] for x in US2.list_users()])
-except Exception as e:
-    print("list err:", e)
+print("T1:", "think = think or" in ax)
+print("T2:", "thparts" in ax)
+print("T3:", "_post_think_off" in ax)
 print()
 if FAILS: print("НЕ ПРИМЕНЕНО: " + "; ".join(FAILS))
 else: print("ГОТОВО: .\\AI_RESTART.bat + Ctrl+F5")
