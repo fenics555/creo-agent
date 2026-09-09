@@ -607,7 +607,7 @@ class Hd(BaseHTTPRequestHandler):
                 except Exception: return {}
             return {}
     def _client(self, b):
-        u = users.token_info(b.get("token") or "")
+        u = users.token_info(b.get("token") or self.headers.get("X-Token") or "")
         return u["login"] if u else None
     def do_GET(self):
         p = urlparse(self.path).path
