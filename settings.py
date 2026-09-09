@@ -129,7 +129,7 @@ def show_all():
 def list_ui():
     d = _raw()
     B = {"log_mode": (0,3,1), "night_hour": (0,23,1), "night_minute": (0,59,1), "log_mode": (0,3,1), "night_hour": (0,23,1), "night_minute": (0,59,1), "night_hour": (0, 23, 1), "night_minute": (0, 59, 1), "log_mode": (0, 3, 1), "creativity": (0, 100, 1), "auto_temperature": (0, 100, 1), "top_p": (0, 1, 0.05),
-         "num_ctx": (1024, 65536, 1024), "num_predict": (256, 8192, 256),
+         "num_ctx": (1024, 131072, 1024), "num_predict": (256, 8192, 256),
          "log_days": (1, 365, 1), "image_days": (1, 60, 1), "history_days": (1, 365, 1),
          "client_days": (1, 365, 1), "top_chunks": (1, 12, 1), "chunk_chars": (200, 2000, 100),
          "chunk_size": (500, 4000, 250), "chunk_overlap": (0, 1000, 50),

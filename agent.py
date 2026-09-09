@@ -14,6 +14,7 @@ import settings
 # === v14: стриминг токенов ===
 import urllib.request as _ur
 LIVE_TOK = {}
+LIVE_THINK = {}
 _orig_core_post = core.post
 
 def _stream_post(path, payload, *ar, **kw):
@@ -34,7 +35,11 @@ def _stream_post(path, payload, *ar, **kw):
                 lastj = j
                 t = (j.get("message") or {}).get("content") or ""
                 tth = (j.get("message") or {}).get("thinking") or ""
-                if tth: thparts.append(tth)
+                if tth:
+                    thparts.append(tth)
+                    _tc = getattr(threading.current_thread(), "_tokclient", None)
+                    if _tc is not None:
+                        LIVE_THINK.setdefault(_tc, []).append(tth)
                 if tth and not t:
                     continue
                 if t:
@@ -395,8 +400,10 @@ def ask(q, client, image=None, on_step=None):
     messages = [{"role": "system", "content": build_system()}] + hist_block(client) + [{"role": "user", "content": q2}]
     _ta = time.time()
     LIVE_TOK[client] = []
+    LIVE_THINK[client] = []
     def _push(t): LIVE_TOK.setdefault(client, []).append(t)
     threading.current_thread()._tokpush = _push
+    threading.current_thread()._tokclient = client
     r = run_loop(messages, client, has_link=("http" in q), on_step=on_step)
     if int(settings.get("log_mode") or 1) >= 1:
         r.setdefault("log", []).append("⏱ %dмс · 🔢 %d ток (промт %d + ответ %d) · шагов: %d" % (int((time.time() - _ta) * 1000), LAST_META["p"] + LAST_META["r"], LAST_META["p"], LAST_META["r"], r.get("steps", 1)))
@@ -506,9 +513,10 @@ function showLogin(){login.style.display='flex';hdr.textContent='';panel.innerHT
 function send(){var q=qinp.value;if(!q)return;qinp.value='';addMsg(esc(q),true);var d=addMsg('🤔 думаю...');var sp=document.getElementById('spin');if(sp)sp.style.display='inline-block';
 var TKI=0,ST2=setInterval(function(){J('/livetoks?last='+TKI).then(function(g){(g.toks||[]).forEach(function(t){TKI++;var s=d.querySelector('.stream')||(function(){var e=document.createElement('div');e.className='stream';d.appendChild(e);return e})();s.textContent+=t;chat.scrollTop=chat.scrollHeight;});});},120);
 var LV=0,LT=setInterval(function(){J('/livesteps?last='+LV).then(function(g){(g.lines||[]).forEach(function(l){LV++;var lg=d.querySelector('.live')||(function(){var e=document.createElement('div');e.className='log live';d.appendChild(e);return e})();lg.textContent+=String.fromCharCode(10)+'· '+l;chat.scrollTop=chat.scrollHeight;});});},700);
-J('/ask',{token:TK,q:q,image:IMG}).then(function(r){d._query=q;clearInterval(LT);clearInterval(ST2);if(sp)sp.style.display='none';if(r&&r.error){localStorage.removeItem('tk');TK='';showLogin();d.innerHTML='⚠ нужен вход';return}IMG=null;render(d,r)}).catch(function(e){clearInterval(LT);clearInterval(ST2);if(sp)sp.style.display='none';d.innerHTML='ошибка: '+esc(e)})}
+var THI=0,THB=null,TT=setInterval(function(){J('/livethink?last='+THI).then(function(g){(g.toks||[]).forEach(function(t){THI++;if(!THB){THB=document.createElement('div');THB.className='thinkbody';d.appendChild(THB);}THB.textContent+=t;chat.scrollTop=chat.scrollHeight;});});},700);
+J('/ask',{token:TK,q:q,image:IMG}).then(function(r){d._query=q;clearInterval(LT);clearInterval(ST2);clearInterval(TT);if(sp)sp.style.display='none';if(r&&r.error){localStorage.removeItem('tk');TK='';showLogin();d.innerHTML='⚠ нужен вход';return}IMG=null;render(d,r)}).catch(function(e){clearInterval(LT);clearInterval(ST2);clearInterval(TT);if(sp)sp.style.display='none';d.innerHTML='ошибка: '+esc(e)})}
 function render(d,r){var h='';
-if(r.think)h+='<div class="think" data-act="think">🧠 размышления (клик)</div><div class="thinkbody" style="display:none">'+esc(r.think)+'</div>';
+if(r.think)h+='<div class="think" data-act="think">🧠 размышления (клик)</div><div class="thinkbody" style="display:block">'+esc(r.think)+'</div>';
 if(r.log&&r.log.length&&(window.CFG||{}).show_steps!==0)h+='<div class="log">🔎 ХОД РАБОТЫ:\n'+r.log.map(esc).join('\n')+'</div>';
 h+='<div>'+esc(String(r.answer).replace(/<\/?think>/g,''))+'</div>';
 d._r=r;
@@ -580,7 +588,7 @@ lg.addEventListener('keydown',function(e){if(e.key=='Enter')document.querySelect
 pw.addEventListener('keydown',function(e){if(e.key=='Enter')document.querySelector('[data-act="login"]').click()});
 document.getElementById('cin').addEventListener('keydown',function(e){if(e.key=='Enter')document.querySelector('[data-act="chatsend"]').click()});
 if(TK){Promise.resolve().then(init).catch(function(e){addMsg('ошибка инициализации: '+e,true)})}else showLogin();
-(function(){var sp=document.getElementById('spin');if(!sp)return;var of=window.fetch;window.fetch=function(u){var url=String(u);var bg=url.indexOf('/chat/poll')>=0||url.indexOf('/status')>=0||url.indexOf('/ask')>=0;if(!bg)sp.style.display='inline-block';var p=of.apply(this,arguments);var t=new Promise(function(r,j){setTimeout(function(){j(new Error('таймаут 300с: '+url))},300000)});return Promise.race([p,t]).finally(function(){if(!bg)sp.style.display='none';});};})();
+(function(){var sp=document.getElementById('spin');if(!sp)return;var of=window.fetch;window.fetch=function(u){var url=String(u);var bg=url.indexOf('/chat/poll')>=0||url.indexOf('/status')>=0||url.indexOf('/ask')>=0;if(!bg)sp.style.display='inline-block';var p=of.apply(this,arguments);var t=new Promise(function(r,j){setTimeout(function(){j(new Error('таймаут 900с: '+url))},900000)});return Promise.race([p,t]).finally(function(){if(!bg)sp.style.display='none';});};})();
 (function(){if(window.__slfix)return;window.__slfix=1;
 var busy=false;
 function sync(r){var lab=r.parentNode.querySelector('[data-v]')||r.nextElementSibling;if(lab&&String(lab.textContent)!==String(r.value))lab.textContent=r.value;}
@@ -649,6 +657,12 @@ class Hd(BaseHTTPRequestHandler):
             last = int((qs.get("last") or ["0"])[0])
             toks = LIVE_TOK.get(_cl6["login"] if _cl6 else "", [])
             self._j({"toks": toks[last:], "last": len(toks)})
+        elif p == "/livethink":
+            _cl7 = users.token_info(self.headers.get("X-Token") or "")
+            qs7 = parse_qs(urlparse(self.path).query)
+            last7 = int((qs7.get("last") or ["0"])[0])
+            ths = LIVE_THINK.get(_cl7["login"] if _cl7 else "", [])
+            self._j({"toks": ths[last7:], "last": len(ths)})
         elif p == "/livesteps":
             _cl4 = users.token_info(self.headers.get("X-Token") or "")
             qs = parse_qs(urlparse(self.path).query)
