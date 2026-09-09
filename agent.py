@@ -601,7 +601,7 @@ class Hd(BaseHTTPRequestHandler):
         raw = self.rfile.read(n) or b"{}"
         try: return json.loads(raw)
         except Exception:
-            s = raw.decode("utf-8", "ignore")
+            s = raw.decode("utf-8-sig", "ignore")
             if s.lstrip().startswith("{\\"):
                 try: return json.loads(s.replace('\\"', '"'))
                 except Exception: return {}
@@ -674,8 +674,6 @@ class Hd(BaseHTTPRequestHandler):
         p = urlparse(self.path).path
         b = self._body()
         if p == "/login":
-            core.log(f"DEBUG: p={p}, b={b}")
-            print(f"DEBUG: p={p}, b={b}")
             r = users.check_login(b.get("login"), b.get("pw") or b.get("password"))
             self._j(r or {"ok": False}); return
         if p == "/register":
