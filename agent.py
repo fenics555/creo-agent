@@ -201,16 +201,19 @@ def beh():
              "num_predict": int(settings.get("num_predict") or 1024), "num_ctx": int(settings.get("num_ctx") or 8192)}, steps)
 
 def parse_model(text):
+    THINK_TAGS = [
+        (r"<think>([\s\S]*?)</think>", re.S),
+        (r"<\|channel\|>thought\s*([\s\S]*?)\s*<\|channel\|>", re.S),
+        (r"<thought>([\s\S]*?)</thought>", re.S | re.I),
+        (r"\[THINK\]\s*([\s\S]*?)\s*\[/THINK\]", re.S),
+    ]
     think_text = ""
-    mt = re.search(r"\[THINK\]\s*([\s\S]*?)\s*\[/THINK\]", text, re.S)
-    if mt:
-        think_text = mt.group(1).strip()
-        text = (text[:mt.start()] + text[mt.end():]).strip()
-    if not think_text:
-        mt2 = re.search(r"<think>([\s\S]*?)</think>", text, re.S)
-        if mt2:
-            think_text = mt2.group(1).strip()
-            text = (text[:mt2.start()] + text[mt2.end():]).strip()
+    for pat, flags in THINK_TAGS:
+        if think_text: break
+        m = re.search(pat, text, flags)
+        if m:
+            think_text = m.group(1).strip()
+            text = (text[:m.start()] + text[m.end():]).strip()
     m = re.search(r"\[TOOL:\s*([A-Za-z0-9_]+)\s*\]\s*(\{.*?\})\s*\[/TOOL\]", text, re.S)
     if m:
         try: args = json.loads(m.group(2))
@@ -364,7 +367,7 @@ def run_loop(messages, client, has_link=False, on_step=None):
             last_res = res
             messages.append({"role": "assistant", "content": raw})
             messages.append({"role": "user", "content": "[РЕЗУЛЬТАТ %s]: %s" % (name, res[:4000])})
-    return {"answer": last_res or "не уложился в шаги", "think": "", "steps": steps_max, "log": steps_log}
+    return {"answer": last_res or "не уложился в шаги", "think": think, "steps": step + 1, "log": steps_log}
 
 def ask(q, client, image=None, on_step=None):
     q2 = VI.attach(q, image, client)
