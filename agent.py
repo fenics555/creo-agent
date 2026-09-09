@@ -668,10 +668,10 @@ class Hd(BaseHTTPRequestHandler):
         p = urlparse(self.path).path
         b = self._body()
         if p == "/login":
-            r = users.check_login(b.get("login"), b.get("pw"))
+            r = users.check_login(b.get("login"), b.get("pw") or b.get("password"))
             self._j(r or {"ok": False}); return
         if p == "/register":
-            okf = users.add_user(b.get("login"), b.get("pw"))
+            okf = users.add_user(b.get("login"), b.get("pw") or b.get("password"))
             self._j({"msg": "пользователь создан" if okf else "логин занят или пустой"}); return
         cl = self._client(b)
         if not cl:
@@ -754,7 +754,7 @@ class Hd(BaseHTTPRequestHandler):
                 okf, msg = users.admin_set_role(b.get("login") or "", b.get("role") or "")
                 self._j({"ok": okf, "msg": msg})
             elif op == "add":
-                okf = users.add_user(b.get("login") or "", b.get("pw") or "", b.get("role") or "Инженер")
+                okf = users.add_user(b.get("login") or "", b.get("pw") or b.get("password") or "", b.get("role") or "Инженер")
                 self._j({"ok": okf, "msg": "создан" if okf else "логин занят или пустой"})
             elif op == "delete":
                 lg = (b.get("login") or "").strip()
@@ -772,7 +772,7 @@ class Hd(BaseHTTPRequestHandler):
                 okf = users.admin_delete_user(lg)
                 self._j({"ok": okf, "msg": ("пользователь %s удалён" % lg) if okf else "ошибка удаления"})
             elif op == "resetpw":
-                okf, msg = users.admin_reset_password(b.get("login") or "", b.get("pw") or "")
+                okf, msg = users.admin_reset_password(b.get("login") or "", b.get("pw") or b.get("password") or "")
                 self._j({"ok": okf, "msg": msg})
             else:
                 self._j({"error": "неизвестная op"}, 400)
