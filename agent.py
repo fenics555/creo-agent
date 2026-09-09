@@ -35,6 +35,8 @@ def _stream_post(path, payload, *ar, **kw):
                 t = (j.get("message") or {}).get("content") or ""
                 tth = (j.get("message") or {}).get("thinking") or ""
                 if tth: thparts.append(tth)
+                if tth and not t:
+                    continue
                 if t:
                     parts.append(t)
                     if state["mode"] != "tool":
@@ -272,7 +274,7 @@ def run_loop(messages, client, has_link=False, on_step=None):
             try:
                 use_opts = dict(opts)
                 if invalid_cnt: use_opts = dict(use_opts, temperature=0)
-                _thk = int(settings.get("think_mode") or 0) > 0 and (settings.model_for("chat") or "").startswith(("qwen3", "deepseek"))
+                _thk = int(settings.get("think_mode") or 0) > 0
                 r = core.post("/api/chat", {"model": settings.model_for("chat"),
                     "stream": False, "think": _thk, "options": use_opts, "messages": messages}, t=600)
                 break
