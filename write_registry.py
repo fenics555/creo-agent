@@ -1,4 +1,4 @@
-# -*- coding: utf-8 -*-
+content = r'''# -*- coding: utf-8 -*-
 """АГЕНТ v12 — РЕЕСТР ИНСТРУМЕНТОВ (tools_registry.py)
 АВТОПОДКЛЮЧЕНИЕ: каждый файл *_tools.py в папке агента — направление работы.
 Блок сам объявляет свой список TOOLS. Реестр только собирает.
@@ -54,3 +54,7 @@ def describe():
         if len(d) > 45: d = d[:43].rstrip(" ,.;:-") + "…"
         out.append("- %s(%s) — %s%s" % (t["name"], ps, d, " [СОГЛАСОВАНИЕ]" if t.get("approval") else ""))
     return "\n".join(out)
+'''
+with open(r'D:\AI\tools\agent\tools_registry.py', 'w', encoding='utf-8') as f:
+    f.write(content)
+print("Success")
