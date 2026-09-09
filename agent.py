@@ -598,8 +598,14 @@ class Hd(BaseHTTPRequestHandler):
         self.wfile.write(b)
     def _body(self):
         n = int(self.headers.get("Content-Length") or 0)
-        try: return json.loads(self.rfile.read(n) or b"{}")
-        except Exception: return {}
+        raw = self.rfile.read(n) or b"{}"
+        try: return json.loads(raw)
+        except Exception:
+            s = raw.decode("utf-8", "ignore")
+            if s.lstrip().startswith("{\\"):
+                try: return json.loads(s.replace('\\"', '"'))
+                except Exception: return {}
+            return {}
     def _client(self, b):
         u = users.token_info(b.get("token") or "")
         return u["login"] if u else None
@@ -668,6 +674,8 @@ class Hd(BaseHTTPRequestHandler):
         p = urlparse(self.path).path
         b = self._body()
         if p == "/login":
+            core.log(f"DEBUG: p={p}, b={b}")
+            print(f"DEBUG: p={p}, b={b}")
             r = users.check_login(b.get("login"), b.get("pw") or b.get("password"))
             self._j(r or {"ok": False}); return
         if p == "/register":
