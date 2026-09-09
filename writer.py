@@ -1,4 +1,5 @@
-# -*- coding: utf-8 -*-
+import os
+content = r'''# -*- coding: utf-8 -*-
 """VISION: скриншоты (Ctrl-V) + анализ через Ollama-визион."""
 import base64, datetime
 from pathlib import Path
@@ -47,3 +48,7 @@ def tool_vision_analyze(q="", **kw):
 TOOLS = [
     {"name": "vision_analyze", "desc": "Разобрать последний прикреплённый скриншот (Ctrl-V) через визион-модель", "params": {"q": "вопрос по скриншоту"}, "approval": False, "fn": tool_vision_analyze},
 ]
+'''
+with open(r'D:\AI\tools\agent\vision_tools.py', 'w', encoding='utf-8') as f:
+    f.write(content)
+print("Success")
