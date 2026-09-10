@@ -55,12 +55,12 @@ def models():
 def build():
     # РљРѕРЅС„РёРіСѓСЂР°С†РёСЏ РїСЂРѕСЃС‚СЂР°РЅСЃС‚РІ (Title, Group Icon, Prefixes)
     group_configs = [
-        ("рџ›  Creo", "рџ› ", ["creo_", "copy_", "usage_"]),
-        ("рџ§­ РњРѕРґРµР»Рё", "рџ§­", ["models_", "find_", "index_", "family_"]),
-        ("рџ“€ РўСЂРµР№Р»С‹ Рё РґРёР°РіРЅРѕСЃС‚РёРєР°", "рџ“€", ["trail_", "diag_", "predict_"]),
+        ("рџ›  Creo", "рџ› ", ["creo_", "copy_", "usage_", "creoson_"]),
+        ("рџ§­ РњРѕРґРµР»Рё", "рџ§­", ["models_", "find_", "index_", "family_", "scan_"]),
+        ("рџ“€ РўСЂРµР№Р»С‹ Рё РґРёР°РіРЅРѕСЃС‚РёРєР°", "рџ“€", ["trail_", "diag_", "predict_", "probe_"]),
         ("рџ“љ Р‘Р°Р·Р° Р·РЅР°РЅРёР№ Рё РїР°РјСЏС‚СЊ", "рџ“љ", ["search_kb", "read_file", "memory_", "learn_", "save_"]),
         ("рџ§® РРЅР¶РµРЅРµСЂРЅРѕРµ", "рџ§®", ["calc_", "vision_", "plm_", "spec_"]),
-        ("рџљЂ Р¤Р»РѕС‚ Рё СЃР»СѓР¶Р±Р°", "рџљЂ", ["fleet_", "backup_", "git_", "nightly_", "sync_"]),
+        ("рџљЂ Р¤Р»РѕС‚ Рё СЃР»СѓР¶Р±Р°", "рџљЂ", ["fleet_", "backup_", "git_", "nightly_", "sync_", "web_", "one_c_", "case_"]),
         ("рџ‘Ґ РљРѕРјР°РЅРґР° Рё СЃРїСЂР°РІРєР°", "рџ‘Ґ", ["chat_", "help_", "behavior_", "passport_", "role_", "users_"]),
         ("вљ™ РќР°СЃС‚СЂРѕР№РєРё", "вљ™", ["settings_"]),
     ]
@@ -90,11 +90,17 @@ def build():
         
         for t in ts:
             t_name = t["name"]
+            matched = False
             # РС‰РµРј, Рє РєР°РєРѕР№ РіСЂСѓРїРїРµ РѕС‚РЅРѕСЃРёС‚СЃСЏ РёРЅСЃС‚СЂСѓРјРµРЅС‚ РїРѕ РµРіРѕ РёРјРµРЅРё (РїСЂРµС„РёРєСЃСѓ)
             for idx, (_, _, prefixes) in enumerate(group_configs):
                 if any(t_name.startswith(p) for p in prefixes):
                     groups_data[idx].append(t)
+                    matched = True
                     break
+            
+            if not matched:
+                # Fallback: рџљЂ Р¤Р»РѕС‚ Рё СЃР»СѓР¶Р±Р° (РёРЅРґРµРєСЃ 5)
+                groups_data[5].append(t)
 
     # Р¤РѕСЂРјРёСЂСѓРµРј С„РёРЅР°Р»СЊРЅС‹Р№ СЃРїРёСЃРѕРє РіСЂСѓРїРї
     final_groups = []
