@@ -8,11 +8,11 @@ import json
 from core import log, CONFIG_FILE, DATA_DIR
 
 REGISTRY = [
-    ("Главное", "llm_model", "Модель чата", "str", "deepseek-r1:14b", "Какая модель думает.", True),
+    ("Главное", "llm_model", "Модель чата", "str", "gemma4:26b", "Какая модель думает.", True),
     ("Главное", "creativity", "Креатив 0-100", "int", 40, "0-34 строго, 35-66 нейтрально, 67-100 свободно.", True),
     ("Главное", "auto_temperature", "Температура авто 0–100", "int", 10, "10 = 0.10 — инженерная строгость, без выдумывания.", True),
     ("Главное", "top_p", "Top-p", "float", 0.9, "Разнообразие.", False),
-    ("Главное", "num_ctx", "Окно контекста", "int", 32768, "Под <think> рассуждения.", True),
+    ("Главное", "num_ctx", "Окно контекста", "int", 131072, "Под <think> рассуждения.", True),
     ("Главное", "num_predict", "Макс токенов ответа", "int", 2048, "Чтобы не резало мысли.", True),
     ("Главное", "admin_password", "Пароль обучения", "str", "1945", "Для админ-действий.", True),
     ("Главное", "auto_mode", "Авторежим", "bool", True, "Вкл: температура 0.1 (инженер). Выкл: температура от креатива.", True),
@@ -64,11 +64,11 @@ REGISTRY = [
     ("Сканер", "scan_exclude", "scan_exclude", "list", [".git\\", "__pycache__\\", "node_modules\\", "venv\\", ".venv\\", "backup\\", "old\\", "temp\\", "tmp\\", "cache\\", ".idea\\", ".vscode\\", "Z:\\PTC\\Work\\000_03 401-LIT Литейное производство\\000_5 401-LIT-MO Модельная оснастка для литья\\000_10 СТОРОННИЕ РАЗРАБОТКИ\\", "Z:\\PTC\\Work\\УЧЕБА\\", "Z:\\PTC\\Work\\хуйня\\", "Thumbs.db", "desktop.ini", "*.tmp", "*.bak", "*~", "*.log", "*.sqlite", "*.db", "*.exe", "*.dll", "*.so", "*.o", "*.obj", "*.pyc", ".DS_Store"], "Из config.json (авто-регистрация).", True),
     ("ИИ-роли", "model_index", "Модель индексации", "str", "nomic-embed-text:latest", "Эмбеддинги, без чата.", True),
     ("ИИ-роли", "model_chat", "Модель чата", "str", "", "Пусто = llm_model.", True),
-    ("ИИ-роли", "model_fast", "Модель рутины", "str", "qwen2.5-coder:7b", "Быстрые/простые ходы.", True),
+    ("ИИ-роли", "model_fast", "Модель рутины", "str", "", "Быстрые/простые ходы.", True),
     ("ИИ-роли", "model_creo", "Модель Creo", "str", "", "Пусто = llm_model.", False),
-    ("ИИ-роли", "model_vision", "Модель визии", "str", "minicpm-v:8b", "Скриншоты/чертежи.", True),
+    ("ИИ-роли", "model_vision", "Модель визии", "str", "gemma4:12b", "Скриншоты/чертежи.", True),
     ("ИИ-роли", "model_spec", "Модель спец", "str", "", "Пусто = llm_model.", False),
-    ("ИИ-роли", "model_trail", "Модель трейлов", "str", "qwen2.5-coder:7b", "Диагностика трейлов.", True),
+    ("ИИ-роли", "model_trail", "Модель трейлов", "str", "", "Диагностика трейлов.", True),
     ("ИИ-роли", "model_web", "Модель веб", "str", "", "Пусто = llm_model.", False),
     ("ИИ-роли", "model_audit", "Модель аудита", "str", "", "Пусто = llm_model.", False),
 ]
@@ -108,11 +108,11 @@ def set_val(key, value):
             if k2 in ("creativity","auto_temperature","top_p","num_ctx","num_predict","steps_max"): d[k2] = defl2
     if key == "auto_mode" and str(value).lower() in ("1", "true", "yes", "on", "да"):
         for _, k2, _, _, defl2, _, _ in REGISTRY:
-            if k2 in ("creativity", "auto_temperature", "top_p", "num_ctx", "num_predict", "steps_max"):
+            if k2 in ("creativity", "auto_temperature", "top_p", "steps_max"):
                 d[k2] = defl2
     if key == "auto_mode" and str(value).lower() in ("1", "true", "yes", "on", "да"):
         for _, k2, _, _, defl2, _, _ in REGISTRY:
-            if k2 in ("creativity", "auto_temperature", "top_p", "num_ctx", "num_predict", "steps_max"):
+            if k2 in ("creativity", "auto_temperature", "top_p", "steps_max"):
                 d[k2] = defl2
             CONFIG_FILE.write_text(json.dumps(d, ensure_ascii=False, indent=1), encoding="utf-8")
             return True
