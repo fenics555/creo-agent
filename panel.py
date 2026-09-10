@@ -1,48 +1,57 @@
 ﻿# -*- coding: utf-8 -*-
 """
-РђР“Р•РќРў v12 вЂ” РџРђРќР•Р›Р¬ (panel.py)
-РЎРѕР±РёСЂР°РµС‚ Р±РѕРєРѕРІСѓСЋ РїР°РЅРµР»СЊ: СЃРµРєС†РёРё Р±Р»РѕРєРѕРІ, С‡РёРїС‹-Р·Р°РґР°С‡Рё, РєРЅРѕРїРєРё РґРµР№СЃС‚РІРёР№,
-РјРѕРґРµР»Рё РР, РїРѕР»Р·СѓРЅРєРё РїРѕРІРµРґРµРЅРёСЏ. Р§РёРїС‹ вЂ” СЂР°Р±РѕС‡РёРµ Р·Р°РґР°С‡Рё, Р±РµР· РїСЂСѓР¶РёРЅ.
+АГЕНТ v12 — ПАНЕЛЬ (panel.py)
+Собирает боковую панель: секции блоков, чипы-задачи, кнопки действий,
+модели ИИ, ползунки поведения. Чипы — рабочие задачи, без пружин.
 """
 import importlib, json, urllib.request
 import core
 import tools_registry as TR
 
 TITLES = {
-    "creo_ops_tools": "рџ”© CREO-РћРџР•Р РђР¦РР", "creo_tools": "рџ¦ѕ CREO", "fleet_tools": "рџљЊ Р¤Р›РћРў",
-    "knowledge_tools": "рџ“љ Р—РќРђРќРРЇ", "memory_tools": "рџ§  РџРђРњРЇРўР¬", "one_c_tools": "рџЏў 1РЎ",
-    "passport_tools": "рџ“‹ РџРђРЎРџРћР Рў", "scanner_tools": "рџ”Ќ РЎРљРђРќР•Р ", "settings_tools": "вљ™ РќРђРЎРўР РћР™РљР",
-    "trail_tools": "рџ§ѕ РўР Р•Р™Р›Р«", "users_tools": "рџ‘Ґ Р”РћРЎРўРЈРџР«", "vision_tools": "рџ‘Ѓ Р’РР—РРЇ",
-    "web_tools": "рџЊђ WEB", "diagnostic_tools": "рџ©є Р”РРђР“РќРћРЎРўРРљРђ", "backup_tools": "рџ’ѕ Р‘Р­РљРђРџР«",
-    "calc_tools": "рџ§® РљРђР›Р¬РљРЈР›РЇРўРћР ",
+    "creo_ops_tools": "🛠 Creo: сессия и операции",
+    "creo_tools": "🛠 Creo: сессия и операции",
+    "fleet_tools": "🚀 Флот и служба",
+    "knowledge_tools": "📚 База знаний и память",
+    "memory_tools": "📚 База знаний и память",
+    "one_c_tools": "🚀 Флот и служба",
+    "passport_tools": "👥 Команда и справка",
+    "scanner_tools": "🧭 Модели",
+    "settings_tools": "⚙ Настройки",
+    "trail_tools": "📈 Трейлы и диагностика",
+    "users_tools": "👥 Команда и справка",
+    "vision_tools": "🧮 Инженерное",
+    "web_tools": "🚀 Флот и служба",
+    "diagnostic_tools": "📈 Трейлы и диагностика",
+    "backup_tools": "🚀 Флот и служба",
+    "calc_tools": "🧮 Инженерное",
 }
-
 CHIPS = [
-    "СЃС‚Р°С‚СѓСЃ Creo Рё РѕС‚РєСЂС‹С‚С‹Рµ РјРѕРґРµР»Рё",
-    "Р°СѓРґРёС‚ СЂР°Р±РѕС‡РµР№ РїР°РїРєРё РїРѕ СЌС‚Р°Р»РѕРЅСѓ РљР‘",
-    "СЂР°Р·Р±РѕСЂ С‚СЂРµР№Р»Р°: РѕС€РёР±РєРё, РїСЂРѕСЃС‚РѕР№, РїР°РјСЏС‚СЊ",
-    "РіРґРµ СЃРєР»Р°Рґ РІРµСЂСЃРёР№ Рё С‡С‚Рѕ РїРѕС‡РёСЃС‚РёС‚СЊ",
-    "РєС‚Рѕ Рё РєРѕРіРґР° СЂР°Р±РѕС‚Р°Р» РІ Creo",
-    "РїР°СЃРїРѕСЂС‚ РєРѕРјРїР°РЅРёРё",
-    "СЃС‚СЂР°С‚РµРіРёСЏ РљР‘",
-    "СЃРїРёСЃРѕРє Р±СЌРєР°РїРѕРІ Р·Р° РЅРµРґРµР»СЋ",
-    "СЃРѕСЃС‚РѕСЏРЅРёРµ Р±Р°Р·С‹ Р·РЅР°РЅРёР№",
-    "РґРѕСЃС‚СѓРїРЅС‹Рµ РјРѕРґРµР»Рё РР",
-    "С‚РµРєСѓС‰РёРµ РЅР°СЃС‚СЂРѕР№РєРё Р°РіРµРЅС‚Р°",
+    "статус Creo и открытые модели",
+    "аудит рабочей папки по эталону КБ",
+    "разбор трейла: ошибки, простой, память",
+    "где склад версий и что почистить",
+    "кто и когда работал в Creo",
+    "паспорт компании",
+    "стратегия КБ",
+    "список бэкапов за неделю",
+    "состояние базы знаний",
+    "доступные модели ИИ",
+    "текущие настройки агента",
 ]
 
 ACTIONS = [
-    {"label": "РџРµСЂРµРёРЅРґРµРєСЃРёСЂРѕРІР°С‚СЊ Р±Р°Р·Сѓ", "endpoint": "/rescan"},
-    {"label": "РЎРєР°РЅ 3D-РјРѕРґРµР»РµР№", "endpoint": "/scan"},
-    {"label": "РџРѕРєР°Р·Р°С‚СЊ Р»РѕРі", "endpoint": "/log"},
+    {"label": "Переиндексировать базу", "endpoint": "/rescan"},
+    {"label": "Скан 3D-моделей", "endpoint": "/scan"},
+    {"label": "Показать лог", "endpoint": "/log"},
 ]
 
 BEHAVIOR = [
-    {"key": "creativity", "name": "РљСЂРµР°С‚РёРІ 0-100", "min": 0, "max": 100, "step": 1},
+    {"key": "creativity", "name": "Креатив 0-100", "min": 0, "max": 100, "step": 1},
     {"key": "top_p", "name": "Top-p", "min": 0, "max": 1, "step": 0.05},
-    {"key": "num_predict", "name": "РњР°РєСЃ С‚РѕРєРµРЅРѕРІ", "min": 256, "max": 4096, "step": 256},
-    {"key": "auto_mode", "name": "РђРІС‚РѕСЂРµР¶РёРј", "min": 0, "max": 1, "step": 1},
-    {"key": "think_mode", "name": "Р Р°СЃСЃСѓР¶РґРµРЅРёСЏ 0-2", "min": 0, "max": 2, "step": 1},
+    {"key": "num_predict", "name": "Макс токенов", "min": 256, "max": 4096, "step": 256},
+    {"key": "auto_mode", "name": "Авторежим", "min": 0, "max": 1, "step": 1},
+    {"key": "think_mode", "name": "Рассуждения 0-2", "min": 0, "max": 2, "step": 1},
 ]
 
 def models():
@@ -53,34 +62,33 @@ def models():
         return []
 
 def build():
-    # РљРѕРЅС„РёРіСѓСЂР°С†РёСЏ РїСЂРѕСЃС‚СЂР°РЅСЃС‚РІ (Title, Group Icon, Prefixes)
+    # Конфигурация пространств (Title, Group Icon, Prefixes)
     group_configs = [
-        ("рџ›  Creo", "рџ› ", ["creo_", "copy_", "usage_", "creoson_"]),
-        ("рџ§­ РњРѕРґРµР»Рё", "рџ§­", ["models_", "find_", "index_", "family_", "scan_"]),
-        ("рџ“€ РўСЂРµР№Р»С‹ Рё РґРёР°РіРЅРѕСЃС‚РёРєР°", "рџ“€", ["trail_", "diag_", "predict_", "probe_"]),
-        ("рџ“љ Р‘Р°Р·Р° Р·РЅР°РЅРёР№ Рё РїР°РјСЏС‚СЊ", "рџ“љ", ["search_kb", "read_file", "memory_", "learn_", "save_"]),
-        ("рџ§® РРЅР¶РµРЅРµСЂРЅРѕРµ", "рџ§®", ["calc_", "vision_", "plm_", "spec_"]),
-        ("рџљЂ Р¤Р»РѕС‚ Рё СЃР»СѓР¶Р±Р°", "рџљЂ", ["fleet_", "backup_", "git_", "nightly_", "sync_", "web_", "one_c_", "case_"]),
-        ("рџ‘Ґ РљРѕРјР°РЅРґР° Рё СЃРїСЂР°РІРєР°", "рџ‘Ґ", ["chat_", "help_", "behavior_", "passport_", "role_", "users_"]),
-        ("вљ™ РќР°СЃС‚СЂРѕР№РєРё", "вљ™", ["settings_"]),
+        ("🛠 Creo: сессия и операции", "🛠", ["creo_", "copy_", "usage_", "creoson_"]),
+        ("🧭 Модели", "🧭", ["models_", "find_", "index_", "family_", "scan_"]),
+        ("📈 Трейлы и диагностика", "📈", ["trail_", "diag_", "predict_", "probe_"]),
+        ("📚 База знаний и память", "📚", ["search_kb", "read_file", "memory_", "learn_", "save_"]),
+        ("🧮 Инженерное", "🧮", ["calc_", "vision_", "plm_", "spec_"]),
+        ("🚀 Флот и служба", "🚀", ["fleet_", "backup_", "git_", "nightly_", "sync_", "web_", "one_c_", "case_"]),
+        ("👥 Команда и справка", "👥", ["chat_", "help_", "behavior_", "passport_", "role_", "users_"]),
+        ("⚙ Настройки", "⚙", ["settings_"]),
     ]
-
-    # РљР°СЂС‚Р° РёРєРѕРЅРѕРє РёРЅСЃС‚СЂСѓРјРµРЅС‚РѕРІ
+    # Карта иконок инструментов
     icon_map = {
-        "creo_status": "рџ–Ґ", "creo_session": "рџЄџ", "creo_get_active": "рџЋЇ",
-        "creo_pwd": "рџ“Ѓ", "creo_list_files": "рџ“„", "creo_find_model": "рџ”Ќ",
-        "creo_get_params": "рџ“‹", "creo_get_relations": "рџ”—", "creo_get_mass": "вљ–",
-        "creo_save": "рџ’ѕ", "copy_model": "рџ“‘", "creo_audit_folder": "рџ§№",
-        "usage_build": "рџ§©", "trail_analyze": "рџ“€", "trail_problems": "вљ ",
-        "trail_predict": "рџ”®", "calc": "рџ§®", "search_kb": "рџ“љ",
-        "read_file": "рџ“–", "vision_analyze": "рџ‘Ѓ", "backup_make": "рџ’ј",
-        "git_sync": "вЋ‡", "chat_send": "рџ’¬", "help": "вќ“"
+        "creo_status": "🖥", "creo_session": "🪟", "creo_get_active": "🎯",
+        "creo_pwd": "📁", "creo_list_files": "📄", "creo_find_model": "🔍",
+        "creo_get_params": "📋", "creo_get_relations": "🔗", "creo_get_mass": "⚖",
+        "creo_save": "💾", "copy_model": "📑", "creo_audit_folder": "🧹",
+        "usage_build": "🧩", "trail_analyze": "📈", "trail_problems": "⚠",
+        "trail_predict": "🔮", "calc": "🧮", "search_kb": "📚",
+        "read_file": "📖", "vision_analyze": "👁", "backup_make": "💼",
+        "git_sync": "⎇", "chat_send": "💬", "help": "❓"
     }
 
     # РРЅРёС†РёР°Р»РёР·Р°С†РёСЏ С…СЂР°РЅРёР»РёС‰Р° РёРЅСЃС‚СЂСѓРјРµРЅС‚РѕРІ РґР»СЏ РєР°Р¶РґРѕР№ РіСЂСѓРїРїС‹
     groups_data = [[] for _ in range(len(group_configs))]
 
-    # РЎРѕР±РёСЂР°РµРј РІСЃРµ РёРЅСЃС‚СЂСѓРјРµРЅС‚С‹ РёР· РІСЃРµС… Р±Р»РѕРєРѕРІ
+    # Собираем все инструменты из всех блоков
     for b in TR.BLOCKS:
         try:
             m = importlib.import_module(b)
@@ -99,17 +107,17 @@ def build():
                     break
             
             if not matched:
-                # Fallback: рџљЂ Р¤Р»РѕС‚ Рё СЃР»СѓР¶Р±Р° (РёРЅРґРµРєСЃ 5)
+                # Fallback: 🚀 Флот и служба (индекс 5)
                 groups_data[5].append(t)
 
-    # Р¤РѕСЂРјРёСЂСѓРµРј С„РёРЅР°Р»СЊРЅС‹Р№ СЃРїРёСЃРѕРє РіСЂСѓРїРї
+    # Формируем финальный список групп
     final_groups = []
     for i, (title_base, group_icon, _) in enumerate(group_configs):
         tools_in_group = groups_data[i]
         count = len(tools_in_group)
         
-        # Р—Р°РіРѕР»РѕРІРѕРє СЃ РёРєРѕРЅРєРѕР№ Рё СЃС‡С‘С‚С‡РёРєРѕРј
-        display_title = f"{title_base} ({count})"
+        # Заголовок с иконкой и счётчиком
+        display_title = title_base
         
         group_tools = []
         for t in tools_in_group:
