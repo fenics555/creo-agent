@@ -1,55 +1,129 @@
-# -*- coding: utf-8 -*-
-"""АГЕНТ v12 — БЛОК PDF (pdf_tools.py)
-PDF-глаза: свежесть одноимённых pdf/drw в той же папке (таблица files),
-миниатюры листов (fitz, кэш data/pdfcache), перепечать чертежа через CREOSON.
-Свежесть: pdf mtime >= drw mtime → «актуален», иначе «УСТАРЕЛ»; prt/asm не учитываются.
-"""
-import os, re, sqlite3
-from pathlib import Path
+import fitz
+import sqlite3
+import os
 import datetime
-
+import re
+from pathlib import Path
+import core
 import settings
-from core import log
 
-try:
-    import fitz
-    HAS_FITZ = True
-except Exception:
-    HAS_FITZ = False
+PDFCACHE = Path(r"D:\AI\tools\agent\data\pdfcache")
+PDFCACHE.mkdir(parents=True, exist_ok=True)
 
-AG = Path(__file__).parent
-CACHE_DIR = AG / "data" / "pdfcache"
-IMG_DPI = 80  # миниатюра читаема, кэш не пухнет
+def _get_file_info(name):
+    """Returns (path, mtime) for a file matching name and extension."""
+    c = core.db()
+    res_pdf = c.execute("SELECT path, mtime FROM files WHERE path LIKE ? AND path NOT LIKE '%.tmp%'", (f"%{name}.pdf",)).fetchone()
+    res_drw = c.execute("SELECT path, mtime FROM files WHERE (path LIKE ? OR path LIKE ?) AND path NOT LIKE '%.tmp%'", (f"%{name}.drw", f"%{name}.DRW")).fetchone()
+    res_prt = c.execute("SELECT path, mtime FROM files WHERE (path LIKE ? OR path LIKE ?) AND path NOT LIKE '%.tmp%'", (f"%{name}.prt", f"%{name}.PRT")).fetchone()
+    c.close()
+    return res_pdf, res_drw, res_prt
 
-
-def _ts(m):
-    return datetime.datetime.fromtimestamp(m or 0).strftime("%y-%m-%d %H:%M:%S") if m else "нет"
-
-
-def _lookup(name):
-    """По стему имени из files: одноимённые .pdf и .drw в той же папке.
-    Возвращает (pdf_path, drw_path, pdf_mtime, drw_mtime)."""
-    stem = name.lower()
-    c = sqlite3.connect(str(AG / "agent.sqlite"))
+def pdf_pages(name):
+    res_pdf, res_drw, _ = _get_file_info(name)
+    if not res_pdf:
+        return {"error": "нет pdf"}
+    
+    pdf_path, pdf_mtime = res_pdf
+    drw_mtime = res_drw[1] if res_drw else 0
+    
     try:
-        rows = c.execute("SELECT path, mtime FROM files").fetchall()
-    finally:
-        c.close()
-    pdf_m = drw_m = None
-    pdf_p = drw_p = None
-    for p, m in rows:
-        base = os.path.basename(str(p))
-        m2 = re.match(r"^(.+)\.(drw|pdf)(?:\.\d+)?$", base, re.I)
-        if not m2 or m2.group(1).lower() != stem:
-            continue
-        ext = m2.group(2).lower()
-        pl = str(p).lower()
-        if not os.path.exists(str(p)):
-            continue
-        if ext == ".pdf":
-            if pdf_m is None or (m or 0) > pdf_m:
-                pdf_m, pdf_p = m, pl
-        else:
-            if drw_m is None or (m or 0) > drw_m:
-                drw_m, drw_p = m, pl
-    return pdf_p, drw_p, pdf_m, drw_m
+        doc = fitz.open(pdf_path)
+        pages = len(doc)
+        doc.close()
+        return {
+            "name": name,
+            "pages": pages,
+            "pdf_mtime": pdf_mtime,
+            "drw_mtime": drw_mtime,
+            "status": "ok"
+        }
+    except Exception as e:
+        return {"error": f"ошибка fitz: {e}"}
+
+def pdf_img(name, page):
+    res_pdf, _, _ = _get_file_info(name)
+    if not res_pdf:
+        return {"error": "нет pdf"}
+    
+    pdf_path, pdf_mtime = res_pdf
+    page_idx = int(page) - 1
+    
+    cache_name = f"{Path(pdf_path).name}_{pdf_mtime}_{page}.png"
+    cache_path = PDFCACHE / cache_name
+    
+    if cache_path.exists():
+        return {"image_path": str(cache_path)}
+    
+    try:
+        doc = fitz.open(pdf_path)
+        if page_idx >= len(doc):
+            return {"error": "страница вне диапазона"}
+        
+        page_obj = doc[page_idx]
+        pix = page_obj.get_pixmap(dpi=80)
+        pix.save(str(cache_path))
+        doc.close()
+        
+        return {"image_path": str(cache_path)}
+    except Exception as e:
+        return {"error": f"ошибка fitz: {e}"}
+
+def pdf_status(name):
+    res_pdf, res_drw, _ = _get_file_info(name)
+    
+    if not res_pdf:
+        return {"status": "нет pdf"}
+    if not res_drw:
+        return {"status": "нет чертежа"}
+    
+    pdf_path, pdf_mtime = res_pdf
+    drw_path, drw_mtime = res_drw
+    
+    if pdf_mtime >= drw_mtime:
+        return {"status": "актуален"}
+    else:
+        return {"status": "УСТАРЕЛ"}
+
+def pdf_refresh(name, approval=True):
+    res_drw, _, _ = _get_file_info(name)
+    if not res_drw:
+        return {"error": "нет чертежа"}
+    
+    drw_path, _ = res_drw
+    outdir = str(Path(drw_path).parent)
+    nm = Path(drw_path).stem
+    pdf_name = nm + ".pdf"
+    
+    import urllib.request
+    import json
+    
+    CREOSON_URL = "http://127.0.0.1:8080/creoson"
+    
+    try:
+        conn_body = {"command":"connection","function":"connect","data":{}}
+        conn_req = urllib.request.Request(CREOSON_URL, json.dumps(conn_body).encode(), {"Content-Type": "application/json"})
+        with urllib.request.urlopen(conn_req, timeout=5) as f:
+            conn_res = json.loads(f.read().decode())
+            session_id = conn_res["sessionId"]
+            
+        body = {
+            "sessionId": session_id,
+            "command": "interface",
+            "function": "export_pdf",
+            "data": {
+                "file": str(Path(drw_path).name),
+                "filename": pdf_name,
+                "dirname": outdir
+            }
+        }
+        
+        exec_req = urllib.request.Request(CREOSON_URL, json.dumps(body).encode(), {"Content-Type": "application/json"})
+        with urllib.request.urlopen(exec_req, timeout=30) as f:
+            exec_res = json.loads(f.read().decode())
+            if exec_res["status"]["error"]:
+                return {"error": f"CREOSON error: {exec_res['status']['message']}"}
+            return {"status": "ok", "details": exec_res.get("data")}
+            
+    except Exception as e:
+        return {"error": f"pdf_refresh failed: {e}"}

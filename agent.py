@@ -10,6 +10,8 @@ from urllib.parse import urlparse, parse_qs
 import core
 from core import log, trace
 import settings
+import pdf_tools
+
 
 # === v14: стриминг токенов ===
 import urllib.request as _ur
@@ -629,6 +631,21 @@ class Hd(BaseHTTPRequestHandler):
             cl2 = users.token_info(token)
             prof = users.get_profile(cl2["login"]) if cl2 else None
             self._j({"host": HOSTNAME, "model": settings.get("llm_model"), "blocks": len(TR.BLOCKS), "tools": len(TR.TOOLS), "user": prof, "is_manager": users.can_manage_users(prof["login"]) if prof else False})
+        elif p == "/pdfpages":
+            token = self.headers.get("X-Token") or ""
+            if not users.token_info(token): return self._j({"error": "no token"})
+            qs = parse_qs(urlparse(self.path).query)
+            name = qs.get("name", [""])[0]
+            if not name: return self._j({"error": "no name"})
+            self._j(pdf_tools.pdf_pages(name))
+        elif p == "/pdfimg":
+            token = self.headers.get("X-Token") or ""
+            if not users.token_info(token): return self._j({"error": "no token"})
+            qs = parse_qs(urlparse(self.path).query)
+            name = qs.get("name", [""])[0]
+            page = qs.get("page", ["1"])[0]
+            if not name: return self._j({"error": "no name"})
+            self._j(pdf_tools.pdf_img(name, page))
         elif p == "/panel":
             d = panel.build()
             _ui = users.token_info(self.headers.get("X-Token") or "")
