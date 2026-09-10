@@ -48,16 +48,29 @@ class H(BaseHTTPRequestHandler):
     def _ws(self, v):
         a = v.get("action")
         if a == "prepare":
-            return {"ok": True, "directory": str(Path(tempfile.mkdtemp(prefix="creo_copy_")))}
+            src = Path(v.get("source", ""))
+            dst = Path(v.get("target", ""))
+            if not src.exists(): return {"ok": False, "error": "источник не найден"}
+            plan = []
+            for f in src.iterdir():
+                if f.is_file():
+                    new_name = f.stem + "_copy" + f.suffix
+                    plan.append({"old": f.name, "new": new_name})
+            return {"ok": True, "directory": str(tempfile.mkdtemp(prefix="creo_copy_")), "plan": plan}
         if a == "collect":
             src, dst = Path(v.get("source", "")), Path(v.get("target", ""))
-            names = json.loads(v.get("names") or "[]")
+            items = json.loads(v.get("names") or "[]")
             cp, oc, mi = [], [], []
-            for n in names:
-                s, d = src / n, dst / n
-                if not s.exists(): mi.append(n); continue
-                if d.exists(): oc.append(n); continue
-                shutil.copy2(s, d); cp.append(n)
+            for item in items:
+                if isinstance(item, dict):
+                    n_old, n_new = item.get("old"), item.get("new")
+                    s, d = src / n_old, dst / n_new
+                else:
+                    n = item
+                    s, d = src / n, dst / n
+                if not s.exists(): mi.append(str(s)); continue
+                if d.exists(): oc.append(str(d)); continue
+                shutil.copy2(s, d); cp.append(str(d))
             return {"ok": True, "copied": cp, "occupied": oc, "missing": mi}
         if a == "cleanup":
             d = Path(v.get("directory", ""))

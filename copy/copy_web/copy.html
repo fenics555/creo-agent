@@ -1,0 +1,152 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="utf-8">
+    <title>Копия сборки</title>
+    <link rel="stylesheet" href="copy.css">
+</head>
+<body>
+    <div class="container">
+        <h2>Копия сборки</h2>
+        
+        <div class="field">
+            <label>Имя источника (old)</label>
+            <input type="text" id="src" placeholder="D:\AI\project\assembly">
+        </div>
+        
+        <div class="field">
+            <label>Имя копии (new)</label>
+            <input type="text" id="dst" placeholder="D:\AI\project\assembly_copy">
+        </div>
+        
+        <div class="row">
+            <input type="checkbox" id="dry_run">
+            <label for="dry_run">Только план (dry_run)</label>
+        </div>
+
+        <div class="actions">
+            <button class="btn-plan" onclick="prepare()">Построить план</button>
+            <button class="btn-exec" id="btn-exec" onclick="execute()" disabled>Выполнить</button>
+            <button class="btn-clean" onclick="cleanup()">Уборка</button>
+        </div>
+
+        <div id="result" class="result-area">Ожидание действий...</div>
+        <div id="table-container"></div>
+    </div>
+
+    <script>
+        const TK = localStorage.getItem('tk');
+        let currentPlan = [];
+        let currentDir = "";
+
+        function log(msg, isError = false) {
+            const res = document.getElementById('result');
+            res.innerHTML = (isError ? '⚠ ' : '') + msg;
+            res.style.borderColor = isError ? '#CC3333' : '#1273EB';
+        }
+
+        function post(url, payload) {
+            return fetch(url, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json', 'X-Token': TK },
+                body: JSON.stringify(payload)
+            }).then(r => r.json());
+        }
+
+        async function prepare() {
+            const src = document.getElementById('src').value;
+            const dst = document.getElementById('dst').value;
+            if (!src || !dst) return log("Укажите пути!", true);
+
+            log("Построение плана...");
+            try {
+                const res = await post('/api/assembly-copy-workspace-frame', {
+                    action: "prepare",
+                    source: src,
+                    target: dst
+                });
+
+                if (res.ok) {
+                    currentPlan = res.plan || [];
+                    currentDir = res.directory;
+                    document.getElementById('btn-exec').disabled = false;
+                    
+                    if (currentPlan.length === 0) {
+                        log("В источнике нет файлов.");
+                        return;
+                    }
+
+                    log("План готов.");
+                    renderTable(currentPlan);
+                } else {
+                    log(res.error || "Ошибка", true);
+                }
+            } catch (e) {
+                log("Ошибка связи: " + e.message, true);
+            }
+        }
+
+        function renderTable(plan) {
+            const container = document.getElementById('table-container');
+            let html = '<table><tr><th>Файл</th><th>Новое имя</th></tr>';
+            plan.forEach(item => {
+                html += `<tr><td>${item.old}</td><td>${item.new}</td></tr>`;
+            });
+            html += '</table>';
+            container.innerHTML = html;
+        }
+
+        async function execute() {
+            const isDry = document.getElementById('dry_run').checked;
+            const src = document.getElementById('src').value;
+            const dst = document.getElementById('dst').value;
+
+            if (isDry) {
+                log("Режим: Только план (dry_run). Выполнение отменено.", false);
+                // We still show the plan
+                return;
+            }
+
+            log("Выполнение копирования...");
+            try {
+                const res = await post('/api/assembly-copy-workspace-frame', {
+                    action: "collect",
+                    source: src,
+                    target: dst,
+                    names: JSON.stringify(currentPlan)
+                });
+
+                if (res.ok) {
+                    let msg = "Копирование завершено:\n";
+                    if (res.copied.length) msg += `✅ Скопировано: ${res.copied.length}\n`;
+                    if (res.occupied.length) msg += `⚠️ Уже занято: ${res.occupied.length}\n`;
+                    if (res.missing.length) msg += `❌ Пропущено (нет файла): ${res.missing.length}\n`;
+                    log(msg);
+                    
+                    // In real usage, we might want to notify the parent
+                    window.parent.postMessage({source:'creo-specification-pdf', payload:res}, '*');
+                } else {
+                    log(res.error || "Ошибка", true);
+                }
+            } catch (e) {
+                log("Ошибка связи: " + e.message, true);
+            }
+        }
+
+        async function cleanup() {
+            if (!currentDir) return log("Сначала постройте план!", true);
+            log("Уборка временных файлов...");
+            try {
+                const res = await post('/api/assembly-copy-workspace-frame', {
+                    action: "cleanup",
+                    directory: currentDir
+                });
+                if (res.ok) log("Уборка завершена.");
+                else log(res.error, true);
+            } catch (e) {
+                log("Ошибка связи: " + e.message, true);
+            }
+        }
+    </script>
+</body>
+</html>
