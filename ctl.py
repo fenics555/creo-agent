@@ -57,11 +57,22 @@ def start_creoson():
     subprocess.Popen('cmd /c start "" /B /D "%s" creoson_run.bat' % CREOSON_DIR, shell=True)
 
 def start_copyserver():
-    subprocess.Popen(r'cmd /c start "" /B /D "%s" python copy\copy_server.py' % AG, shell=True)
+    os.makedirs(AG + r"\data\tmp", exist_ok=True)
+    subprocess.Popen(["powershell", "-NoProfile", "-Command",
+                      "Start-Process python -ArgumentList 'copy\\copy_server.py' "
+                      "-WorkingDirectory '%s' -WindowStyle Hidden "
+                      "-RedirectStandardOutput '%s\\data\\tmp\\copy_out.txt' "
+                      "-RedirectStandardError '%s\\data\\tmp\\copy_err.txt'" % (AG, AG, AG)],
+                     capture_output=False)
 
 def start_agent(hidden):
     if hidden:
-        subprocess.Popen('cmd /c cd /d %s && python agent.py >> %sagent_console.log 2>&1' % (AG, TOOLS), shell=True, creationflags=0x08000000)
+        os.makedirs(AG + r"\data\tmp", exist_ok=True)
+        subprocess.Popen(["powershell", "-NoProfile", "-Command",
+                          "Start-Process python -ArgumentList 'agent.py' "
+                          "-WorkingDirectory '%s' -WindowStyle Hidden "
+                          "-RedirectStandardOutput '%s\\data\\tmp\\agent_out.txt' "
+                          "-RedirectStandardError '%s\\data\\tmp\\agent_err.txt'" % (AG, AG, AG)])
     else:
         subprocess.Popen('start "АГЕНТ v12" cmd /c "cd /d %s && python agent.py"' % AG, shell=True)
 
