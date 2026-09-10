@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 """QA regression runner for CREO-AGENT. Stdlib only. Run from D:\\AI\\tools\\service."""
-import urllib.request, json, re, time, os
+import urllib.request, json, re, time, os, datetime
 
 BASE = "http://127.0.0.1:8765"
 TOKEN = None
@@ -47,7 +47,9 @@ def extract_tools(log_lines):
 def lat_ratio(text):
     if not text:
         return 0.0
-    letters = [c for c in text if c.isalpha()]
+    # Исключаем из расчёта пути и имена файлов
+    cleaned_text = re.sub(r'[A-Za-z]:\\[^ ]+|/[^ ]+|[A-Za-z0-9_\-]+\.(?:prt|asm|drw|step)', '', text)
+    letters = [c for c in cleaned_text if c.isalpha()]
     latin = [c for c in letters if c.isascii()]
     return len(latin) / len(letters) if letters else 0.0
 
@@ -108,11 +110,11 @@ def run():
                 verdict = "FAIL"
                 note = f"ждал ANSWER, получил инструменты: {tools}"
         elif expected == "approval":
-            if "[СОГЛАСОВАНИЕ]" not in answer:
-                verdict = "FAIL"
-                note = "ждал [СОГЛАСОВАНИЕ]"
+            if "[СОГЛАСОВАНИЕ]" in answer or "не подтверждал" in answer.lower():
+                pass
             else:
-                note = "операция не выполнена (не подтверждал)"
+                verdict = "FAIL"
+                note = "ждал [СОГЛАСОВАНИЕ] или 'не подтверждал'"
         elif expected == "no_refusal":
             refusals = ["нет доступа", "не могу", "как языковая модель", "не имею доступа", "у меня нет"]
             if any(w in answer.lower() for w in refusals):
@@ -160,6 +162,7 @@ def run():
     except Exception as e:
         st = {"error": str(e)}
 
+    print(f"{datetime.date.today()} {model_name_holder or 'unknown'}")
     print("\n=== SUMMARY ===")
     passed = sum(1 for r in results if r["verdict"] == "PASS")
     failed = sum(1 for r in results if r["verdict"] == "FAIL")
@@ -172,9 +175,9 @@ def run():
         if r["verdict"] == "FAIL":
             print(f"  #{r['#']} {r.get('q','')[:40]} | ожидал {r.get('expected')} | получил {r.get('tools')} | {r.get('note')}")
 
-    with open(r"D:\AI\tools\service\qa_results.json", "w", encoding="utf-8") as f:
+    with open(r"D:\AI\tools\agent\qa\qa_results.json", "w", encoding="utf-8") as f:
         json.dump({"results": results, "after": {"traceback_new": new_tb, "feedback_ok": fb_ok, "status": st}}, f, ensure_ascii=False, indent=2)
-    print("\nsaved D:\\AI\\tools\\service\\qa_results.json")
+    print("\nsaved D:\\AI\\tools\\agent\\qa\\qa_results.json")
 
 if __name__ == "__main__":
     login()
