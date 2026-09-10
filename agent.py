@@ -1,6 +1,6 @@
-﻿# -*- coding: utf-8 -*-
-r"""РђР“Р•РќРў v14 вЂ” agent.py (РїРѕР»РЅР°СЏ СЃР±РѕСЂРєР°)
-ThreadingHTTPServer + СЃС‚СЂРёРјРёРЅРі С‚РѕРєРµРЅРѕРІ + РїР°СЂР°Р»Р»РµР»СЊРЅС‹Рµ РёРЅСЃС‚СЂСѓРјРµРЅС‚С‹ + РїР»Р°РЅРёСЂРѕРІС‰РёРє.
+# -*- coding: utf-8 -*-
+"""АГЕНТ v14 — agent.py (полная сборка)
+ThreadingHTTPServer + стриминг токенов + параллельные инструменты + планировщик.
 """
 import json, re, socket, threading, time, datetime
 from concurrent.futures import ThreadPoolExecutor
