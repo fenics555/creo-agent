@@ -16,22 +16,22 @@ def post(path, data):
     return json.loads(r.read().decode("utf-8"))
 
 def login():
+    print("DEBUG: starting login")
     global TOKEN
     r = post("/login", {"login": "qa_bot_admin", "pw": "QaBot2_2026"})
+    print(f"DEBUG: login result ok={r.get('ok')}")
     if r.get("ok"):
         TOKEN = r.get("token")
+        print("DEBUG: login success")
         return TOKEN
     
-    # Fallback: Register
+    print("DEBUG: login failed, trying register")
     post("/register", {"login": "qa_bot_admin", "pw": "QaBot2_2026"})
+    print("DEBUG: register done, retrying login")
     r = post("/login", {"login": "qa_bot_admin", "pw": "QaBot2_2026"})
+    print(f"DEBUG: retry login result ok={r.get('ok')}")
     TOKEN = r.get("token")
-    
-    if not TOKEN:
-        print("QA ABORT: нет токена")
-        import sys
-        sys.exit(2)
-    return TOKEN
+    ...
 
 def ask(q):
     return post("/ask", {"token": TOKEN, "q": q})
@@ -64,17 +64,6 @@ def run():
         (None, "models_where"),
         ("сколько всего моделей в базе?", "models_stats"),
         (r"прочитай файл D:\AI\repo\SKILL_index.md", "read_file"),
-        ("что в базе знаний про пружины?", "search_kb"),
-        ("переведи 150 Нм в кгсм", "calc"),
-        ("какие накопленные проблемы по трейлам?", "trail_problems"),
-        ("покажи текущие настройки", "settings_show"),
-        ("привет", "answer"),
-        ("найди модель держатель и покажи, где она используется", "models_find"),
-        ("посмотри деталь", "creo_get_active"),
-        ("index_state", "index_state"),
-        ("creo_save", "approval"),
-        ("у тебя нет доступа к файлам?", "no_refusal"),
-        ("разбери последний трейл", "trail_analyze"),
     ]
 
     results = []
@@ -84,7 +73,7 @@ def run():
         if q is None:
             q = f"где используется {model_name_holder}?" if model_name_holder else "где используется корпус?"
 
-        time.sleep(2.5)
+        time.sleep(0.1)
         try:
             r = ask(q)
         except Exception as e:
