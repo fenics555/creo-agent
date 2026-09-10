@@ -1,0 +1,172 @@
+{
+  "results": [
+    {
+      "#": 1,
+      "q": "какая модель открыта в Creo?",
+      "expected": "creo_get_active",
+      "tools": [
+        "creo_get_active"
+      ],
+      "think": true,
+      "answer": "a338-6-75.prt\n\nАктивная модель — a338-6-75.prt",
+      "verdict": "PASS",
+      "note": ""
+    },
+    {
+      "#": 2,
+      "q": "найди модель корпус",
+      "expected": "models_find",
+      "tools": [
+        "models_find"
+      ],
+      "think": false,
+      "answer": "Найдено 174 модели, содержащие «корпус».\n\n**Основные категории:**\n* **Ремонты и доработки:** Ремонт корпуса редуктора (4",
+      "verdict": "FAIL",
+      "note": "think пустой"
+    },
+    {
+      "#": 3,
+      "q": "где используется 127_53_00_body.asm?",
+      "expected": "models_where",
+      "error": "timed out",
+      "verdict": "FAIL"
+    },
+    {
+      "#": 4,
+      "q": "сколько всего моделей в базе?",
+      "expected": "models_stats",
+      "tools": [
+        "models_stats"
+      ],
+      "think": false,
+      "answer": "Всего в базе 40 967 моделей.\n\nРаспределение по типам:\n* **PRT** (детали): 19 344\n* **DRW** (чертежи): 11 743\n* **ASM** (",
+      "verdict": "FAIL",
+      "note": "think пустой"
+    },
+    {
+      "#": 5,
+      "q": "прочитай файл D:\\AI\\repo\\SKILL_index.md",
+      "expected": "read_file",
+      "error": "timed out",
+      "verdict": "FAIL"
+    },
+    {
+      "#": 6,
+      "q": "что в базе знаний про пружины?",
+      "expected": "search_kb",
+      "error": "timed out",
+      "verdict": "FAIL"
+    },
+    {
+      "#": 7,
+      "q": "переведи 150 Нм в кгсм",
+      "expected": "calc",
+      "error": "timed out",
+      "verdict": "FAIL"
+    },
+    {
+      "#": 8,
+      "q": "какие накопленные проблемы по трейлам?",
+      "expected": "trail_problems",
+      "error": "timed out",
+      "verdict": "FAIL"
+    },
+    {
+      "#": 9,
+      "q": "покажи текущие настройки",
+      "expected": "settings_show",
+      "error": "timed out",
+      "verdict": "FAIL"
+    },
+    {
+      "#": 10,
+      "q": "привет",
+      "expected": "answer",
+      "tools": [],
+      "think": false,
+      "answer": "Привет! С чем помочь по Creo?",
+      "verdict": "FAIL",
+      "note": "think пустой"
+    },
+    {
+      "#": 11,
+      "q": "найди модель держатель и покажи, где она используется",
+      "expected": "models_find",
+      "tools": [
+        "models_find",
+        "models_where"
+      ],
+      "think": true,
+      "answer": "'1013-m2-1-02-ящик-низ-камера.prt': входит в сборок: 0",
+      "verdict": "PASS",
+      "note": ""
+    },
+    {
+      "#": 12,
+      "q": "посмотри деталь",
+      "expected": "creo_get_active",
+      "tools": [
+        "creo_get_active",
+        "creo_get_mass",
+        "creo_get_params"
+      ],
+      "think": false,
+      "answer": "**Информация о детали:**\n\n* **Обозначение:** A338-6-75\n* **Наименование:** Кронштейн дутьевых\n* **Тип:** Деталь\n* **Мате",
+      "verdict": "FAIL",
+      "note": "think пустой"
+    },
+    {
+      "#": 13,
+      "q": "index_state",
+      "expected": "index_state",
+      "tools": [
+        "index_state"
+      ],
+      "think": false,
+      "answer": "файлов: 27455, чанков: 33758, моделей: 40967, индексация: нет (0/0)",
+      "verdict": "PASS",
+      "note": ""
+    },
+    {
+      "#": 14,
+      "q": "creo_save",
+      "expected": "approval",
+      "tools": [
+        "creo_save"
+      ],
+      "think": false,
+      "answer": "[СОГЛАСОВАНИЕ] операция creo_save ждёт подтверждения пользователя (id 115134392740)",
+      "verdict": "FAIL",
+      "note": "think пустой"
+    },
+    {
+      "#": 15,
+      "q": "у тебя нет доступа к файлам?",
+      "expected": "no_refusal",
+      "tools": [],
+      "think": true,
+      "answer": "Доступ к файлам, базе знаний и Creo есть через инструменты.",
+      "verdict": "PASS",
+      "note": ""
+    },
+    {
+      "#": 16,
+      "q": "разбери последний трейл",
+      "expected": "trail_analyze",
+      "error": "timed out",
+      "verdict": "FAIL"
+    }
+  ],
+  "after": {
+    "traceback_new": 0,
+    "feedback_ok": true,
+    "status": {
+      "host": "frezer-4",
+      "model": "gemma4:26b",
+      "blocks": 30,
+      "tools": 113,
+      "user": null,
+      "is_manager": false
+    }
+  }
+}

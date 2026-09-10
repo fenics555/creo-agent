@@ -64,6 +64,17 @@ def run():
         (None, "models_where"),
         ("сколько всего моделей в базе?", "models_stats"),
         (r"прочитай файл D:\AI\repo\SKILL_index.md", "read_file"),
+        ("что в базе знаний про пружины?", "search_kb"),
+        ("переведи 150 Нм в кгсм", "calc"),
+        ("какие накопленные проблемы по трейлам?", "trail_problems"),
+        ("покажи текущие настройки", "settings_show"),
+        ("привет", "answer"),
+        ("найди модель держатель и покажи, где она используется", "models_find"),
+        ("посмотри деталь", "creo_get_active"),
+        ("index_state", "index_state"),
+        ("creo_save", "approval"),
+        ("у тебя нет доступа к файлам?", "no_refusal"),
+        ("разбери последний трейл", "trail_analyze"),
     ]
 
     results = []
