@@ -707,10 +707,10 @@ class Hd(BaseHTTPRequestHandler):
             except Exception: pass
             self._j({"tail": tail})
             return
-        else:
-            pass
+        elif p == "/status":
+            import os as _os
             try:
-                jf = core.REPO / "РўСЂРµР№Р»С‹" / "TRAIL_JOURNAL.md"
+                jf = core.REPO / "Трейлы" / "TRAIL_JOURNAL.md"
                 if jf.exists():
                     tail = "\n".join(jf.read_text(encoding="utf-8", errors="ignore").splitlines()[-8:])
             except Exception:
