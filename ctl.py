@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-r"""
+"""
 АГЕНТ v12 — ctl.py: единый пуск/стоп/сторож стека (Ollama, CREOSON, агент).
 up [--browser] [--hidden] — идемпотентный пуск: поднимает ТОЛЬКО недостающее, живое не трогает.
 down — явный стоп (агент, ollama-wd, creoson). restart — down+up. status — таблица портов.
@@ -57,7 +57,7 @@ def start_creoson():
     subprocess.Popen('cmd /c start "" /B /D "%s" creoson_run.bat' % CREOSON_DIR, shell=True)
 
 def start_copyserver():
-    subprocess.Popen('cmd /c start "" /B /D "%s" python copy_server.py' % AG, shell=True)
+    subprocess.Popen(r'cmd /c start "" /B /D "%s" python copy\copy_server.py' % AG, shell=True)
 
 def start_agent(hidden):
     if hidden:

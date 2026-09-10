@@ -103,19 +103,11 @@ def set_val(key, value):
                 elif typ == "list" and isinstance(value, str): value = [x.strip() for x in value.split(",") if x.strip()]
             except Exception: pass
             d[key] = value
-    if key == "auto_mode" and str(value).lower() in ("1","true","yes","on","да"):  # auto_reset
-        for _, k2, _, _, defl2, _, _ in REGISTRY:
-            if k2 in ("creativity","auto_temperature","top_p","num_ctx","num_predict","steps_max"): d[k2] = defl2
-    if key == "auto_mode" and str(value).lower() in ("1", "true", "yes", "on", "да"):
-        for _, k2, _, _, defl2, _, _ in REGISTRY:
-            if k2 in ("creativity", "auto_temperature", "top_p", "steps_max"):
-                d[k2] = defl2
-    if key == "auto_mode" and str(value).lower() in ("1", "true", "yes", "on", "да"):
-        for _, k2, _, _, defl2, _, _ in REGISTRY:
-            if k2 in ("creativity", "auto_temperature", "top_p", "steps_max"):
-                d[k2] = defl2
-            CONFIG_FILE.write_text(json.dumps(d, ensure_ascii=False, indent=1), encoding="utf-8")
-            return True
+            if key == "auto_mode" and value is True:
+                for _, k2, _, _, defl2, _, _ in REGISTRY:
+                    if k2 in ("creativity", "auto_temperature", "top_p", "steps_max"):
+                        d[k2] = defl2
+            break
     CONFIG_FILE.write_text(json.dumps(d, ensure_ascii=False, indent=1), encoding="utf-8")
     return True
 
@@ -128,27 +120,7 @@ def show_all():
 
 def list_ui():
     d = _raw()
-    B = {"log_mode": (0,3,1), "night_hour": (0,23,1), "night_minute": (0,59,1), "log_mode": (0,3,1), "night_hour": (0,23,1), "night_minute": (0,59,1), "night_hour": (0, 23, 1), "night_minute": (0, 59, 1), "log_mode": (0, 3, 1), "creativity": (0, 100, 1), "auto_temperature": (0, 100, 1), "top_p": (0, 1, 0.05),
-         "num_ctx": (1024, 131072, 1024), "num_predict": (256, 8192, 256),
-         "log_days": (1, 365, 1), "image_days": (1, 60, 1), "history_days": (1, 365, 1),
-         "client_days": (1, 365, 1), "top_chunks": (1, 12, 1), "chunk_chars": (200, 2000, 100),
-         "chunk_size": (500, 4000, 250), "chunk_overlap": (0, 1000, 50),
-         "repo_boost": (0.5, 3, 0.1), "repo_boost_min_sim": (0, 1, 0.05),
-         "vision_gpu": (0, 64, 1), "max_file_mb": (1, 100, 1), "retention": (1, 30, 1),
-         "audit_limit": (1, 100, 1), "steps_max": (1, 16, 1), "think_mode": (0, 2, 1),
-         "web_quick_links": (0, 100, 1), "web_deep_pages": (0, 200, 5)}
-    out = []
-    for space, k, name, typ, defl, desc, ui in REGISTRY:
-        if not ui: continue
-        v = d.get(k, defl)
-        e = {"space": space, "key": k, "name": name, "type": typ, "value": v, "desc": desc}
-        if typ in ("int", "float") and k in B:
-            lo, hi, st = B[k]; e["min"], e["max"], e["step"] = lo, hi, st; e["kind"] = "range"
-        elif typ == "bool": e["kind"] = "check"
-        else: e["kind"] = "text"
-        out.append(e)
-    return out
-
+    B = {"log_mode": (0, 3, 1), "night_hour": (0, 23, 1), "night_minute": (0, 59, 1), "creativity": (0, 100, 1), "auto_temperature": (0, 100, 1), "top_p": (0, 1, 0.05), "num_ctx": (1024, 131072, 1024), "num_predict": (256, 8192, 256), "log_days": (1, 365, 1), "image_days": (1, 60, 1), "history_days": (1, 365, 1), "client_days": (1, 365, 1), "top_chunks": (1, 12, 1), "chunk_chars": (200, 2000, 100), "chunk_size": (500, 4000, 250), "chunk_overlap": (0, 1000, 50), "repo_boost": (0.5, 3, 0.1), "repo_boost_min_sim": (0, 1, 0.05), "vision_gpu": (0, 64, 1), "max_file_mb": (1, 100, 1), "retention": (1, 30, 1), "audit_limit": (1, 100, 1), "steps_max": (1, 16, 1), "think_mode": (0, 2, 1), "web_quick_links": (0, 100, 1), "web_deep_pages": (0, 200, 5)}
 
 def model_for(role):
     v = get("model_" + role)

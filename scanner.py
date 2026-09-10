@@ -33,21 +33,11 @@ def read_roots():
     except Exception:
         return []
 
-def _pats():
-    """Паттерны исключения из kb_exclude.txt."""
-    try:
-        from pathlib import Path
-        p = Path(__file__).parent / "kb_exclude.txt"
-        if p.exists():
-            return [l.strip() for l in p.read_text(encoding="utf-8").splitlines() if l.strip() and not l.strip().startswith("#")]
-        return []
+
     except Exception:
         return []
 
-def is_excluded(path, pats):
-    """Проверка исключения по паттернам."""
-    p = path.lower()
-    return any(pat.lower() in p for pat in (pats or []))
+
 
 
 EXTS = {".htm", ".html", ".md", ".txt", ".py", ".xml", ".json", ".csv",
@@ -202,33 +192,3 @@ def dup_report():
     c.close()
     return "\n".join(out)
 # v14-fix-db: БД всегда рядом с этим файлом, независимо от core.BASE
-import sqlite3 as _sq
-from pathlib import Path as _P
-def db():
-    c = _sq.connect(str(_P(__file__).resolve().parent / "data" / "agent.sqlite"), timeout=10)
-    c.execute("PRAGMA journal_mode=WAL")
-    return c
-
-# v14-fix-excl: is_excluded/_pats — понимают Path и читают kb_exclude.txt
-import fnmatch as _fm2
-from pathlib import Path as _P2
-def _pats():
-    try:
-        p = _P2(__file__).resolve().parent / "kb_exclude.txt"
-        out = []
-        if p.exists():
-            for l in p.read_text(encoding="utf-8").splitlines():
-                l = l.strip()
-                if l and not l.startswith("#"): out.append(l)
-        return out
-    except Exception:
-        return []
-def is_excluded(path, pats):
-    st = str(path).lower().replace("/", "\\")
-    for pat in (pats or []):
-        q = pat.lower().replace("/", "\\")
-        if "*" in q:
-            if _fm2.fnmatch(st.split("\\")[-1], q) or _fm2.fnmatch(st, q): return True
-        elif q in st:
-            return True
-    return False
