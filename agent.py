@@ -714,6 +714,31 @@ class Hd(BaseHTTPRequestHandler):
                 children = []
             self._j({"name": name, "children": children})
             return
+        elif p == "/pdfregistry":
+            token = self.headers.get("X-Token") or ""
+            if not users.token_info(token): return self._j({"error": "no token"})
+            c = core.db()
+            rows = c.execute(
+                "SELECT d.path as drw_path, d.mtime as drw_mtime, "
+                "p.path as pdf_path, p.mtime as pdf_mtime "
+                "FROM files d "
+                "LEFT JOIN files p ON p.path = REPLACE(d.path, '.drw', '.pdf') "
+                "WHERE d.path LIKE '%.drw%' "
+                "ORDER BY CASE WHEN p.mtime IS NULL OR p.mtime < d.mtime THEN 0 ELSE 1 END, "
+                "d.mtime DESC LIMIT 500"
+            ).fetchall()
+            c.close()
+            pairs = []
+            for r in rows:
+                drw_path, drw_mtime, pdf_path, pdf_mtime = r
+                name = drw_path.split(chr(92))[-1].replace(".drw","").replace(".DRW","")
+                folder = chr(92).join(drw_path.split(chr(92))[:-1])
+                if not pdf_path: verdict = "нет pdf"
+                elif pdf_mtime >= drw_mtime: verdict = "актуален"
+                else: verdict = "УСТАРЕЛ"
+                pairs.append({"name":name,"folder":folder,"drw":drw_path,"pdf":pdf_path,"drw_mtime":drw_mtime,"pdf_mtime":pdf_mtime,"verdict":verdict})
+            self._j({"pairs": pairs, "total": len(pairs)})
+            return
         elif p == "/panel":
             d = panel.build()
             _ui = users.token_info(self.headers.get("X-Token") or "")
