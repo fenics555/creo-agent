@@ -155,7 +155,7 @@ def model_for(role):
     v = get("model_" + role)
     return v or get("llm_model")
 
-PERSONAL_KEYS = []
+PERSONAL_KEYS = ["chat_mode"]
 PREF_FILE = DATA_DIR / "user_prefs.json"
 def _prefs():
     try: return json.loads(PREF_FILE.read_text(encoding="utf-8"))
