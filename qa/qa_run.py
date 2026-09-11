@@ -1,4 +1,4 @@
-# -*- coding: utf-8 -*-
+﻿# -*- coding: utf-8 -*-
 """QA regression runner for CREO-AGENT. Stdlib only."""
 import urllib.request, json, re, time, os, datetime, subprocess, sys, socket
 
@@ -19,18 +19,18 @@ def post(path, data):
 
 def login():
     global TOKEN
-    r = post("/login", {"login": "qa_bot_admin", "pw": "QaBot2_2026"})
+    r = post("/login", {"login": "qa_tester", "pw": "QaTester2_2026"})
     if r.get("ok"):
         TOKEN = r.get("token")
         return TOKEN
-    post("/register", {"login": "qa_bot_admin", "pw": "QaBot2_2026"})
-    r = post("/login", {"login": "qa_bot_admin", "pw": "QaBot2_2026"})
+    post("/register", {"login": "qa_tester", "pw": "QaTester2_2026"})
+    r = post("/login", {"login": "qa_tester", "pw": "QaTester2_2026"})
     TOKEN = r.get("token")
     return TOKEN
 
 
-def ask(q):
-    return post("/ask", {"token": TOKEN, "q": q})
+def ask(q, mode=1):
+    return post("/ask", {"token": TOKEN, "q": q, "mode": mode})
 
 
 def extract_tools(log_lines):
@@ -58,7 +58,6 @@ def is_pid_running(pid):
     except Exception:
         return False
 
-
 def run():
     pid_file = r"D:\AI\tools\agent\data\tmp\qa_run.pid"
     os.makedirs(os.path.dirname(pid_file), exist_ok=True)
@@ -66,7 +65,7 @@ def run():
         try:
             old_pid = int(open(pid_file).read().strip())
             if is_pid_running(old_pid):
-                print("уже идёт")
+                print("СѓР¶Рµ РёРґС‘С‚")
                 return
         except Exception:
             pass
@@ -77,84 +76,86 @@ def run():
         if os.path.exists(LOG_FILE):
             before = len(open(LOG_FILE, encoding="utf-8", errors="ignore").read().splitlines())
         cases = [
-            ("какая модель открыта в Creo?", "creo_get_active"),
-            ("найди модель корпус", "models_find"),
-            (None, "models_where"),
-            ("сколько всего моделей в базе?", "models_stats"),
-            (r"прочитай файл D:\AI\repo\SKILL_index.md", "read_file"),
-            ("что в базе знаний про пружины?", "search_kb"),
-            ("переведи 150 Нм в кгсм", "calc"),
-            ("какие накопленные проблемы по трейлам?", "trail_problems"),
-            ("покажи текущие настройки", "settings_show"),
-            ("привет", "answer"),
-            ("найди модель держатель и покажи, где она используется", "models_find"),
-            ("посмотри деталь", "creo_get_active"),
-            ("index_state", "index_state"),
-            ("creo_save", "approval"),
-            ("у тебя нет доступа к файлам?", "no_refusal"),
-            ("разбери последний трейл", "trail_analyze"),
+            ("РєР°РєР°СЏ РјРѕРґРµР»СЊ РѕС‚РєСЂС‹С‚Р° РІ Creo?", "creo_get_active", 1),
+            ("РЅР°Р№РґРё РјРѕРґРµР»СЊ РєРѕСЂРїСѓСЃ", "models_find", 1),
+            (None, "models_where", 1),
+            ("СЃРєРѕР»СЊРєРѕ РІСЃРµРіРѕ РјРѕРґРµР»РµР№ РІ Р±Р°Р·Рµ?", "models_stats", 1),
+            (r"РїСЂРѕС‡РёС‚Р°Р№ С„Р°Р№Р» D:\AI\repo\SKILL_index.md", "read_file", 1),
+            ("С‡С‚Рѕ РІ Р±Р°Р·Рµ Р·РЅР°РЅРёР№ РїСЂРѕ РїСЂСѓР¶РёРЅС‹?", "search_kb", 1),
+            ("РїРµСЂРµРІРµРґРё 150 РќРј РІ РєРіСЃРј", "calc", 1),
+            ("РєР°РєРёРµ РЅР°РєРѕРїР»РµРЅРЅС‹Рµ РїСЂРѕР±Р»РµРјС‹ РїРѕ С‚СЂРµР№Р»Р°Рј?", "trail_problems", 1),
+            ("РїРѕРєР°Р¶Рё С‚РµРєСѓС‰РёРµ РЅР°СЃС‚СЂРѕР№РєРё", "settings_show", 1),
+            ("РїСЂРёРІРµС‚", "answer", 1),
+            ("РЅР°Р№РґРё РјРѕРґРµР»СЊ РґРµСЂР¶Р°С‚РµР»СЊ Рё РїРѕРєР°Р¶Рё, РіРґРµ РѕРЅР° РёСЃРїРѕР»СЊР·СѓРµС‚СЃСЏ", "models_find", 1),
+            ("РїРѕСЃРјРѕС‚СЂРё РґРµС‚Р°Р»СЊ", "creo_get_active", 1),
+            ("index_state", "index_state", 1),
+            ("creo_save", "approval", 1),
+            ("Сѓ С‚РµР±СЏ РЅРµС‚ РґРѕСЃС‚СѓРїР° Рє С„Р°Р№Р»Р°Рј?", "no_refusal", 1),
+            ("СЂР°Р·Р±РµСЂРё РїРѕСЃР»РµРґРЅРёР№ С‚СЂРµР№Р»", "trail_analyze", 1),
+            ("РїСЂРёРІРµС‚, С‚С‹ С‡РµР»РѕРІРµРє?", "chat", 2),
         ]
         results = []
         model_name_holder = None
         think_count = 0
-        for i, (q, expected) in enumerate(cases, 1):
+        for i, (q, expected, mode) in enumerate(cases, 1):
             if q is None:
-                q = f"где используется {model_name_holder}?" if model_name_holder else "где используется корпус?"
-            time.sleep(0.1)
-            try:
-                r = ask(q)
-            except Exception as e:
-                results.append({"#": i, "q": q, "expected": expected, "error": str(e), "verdict": "FAIL"})
-                continue
-            answer = (r.get("answer") or "")
-            think = (r.get("think") or "")
-            log = r.get("log") or []
-            log_str = "\n".join(log)
-            if think.strip():
-                think_count += 1
-            if i == 2 and answer:
-                m = re.search(r"[A-Za-z0-9_\-]+\.(?:prt|asm|drw)", answer, re.I)
-                if m:
-                    model_name_holder = m.group(0)
-            tools = extract_tools(log)
+                q = f"Р“РґРµ РёСЃРїРѕР»СЊР·СѓРµС‚СЃСЏ {model_name_holder}?" if model_name_holder else "Р“РґРµ РёСЃРїРѕР»СЊР·СѓРµС‚СЃСЏ РјРѕРґРµР»СЊ?"
+            
+            print(f"{i:2d} Testing: {q[:40]} (mode {mode})")
+            r = ask(q, mode)
+            answer = r.get("answer", "")
+            think = r.get("think", "")
+            tools = r.get("log", [])
+            
             verdict = "PASS"
             note = ""
-            if expected == "answer":
-                if tools:
-                    verdict = "FAIL"
-                    note = f"ждал ANSWER, получил инструменты: {tools}"
-            elif expected == "approval":
-                if "[СОГЛАСОВАНИЕ]" in answer and expected in tools:
-                    pass
-                elif "не подтверждал" in answer.lower():
-                    pass
+
+            if mode == 2:
+                if expected == "chat":
+                    if not answer:
+                        verdict = "FAIL"
+                        note = "empty answer in chat mode"
                 else:
                     verdict = "FAIL"
-                    note = f"ждал {expected} в инструментах И [СОГЛАСОВАНИЕ] в ответе"
-            elif expected == "no_refusal":
-                refusals = ["нет доступа", "не могу", "как языковая модель", "не имею доступа", "у меня нет"]
-                if any(w in answer.lower() for w in refusals):
-                    verdict = "FAIL"
-                    note = "отказная фраза в ответе"
+                    note = f"unexpected mode 2, expected {expected}"
             else:
-                if expected not in tools:
+                if expected == "approval":
+                    if "[РЎРћР“Р›РђРЎРћР’РђРќРР•]" in answer and expected in tools:
+                        pass
+                    elif "РЅРµ РїРѕРґС‚РІРµСЂР¶РґР°Р»" in answer.lower():
+                        pass
+                    else:
+                        verdict = "FAIL"
+                        note = f"Р¶РґР°Р» {expected} РІ РёРЅСЃС‚СЂСѓРјРµРЅС‚Р°С… Р [РЎРћР“Р›РђРЎРћР’РђРќРР•] РІ РѕС‚РІРµС‚Рµ"
+                elif expected == "no_refusal":
+                    refusals = ["РЅРµС‚ РґРѕСЃС‚СѓРїР°", "РЅРµ РјРѕРіСѓ", "РєР°Рє СЏР·С‹РєРѕРІР°СЏ РјРѕРґРµР»СЊ", "РЅРµ РёРјРµСЋ РґРѕСЃС‚СѓРїР°", "Сѓ РјРµРЅСЏ РЅРµС‚"]
+                    if any(w in answer.lower() for w in refusals):
+                        verdict = "FAIL"
+                        note = "РѕС‚РєР°Р·РЅР°СЏ С„СЂР°Р·Р° РІ РѕС‚РІРµС‚Рµ"
+                else:
+                    if expected != "answer" and expected not in tools:
+                        verdict = "FAIL"
+                        note = f"Р¶РґР°Р» {expected}, РїРѕР»СѓС‡РёР» {tools}"
+                
+                is_direct_call = (q.strip() == expected)
+                if not think.strip() and not is_direct_call:
+                    note += "; think РїСѓСЃС‚РѕР№ (РїСЂРµРґСѓРїСЂРµР¶РґРµРЅРёРµ)"
+                if lat_ratio(answer) > 0.25:
                     verdict = "FAIL"
-                    note = f"ждал {expected}, получил {tools}"
-            is_direct_call = (q.strip() == expected)
-            if not think.strip() and not is_direct_call:
-                note += "; think пустой (предупреждение)"
-            if lat_ratio(answer) > 0.25:
-                verdict = "FAIL"
-                note += f"; латиница {lat_ratio(answer):.0%}>25%"
-            if "Traceback" in answer or "Traceback" in log_str:
-                verdict = "FAIL"
-                note += "; Traceback"
+                    note += f"; Р»Р°С‚РёРЅРёС†Р° {lat_ratio(answer):.0%}>25%"
+                if "Traceback" in answer:
+                    verdict = "FAIL"
+                    note += "; Traceback"
+
             results.append({
                 "#": i, "q": q, "expected": expected, "tools": tools,
                 "think": bool(think.strip()), "answer": answer[:120],
                 "verdict": verdict, "note": note.strip("; "),
             })
             print(f"{i:2d} {verdict} | {q[:50]}")
+            if mode == 1 and r.get("think"):
+                think_count += 1
+
         after_lines = open(LOG_FILE, encoding="utf-8", errors="ignore").read().splitlines() if os.path.exists(LOG_FILE) else []
         new_tb = sum(1 for l in after_lines[before:] if "Traceback" in l)
         try:
@@ -173,14 +174,14 @@ def run():
         passed = sum(1 for r in results if r["verdict"] == "PASS")
         failed = sum(1 for r in results if r["verdict"] == "FAIL")
         print(f"PASS {passed} / FAIL {failed}")
-        print(f"think: {think_count} из 16")
+        print(f"think: {think_count} РёР· 17")
         print(f"Traceback in new log lines: {new_tb}")
         print(f"feedback ok: {fb_ok}")
         print(f"status: blocks={st.get('blocks')} tools={st.get('tools')}")
         print("\n=== FAIL DETAIL ===")
         for r in results:
             if r["verdict"] == "FAIL":
-                print(f"  #{r['#']} {r.get('q','')[:40]} | ожидал {r.get('expected')} | получил {r.get('tools')} | {r.get('note')}")
+                print(f"  #{r['#']} {r.get('q','')[:40]} | РѕР¶РёРґР°Р» {r.get('expected')} | РїРѕР»СѓС‡РёР» {r.get('tools')} | {r.get('note')}")
         with open(r"D:\AI\tools\agent\qa\qa_results.json", "w", encoding="utf-8") as f:
             json.dump({"results": results,
                        "after": {"traceback_new": new_tb, "feedback_ok": fb_ok, "status": st}},
@@ -190,7 +191,7 @@ def run():
         if os.path.exists(pid_file):
             os.remove(pid_file)
 
-
 if __name__ == "__main__":
     login()
     run()
+

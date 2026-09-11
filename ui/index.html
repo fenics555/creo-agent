@@ -52,9 +52,9 @@ input[type=checkbox]{accent-color:#1273EB}
 </style></head>
 <body>
 <div id="top"><b>АГЕНТ v15</b><span id="hdr"></span><span style="flex:1"></span>
-<button data-act="chip" data-val="guide">❓</button><button data-act="wizard">🧙</button><button data-act="showlog">Лог</button><button data-act="panel" class="sec">Панель</button><button data-act="showpro">👤</button><button data-act="showchat">💬</button><button data-act="logout" class="sec">Выйти</button></div>
+<button data-act="chip" data-val="guide">❓</button><button data-act="wizard">🧙</button><button data-act="showlog">Лог</button><button data-act="panel" class="sec">Панель</button><button data-act="showpro">👤</button><button data-act="showchat">💬</button><button data-act="mode" class="sec">🛠 Инженер</button><button data-act="logout" class="sec">Выйти</button></div>
 <div id="chat"></div><div id="panel"></div>
-<div id="inp"><input id="q" placeholder="Задача для АГЕНТА... (Enter) | Ctrl+V — вставить скриншот"><button data-act="snap" class="sec">📷</button><button data-act="send">Спросить</button><span id="spin" class="spin" style="display:none"></span></div>
+<div id="inp"><input id="q" placeholder="Задача для АГЕНТА... (Enter) | Ctrl+V — вставить скриншот | chat <вопрос> — разовый режим собеседника"><button data-act="snap" class="sec">📷</button><button data-act="send">Спросить</button><span id="spin" class="spin" style="display:none"></span></div>
 <div id="login"><div style="position:relative;width:300px"><button data-act="closelogin" style="position:absolute;top:6px;right:6px" class="sec">✕</button>
 <input id="lg" placeholder="логин"><input id="pw" type="password" placeholder="пароль"><button data-act="login">Войти</button><button data-act="reg" class="sec">Регистрация</button></div></div>
 <div id="wiz"><div style="width:430px"><b>🧙 МАСТЕР ОПЕРАЦИЙ</b><small style="color:#A6A8AB">Копия сборки (сначала план)</small>
@@ -170,7 +170,7 @@ var h='<table class="reg-t">';rows.forEach(function(r){var col=r.verdict=='УС�
 var dir=String(r.dir||'').split('\\').slice(-2).join('\\');
 h+='<tr><td>'+esc(r.name)+'</td><td style="color:#A6A8AB">'+esc(dir)+'</td><td class="'+col+'">'+esc(r.verdict)+'</td></tr>'});
 box.innerHTML=h+'</table>'}
-function init(){J('/status').then(function(s){CURM=s.model;hdr.textContent=s.host+(s.user?' | '+(s.user.display_name||s.user.login):'')+' | '+s.model+' | блоков: '+s.blocks;J('/panel').then(function(p){buildPanel(p);J('/settings').then(buildSettings)})})}
+function init(){J('/status').then(function(s){CURM=s.model;hdr.textContent=s.host+(s.user?' | '+(s.user.display_name||s.user.login):'')+' | '+s.model+' | блоков: '+s.blocks;var mb=document.querySelector('[data-act=\"mode\"]');if(mb){mb.textContent=(s.mode==2?'💬 Собеседник':'🛠 Инженер');}qinp.placeholder='Задача для АГЕНТА... (Enter) | Ctrl+V — вставить скриншот | chat <вопрос> — разовый режим собеседника';J('/panel').then(function(p){buildPanel(p);J('/settings').then(buildSettings)})})}
 document.addEventListener('click',function(e){var el=e.target.closest('[data-act]');if(!el)return;var a=el.getAttribute('data-act');
 if(a=='think'){var n=el.nextElementSibling;n.style.display=n.style.display=='none'?'block':'none'}
 else if(a=='fold'){var b=el.nextElementSibling;var hid=b.style.display=='none';b.style.display=hid?'block':'none';el.textContent=(hid?'▾':'')+el.textContent.slice(1);var fk=el.getAttribute('data-fkey');if(fk){var F=JSON.parse(localStorage.getItem('panel_fold')||'{}');F[fk]=hid?1:0;localStorage.setItem('panel_fold',JSON.stringify(F))}}
@@ -200,6 +200,7 @@ else if(a=='login')J('/login',{login:lg.value,pw:pw.value}).catch(function(e){al
 else if(a=='reg')J('/register',{login:lg.value,pw:pw.value}).then(function(r){alert(r.msg||'ок')});
 else if(a=='appr'){var sp2=document.getElementById('spin');if(sp2)sp2.style.display='inline-block';J('/approve',{token:TK,pid:el.getAttribute('data-pid'),ok:el.getAttribute('data-ok')=='1'}).then(function(r){if(sp2)sp2.style.display='none';addMsg(esc((r.res||'')+((r.answer&&r.answer!==r.res)?'\n\n'+r.answer:'')))});}
 else if(a=='fb'){var okv=el.getAttribute('data-ok')=='1';var cm=okv?'':prompt('Короткий комментарий (почему не попал):','');if(!okv&&cm===null)return;var dd=el.closest('.msg');var rr=dd&&dd._r?dd._r:{};var tool='';if(rr.log&&rr.log.length){var mm=String(rr.log[rr.log.length-1]).match(/^([A-Za-z0-9_]+)\(/);if(mm)tool=mm[1]}J('/feedback',{token:TK,query:dd&&dd._query?dd._query:'',think:rr.think||'',tool:tool,result:rr.answer||'',ok:okv?1:0,comment:cm||''}).then(function(fb){el.parentNode.innerHTML='<span style="color:#A6A8AB">оценка сохранена</span>'})}
+else if(a=='mode'){var mb=document.querySelector('[data-act=\"mode\"]');var curText=mb.textContent;var isEng=curText.includes('Инженер');var nextMode=isEng?2:1;var nextText=(isEng?'💬 Собеседник':'🛠 Инженер');J('/setcfg',{method:'POST',headers:{'Content-Type':'application/json','X-Token':TK||''},body:JSON.stringify({key:'chat_mode',value:nextMode})}).then(function(){mb.textContent=nextText;qinp.placeholder='Задача для АГЕНТА... (Enter) | Ctrl+V — вставить скриншот | chat <вопрос> — разовый режим собеседника';});}
 else if(a=='setm')J('/setmodel',{token:TK,model:el.getAttribute('data-val')}).then(function(){init()});
 else if(a=='act'){var ep=el.getAttribute('data-val');if(ep=='/log'){J('/log').then(function(r){addMsg('<div class="log">'+esc(r.log)+'</div>')})}else J(ep,{token:TK}).then(function(r){addMsg('<div class="log">'+esc(JSON.stringify(r).slice(0,800))+'</div>')})}
 else if(a=='chip'){qinp.value=el.getAttribute('data-val');send()}

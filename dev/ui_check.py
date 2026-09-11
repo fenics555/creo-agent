@@ -21,6 +21,7 @@ def main():
         ("витрина: опции селектов с value=", '<option value="' in page),
         ("витрина: рендер DETAILS-кнопок", "DETAILS:" in page),
         ("витрина: пространство PDF-РЕЕСТР", "PDF-РЕЕСТР" in page),
+        ("витрина: кнопка режима в шапке", 'data-act="mode"' in page),
     ]
     pan = json.loads(get("/panel"))
     models = pan.get("models") or []

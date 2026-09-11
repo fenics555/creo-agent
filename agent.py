@@ -160,8 +160,13 @@ _CORE = (
 _SYS_CACHE = {}
 
 
-def build_system():
-    if _SYS_CACHE.get("v"): return _SYS_CACHE["v"]
+def build_system(mode=1):
+    if mode == 2:
+        return """ТЫ — СОБЕСЕДНИК И ПОМОЩНИК НА ЛЮБЫЕ ТЕМЫ. Язык ответа — русский; код, термины и формулы — как принято в теме. Ты умеешь: разговаривать, объяснять, решать математику и физику с пошаговым решением, писать программы и скрипты в код-блоках, переводить, пересказывать.
+В ЭТОМ РЕЖИМЕ у тебя нет доступа к Creo, файлам и базам: если вопрос требует живых данных, скажи «в режиме инженера я достану это из Creo или базы — переключи режим» и не выдумывай.
+Формат: свободный текст; код внутри блоков с языком; служебных тегов нет.
+Краткость ценится, но полнота решения важнее."""
+    if _SYS_CACHE.get(("v", mode)): return _SYS_CACHE[("v", mode)]
     p = load_skill("SKILL_agent_protocol.md") or DEFAULT_PROTO
     core_lines, rest = [], []
     for t in TR.TOOLS:
@@ -180,8 +185,8 @@ def build_system():
         think_rule = ("=== РАЗМЫШЛЕНИЯ (кратко, максимум 4 строки):\n1) суть задачи;\n2) объект;\n3) какой инструмент;\n4) что НЕ подходит.\nБлок: [THINK]...[/THINK], затем один блок: [TOOL] или [ANSWER].")
     else:
         think_rule = ("=== РАЗМЫШЛЕНИЯ (полно, на русском, 5-8 строк):\nнормализуй запрос;\nэтапы, если задача сложная;\nпочему именно этот инструмент;\nкакие альтернативы отверг и почему.\nБлок: [THINK]...[/THINK], затем один блок: [TOOL] или [ANSWER].\nПРИМЕР:\n[THINK]\nНормализация: проверить активную модель.\nЭтапы: один.\nИнструмент: creo_get_active — читает живую сессию.\nОтверг: models_find — это поиск по базе, не сессия.\n[/THINK]\n[TOOL: creo_get_active] {} [/TOOL]")
-    _SYS_CACHE["v"] = p + "\n\n" + tail + "\n\n" + think_rule
-    return _SYS_CACHE["v"]
+    _SYS_CACHE[("v", mode)] = p + "\n\n" + tail + "\n\n" + think_rule
+    return _SYS_CACHE[("v", mode)]
 
 
 def _scheduler():
@@ -405,7 +410,42 @@ def run_loop(messages, client, has_link=False, on_step=None):
     return {"answer": last_res or "не уложился в шаги", "think": think, "steps": steps_max, "log": steps_log}
 
 
-def ask(q, client, image=None, on_step=None):
+def ask(q, client, image=None, on_step=None, mode=None):
+    # 1. Determine mode
+    eff_mode = 1
+    if mode in (1, 2):
+        eff_mode = mode
+    elif q.strip().startswith("chat "):
+        eff_mode = 2
+        q = q.strip()[5:]
+    elif q.strip().startswith("agent "):
+        eff_mode = 1
+        q = q.strip()[6:]
+    else:
+        eff_mode = settings.get_for(client, "chat_mode", 1)
+        if not isinstance(eff_mode, int) or eff_mode not in (1, 2):
+            eff_mode = 1
+
+    # 2. If mode 2, handle it immediately
+    if eff_mode == 2:
+        q2 = VI.attach(q, image, client)
+        messages = [{"role": "system", "content": build_system(mode=2)}] + hist_block(client) + [{"role": "user", "content": q2}]
+        opts, _ = beh()
+        r = core.post("/api/chat", {
+            "model": settings.model_for("chat"),
+            "stream": False,
+            "think": int(settings.get("think_mode") or 0) > 0,
+            "options": opts,
+            "messages": messages
+        }, t=600)
+        return {
+            "answer": _clean(r.get("message", {}).get("content", "")),
+            "think": r.get("message", {}).get("thinking", ""),
+            "steps": 1,
+            "log": ["chat_mode"]
+        }
+
+    # 3. Else mode 1 (existing logic)
     q2 = VI.attach(q, image, client)
     LIVE[client] = []
     name = q.strip()
@@ -445,7 +485,7 @@ def ask(q, client, image=None, on_step=None):
                 res = "ошибка исполнения %s: %s" % (m2.group(1), e)
             return {"answer": res, "think": "", "steps": 1, "log": [m2.group(1) + "(прямой вызов) → " + res[:120]]}
     q2 = q2 + "\n\n[СЛУЖЕБНОЕ: отвечай только по-русски. Один ход = один [TOOL] или один [ANSWER]. Никакого текста до и после блока.]"
-    messages = [{"role": "system", "content": build_system()}] + hist_block(client) + [{"role": "user", "content": q2}]
+    messages = [{"role": "system", "content": build_system(mode=eff_mode)}] + hist_block(client) + [{"role": "user", "content": q2}]
     _ta = time.time()
     LIVE_TOK[client] = []
     LIVE_THINK[client] = []
@@ -539,7 +579,7 @@ class Hd(BaseHTTPRequestHandler):
             self._j({"host": HOSTNAME, "model": settings.get("llm_model"), "blocks": len(TR.BLOCKS),
                      "tools": len(TR.TOOLS), "user": prof,
                      "is_manager": users.can_manage_users(prof["login"]) if prof else False,
-                     "trails": tail})
+                     "trails": tail, "mode": settings.get_for(cl2["login"], "chat_mode", 1) if cl2 else 1})
             return
         elif p == "/pdfpages":
             if not users.token_info(self.headers.get("X-Token") or ""): return self._j({"error": "no token"})
@@ -682,7 +722,7 @@ class Hd(BaseHTTPRequestHandler):
         if not cl:
             self._j({"error": "нужен вход"}, 401); return
         if p == "/ask":
-            self._j(ask(b.get("q") or "", cl, b.get("image")))
+            self._j(ask(b.get("q") or "", cl, b.get("image"), mode=b.get("mode")))
         elif p == "/ask_stream":
             import queue as _q
             qq = _q.Queue(); holder = {}
@@ -690,7 +730,7 @@ class Hd(BaseHTTPRequestHandler):
             def _cb(line): qq.put(line)
 
             def _run():
-                try: holder["r"] = ask(b.get("q") or "", cl, b.get("image"), on_step=_cb)
+                try: holder["r"] = ask(b.get("q") or "", cl, b.get("image"), on_step=_cb, mode=b.get("mode"))
                 except Exception as e: holder["r"] = {"answer": "ошибка: %s" % e, "log": []}
                 finally: qq.put(None)
             threading.Thread(target=_run, daemon=True).start()
