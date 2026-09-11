@@ -107,7 +107,7 @@ HOSTNAME = socket.gethostname()
 PENDING = {}
 LIVE = {}
 LAST_META = {"p": 0, "r": 0}
-UI_FILE = os.path.join(os.path.dirname(os.path.abspath(__file__)), "data", "ui", "index.html")
+UI_FILE = os.path.join(os.path.dirname(os.path.abspath(__file__)), "ui", "index.html")
 _UI_CACHE = [0, b""]
 STUB_PAGE = ("<html><head><meta charset='utf-8'><title>АГЕНТ v15</title></head>"
              "<body style='background:#1B1C1E;color:#E8E8E8;font:14px Segoe UI,sans-serif;padding:40px'>"

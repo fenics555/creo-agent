@@ -4,18 +4,19 @@ import core
 
 GUIDE_DIR = core.REPO / "GUIDE"
 
-_KEYS = ["db", "creoson", "models", "trails", "pdf", "copy", "plm", "fleet", "settings", "kb"]
+_KEYS = ["db", "creoson", "creo", "models", "trails", "pdf", "copy", "plm", "fleet", "settings", "kb"]
 _TITLES = {
     "db": "Базы данных: что где лежит и как проверить",
-    "creoson": "CREOSON и Creo: сессия, операции, согласования",
+    "creoson": "CREOSON: мост к Creo, команды, согласования",
+    "creo": "Creo: сессия, параметры, аудит, сохранение",
     "models": "Модели: поиск, где используется, состав",
     "trails": "Трейлы: кто работал, болезни, прогнозы",
-    "pdf": "PDF-глаза: страницы, миниатюры, свежесть, перепечать",
+    "pdf": "PDF-глаза: страницы, миниатюры, свежесть, реестр",
     "copy": "Копия и переименование: план, сухой прогон",
     "plm": "Спецы, PLM, 1С: чтение, bom, аудит",
     "fleet": "Веб, флот, git: служба и синхронизация",
     "settings": "Настройки, роли, безопасность",
-    "kb": "База знаний и поиск: чанки, индексы",
+    "kb": "База знаний и поиск: чанки, индексы, скиллы",
 }
 
 
@@ -58,7 +59,7 @@ def tool_tools_help(block="", **kw):
 
 
 TOOLS = [
-    {"name": "guide", "desc": "Справочник: меню направлений или тема (topic=db/creoson/models/...)",
+    {"name": "guide", "desc": "Справочник: меню направлений или тема (topic=db/creoson/creo/models/...)",
      "params": {"topic": "ключ направления или пусто"}, "approval": False, "fn": tool_guide},
     {"name": "tools_help", "desc": "Полное описание инструментов блока (block=creo/web/trail/plm, пусто = все)",
      "params": {"block": "имя блока или пусто"}, "approval": False, "fn": tool_tools_help},
