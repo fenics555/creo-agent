@@ -426,7 +426,28 @@ def ask(q, client, image=None, on_step=None, mode=None):
         if not isinstance(eff_mode, int) or eff_mode not in (1, 2):
             eff_mode = 1
 
-    # 2. If mode 2, handle it immediately
+    # 2. Check for direct tool call (works in both modes)
+    name = q.strip()
+    t = TR.get(name)
+    if t and not image:
+        if msg := _role_check(client, name):
+            return {"answer": msg, "think": "", "steps": 1, "log": ["%s(прямой вызов) → ЗАПРЕТ РОЛИ" % name]}
+        if t.get("approval") and eff_mode != 2:
+            pid = datetime.datetime.now().strftime("%H%M%S%f")
+            PENDING[pid] = {"name": name, "args": {}, "client": client, "messages": [], "raw": ""}
+            return {"answer": "[СОГЛАСОВАНИЕ] операция %s ждёт подтверждения пользователя (id %s)" % (name, pid), "think": "", "steps": 1, "log": ["%s(прямой вызов)" % name]}
+        t0 = time.time()
+        try:
+            try: res = str(t["fn"]())
+            except TypeError: res = str(t["fn"]({k: "" for k in t.get("params", {})}))
+        except Exception as e: res = "ошибка исполнения %s: %s" % (name, e)
+        trace("AGENT %s" % name, "OK", int((time.time() - t0) * 1000))
+        c = core.db()
+        c.execute("INSERT INTO history(client,q,a,ts) VALUES(?,?,?,?)", (client, q, res[:2000], datetime.datetime.now().isoformat()))
+        c.commit(); c.close()
+        return {"answer": res, "think": "", "steps": 1, "log": ["%s(прямой вызов) → %s" % (name, res[:120])]}
+
+    # 3. If mode 2, handle it immediately
     if eff_mode == 2:
         q2 = VI.attach(q, image, client)
         messages = [{"role": "system", "content": build_system(mode=2)}] + hist_block(client) + [{"role": "user", "content": q2}]
@@ -445,28 +466,9 @@ def ask(q, client, image=None, on_step=None, mode=None):
             "log": ["chat_mode"]
         }
 
-    # 3. Else mode 1 (existing logic)
+    # 4. Else mode 1 (existing logic)
     q2 = VI.attach(q, image, client)
     LIVE[client] = []
-    name = q.strip()
-    t = TR.get(name)
-    if t and not image:
-        if msg := _role_check(client, name):
-            return {"answer": msg, "think": "", "steps": 1, "log": ["%s(прямой вызов) → ЗАПРЕТ РОЛИ" % name]}
-        if t.get("approval"):
-            pid = datetime.datetime.now().strftime("%H%M%S%f")
-            PENDING[pid] = {"name": name, "args": {}, "client": client, "messages": [], "raw": ""}
-            return {"answer": "[СОГЛАСОВАНИЕ] операция %s ждёт подтверждения пользователя (id %s)" % (name, pid), "think": "", "steps": 1, "log": ["%s(прямой вызов)" % name]}
-        t0 = time.time()
-        try:
-            try: res = str(t["fn"]())
-            except TypeError: res = str(t["fn"]({k: "" for k in t.get("params", {})}))
-        except Exception as e: res = "ошибка исполнения %s: %s" % (name, e)
-        trace("AGENT %s" % name, "OK", int((time.time() - t0) * 1000))
-        c = core.db()
-        c.execute("INSERT INTO history(client,q,a,ts) VALUES(?,?,?,?)", (client, q, res[:2000], datetime.datetime.now().isoformat()))
-        c.commit(); c.close()
-        return {"answer": res, "think": "", "steps": 1, "log": ["%s(прямой вызов) → %s" % (name, res[:120])]}
     m2 = re.match(r"^([A-Za-z0-9_]+)\s+([A-Za-z0-9_]+)=(\S+)$", q.strip())
     if m2 and not image:
         t2 = TR.get(m2.group(1))
