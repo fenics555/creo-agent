@@ -11,11 +11,34 @@ PDFCACHE = Path(r"D:\AI\tools\agent\data\pdfcache")
 PDFCACHE.mkdir(parents=True, exist_ok=True)
 
 def _get_file_info(name):
-    """Returns (path, mtime) for a file matching name and extension."""
+    """Возвращает (path, mtime) для файла, совпадающего с name и расширением.
+
+    Чертёж для имени N находится по двум вариантам:
+      - stem == N
+      - stem начинается с "m-" + N
+    """
     c = core.db()
-    res_pdf = c.execute("SELECT path, mtime FROM files WHERE path LIKE ? AND path NOT LIKE '%.tmp%'", (f"%{name}.pdf",)).fetchone()
-    res_drw = c.execute("SELECT path, mtime FROM files WHERE (path LIKE ? OR path LIKE ?) AND path NOT LIKE '%.tmp%'", (f"%{name}.drw", f"%{name}.DRW")).fetchone()
-    res_prt = c.execute("SELECT path, mtime FROM files WHERE (path LIKE ? OR path LIKE ?) AND path NOT LIKE '%.tmp%'", (f"%{name}.prt", f"%{name}.PRT")).fetchone()
+    like_exact = f"%{name}.pdf"
+    like_m = f"%m-{name}.pdf"
+    res_pdf = c.execute(
+        "SELECT path, mtime FROM files WHERE (path LIKE ? OR path LIKE ?) "
+        "AND path NOT LIKE '%.tmp%'",
+        (like_exact, like_m)
+    ).fetchone()
+    res_drw = c.execute(
+        "SELECT path, mtime FROM files WHERE "
+        "((path LIKE ? OR path LIKE ?) OR (path LIKE ? OR path LIKE ?)) "
+        "AND path NOT LIKE '%.tmp%'",
+        (f"%{name}.drw", f"%{name}.DRW",
+         f"%m-{name}.drw", f"%m-{name}.DRW")
+    ).fetchone()
+    res_prt = c.execute(
+        "SELECT path, mtime FROM files WHERE "
+        "((path LIKE ? OR path LIKE ?) OR (path LIKE ? OR path LIKE ?)) "
+        "AND path NOT LIKE '%.tmp%'",
+        (f"%{name}.prt", f"%{name}.PRT",
+         f"%m-{name}.prt", f"%m-{name}.PRT")
+    ).fetchone()
     c.close()
     return res_pdf, res_drw, res_prt
 

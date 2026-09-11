@@ -798,13 +798,29 @@ class Hd(BaseHTTPRequestHandler):
             self._j({"tail": tail})
             return
         else:
-            b = PAGE.encode()
-            self.send_response(200)
-            self.send_header("Content-Type", "text/html; charset=utf-8")
-            self.send_header("Cache-Control", "no-store")
-            self.send_header("Content-Length", str(len(b)))
-            self.end_headers()
-            self.wfile.write(b)
+            import os
+            import mimetypes
+            ui_path = r'D:\AI\tools\agent\data\ui\index.html'
+            if os.path.exists(ui_path):
+                mtype, _ = mimetypes.guess_type(ui_path)
+                mtype = mtype or "text/html"
+                with open(ui_path, 'rb') as f:
+                    b = f.read()
+                self.send_response(200)
+                self.send_header("Content-Type", mtype)
+                self.send_header("Content-Length", str(len(b)))
+                self.send_header("Cache-Control", "public, max-age=1")
+                self.end_headers()
+                self.wfile.write(b)
+            else:
+                b = PAGE.encode()
+                self.send_response(200)
+                self.send_header("Content-Type", "text/html; charset=utf-8")
+                self.send_header("Cache-Control", "no-store")
+                self.send_header("Content-Length", str(len(b)))
+                self.end_headers()
+                self.wfile.write(b)
+
     def do_POST(self):
         p = urlparse(self.path).path
         b = self._body()
