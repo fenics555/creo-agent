@@ -4,7 +4,9 @@ import urllib.request, json, re, time, os, datetime, subprocess, sys
 
 BASE = "http://127.0.0.1:8765"
 TOKEN = None
-LOG_FILE = r"D:\AI\tools\agent_log_frezer4.txt"
+import socket
+HOST = socket.gethostname().replace(" ", "").replace("-", "")[:16]
+LOG_FILE = r"D:\AI\tools" + ("\\agent_log_%s.txt" % HOST)
 
 def post(path, data):
     req = urllib.request.Request(

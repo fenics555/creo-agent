@@ -62,7 +62,7 @@ def start_copyserver():
                       "Start-Process python -ArgumentList 'copy\\copy_server.py' "
                       "-WorkingDirectory '%s' -WindowStyle Hidden "
                       "-RedirectStandardOutput '%s\\data\\tmp\\copy_out.txt' "
-                      "-RedirectStandardError '%s\data\tmp\copy_err.txt'" % (AG, AG, AG)])
+                      "-RedirectStandardError '%s\\data\\tmp\\copy_err.txt'" % (AG, AG, AG)])
 
 def start_agent(hidden):
     if hidden:
@@ -95,7 +95,7 @@ def up(browser=False, hidden=False):
         log("поднимаю агента..."); start_agent(hidden)
         log("агент на 8765" if wait_port(8765, 60) else "ВНИМАНИЕ: агент не поднялся за 60 сек")
     if browser:
-        subprocess.Popen('cmd /c start "" http://192.168.88.159:8765', shell=True)
+        subprocess.Popen('cmd /c start "" http://127.0.0.1:8765', shell=True)
 
 def down():
     log("== ctl down ==")
