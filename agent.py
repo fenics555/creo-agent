@@ -432,8 +432,210 @@ def do_approve(pid, okf):
     return {"res": res}
 
 
-from panel_ui import PAGE
-
+PAGE = r"""<!DOCTYPE html><html><head><meta charset="utf-8"><title>АГЕНТ v14</title>
+<style>body{margin:0;background:#1B1C1E;color:#E8E8E8;font:14px/1.5 Segoe UI,sans-serif}
+#top{position:fixed;top:0;left:0;right:0;background:linear-gradient(180deg,#2A2B2E,#232427);border-bottom:2px solid #1273EB;padding:8px 14px;display:flex;gap:10px;align-items:center;z-index:5}
+#top b{color:#6db3f2}#chat{margin:52px 300px 70px 12px;padding:8px;overflow-y:auto}
+#panel{position:fixed;top:44px;right:0;bottom:0;width:292px;background:#242527;overflow-y:auto;padding:8px;border-left:1px solid #3E4043}
+.msg{max-width:760px;margin:10px 0;padding:10px 14px;border-radius:10px;background:#2C2D30;white-space:pre-wrap}
+.msg.me{margin-left:auto;background:#0E5FC2}
+.think{background:#242527;border:1px solid #3E4043;border-radius:8px;padding:6px 10px;margin-bottom:4px;color:#A6A8AB;cursor:pointer}
+.thinkbody{background:#242527;border:1px solid #3E4043;border-radius:8px;padding:6px 10px;margin-bottom:8px;color:#A6A8AB;white-space:pre-wrap}
+.log{color:#A6A8AB;font-size:12px;margin:6px 0;white-space:pre-wrap}
+#inp{position:fixed;bottom:0;left:0;right:292px;background:#242527;padding:8px;display:flex;gap:8px;border-top:1px solid #3E4043}
+#q{flex:1;background:#2C2D30;color:#E8E8E8;border:1px solid #3E4043;border-radius:8px;padding:10px}
+button{background:#1273EB;color:#fff;border:0;border-radius:8px;padding:8px 14px;cursor:pointer}
+button:hover{background:#0E5FC2}
+.spin{display:inline-block;width:16px;height:16px;border:2px solid #6db3f2;border-top-color:transparent;border-radius:50%;animation:rot .8s linear infinite;vertical-align:middle;margin-left:8px}
+@keyframes rot{to{transform:rotate(360deg)}}
+.grp{border:1px solid #3E4043;border-radius:8px;margin:6px 0;padding:6px;background:#242527}
+.grp h4{margin:2px 0 6px;color:#6db3f2;cursor:pointer;-webkit-user-select:none;user-select:none;font-size:13px;display:flex;align-items:center;gap:6px}
+.grp h4 .ar{font-size:10px;transition:transform .15s}
+.grp h4 .ar.o{transform:rotate(90deg)}
+.grp h4 .cnt{background:#1273EB;color:#fff;border-radius:10px;padding:1px 7px;font-size:11px}
+.tool{display:flex;align-items:center;gap:8px;background:#2C2D30;border-radius:6px;padding:6px;margin:4px 0;cursor:pointer;border-left:2px solid transparent}
+.tool:hover{background:#333;border-left:2px solid #1273EB}
+.tool .ic{width:28px;height:28px;flex-shrink:0;font-size:20px;display:flex;align-items:center;justify-content:center}
+.tool b{font-size:13px;color:#E8E8E8;flex:1;font-weight:normal}
+.tool b small{display:block;color:#A6A8AB;font-size:11px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.tool .lk{color:#C64E4E;font-size:14px}
+#psrc{width:100%;box-sizing:border-box;background:#2C2D30;color:#E8E8E8;border:1px solid #3E4043;border-radius:8px;padding:6px;margin-bottom:6px}
+#pcnt{font-size:11px;color:#A6A8AB;margin:4px 0}
+.pin{display:inline-flex;align-items:center;gap:4px;background:#2C2D30;border:1px solid #3E4043;border-radius:6px;padding:3px 8px;margin:2px;cursor:pointer;font-size:12px}
+.pin:hover{border-color:#1273EB}
+#login{position:fixed;inset:0;background:#0009;display:none;align-items:center;justify-content:center;z-index:9}
+#login div{background:#242527;padding:24px;border-radius:12px;display:flex;flex-direction:column;gap:10px;border:1px solid #3E4043}
+#login input{background:#2C2D30;color:#E8E8E8;border:1px solid #3E4043;border-radius:8px;padding:10px}
+<body>
+<div id="top"><b>АГЕНТ v14</b><span id="hdr"></span><span style="flex:1"></span>
+<button data-act="chip" data-val="guide">❓</button><button data-act="wizard">🧙</button><button data-act="showlog">Лог</button><button data-act="panel">Панель</button><button data-act="showpro">👤</button><button data-act="showchat">💬</button><button data-act="logout">Выйти</button></div>
+<div id="chat"></div><div id="panel"></div>
+<div id="inp"><input id="q" placeholder="Задача для АГЕНТА... (Enter) | Ctrl+V — вставить скриншот"><button data-act="snap">📷</button><button data-act="send">Спросить</button><span id="spin" class="spin" style="display:none"></span></div>
+<div id="login"><div style="position:relative"><button data-act="closelogin" style="position:absolute;top:6px;right:6px;background:#3E4043;color:#fff;border:0;border-radius:6px;padding:2px 8px;cursor:pointer">✕</button>
+<input id="lg" placeholder="логин"><input id="pw" type="password" placeholder="пароль"><button data-act="login">Войти</button><button data-act="reg">Регистрация</button></div></div>
+<div id="wiz" style="display:none;position:fixed;inset:0;background:#0009;align-items:center;justify-content:center;z-index:11">
+<div style="background:#242527;padding:20px;border-radius:12px;width:430px;display:flex;flex-direction:column;gap:9px;border:1px solid #3E4043">
+<b>🧙 МАСТЕР ОПЕРАЦИЙ</b>
+<small style="color:#A6A8AB">Копия сборки (сначала план)</small>
+<input id="w_old" placeholder="старое имя (old)" style="background:#2C2D30;color:#E8E8E8;border:1px solid #3E4043;border-radius:8px;padding:10px">
+<input id="w_new" placeholder="новое имя (new)" style="background:#2C2D30;color:#E8E8E8;border:1px solid #3E4043;border-radius:8px;padding:10px">
+<small style="color:#A6A8AB">Куда копировать</small>
+<input id="w_dir" value="Z:\PTC\Work\" style="background:#2C2D30;color:#E8E8E8;border:1px solid #3E4043;border-radius:8px;padding:10px">
+<label style="display:flex;align-items:center;gap:6px;color:#A6A8AB;font-size:12px"><input type="checkbox" id="w_dry"> только план (dry_run)</label>
+<button data-act="wizgo">📋 Сделать копию</button><button data-act="wizclose" style="background:#3E4043">Закрыть</button><div id="wizout" style="font-size:12px;color:#A6A8AB;white-space:pre-wrap"></div></div></div>
+<div id="chatbox" style="display:none;position:fixed;top:44px;left:0;right:292px;bottom:60px;background:#1B1C1E;flex-direction:column;border-right:1px solid #3E4043">
+<div style="display:flex;align-items:center;gap:8px;padding:8px;border-bottom:1px solid #3E4043"><b style="color:#6db3f2;flex:1">💬 ЧАТ</b><button data-act="chatclose" style="background:#3E4043;padding:4px 10px">✕</button></div>
+<div id="cmsgs" style="flex:1;overflow-y:auto;padding:8px"></div>
+<div style="padding:8px;display:flex;gap:8px;border-top:1px solid #3E4043"><input id="cin" placeholder="сообщение..." style="flex:1;background:#2C2D30;color:#E8E8E8;border:1px solid #3E4043;border-radius:8px;padding:8px"><button data-act="chatsend" style="padding:6px 12px">➤</button></div></div>
+<div id="logbox" style="display:none;position:fixed;top:44px;left:0;right:292px;bottom:60px;background:#1B1C1E;flex-direction:column;border-right:1px solid #3E4043">
+<div style="display:flex;align-items:center;gap:8px;padding:8px;border-bottom:1px solid #3E4043"><b style="color:#6db3f2;flex:1">ЛОГ</b><button data-act="logclose" style="background:#3E4043;padding:4px 10px">✕</button></div>
+<div id="lbox" style="flex:1;overflow-y:auto;padding:8px"></div></div>
+<div id="probox" style="display:none;position:fixed;top:44px;left:0;right:292px;bottom:60px;background:#1B1C1E;flex-direction:column;border-right:1px solid #3E4043">
+<div style="display:flex;align-items:center;gap:8px;padding:8px;border-bottom:1px solid #3E4043"><b style="color:#6db3f2;flex:1">ПРОФИЛЬ</b><button data-act="proclose" style="background:#3E4043;padding:4px 10px">✕</button></div>
+<div id="pbox" style="flex:1;overflow-y:auto;padding:8px"></div></div>
+<script>
+.sgrp{border:1px solid #3E4043;border-radius:8px;margin:8px 0;padding:8px}
+.sgrp h5{margin:0 0 8px;color:#6db3f2;font-size:13px;cursor:pointer}
+.row{display:flex;align-items:center;justify-content:space-between;margin:6px 0;gap:8px}
+.row label{font-size:12px;color:#A6A8AB;flex:1}
+.row select{background:#2C2D30;color:#E8E8E8;border:1px solid #3E4043;border-radius:6px;padding:4px;font-size:12px;min-width:140px}
+.row input[type=text]{background:#2C2D30;color:#E8E8E8;border:1px solid #3E4043;border-radius:6px;padding:4px 6px;font-size:12px;min-width:140px}
+.row input[type=range]{flex:1;accent-color:#1273EB}
+.row input[type=checkbox]{accent-color:#1273EB}
+.flash{animation:flash 1s}
+@keyframes flash{0%{background:#1273EB}100%{background:#2C2D30}}
+.op-ok{color:#86BC43}.op-err{color:#C64E4E}.op-info{color:#4C8FD6}.op-warn{color:#E8912D}</style></head>function esc(s){return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;')}
+function J(u,d){return fetch(u,{method:d?'POST':'GET',headers:d?{'Content-Type':'application/json','X-Token':window.TK||''}:{},body:d?JSON.stringify(d):undefined}).then(function(r){return r.json()})}
+var TK=null,Q=null,qinp=null,hdr=null,CURM='';
+var PINS=['creo_get_active','models_find','search_kb','trail_problems','calc','creo_session'];
+function panelPin(key){J('/ask',{token:TK,task:key}).then(function(r){addMsg('>> '+key+': '+JSON.stringify(r).slice(0,120),true)})}
+function buildPanel(p){
+  p=p||{actions:[],models:[],chips:[],groups:[]};
+  window.MODELS=p.models||[];
+  var h='<input id="psrc" placeholder="поиск по имени и описанию..."><div id="pcnt"></div><div>';
+  PINS.forEach(function(k){
+    var t=(p.groups||[]).reduce(function(a,g){return a.concat(g.tools||[])},[]).filter(function(t){return t.name===k})[0];
+    h+='<span class="pin" data-pin="'+k+'">📌 '+(t?esc(t.name):k)+'</span>';
+  });
+  h+='</div>';
+  var fold=JSON.parse(localStorage.getItem('panel_fold')||'{}');
+  (p.groups||[]).forEach(function(g,gi){
+    var gn=esc(g.title||'пространство');
+    var cnt=(g.tools||[]).length;
+    var ic=g.icon||'📁';
+    var open=fold[gi]?true:false;
+    h+='<div class="grp"><h4 data-gi="'+gi+'"><span class="ar'+(open?' o':'')+'">▸</span>'+ic+' '+gn+' <span class="cnt">'+cnt+'</span></h4>';
+    if(open){
+      (g.tools||[]).forEach(function(t){
+        var lk=t.approval?' <span class="lk">🔒</span>':'';
+        h+='<div class="tool" data-name="'+esc(t.name)+'"><span class="ic">'+(t.icon||'🔧')+'</span><b>'+esc(t.name)+'<small>'+esc(t.desc||'')+'</small></b>'+lk+'</div>';
+      });
+    }
+    h+='</div>';
+  });
+  var box=document.getElementById('panel');box.innerHTML=h;
+  box.querySelectorAll('h4[data-gi]').forEach(function(e){e.onclick=function(){var gi=e.getAttribute('data-gi');fold[gi]=!fold[gi];localStorage.setItem('panel_fold',JSON.stringify(fold));renderPanel()}});
+  box.querySelectorAll('.tool').forEach(function(e){e.onclick=function(){var n=e.getAttribute('data-name');if(qinp){qinp.value=n;send()}}});
+  box.querySelectorAll('.pin').forEach(function(e){e.onclick=function(){panelPin(e.getAttribute('data-pin'))}});
+  var src=document.getElementById('psrc');
+  function doFilter(){
+    var q=(src.value||'').toLowerCase();
+    var total=0,shown=0;
+    box.querySelectorAll('.grp').forEach(function(g){
+      var gtools=g.querySelectorAll('.tool');
+      var gvis=0;
+      gtools.forEach(function(t){
+        total++;
+        var name=t.querySelector('b');var desc=name?name.textContent:'';
+        if(!q||desc.toLowerCase().indexOf(q)>=0){t.style.display='flex';shown++;gvis++}else{t.style.display='none'}
+      });
+      g.style.display=gvis>0?'block':'none';
+    });
+    var c=document.getElementById('pcnt');if(c)c.textContent='найдено: '+shown+' / '+total;
+  }
+  if(src)src.addEventListener('input',doFilter);
+}
+function buildSettings(s){
+  var items=s.items||[];
+  var groups={};
+  items.forEach(function(it){(groups[it.space]=groups[it.space]||[]).push(it)});
+  var h='';
+  var modelKeys=['llm_model','model_fast','model_trail','model_vision','model_index'];
+  Object.keys(groups).forEach(function(sp){
+    var gitems=groups[sp];
+document.addEventListener('click',function(e){var el=e.target.closest('[data-act]');if(!el)return;var a=el.getAttribute('data-act');
+if(a=='think'){var n=el.nextElementSibling;n.style.display=n.style.display=='none'?'block':'none'}
+else if(a=='fold'){var b=el.nextElementSibling;var hid=b.style.display=='none';b.style.display=hid?'block':'none';el.textContent=(hid?'▾':'▸')+el.textContent.slice(1)}
+else if(a=='send')send();
+else if(a=='wizard'){document.getElementById('wiz').style.display='flex'}
+else if(a=='wizclose'){document.getElementById('wiz').style.display='none'}
+else if(a=='wizgo'){var o=document.getElementById('w_old').value,n=document.getElementById('w_new').value;if(!o||!n){alert('заполни old и new');return}document.getElementById('wiz').style.display='none';qinp.value='copy_model old='+o+' new='+n+' dry_run='+(document.getElementById('w_dry').checked?1:0);send()}
+else if(a=='snap')J('/snap',{token:TK}).then(function(r){addMsg(esc(r.msg||'ок'))});
+else if(a=='showlog')J('/log').then(function(r){addMsg('<div class="log">'+esc(r.log)+'</div>')});
+else if(a=='panel')panel.style.display=panel.style.display=='none'?'block':'none';
+else if(a=='logout'){localStorage.removeItem('tk');localStorage.removeItem('usr');TK='';showLogin()}
+else if(a=='showpro'){J('/profile',{token:TK}).then(function(u){document.getElementById('proinfo').textContent=(u.display_name||'')+' · '+(u.role||'')+' · '+u.login;document.getElementById('pname').value=u.display_name||'';document.getElementById('probox').style.display='flex'})}
+else if(a=='proclose'){document.getElementById('probox').style.display='none'}
+else if(a=='savename'){var v=document.getElementById('pname').value;J('/setname',{token:TK,name:v}).then(function(r){alert(r.msg||'ок');if(r.ok){document.getElementById('probox').style.display='none';init()}})}
+else if(a=='savepw'){J('/setpw',{token:TK,old:document.getElementById('pold').value,'new':document.getElementById('pnew').value}).then(function(r){alert(r.msg||'ок');if(r.ok){document.getElementById('pold').value='';document.getElementById('pnew').value=''}})}
+else if(a=='showchat'){document.getElementById('chatbox').style.display='flex';NEWMSG=0;chatBadge();chatPoll()}
+else if(a=='chatclose'){document.getElementById('chatbox').style.display='none'}
+else if(a=='chatsend'){var v=document.getElementById('cin').value;if(!v)return;J('/chat/send',{token:TK,text:v}).then(function(){document.getElementById('cin').value='';chatPoll()})}
+else if(a=='login'){J('/login',{login:document.getElementById('lg').value,pw:document.getElementById('pw').value}).then(function(r){if(r.token){TK=r.token;localStorage.setItem('tk',r.token);document.getElementById('login').style.display='none';init()}else{alert(r.msg||'ошибка')}})}
+else if(a=='reg'){J('/register',{login:document.getElementById('lg').value,pw:document.getElementById('pw').value}).then(function(r){alert(r.msg||'ок')})}
+else if(a=='chip'){var v=el.getAttribute('data-val')||'';if(qinp){qinp.value=v;send()}}
+else if(a=='closelogin'){document.getElementById('login').style.display='none'}})
+function addMsg(txt,me){var d=document.createElement('div');d.className='msg'+(me?' me':'');d.innerHTML=txt;document.getElementById('chat').appendChild(d);document.getElementById('chat').scrollTop=document.getElementById('chat').scrollHeight}
+function send(){var v=qinp.value;if(!v)return;addMsg(esc(v),true);qinp.value='';J('/ask',{token:TK,task:v}).then(function(r){if(r.error){addMsg('<b style="color:#C64E4E">ошибка:</b> '+esc(r.error),false)}else{addMsg(esc(r.answer||r.msg||''),false)}}).catch(function(e){addMsg('<b style="color:#C64E4E">сбой:</b> '+esc(e),false)})}
+function showLogin(){document.getElementById('login').style.display='flex'}
+function chatPoll(){J('/chat/poll',{token:TK,last:CLAST}).then(function(r){chatRender(r.msgs||[])})}
+function chatRender(msgs){var box=document.getElementById('cmsgs');msgs.forEach(function(m){if(m.id<=CLAST)return;CLAST=m.id;var d=document.createElement('div');d.style.cssText='background:#2C2D30;border-radius:6px;padding:6px 8px';d.innerHTML='<b style="color:#7cc0f4">'+esc(m.name)+'</b> <small style="color:#A6A8AB">'+esc(m.ts)+'</small><br>'+esc(m.text);box.appendChild(d)});box.scrollTop=box.scrollHeight}
+var NEWMSG=0;
+function chatBadge(){var b=document.querySelector('[data-act="showchat"]');if(b)b.textContent=NEWMSG>0?'💬'+NEWMSG:'💬'}
+    h+='<div class="sgrp"><h5 data-act="fold">▸ '+esc(sp)+'</h5><div class="gbody">';
+    gitems.forEach(function(it){
+      (window.CFG=window.CFG||{})[it.key]=it.value;
+      if(sp=='ИИ-роли'&&modelKeys.indexOf(it.key)>=0){
+        h+='<div class="row"><label>'+esc(it.name)+'</label><select data-cfg="'+esc(it.key)+'">';
+        h+='<option value="">— как чат —</option>';
+        (window.MODELS||[]).forEach(function(m){h+='<option value="'+esc(m)+'"'+(m==it.value?' selected="selected"':"")+'>'+esc(m)+'</option>'});
+        h+='</select></div>';
+      }else if(it.kind=='range'){
+        h+='<div class="row"><label>'+esc(it.name)+'</label><input type="range" data-cfg="'+esc(it.key)+'" min="'+it.min+'" max="'+it.max+'" step="'+it.step+'" value="'+it.value+'"><b data-v="'+esc(it.key)+'">'+it.value+'</b></div>';
+      }else if(it.kind=='check'){
+        h+='<div class="row"><label>'+esc(it.name)+'</label><input type="checkbox" data-cfg="'+esc(it.key)+'" '+(it.value?'checked="checked"':"")+'></div>';
+      }else{
+        h+='<div class="row"><label>'+esc(it.name)+'</label><input type="text" data-cfg="'+esc(it.key)+'" value="'+esc(String(it.value))+'"></div>';
+      }
+    });
+    h+='</div></div>';
+  });
+  panel.innerHTML+=h;
+}
+var PANEL_DATA=null;
+function renderPanel(){if(PANEL_DATA)buildPanel(PANEL_DATA)}
+function renderSettings(){J('/settings').then(buildSettings)}
+function init(){J('/status').then(function(s){CURM=s.model;hdr.textContent=s.host+(s.user?' | '+(s.user.display_name||s.user.login):'')+' | '+s.model+' | блоков: '+s.blocks;J('/panel').then(function(p){PANEL_DATA=p;buildPanel(p);J('/settings').then(buildSettings)})})}(function(){var sp=document.getElementById('spin');if(!sp)return;var of=window.fetch;window.fetch=function(u){var url=String(u);var bg=url.indexOf('/chat/poll')>=0||url.indexOf('/status')>=0||url.indexOf('/ask')>=0;if(!bg)sp.style.display='inline-block';var p=of.apply(this,arguments);var t=new Promise(function(r,j){setTimeout(function(){j(new Error('таймаут 900с: '+url))},900000)});return Promise.race([p,t]).finally(function(){if(!bg)sp.style.display='none';});};})();
+(function(){if(window.__slfix)return;window.__slfix=1;
+var busy=false;
+function sync(r){var lab=r.parentNode.querySelector('[data-v]')||r.nextElementSibling;if(lab&&String(lab.textContent)!==String(r.value))lab.textContent=r.value;}
+document.addEventListener('input',function(e){var r=e.target;if(r&&r.type=='range'&&r.getAttribute('data-cfg'))sync(r);});
+function cfgSuccess(el){if(!el)return;el.classList.add('flash');setTimeout(function(){el.classList.remove('flash')},1000)}
+document.addEventListener('change',function(e){var r=e.target;var k=r.getAttribute&&r.getAttribute('data-cfg');if(!k)return;if(r.type=='range'||r.type=='checkbox'){var v=(r.type=='checkbox')?(r.checked?1:0):r.value;fetch('/setcfg',{method:'POST',headers:{'Content-Type':'application/json','X-Token':window.TK||''},body:JSON.stringify({key:k,value:v})}).then(function(){cfgSuccess(r)});}});
+document.addEventListener('change',function(e){var r=e.target;if(r.tagName=='SELECT'&&r.getAttribute('data-cfg')){var k=r.getAttribute('data-cfg');fetch('/setcfg',{method:'POST',headers:{'Content-Type':'application/json','X-Token':window.TK||''},body:JSON.stringify({key:k,value:r.value})}).then(function(){cfgSuccess(r)});}});
+document.addEventListener('focusout',function(e){var r=e.target;if(r.tagName=='INPUT'&&r.type=='text'&&r.getAttribute('data-cfg')){var k=r.getAttribute('data-cfg');fetch('/setcfg',{method:'POST',headers:{'Content-Type':'application/json','X-Token':window.TK||''},body:JSON.stringify({key:k,value:r.value})}).then(function(){cfgSuccess(r)});}});
+var mo=new MutationObserver(function(){if(busy)return;busy=true;try{document.querySelectorAll('input[type=range][data-cfg]').forEach(function(r){var want=parseFloat(r.getAttribute('data-val')||r.value);if(!isNaN(want)){if(parseFloat(r.max)<want)r.max=want;if(String(r.value)!==String(want))r.value=want;sync(r);}});}finally{busy=false;}});
+mo.observe(document.body,{childList:true,subtree:true});
+window.addEventListener('unhandledrejection',function(){var sp=document.getElementById('spin');if(sp)sp.style.display='none';});})();
+/*lm-deco*/(function(){var N=['авто','авто+токены','отладка','полный'];function dec(){var b=document.querySelector('[data-v="log_mode"]');if(!b)return;var v=parseInt(b.textContent,10);var w=v+' · '+(N[v]||'');if(b.textContent!=w)b.textContent=w;}document.addEventListener('input',function(e){var t=e.target;if(t&&t.getAttribute&&t.getAttribute('data-cfg')=='log_mode')setTimeout(dec,0);});setInterval(dec,1000);dec();})();
+qinp=document.getElementById('q');
+document.addEventListener('paste',function(e){var it=null,items=e.clipboardData.items;for(var i=0;i<items.length;i++){if(items[i].type.indexOf('image')==0){it=items[i];break}}if(!it)return;var f=it.getAsFile();var rd=new FileReader();rd.onload=function(){addMsg('скриншот прикреплён',true)};rd.readAsDataURL(f)});
+var lg=document.getElementById('lg'),pw=document.getElementById('pw');
+lg.addEventListener('keydown',function(e){if(e.key=='Enter')document.querySelector('[data-act="login"]').click()});
+pw.addEventListener('keydown',function(e){if(e.key=='Enter')document.querySelector('[data-act="login"]').click()});
+document.getElementById('cin').addEventListener('keydown',function(e){if(e.key=='Enter')document.querySelector('[data-act="chatsend"]').click()});
+var ttk=localStorage.getItem('tk');if(ttk){TK=ttk;Promise.resolve().then(init).catch(function(e){addMsg('ошибка инициализации: '+e,true)})}else showLogin();
+</script></body></html>"""
 class Hd(BaseHTTPRequestHandler):
     def log_message(self, *a): pass
     def _j(self, d, code=200):
@@ -487,6 +689,30 @@ class Hd(BaseHTTPRequestHandler):
             page = qs.get("page", ["1"])[0]
             if not name: return self._j({"error": "no name"})
             self._j(pdf_tools.pdf_img(name, page))
+            return
+        elif p == "/pdfstatus":
+            token = self.headers.get("X-Token") or ""
+            if not users.token_info(token): return self._j({"error": "no token"})
+            qs = parse_qs(urlparse(self.path).query)
+            name = qs.get("name", [""])[0]
+            if not name: return self._j({"error": "no name"})
+            self._j(pdf_tools.pdf_status(name))
+            return
+        elif p == "/children":
+            token = self.headers.get("X-Token") or ""
+            if not users.token_info(token): return self._j({"error": "no token"})
+            qs = parse_qs(urlparse(self.path).query)
+            name = qs.get("name", [""])[0]
+            if not name: return self._j({"error": "no name"})
+            import plm_tools
+            try:
+                c = plm_tools._db()
+                rows = c.execute("SELECT child FROM bom WHERE parent LIKE ?", ("%"+name.lower()+"%",)).fetchall()
+                c.close()
+                children = [r[0] for r in rows]
+            except Exception as e:
+                children = []
+            self._j({"name": name, "children": children})
             return
         elif p == "/panel":
             d = panel.build()
