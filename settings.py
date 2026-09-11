@@ -14,7 +14,8 @@ REGISTRY = [
     ("Главное", "top_p", "Top-p", "float", 0.9, "Разнообразие.", False),
     ("Главное", "num_ctx", "Окно контекста", "int", 131072, "Под <think> рассуждения.", True),
     ("Главное", "num_predict", "Макс токенов ответа", "int", 2048, "Чтобы не резало мысли.", True),
-    ("Главное", "admin_password", "Пароль обучения", "str", "1945", "Для админ-действий.", True),
+    ("Главное", "admin_password", "Пароль обучения", "str", "", "Для админ-действий.", True),
+    ("Главное", "read_roots", "Корни чтения файлов", "str", "D:\\AI", "read_file читает только внутри этих корней (список через ;).", True),
     ("Главное", "auto_mode", "Авторежим", "bool", True, "Вкл: температура 0.1 (инженер). Выкл: температура от креатива.", True),
     ("Главное", "stream_tokens", "Стриминг токенов", "bool", True, "Печатать ответ по токенам по мере генерации.", True),
     ("Главное", "think_in_log", "Строки THINK в ходе работы", "bool", True, "Печатать ответ по токенам по мере генерации.", True),
@@ -115,7 +116,7 @@ def show_all():
     d = _raw()
     out = []
     for space, k, name, typ, defl, desc, ui in REGISTRY:
-        out.append("• [%s] %s = %s — %s" % (space, k, d.get(k, defl), desc))
+        out.append("• [%s] %s = %s — %s" % (space, k, "••••••" if "password" in str(k) else d.get(k, defl), desc))
     return "\n".join(out)
 
 def list_ui():
@@ -135,6 +136,8 @@ def list_ui():
         if not ui:
             continue
         v = d.get(k, defl)
+        if "password" in str(k):
+            v = "••••••"
         e = {"space": space, "key": k, "name": name, "type": typ, "value": v, "desc": desc}
         if typ in ("int", "float") and k in B:
             lo, hi, st = B[k]

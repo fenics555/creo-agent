@@ -45,10 +45,27 @@ def tool_search(query="", **kw):
         out.append("[%d] %s\n%s" % (n + 1, ROWS[i][0], ROWS[i][1][:settings.get("chunk_chars") or 900]))
     return "\n\n".join(out) or "пусто"
 
+READ_MAX_BYTES = 2 * 1024 * 1024  # не тянем в промт файлы больше 2 МБ
+
+def _inside(p, root):
+    try:
+        p.relative_to(root); return True
+    except ValueError:
+        return False
+
 def tool_read(path="", **kw):
     if not path: return "укажите path"
-    p = Path(path)
+    p = Path(path).resolve()
+    roots = [Path(r.strip()).resolve() for r in (settings.get("read_roots") or "D:\\AI").split(";") if r.strip()]
+    if not roots or not any(_inside(p, r) for r in roots):
+        return "чтение запрещено: %s вне разрешённых корней (%s)" % (path, "; ".join(str(r) for r in roots))
     if not p.exists(): return "нет файла %s" % path
+    try:
+        sz = p.stat().st_size
+    except OSError:
+        return "нет доступа к файлу %s" % path
+    if sz > READ_MAX_BYTES:
+        return "файл слишком большой: %d КБ (лимит %d КБ)" % (sz // 1024, READ_MAX_BYTES // 1024)
     return p.read_text(encoding="utf-8", errors="ignore")[:6000]
 
 def tool_save(name="", content="", **kw):

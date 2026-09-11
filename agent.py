@@ -13,7 +13,7 @@ import settings
 import pdf_tools
 
 
-# === v14: СЃС‚СЂРёРјРёРЅРі С‚РѕРєРµРЅРѕРІ ===
+# === v14: стриминг токенов ===
 import urllib.request as _ur
 LIVE_TOK = {}
 LIVE_THINK = {}
@@ -72,7 +72,7 @@ def _post_think_off(path, payload, *ar, **kw):
             payload["think"] = False
     return _post_before_think(path, payload, *ar, **kw)
 core.post = _post_think_off
-# === РєРѕРЅРµС† СЃС‚СЂРёРјРёРЅРіР° ===
+# === конец стриминга ===
 
 import tools_registry as TR
 import scanner
@@ -83,15 +83,15 @@ import vision_tools as VI
 
 
 def _role_check(client, tool):
-    """Р’РµСЂРґРёРєС‚: None = СЂРѕР»СЊ СЂР°Р·СЂРµС€Р°РµС‚, СЃС‚СЂРѕРєР° = СЃРѕРѕР±С‰РµРЅРёРµ Рѕ Р·Р°РїСЂРµС‚Рµ."""
+    """Вердикт: None = роль разрешает, строка = сообщение о запрете."""
     if not client or not tool:
         return None
     prof = users.get_profile(client)
     if not prof:
         return None
-    role = prof.get("role", "РРЅР¶РµРЅРµСЂ")
+    role = prof.get("role", "Инженер")
     if users.role_denied(role, tool):
-        return "в›” СЂРѕР»СЊ В«%sВ» РЅРµ РјРѕР¶РµС‚ РІС‹РїРѕР»РЅРёС‚СЊ В«%sВ» (Р·Р°РїСЂРµС‚ Р°РґРјРёРЅРёСЃС‚СЂР°С‚РѕСЂР°)" % (role, tool)
+        return "⛔ роль «%s» не может выполнить «%s» (запрет администратора)" % (role, tool)
     return None
 
 HOST, PORT = "0.0.0.0", 8765
@@ -100,38 +100,38 @@ PENDING = {}
 LIVE = {}
 LAST_META = {"p": 0, "r": 0}
 
-DEFAULT_PROTO = """# РџР РћРўРћРљРћР› РРќР–Р•РќР•Р Рђ-РќРђРџРђР РќРРљРђ
-1. Р РћР›Р¬
-РўС‹ вЂ” СЃС‚Р°СЂС€РёР№ РёРЅР¶РµРЅРµСЂ-РєРѕРЅСЃС‚СЂСѓРєС‚РѕСЂ РљР‘, РЅР°РїР°СЂРЅРёРє РїРѕР»СЊР·РѕРІР°С‚РµР»СЏ. Р“РѕРІРѕСЂРёС€СЊ РєСЂР°С‚РєРѕ, РїРѕ РґРµР»Сѓ, С‚РѕР»СЊРєРѕ РїСЂРѕРІРµСЂРµРЅРЅС‹РјРё С„Р°РєС‚Р°РјРё.
-РЎРєРёР»Р»С‹ РІ СЂРµРїРѕ вЂ” СЃРїСЂР°РІРѕС‡РЅРёРєРё; РїСЂРё РїСЂРѕС‚РёРІРѕСЂРµС‡РёРё СЌС‚РѕС‚ РїСЂРѕС‚РѕРєРѕР» РіР»Р°РІРЅС‹Р№.
+DEFAULT_PROTO = """# ПРОТОКОЛ ИНЖЕНЕРА-НАПАРНИКА
+1. РОЛЬ
+Ты — старший инженер-конструктор КБ, напарник пользователя. Говоришь кратко, по делу, только проверенными фактами.
+Скиллы в репо — справочники; при противоречии этот протокол главный.
 
-2. РЇР—Р«Рљ
-Р”СѓРјР°РµС€СЊ Рё РѕС‚РІРµС‡Р°РµС€СЊ РўРћР›Р¬РљРћ РЅР° СЂСѓСЃСЃРєРѕРј. РСЃРєР»СЋС‡РµРЅРёРµ вЂ” РёРјРµРЅР° С„Р°Р№Р»РѕРІ, РїРµСЂРµРјРµРЅРЅС‹Рµ, РєРѕРјР°РЅРґС‹, РєРѕРґ.
+2. ЯЗЫК
+Думаешь и отвечаешь ТОЛЬКО на русском. Исключение — имена файлов, переменные, команды, код.
 
-3. Р¤РћР РњРђРў вЂ” РћР”РРќ Р‘Р›РћРљ РќРђ РҐРћР”
-РџРѕСЃР»Рµ СЂРѕРІРЅРѕ РћР”РРќ Р±Р»РѕРє, РЅРёС‡РµРіРѕ РґРѕ Рё РїРѕСЃР»Рµ:
-[TOOL: РёРјСЏ_РёРЅСЃС‚СЂСѓРјРµРЅС‚Р°] {"РїР°СЂР°РјРµС‚СЂ": "Р·РЅР°С‡РµРЅРёРµ"} [/TOOL]
-РёР»Рё
-[ANSWER] РіРѕС‚РѕРІС‹Р№ РѕС‚РІРµС‚ [/ANSWER]
+3. ФОРМАТ — ОДИН БЛОК НА ХОД
+После ровно ОДИН блок, ничего до и после:
+[TOOL: имя_инструмента] {"параметр": "значение"} [/TOOL]
+или
+[ANSWER] готовый ответ [/ANSWER]
 
-4. РџР РћРўРР’ Р’Р«Р”РЈРњР«Р’РђРќРРЇ
-Р–РР’Р«Р• Р”РђРќРќР«Р• (Creo, С„Р°Р№Р»С‹, С‚СЂРµР№Р»С‹, Р±Р°Р·Р°, 1РЎ, РЅР°СЃС‚СЂРѕР№РєРё, РёСЃС‚РѕСЂРёСЏ, РїСЂСѓР¶РёРЅС‹, СЃС‚Р°РЅРґР°СЂС‚С‹, РјР°СЃСЃР°) вЂ” РўРћР›Р¬РљРћ С‡РµСЂРµР· РёРЅСЃС‚СЂСѓРјРµРЅС‚.
-РЎРїСЂР°РІРѕС‡РЅС‹Рµ С„Р°РєС‚С‹ вЂ” С‡РµСЂРµР· search_kb/read_file. РџРѕРєР° РЅРµС‚ [Р Р•Р—РЈР›Р¬РўРђРў] вЂ” РЅРµ РЅР°Р·С‹РІР°Р№ РёРјС‘РЅ, С€РёС„СЂРѕРІ, С‡РёСЃРµР».
-Р”РѕСЃС‚СѓРї Рє Р±Р°Р·Рµ, С„Р°Р№Р»Р°Рј Рё Creo Сѓ С‚РµР±СЏ Р•РЎРўР¬ вЂ” С‡РµСЂРµР· РёРЅСЃС‚СЂСѓРјРµРЅС‚С‹ РёР· СЃРїРёСЃРєР° РЅРёР¶Рµ. РќРёРєРѕРіРґР° РЅРµ РіРѕРІРѕСЂРё В«Сѓ РјРµРЅСЏ РЅРµС‚ РґРѕСЃС‚СѓРїР°В» вЂ” РїСЂРѕСЃС‚Рѕ РІС‹Р·С‹РІР°Р№ РёРЅСЃС‚СЂСѓРјРµРЅС‚.
+4. ПРОТИВ ВЫДУМЫВАНИЯ
+ЖИВЫЕ ДАННЫЕ (Creo, файлы, трейлы, база, 1С, настройки, история, пружины, стандарты, масса) — ТОЛЬКО через инструмент.
+Справочные факты — через search_kb/read_file. Пока нет [РЕЗУЛЬТАТ] — не называй имён, шифров, чисел.
+Доступ к базе, файлам и Creo у тебя ЕСТЬ — через инструменты из списка ниже. Никогда не говори «у меня нет доступа» — просто вызывай инструмент.
 
-5. РџРћР РЇР”РћРљ
-РћРїСЂРµРґРµР»Рё, РєР°РєРёС… РґР°РЅРЅС‹С… РЅРµ С…РІР°С‚Р°РµС‚. 2. Р’С‹Р·РѕРІРё РёРЅСЃС‚СЂСѓРјРµРЅС‚, Р¶РґРё [Р Р•Р—РЈР›Р¬РўРђРў].
-РњР°Р»Рѕ вЂ” СЃР»РµРґСѓСЋС‰РёР№; РґРѕСЃС‚Р°С‚РѕС‡РЅРѕ вЂ” [ANSWER] С‚РѕР»СЊРєРѕ РёР· С„Р°РєС‚РѕРІ [Р Р•Р—РЈР›Р¬РўРђРў].
-РџРѕСЃР»Рµ [Р Р•Р—РЈР›Р¬РўРђРў] РќРРљРћР“Р”Рђ РЅРµ РѕС‚РІРµС‡Р°Р№ В«РЅРµ РїРѕРЅСЏР»/СѓС‚РѕС‡РЅРёС‚РµВ» вЂ” РґР°РЅРЅС‹Рµ СѓР¶Рµ РІ [Р Р•Р—РЈР›Р¬РўРђРў],
-РєСЂР°С‚РєРѕ РїРµСЂРµСЃРєР°Р¶Рё РёС… РІ [ANSWER].
+5. ПОРЯДОК
+Определи, каких данных не хватает. 2. Вызови инструмент, жди [РЕЗУЛЬТАТ].
+Мало — следующий; достаточно — [ANSWER] только из фактов [РЕЗУЛЬТАТ].
+После [РЕЗУЛЬТАТ] НИКОГДА не отвечай «не понял/уточните» — данные уже в [РЕЗУЛЬТАТ],
+кратко перескажи их в [ANSWER].
 
-6. РџРРЁРЈР©РР• РћРџР•Р РђР¦РР
-[РЎРћР“Р›РђРЎРћР’РђРќРР•] РјРµРЅСЏРµС‚ РґР°РЅРЅС‹Рµ; РІС‹Р·С‹РІР°Р№ С‚РѕР»СЊРєРѕ РїРѕ РїСЂСЏРјРѕР№ РїСЂРѕСЃСЊР±Рµ.
+6. ПИШУЩИЕ ОПЕРАЦИИ
+[СОГЛАСОВАНИЕ] меняет данные; вызывай только по прямой просьбе.
 
-7. РџР РРњР•Р Р«
-В«РєР°РєР°СЏ РјРѕРґРµР»СЊ РѕС‚РєСЂС‹С‚Р° РІ Creo?В» в†’ [TOOL: creo_get_active] {} [/TOOL]
-РїРѕСЃР»Рµ [Р Р•Р—РЈР›Р¬РўРђРў] в†’ [ANSWER] РђРєС‚РёРІРЅР°СЏ РјРѕРґРµР»СЊ вЂ” korpus.prt [/ANSWER]
-В«РїСЂРёРІРµС‚В» в†’ [ANSWER] РџСЂРёРІРµС‚! РЎ С‡РµРј РїРѕРјРѕС‡СЊ РїРѕ Creo? [/ANSWER]"""
+7. ПРИМЕРЫ
+«какая модель открыта в Creo?» → [TOOL: creo_get_active] {} [/TOOL]
+после [РЕЗУЛЬТАТ] → [ANSWER] Активная модель — korpus.prt [/ANSWER]
+«привет» → [ANSWER] Привет! С чем помочь по Creo? [/ANSWER]"""
 
 def load_skill(name):
     p = core.REPO / name
@@ -153,19 +153,19 @@ def build_system():
     for t in TR.TOOLS:
         ps = ", ".join(t.get("params", {}).keys()) if t.get("params") else ""
         d = (t.get("desc") or "").strip()
-        if len(d) > 45: d = d[:43].rstrip(" ,.;:-") + "вЂ¦"
-        line = "- %s(%s) вЂ” %s%s" % (t["name"], ps, d, " [РЎРћР“Р›РђРЎРћР’РђРќРР•]" if t.get("approval") else "")
+        if len(d) > 45: d = d[:43].rstrip(" ,.;:-") + "…"
+        line = "- %s(%s) — %s%s" % (t["name"], ps, d, " [СОГЛАСОВАНИЕ]" if t.get("approval") else "")
         (core_lines if t["name"] in _CORE else rest).append(t["name"] and line)
-    tail = "=== РўР’РћР РРќРЎРўР РЈРњР•РќРўР« вЂ” РћРЎРќРћР’РќР«Р• (С‡Р°СЃС‚С‹Рµ, РїРѕР»РЅС‹Рµ) ===\n" + "\n".join(core_lines)
-    tail += "\n\n=== РџР РћР§РР• РРќРЎРўР РЈРњР•РќРўР« (С‚РѕР»СЊРєРѕ РёРјРµРЅР°; РѕРїРёСЃР°РЅРёРµ Р±Р»РѕРєР° вЂ” tools_help block=<РёРјСЏ>) ===\n"
+    tail = "=== ТВОИ ИНСТРУМЕНТЫ — ОСНОВНЫЕ (частые, полные) ===\n" + "\n".join(core_lines)
+    tail += "\n\n=== ПРОЧИЕ ИНСТРУМЕНТЫ (только имена; описание блока — tools_help block=<имя>) ===\n"
     tail += ", ".join(sorted({t["name"] for t in TR.TOOLS if t["name"] not in _CORE}))
     tm = int(settings.get("think_mode") or 0)
     if tm == 0:
-        think_rule = "=== Р РђР—РњР«РЁР›Р•РќРРЇ: Р·Р°РїСЂРµС‰РµРЅС‹. РќРµ РІС‹РІРѕРґРё [THINK]...[/THINK]. РЎСЂР°Р·Сѓ РѕРґРёРЅ Р±Р»РѕРє: [TOOL] РёР»Рё [ANSWER]."
+        think_rule = "=== РАЗМЫШЛЕНИЯ: запрещены. Не выводи [THINK]...[/THINK]. Сразу один блок: [TOOL] или [ANSWER]."
     elif tm == 1:
-        think_rule = "=== Р РђР—РњР«РЁР›Р•РќРРЇ (РєСЂР°С‚РєРѕ, РјР°РєСЃРёРјСѓРј 4 СЃС‚СЂРѕРєРё):\n1) СЃСѓС‚СЊ Р·Р°РґР°С‡Рё;\n2) РѕР±СЉРµРєС‚;\n3) РєР°РєРѕР№ РёРЅСЃС‚СЂСѓРјРµРЅС‚;\n4) С‡С‚Рѕ РќР• РїРѕРґС…РѕРґРёС‚.\nР‘Р»РѕРє: [THINK]...[/THINK], Р·Р°С‚РµРј РѕРґРёРЅ Р±Р»РѕРє: [TOOL] РёР»Рё [ANSWER]."
+        think_rule = "=== РАЗМЫШЛЕНИЯ (кратко, максимум 4 строки):\n1) суть задачи;\n2) объект;\n3) какой инструмент;\n4) что НЕ подходит.\nБлок: [THINK]...[/THINK], затем один блок: [TOOL] или [ANSWER]."
     else:
-        think_rule = "=== Р РђР—РњР«РЁР›Р•РќРРЇ (РїРѕР»РЅРѕ, РЅР° СЂСѓСЃСЃРєРѕРј, 5-8 СЃС‚СЂРѕРє):\nРЅРѕСЂРјР°Р»РёР·СѓР№ Р·Р°РїСЂРѕСЃ;\nСЌС‚Р°РїС‹, РµСЃР»Рё Р·Р°РґР°С‡Р° СЃР»РѕР¶РЅР°СЏ;\nРїРѕС‡РµРјСѓ РёРјРµРЅРЅРѕ СЌС‚РѕС‚ РёРЅСЃС‚СЂСѓРјРµРЅС‚;\nРєР°РєРёРµ Р°Р»СЊС‚РµСЂРЅР°С‚РёРІС‹ РѕС‚РІРµСЂРі Рё РїРѕС‡РµРјСѓ.\nР‘Р»РѕРє: [THINK]...[/THINK], Р·Р°С‚РµРј РѕРґРёРЅ Р±Р»РѕРє: [TOOL] РёР»Рё [ANSWER].\nРџР РРњР•Р :\n[THINK]\nРќРѕСЂРјР°Р»РёР·Р°С†РёСЏ: РїСЂРѕРІРµСЂРёС‚СЊ Р°РєС‚РёРІРЅСѓСЋ РјРѕРґРµР»СЊ.\nР­С‚Р°РїС‹: РѕРґРёРЅ.\nРРЅСЃС‚СЂСѓРјРµРЅС‚: creo_get_active вЂ” С‡РёС‚Р°РµС‚ Р¶РёРІСѓСЋ СЃРµСЃСЃРёСЋ.\nРћС‚РІРµСЂРі: models_find вЂ” СЌС‚Рѕ РїРѕРёСЃРє РїРѕ Р±Р°Р·Рµ, РЅРµ СЃРµСЃСЃРёСЏ.\n[/THINK]\n[TOOL: creo_get_active] {} [/TOOL]"
+        think_rule = "=== РАЗМЫШЛЕНИЯ (полно, на русском, 5-8 строк):\nнормализуй запрос;\nэтапы, если задача сложная;\nпочему именно этот инструмент;\nкакие альтернативы отверг и почему.\nБлок: [THINK]...[/THINK], затем один блок: [TOOL] или [ANSWER].\nПРИМЕР:\n[THINK]\nНормализация: проверить активную модель.\nЭтапы: один.\nИнструмент: creo_get_active — читает живую сессию.\nОтверг: models_find — это поиск по базе, не сессия.\n[/THINK]\n[TOOL: creo_get_active] {} [/TOOL]"
     _SYS_CACHE["v"] = p + "\n\n" + tail + "\n\n" + think_rule
     return _SYS_CACHE["v"]
 
@@ -255,9 +255,9 @@ def parse_model(text):
     if TR.get(ts): return "tool", ts, {}, think_text
     return "invalid", text.strip(), None, think_text
 
-_NUDGE = "[РЎР›РЈР–Р•Р‘РќРћР•] РћС‚РІРµС‚ РЅРµ РІ С„РѕСЂРјР°С‚Рµ. Р”Р°Р№ СЂРѕРІРЅРѕ РѕРґРёРЅ Р±Р»РѕРє: [TOOL: РёРјСЏ] {\"РїР°СЂР°РјРµС‚СЂ\": \"Р·РЅР°С‡РµРЅРёРµ\"} [/TOOL] РёР»Рё [ANSWER] РєСЂР°С‚РєРёР№ РѕС‚РІРµС‚ РїРѕ-СЂСѓСЃСЃРєРё [/ANSWER]. РЎР»РѕРІРѕ В«С‚РµРєСЃС‚В» СЃР°РјРѕ РїРѕ СЃРµР±Рµ вЂ” РЅРµ РѕС‚РІРµС‚. РќРёС‡РµРіРѕ РґРѕ Рё РїРѕСЃР»Рµ Р±Р»РѕРєР°."
-_ACCESS_NUDGE = "[РЎР›РЈР–Р•Р‘РќРћР•] РќРµРІРµСЂРЅРѕ. Р”РѕСЃС‚СѓРї Рє Р±Р°Р·Рµ, С„Р°Р№Р»Р°Рј Рё Creo Сѓ С‚РµР±СЏ Р•РЎРўР¬ С‡РµСЂРµР· РёРЅСЃС‚СЂСѓРјРµРЅС‚С‹ (СЃРїРёСЃРѕРє В«РўР’РћР РРќРЎРўР РЈРњР•РќРўР«В» РІС‹С€Рµ). РќРёРєРѕРіРґР° РЅРµ РѕС‚РІРµС‡Р°Р№ В«РЅРµС‚ РґРѕСЃС‚СѓРїР°В». РџРѕРІС‚РѕСЂРё СЂРѕРІРЅРѕ РѕРґРёРЅ Р±Р»РѕРє: [TOOL: РёРјСЏ] {\"РїР°СЂР°РјРµС‚СЂ\": \"Р·РЅР°С‡РµРЅРёРµ\"} [/TOOL] РёР»Рё [ANSWER] РѕС‚РІРµС‚ [/ANSWER]."
-_REFUSAL = ("РёР·РІРёРЅРёС‚Рµ", "РЅРµ РјРѕРіСѓ", "РЅРµ РёРјРµСЋ РґРѕСЃС‚СѓРїР°", "РЅРµС‚ РґРѕСЃС‚СѓРїР°", "РјРѕСЏ С„СѓРЅРєС†РёРѕРЅР°Р»СЊРЅРѕСЃС‚СЊ", "РІРёСЂС‚СѓР°Р»СЊРЅРѕР№ СЃСЂРµРґРµ", "РЅРµ РїРѕРЅСЏ", "СѓС‚РѕС‡РЅРёС‚Рµ", "РїРµСЂРµС„РѕСЂРјСѓР»РёСЂ", "РєР°Рє СЏР·С‹РєРѕРІР°СЏ РјРѕРґРµР»СЊ", "Рє СЃРѕР¶Р°Р»РµРЅРёСЋ, СЏ", "Р±СѓРґСѓ РѕС‚РІРµС‡Р°С‚СЊ", "РєР°РєРѕР№ Сѓ РІР°СЃ РІРѕРїСЂРѕСЃ", "РґР°РІР°Р№С‚Рµ РЅР°С‡РЅС‘Рј")
+_NUDGE = "[СЛУЖЕБНОЕ] Ответ не в формате. Дай ровно один блок: [TOOL: имя] {\"параметр\": \"значение\"} [/TOOL] или [ANSWER] краткий ответ по-русски [/ANSWER]. Слово «текст» само по себе — не ответ. Ничего до и после блока."
+_ACCESS_NUDGE = "[СЛУЖЕБНОЕ] Неверно. Доступ к базе, файлам и Creo у тебя ЕСТЬ через инструменты (список «ТВОИ ИНСТРУМЕНТЫ» выше). Никогда не отвечай «нет доступа». Повтори ровно один блок: [TOOL: имя] {\"параметр\": \"значение\"} [/TOOL] или [ANSWER] ответ [/ANSWER]."
+_REFUSAL = ("извините", "не могу", "не имею доступа", "нет доступа", "моя функциональность", "виртуальной среде", "не поня", "уточните", "переформулир", "как языковая модель", "к сожалению, я", "буду отвечать", "какой у вас вопрос", "давайте начнём")
 
 def _refusal(text):
     lo = (text or "").lower()
@@ -291,7 +291,7 @@ def run_loop(messages, client, has_link=False, on_step=None):
             except Exception as e:
                 if attempt == 1 and "500" in str(e):
                     time.sleep(2); continue
-                return {"answer": "РѕС€РёР±РєР° РјРѕРґРµР»Рё: %s" % e, "think": "", "steps": step + 1, "log": steps_log}
+                return {"answer": "ошибка модели: %s" % e, "think": "", "steps": step + 1, "log": steps_log}
         raw = (r.get("message") or {}).get("content") or ""
         try: LAST_META["p"] += r.get("prompt_eval_count") or 0; LAST_META["r"] += r.get("eval_count") or 0
         except Exception: pass
@@ -305,7 +305,7 @@ def run_loop(messages, client, has_link=False, on_step=None):
             used_web = any("web_fetch" in s for s in steps_log)
             if has_link and not used_web and step < steps_max - 1 and len(payload) < 400:
                 messages.append({"role": "assistant", "content": raw})
-                messages.append({"role": "user", "content": "[РЎР›РЈР–Р•Р‘РќРћР•] Р’ Р·Р°РґР°С‡Рµ Р±С‹Р»Р° СЃСЃС‹Р»РєР° http вЂ” СЃРЅР°С‡Р°Р»Р° РїСЂРѕС‡РёС‚Р°Р№ РµС‘ С‡РµСЂРµР· web_fetch, РїРѕС‚РѕРј РѕС‚РІРµС‡Р°Р№."})
+                messages.append({"role": "user", "content": "[СЛУЖЕБНОЕ] В задаче была ссылка http — сначала прочитай её через web_fetch, потом отвечай."})
                 _log("web_nudge"); continue
             txt = payload
             if len(txt) < 40 and last_res: txt = last_res + "\n\n" + txt
@@ -315,7 +315,7 @@ def run_loop(messages, client, has_link=False, on_step=None):
         if kind == "invalid":
             invalid_cnt += 1
             if last_res and len(payload or "") > 150 and not _refusal(payload):
-                _log("parse_invalid -> РїСЂРѕР·Р° РїРѕСЃР»Рµ СЂРµР·СѓР»СЊС‚Р°С‚Р° = РѕС‚РІРµС‚")
+                _log("parse_invalid -> проза после результата = ответ")
                 return {"answer": payload, "think": think, "steps": step + 1, "log": steps_log}
             if invalid_cnt < 3:
                 nudge = _ACCESS_NUDGE if _refusal(payload) else _NUDGE
@@ -323,14 +323,14 @@ def run_loop(messages, client, has_link=False, on_step=None):
                 messages.append({"role": "user", "content": nudge})
                 _log("parse_invalid"); continue
             pl = (payload or "").strip()
-            tail = (" РРЅСЃС‚СЂСѓРјРµРЅС‚ РІРµСЂРЅСѓР»: В«%sВ»." % last_res[:200]) if last_res else ""
+            tail = (" Инструмент вернул: «%s»." % last_res[:200]) if last_res else ""
             if _refusal(pl) or (len(pl) < 80 and pl.lower() in _NUDGE.lower()):
-                pl = "РћС‚РІРµС‚ РјРѕРґРµР»Рё РЅРµ СЂР°СЃРїРѕР·РЅР°РЅ." + tail + " РЈС‚РѕС‡РЅРё Р·Р°РїСЂРѕСЃ (РїСЂРёРјРµСЂ: models_where q=<РёРјСЏ РґРµС‚Р°Р»Рё>) РёР»Рё РІРІРµРґРё РїСЂСЏРјСѓСЋ РєРѕРјР°РЅРґСѓ РёРЅСЃС‚СЂСѓРјРµРЅС‚Р°."
+                pl = "Ответ модели не распознан." + tail + " Уточни запрос (пример: models_where q=<имя детали>) или введи прямую команду инструмента."
             return {"answer": pl, "think": think, "steps": step + 1, "log": steps_log}
         name = payload
         sig = (name, json.dumps(args, sort_keys=True, ensure_ascii=False))
         if sig == sig_prev:
-            return {"answer": last_res or "Р·Р°С†РёРєР»РёРІР°РЅРёРµ РѕСЃС‚Р°РЅРѕРІР»РµРЅРѕ", "think": think, "steps": step + 1, "log": steps_log}
+            return {"answer": last_res or "зацикливание остановлено", "think": think, "steps": step + 1, "log": steps_log}
         sig_prev = sig
         if settings.get("parallel_tools"):
             others = []
@@ -344,37 +344,37 @@ def run_loop(messages, client, has_link=False, on_step=None):
                 def _one(oa):
                     nn, aa2 = oa
                     if msg := _role_check(client, nn):
-                        return "%s в†’ %s" % (nn, msg)
-                    try: return "%s в†’ %s" % (nn, str(TR.get(nn)["fn"](**aa2))[:600])
-                    except Exception as e: return "%s в†’ РѕС€РёР±РєР°: %s" % (nn, e)
+                        return "%s → %s" % (nn, msg)
+                    try: return "%s → %s" % (nn, str(TR.get(nn)["fn"](**aa2))[:600])
+                    except Exception as e: return "%s → ошибка: %s" % (nn, e)
                 try:
                     with ThreadPoolExecutor(max_workers=4) as ex: res = "\n".join(ex.map(_one, others))
                     _log("parallel[%d]: %s" % (len(others), ", ".join(o[0] for o in others)))
                     last_res = res; sig_prev = sig
-                    messages.append({"role": "assistant", "content": raw}); messages.append({"role": "user", "content": "[Р Р•Р—РЈР›Р¬РўРђРў parallel]: %s" % res[:4000]})
+                    messages.append({"role": "assistant", "content": raw}); messages.append({"role": "user", "content": "[РЕЗУЛЬТАТ parallel]: %s" % res[:4000]})
                     continue
                 except Exception: pass
         t = TR.get(name)
         if not t:
-            res = "РЅРµС‚ С‚Р°РєРѕРіРѕ РёРЅСЃС‚СЂСѓРјРµРЅС‚Р°: %s" % name
+            res = "нет такого инструмента: %s" % name
         elif msg := _role_check(client, name):
             res = msg
-            _log("%s(%s) в†’ Р—РђРџР Р•Рў Р РћР›Р" % (name, "Р±РµР· РїР°СЂР°РјРµС‚СЂРѕРІ" if not args else json.dumps(args, ensure_ascii=False)))
+            _log("%s(%s) → ЗАПРЕТ РОЛИ" % (name, "без параметров" if not args else json.dumps(args, ensure_ascii=False)))
         elif t.get("approval"):
             pid = datetime.datetime.now().strftime("%H%M%S%f")
             PENDING[pid] = {"name": name, "args": args, "client": client, "messages": messages, "raw": raw}
-            return {"answer": "[РЎРћР“Р›РђРЎРћР’РђРќРР•] РѕРїРµСЂР°С†РёСЏ %s Р¶РґС‘С‚ РїРѕРґС‚РІРµСЂР¶РґРµРЅРёСЏ РїРѕР»СЊР·РѕРІР°С‚РµР»СЏ (id %s)" % (name, pid),
+            return {"answer": "[СОГЛАСОВАНИЕ] операция %s ждёт подтверждения пользователя (id %s)" % (name, pid),
                     "think": think, "steps": step + 1, "log": steps_log}
         else:
             t0 = time.time()
             try: res = str(t["fn"](**args))
-            except Exception as e: res = "РѕС€РёР±РєР° РёСЃРїРѕР»РЅРµРЅРёСЏ %s: %s" % (name, e)
+            except Exception as e: res = "ошибка исполнения %s: %s" % (name, e)
             trace("AGENT %s" % name, "OK", int((time.time() - t0) * 1000))
-            _log("%s(%s) в†’ %s" % (name, "Р±РµР· РїР°СЂР°РјРµС‚СЂРѕРІ" if not args else json.dumps(args, ensure_ascii=False), res[:120]))
+            _log("%s(%s) → %s" % (name, "без параметров" if not args else json.dumps(args, ensure_ascii=False), res[:120]))
             last_res = res
             messages.append({"role": "assistant", "content": raw})
-            messages.append({"role": "user", "content": "[Р Р•Р—РЈР›Р¬РўРђРў %s]: %s" % (name, res[:4000])})
-    return {"answer": last_res or "РЅРµ СѓР»РѕР¶РёР»СЃСЏ РІ С€Р°РіРё", "think": think, "steps": step + 1, "log": steps_log}
+            messages.append({"role": "user", "content": "[РЕЗУЛЬТАТ %s]: %s" % (name, res[:4000])})
+    return {"answer": last_res or "не уложился в шаги", "think": think, "steps": step + 1, "log": steps_log}
 
 def ask(q, client, image=None, on_step=None):
     q2 = VI.attach(q, image, client)
@@ -383,22 +383,22 @@ def ask(q, client, image=None, on_step=None):
     t = TR.get(name)
     if t and not image:
         if msg := _role_check(client, name):
-            return {"answer": msg, "think": "", "steps": 1, "log": ["%s(РїСЂСЏРјРѕР№ РІС‹Р·РѕРІ) в†’ Р—РђРџР Р•Рў Р РћР›Р" % name]}
+            return {"answer": msg, "think": "", "steps": 1, "log": ["%s(прямой вызов) → ЗАПРЕТ РОЛИ" % name]}
         if t.get("approval"):
             pid = datetime.datetime.now().strftime("%H%M%S%f")
             PENDING[pid] = {"name": name, "args": {}, "client": client, "messages": [], "raw": ""}
-            return {"answer": "[РЎРћР“Р›РђРЎРћР’РђРќРР•] РѕРїРµСЂР°С†РёСЏ %s Р¶РґС‘С‚ РїРѕРґС‚РІРµСЂР¶РґРµРЅРёСЏ РїРѕР»СЊР·РѕРІР°С‚РµР»СЏ (id %s)" % (name, pid), "think": "", "steps": 1, "log": ["%s(РїСЂСЏРјРѕР№ РІС‹Р·РѕРІ)" % name]}
+            return {"answer": "[СОГЛАСОВАНИЕ] операция %s ждёт подтверждения пользователя (id %s)" % (name, pid), "think": "", "steps": 1, "log": ["%s(прямой вызов)" % name]}
         t0 = time.time()
         try:
             try: res = str(t["fn"]())
             except TypeError: res = str(t["fn"]({k: "" for k in t.get("params", {})}))
-        except Exception as e: res = "РѕС€РёР±РєР° РёСЃРїРѕР»РЅРµРЅРёСЏ %s: %s" % (name, e)
+        except Exception as e: res = "ошибка исполнения %s: %s" % (name, e)
         trace("AGENT %s" % name, "OK", int((time.time() - t0) * 1000))
         c = core.db()
         c.execute("INSERT INTO history(client,q,a,ts) VALUES(?,?,?,?)", (client, q, res[:2000], datetime.datetime.now().isoformat()))
         c.commit(); c.close()
-        return {"answer": res, "think": "", "steps": 1, "log": ["%s(РїСЂСЏРјРѕР№ РІС‹Р·РѕРІ) в†’ %s" % (name, res[:120])]}
-    q2 = q2 + "\n\n[РЎР›РЈР–Р•Р‘РќРћР•: РѕС‚РІРµС‡Р°Р№ С‚РѕР»СЊРєРѕ РїРѕ-СЂСѓСЃСЃРєРё. РћРґРёРЅ С…РѕРґ = РѕРґРёРЅ [TOOL] РёР»Рё РѕРґРёРЅ [ANSWER]. РќРёРєР°РєРѕРіРѕ С‚РµРєСЃС‚Р° РґРѕ Рё РїРѕСЃР»Рµ Р±Р»РѕРєР°.]"
+        return {"answer": res, "think": "", "steps": 1, "log": ["%s(прямой вызов) → %s" % (name, res[:120])]}
+    q2 = q2 + "\n\n[СЛУЖЕБНОЕ: отвечай только по-русски. Один ход = один [TOOL] или один [ANSWER]. Никакого текста до и после блока.]"
     messages = [{"role": "system", "content": build_system()}] + hist_block(client) + [{"role": "user", "content": q2}]
     _ta = time.time()
     LIVE_TOK[client] = []
@@ -408,7 +408,7 @@ def ask(q, client, image=None, on_step=None):
     threading.current_thread()._tokclient = client
     r = run_loop(messages, client, has_link=("http" in q), on_step=on_step)
     if int(settings.get("log_mode") or 1) >= 1:
-        r.setdefault("log", []).append("вЏ± %dРјСЃ В· рџ”ў %d С‚РѕРє (РїСЂРѕРјС‚ %d + РѕС‚РІРµС‚ %d) В· С€Р°РіРѕРІ: %d" % (int((time.time() - _ta) * 1000), LAST_META["p"] + LAST_META["r"], LAST_META["p"], LAST_META["r"], r.get("steps", 1)))
+        r.setdefault("log", []).append("⏱ %dмс · 🔢 %d ток (промт %d + ответ %d) · шагов: %d" % (int((time.time() - _ta) * 1000), LAST_META["p"] + LAST_META["r"], LAST_META["p"], LAST_META["r"], r.get("steps", 1)))
     c = core.db()
     c.execute("INSERT INTO history(client,q,a,ts) VALUES(?,?,?,?)", (client, q, r["answer"][:2000], datetime.datetime.now().isoformat()))
     c.commit(); c.close()
@@ -416,23 +416,23 @@ def ask(q, client, image=None, on_step=None):
 
 def do_approve(pid, okf):
     p = PENDING.pop(pid, None)
-    if not p: return {"res": "Р·Р°СЏРІРєР° РЅРµ РЅР°Р№РґРµРЅР°"}
-    if not okf: return {"res": "РѕС‚РјРµРЅРµРЅРѕ РїРѕР»СЊР·РѕРІР°С‚РµР»РµРј"}
+    if not p: return {"res": "заявка не найдена"}
+    if not okf: return {"res": "отменено пользователем"}
     t = TR.get(p["name"])
     if msg := _role_check(p.get("client"), p["name"]):
         return {"res": msg}
     try: res = str(t["fn"](**p["args"]))
-    except Exception as e: return {"res": "РѕС€РёР±РєР° РёСЃРїРѕР»РЅРµРЅРёСЏ: %s" % e}
+    except Exception as e: return {"res": "ошибка исполнения: %s" % e}
     msgs = p.get("messages")
     if msgs:
         msgs.append({"role": "assistant", "content": p.get("raw", "")})
-        msgs.append({"role": "user", "content": "[Р Р•Р—РЈР›Р¬РўРђРў %s]: %s" % (p["name"], res[:4000])})
+        msgs.append({"role": "user", "content": "[РЕЗУЛЬТАТ %s]: %s" % (p["name"], res[:4000])})
         r = run_loop(msgs, p.get("client"), has_link=False)
         return {"res": res, "answer": r["answer"], "think": r.get("think", ""), "log": r.get("log", [])}
     return {"res": res}
 
 
-PAGE = r"""<!DOCTYPE html><html><head><meta charset="utf-8"><title>РђР“Р•РќРў v14</title>
+PAGE = r"""<!DOCTYPE html><html><head><meta charset="utf-8"><title>АГЕНТ v14</title>
 <style>body{margin:0;background:#14181f;color:#dfe6ee;font:14px/1.5 Segoe UI,sans-serif}
 #top{position:fixed;top:0;left:0;right:0;background:#1b222b;padding:8px 14px;display:flex;gap:10px;align-items:center;z-index:5}
 #top b{color:#6db3f2}#chat{margin:52px 300px 70px 12px;padding:8px;overflow-y:auto}
@@ -455,52 +455,52 @@ button{background:#2b4a6f;color:#fff;border:0;border-radius:8px;padding:8px 14px
 #login div{background:#1b222b;padding:24px;border-radius:12px;display:flex;flex-direction:column;gap:10px}
 #login input{background:#232b36;color:#dfe6ee;border:1px solid #334052;border-radius:8px;padding:10px}</style></head>
 <body>
-<div id="top"><b>РђР“Р•РќРў v14</b><span id="hdr"></span><span style="flex:1"></span>
-<button data-act="chip" data-val="guide">вќ“</button><button data-act="wizard">рџ§™</button><button data-act="showlog">Р›РѕРі</button><button data-act="panel">РџР°РЅРµР»СЊ</button><button data-act="showpro">рџ‘¤</button><button data-act="showchat">рџ’¬</button><button data-act="logout">Р’С‹Р№С‚Рё</button></div>
+<div id="top"><b>АГЕНТ v14</b><span id="hdr"></span><span style="flex:1"></span>
+<button data-act="chip" data-val="guide">❓</button><button data-act="wizard">🧙</button><button data-act="showlog">Лог</button><button data-act="panel">Панель</button><button data-act="showpro">👤</button><button data-act="showchat">💬</button><button data-act="logout">Выйти</button></div>
 <div id="chat"></div><div id="panel"></div>
-<div id="inp"><input id="q" placeholder="Р—Р°РґР°С‡Р° РґР»СЏ РђР“Р•РќРўРђ... (Enter) | Ctrl+V вЂ” РІСЃС‚Р°РІРёС‚СЊ СЃРєСЂРёРЅС€РѕС‚"><button data-act="snap">рџ“·</button><button data-act="send">РЎРїСЂРѕСЃРёС‚СЊ</button><span id="spin" class="spin" style="display:none"></span></div>
-<div id="login"><div style="position:relative"><button data-act="closelogin" style="position:absolute;top:6px;right:6px;background:#334052;color:#fff;border:0;border-radius:6px;padding:2px 8px;cursor:pointer">вњ•</button>
-<input id="lg" placeholder="Р»РѕРіРёРЅ"><input id="pw" type="password" placeholder="РїР°СЂРѕР»СЊ"><button data-act="login">Р’РѕР№С‚Рё</button><button data-act="reg">Р РµРіРёСЃС‚СЂР°С†РёСЏ</button></div></div>
+<div id="inp"><input id="q" placeholder="Задача для АГЕНТА... (Enter) | Ctrl+V — вставить скриншот"><button data-act="snap">📷</button><button data-act="send">Спросить</button><span id="spin" class="spin" style="display:none"></span></div>
+<div id="login"><div style="position:relative"><button data-act="closelogin" style="position:absolute;top:6px;right:6px;background:#334052;color:#fff;border:0;border-radius:6px;padding:2px 8px;cursor:pointer">✕</button>
+<input id="lg" placeholder="логин"><input id="pw" type="password" placeholder="пароль"><button data-act="login">Войти</button><button data-act="reg">Регистрация</button></div></div>
 <div id="wiz" style="display:none;position:fixed;inset:0;background:#0009;align-items:center;justify-content:center;z-index:11">
 <div style="background:#1b222b;padding:20px;border-radius:12px;width:430px;display:flex;flex-direction:column;gap:9px;border:1px solid #334052">
-<b>рџ§™ РњРђРЎРўР•Р  РћРџР•Р РђР¦РР™</b>
-<small style="color:#8fa3b8">РљРѕРїРёСЏ СЃР±РѕСЂРєРё (СЃРЅР°С‡Р°Р»Р° РїР»Р°РЅ)</small>
-<input id="w_old" placeholder="СЃС‚Р°СЂРѕРµ РёРјСЏ (old)" style="background:#232b36;color:#dfe6ee;border:1px solid #334052;border-radius:6px;padding:8px">
-<input id="w_new" placeholder="РЅРѕРІРѕРµ РёРјСЏ (new)" style="background:#232b36;color:#dfe6ee;border:1px solid #334052;border-radius:6px;padding:8px">
-<label style="color:#8fa3b8"><input type="checkbox" id="w_dry" checked> С‚РѕР»СЊРєРѕ РїР»Р°РЅ (dry_run)</label>
-<button data-act="w_copy" style="background:#2b4a6f;color:#fff;border:0;border-radius:6px;padding:8px;cursor:pointer">рџ“‹ РЎРґРµР»Р°С‚СЊ РєРѕРїРёСЋ</button>
+<b>🧙 МАСТЕР ОПЕРАЦИЙ</b>
+<small style="color:#8fa3b8">Копия сборки (сначала план)</small>
+<input id="w_old" placeholder="старое имя (old)" style="background:#232b36;color:#dfe6ee;border:1px solid #334052;border-radius:6px;padding:8px">
+<input id="w_new" placeholder="новое имя (new)" style="background:#232b36;color:#dfe6ee;border:1px solid #334052;border-radius:6px;padding:8px">
+<label style="color:#8fa3b8"><input type="checkbox" id="w_dry" checked> только план (dry_run)</label>
+<button data-act="w_copy" style="background:#2b4a6f;color:#fff;border:0;border-radius:6px;padding:8px;cursor:pointer">📋 Сделать копию</button>
 <hr style="border-color:#243040">
-<button data-act="w_audit" style="background:#2b4a6f;color:#fff;border:0;border-radius:6px;padding:8px;cursor:pointer">рџ”Ќ РђСѓРґРёС‚ РїР°РїРєРё Creo</button>
-<button data-act="w_usage" style="background:#2b4a6f;color:#fff;border:0;border-radius:6px;padding:8px;cursor:pointer">рџ§© РџРµСЂРµСЃРѕР±СЂР°С‚СЊ В«РіРґРµ РёСЃРїРѕР»СЊР·СѓРµС‚СЃСЏВ»</button>
-<button data-act="w_night" style="background:#2b4a6f;color:#fff;border:0;border-radius:6px;padding:8px;cursor:pointer">рџЊ™ РќРѕС‡РЅРѕР№ РїСЂРѕРіРѕРЅ</button>
-<button data-act="w_close" style="background:#334052;color:#fff;border:0;border-radius:6px;padding:8px;cursor:pointer">Р—Р°РєСЂС‹С‚СЊ</button>
+<button data-act="w_audit" style="background:#2b4a6f;color:#fff;border:0;border-radius:6px;padding:8px;cursor:pointer">🔍 Аудит папки Creo</button>
+<button data-act="w_usage" style="background:#2b4a6f;color:#fff;border:0;border-radius:6px;padding:8px;cursor:pointer">🧩 Пересобрать «где используется»</button>
+<button data-act="w_night" style="background:#2b4a6f;color:#fff;border:0;border-radius:6px;padding:8px;cursor:pointer">🌙 Ночной прогон</button>
+<button data-act="w_close" style="background:#334052;color:#fff;border:0;border-radius:6px;padding:8px;cursor:pointer">Закрыть</button>
 </div></div>
 <div id="pro" style="display:none;position:fixed;inset:0;background:#0009;align-items:center;justify-content:center;z-index:10">
 <div style="background:#1b222b;padding:24px;border-radius:12px;width:340px;display:flex;flex-direction:column;gap:10px;border:1px solid #334052">
-<b>рџ‘¤ РџР РћР¤РР›Р¬</b><span id="proinfo" style="color:#9fb0c3;font-size:13px"></span>
-<input id="pname" placeholder="РќРѕРІРѕРµ РёРјСЏ" style="background:#232b36;color:#dfe6ee;border:1px solid #334052;border-radius:6px;padding:8px">
-<button data-act="savename" style="background:#2b4a6f;color:#fff;border:0;border-radius:6px;padding:8px;cursor:pointer">РЎРѕС…СЂР°РЅРёС‚СЊ РёРјСЏ</button>
-<input id="pold" type="password" placeholder="РЎС‚Р°СЂС‹Р№ РїР°СЂРѕР»СЊ" style="background:#232b36;color:#dfe6ee;border:1px solid #334052;border-radius:6px;padding:8px">
-<input id="pnew" type="password" placeholder="РќРѕРІС‹Р№ РїР°СЂРѕР»СЊ (РјРёРЅ 4)" style="background:#232b36;color:#dfe6ee;border:1px solid #334052;border-radius:6px;padding:8px">
-<button data-act="savepw" style="background:#2b4a6f;color:#fff;border:0;border-radius:6px;padding:8px;cursor:pointer">РЎРјРµРЅРёС‚СЊ РїР°СЂРѕР»СЊ</button>
-<button id="adm_btn" data-act="openadm" style="display:none;background:#4a6f2b;color:#fff;border:0;border-radius:6px;padding:8px;cursor:pointer;margin-top:6px">рџ‘Ґ РђРґРјРёРЅРєР°</button>
-<button data-act="closepro" style="background:#334052;color:#fff;border:0;border-radius:6px;padding:8px;cursor:pointer">Р—Р°РєСЂС‹С‚СЊ</button>
+<b>👤 ПРОФИЛЬ</b><span id="proinfo" style="color:#9fb0c3;font-size:13px"></span>
+<input id="pname" placeholder="Новое имя" style="background:#232b36;color:#dfe6ee;border:1px solid #334052;border-radius:6px;padding:8px">
+<button data-act="savename" style="background:#2b4a6f;color:#fff;border:0;border-radius:6px;padding:8px;cursor:pointer">Сохранить имя</button>
+<input id="pold" type="password" placeholder="Старый пароль" style="background:#232b36;color:#dfe6ee;border:1px solid #334052;border-radius:6px;padding:8px">
+<input id="pnew" type="password" placeholder="Новый пароль (мин 4)" style="background:#232b36;color:#dfe6ee;border:1px solid #334052;border-radius:6px;padding:8px">
+<button data-act="savepw" style="background:#2b4a6f;color:#fff;border:0;border-radius:6px;padding:8px;cursor:pointer">Сменить пароль</button>
+<button id="adm_btn" data-act="openadm" style="display:none;background:#4a6f2b;color:#fff;border:0;border-radius:6px;padding:8px;cursor:pointer;margin-top:6px">👥 Админка</button>
+<button data-act="closepro" style="background:#334052;color:#fff;border:0;border-radius:6px;padding:8px;cursor:pointer">Закрыть</button>
 </div></div>
 <div id="adm" style="display:none;position:fixed;inset:0;background:#0009;align-items:center;justify-content:center;z-index:10">
 <div style="background:#1b222b;padding:24px;border-radius:12px;width:520px;max-height:80%;overflow:auto;display:flex;flex-direction:column;gap:8px;border:1px solid #334052">
-<b>рџ‘Ґ РђР”РњРРќРљРђ: РїРѕР»СЊР·РѕРІР°С‚РµР»Рё</b><div id="ulist" style="max-height:40%;overflow:auto"></div>
+<b>👥 АДМИНКА: пользователи</b><div id="ulist" style="max-height:40%;overflow:auto"></div>
 <div style="display:flex;gap:6px;flex-wrap:wrap">
-<input id="nlog" placeholder="Р»РѕРіРёРЅ" style="background:#232b36;color:#dfe6ee;border:1px solid #334052;border-radius:6px;padding:8px">
-<input id="npw" type="password" placeholder="РїР°СЂРѕР»СЊ" style="background:#232b36;color:#dfe6ee;border:1px solid #334052;border-radius:6px;padding:8px">
+<input id="nlog" placeholder="логин" style="background:#232b36;color:#dfe6ee;border:1px solid #334052;border-radius:6px;padding:8px">
+<input id="npw" type="password" placeholder="пароль" style="background:#232b36;color:#dfe6ee;border:1px solid #334052;border-radius:6px;padding:8px">
 <select id="nrole" style="background:#232b36;color:#dfe6ee;border:1px solid #334052;border-radius:6px;padding:8px"></select>
-<button data-act="adduser" style="background:#2b4a6f;color:#fff;border:0;border-radius:6px;padding:8px;cursor:pointer">+ РґРѕР±Р°РІРёС‚СЊ</button>
+<button data-act="adduser" style="background:#2b4a6f;color:#fff;border:0;border-radius:6px;padding:8px;cursor:pointer">+ добавить</button>
 </div>
-<button data-act="closeadm" style="background:#334052;color:#fff;border:0;border-radius:6px;padding:8px;cursor:pointer;margin-top:6px">Р—Р°РєСЂС‹С‚СЊ</button>
+<button data-act="closeadm" style="background:#334052;color:#fff;border:0;border-radius:6px;padding:8px;cursor:pointer;margin-top:6px">Закрыть</button>
 </div></div>
 <div id="chatbox" style="display:none;position:fixed;top:44px;left:0;bottom:0;width:340px;background:#171d26;border-right:1px solid #243040;padding:10px;z-index:6;flex-direction:column;gap:8px">
-<b>рџ’¬ РљРћРњРђРќР”Рђ</b><div id="cmsg" style="flex:1;overflow:auto;display:flex;flex-direction:column;gap:6px"></div>
-<div style="display:flex;gap:6px"><input id="cin" placeholder="РЎРѕРѕР±С‰РµРЅРёРµ РІСЃРµРј..." style="flex:1;background:#232b36;color:#dfe6ee;border:1px solid #334052;border-radius:6px;padding:8px">
-<button data-act="chatsend" style="background:#2b4a6f;color:#fff;border:0;border-radius:6px;padding:8px;cursor:pointer">вћ¤</button></div>
+<b>💬 КОМАНДА</b><div id="cmsg" style="flex:1;overflow:auto;display:flex;flex-direction:column;gap:6px"></div>
+<div style="display:flex;gap:6px"><input id="cin" placeholder="Сообщение всем..." style="flex:1;background:#232b36;color:#dfe6ee;border:1px solid #334052;border-radius:6px;padding:8px">
+<button data-act="chatsend" style="background:#2b4a6f;color:#fff;border:0;border-radius:6px;padding:8px;cursor:pointer">➤</button></div>
 </div>
 <script>
 var TK=localStorage.getItem('tk')||'',IMG=null,CURM='';
@@ -512,66 +512,66 @@ function esc(s){return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').repl
 function att(s){return esc(s).replace(/"/g,'&quot;')}
 function addMsg(html,me){var d=document.createElement('div');d.className='msg'+(me?' me':'');d.innerHTML=html;chat.appendChild(d);chat.scrollTop=chat.scrollHeight;return d}
 function showLogin(){login.style.display='flex';hdr.textContent='';panel.innerHTML=''}
-function send(){var q=qinp.value;if(!q)return;qinp.value='';addMsg(esc(q),true);var d=addMsg('рџ¤” РґСѓРјР°СЋ...');var sp=document.getElementById('spin');if(sp)sp.style.display='inline-block';
+function send(){var q=qinp.value;if(!q)return;qinp.value='';addMsg(esc(q),true);var d=addMsg('🤔 думаю...');var sp=document.getElementById('spin');if(sp)sp.style.display='inline-block';
 var TKI=0,ST2=setInterval(function(){J('/livetoks?last='+TKI).then(function(g){(g.toks||[]).forEach(function(t){TKI++;var s=d.querySelector('.stream')||(function(){var e=document.createElement('div');e.className='stream';d.appendChild(e);return e})();s.textContent+=t;chat.scrollTop=chat.scrollHeight;});});},120);
-var LV=0,LT=setInterval(function(){J('/livesteps?last='+LV).then(function(g){(g.lines||[]).forEach(function(l){LV++;var lg=d.querySelector('.live')||(function(){var e=document.createElement('div');e.className='log live';d.appendChild(e);return e})();lg.textContent+=String.fromCharCode(10)+'В· '+l;chat.scrollTop=chat.scrollHeight;});});},700);
+var LV=0,LT=setInterval(function(){J('/livesteps?last='+LV).then(function(g){(g.lines||[]).forEach(function(l){LV++;var lg=d.querySelector('.live')||(function(){var e=document.createElement('div');e.className='log live';d.appendChild(e);return e})();lg.textContent+=String.fromCharCode(10)+'· '+l;chat.scrollTop=chat.scrollHeight;});});},700);
 var THI=0,THB=null,TT=setInterval(function(){J('/livethink?last='+THI).then(function(g){(g.toks||[]).forEach(function(t){THI++;if(!THB){THB=document.createElement('div');THB.className='thinkbody';d.appendChild(THB);}THB.textContent+=t;chat.scrollTop=chat.scrollHeight;});});},700);
-J('/ask',{token:TK,q:q,image:IMG}).then(function(r){d._query=q;clearInterval(LT);clearInterval(ST2);clearInterval(TT);if(sp)sp.style.display='none';if(r&&r.error){localStorage.removeItem('tk');TK='';showLogin();d.innerHTML='вљ  РЅСѓР¶РµРЅ РІС…РѕРґ';return}IMG=null;render(d,r)}).catch(function(e){clearInterval(LT);clearInterval(ST2);clearInterval(TT);if(sp)sp.style.display='none';d.innerHTML='РѕС€РёР±РєР°: '+esc(e)})}
+J('/ask',{token:TK,q:q,image:IMG}).then(function(r){d._query=q;clearInterval(LT);clearInterval(ST2);clearInterval(TT);if(sp)sp.style.display='none';if(r&&r.error){localStorage.removeItem('tk');TK='';showLogin();d.innerHTML='⚠ нужен вход';return}IMG=null;render(d,r)}).catch(function(e){clearInterval(LT);clearInterval(ST2);clearInterval(TT);if(sp)sp.style.display='none';d.innerHTML='ошибка: '+esc(e)})}
 function render(d,r){var h='';
-if(r.think)h+='<div class="think" data-act="think">рџ§  СЂР°Р·РјС‹С€Р»РµРЅРёСЏ (РєР»РёРє)</div><div class="thinkbody" style="display:block">'+esc(r.think)+'</div>';
-if(r.log&&r.log.length&&(window.CFG||{}).show_steps!==0)h+='<div class="log">рџ”Ћ РҐРћР” Р РђР‘РћРўР«:\n'+r.log.map(esc).join('\n')+'</div>';
+if(r.think)h+='<div class="think" data-act="think">🧠 размышления (клик)</div><div class="thinkbody" style="display:block">'+esc(r.think)+'</div>';
+if(r.log&&r.log.length&&(window.CFG||{}).show_steps!==0)h+='<div class="log">🔎 ХОД РАБОТЫ:\n'+r.log.map(esc).join('\n')+'</div>';
 h+='<div>'+esc(String(r.answer).replace(/<\/?think>/g,''))+'</div>';
 d._r=r;
-if(String(r.answer).indexOf('[РЎРћР“Р›РђРЎРћР’РђРќРР•]')<0)h+='<div style="margin-top:6px"><button data-act="fb" data-ok="1">вњ… РїРѕРїР°Р»</button> <button data-act="fb" data-ok="0">вќЊ РЅРµ РїРѕРїР°Р»</button></div>';
+if(String(r.answer).indexOf('[СОГЛАСОВАНИЕ]')<0)h+='<div style="margin-top:6px"><button data-act="fb" data-ok="1">✅ попал</button> <button data-act="fb" data-ok="0">❌ не попал</button></div>';
 var m=String(r.answer).match(/id (\d+)/);
-if(String(r.answer).indexOf('[РЎРћР“Р›РђРЎРћР’РђРќРР•]')>=0&&m)h+='<div style="margin-top:8px"><button data-act="appr" data-pid="'+m[1]+'" data-ok="1">вњ… РІС‹РїРѕР»РЅРёС‚СЊ</button> <button data-act="appr" data-pid="'+m[1]+'" data-ok="0">вќЊ РѕС‚РјРµРЅР°</button></div>';
+if(String(r.answer).indexOf('[СОГЛАСОВАНИЕ]')>=0&&m)h+='<div style="margin-top:8px"><button data-act="appr" data-pid="'+m[1]+'" data-ok="1">✅ выполнить</button> <button data-act="appr" data-pid="'+m[1]+'" data-ok="0">❌ отмена</button></div>';
 d.innerHTML=h;chat.scrollTop=chat.scrollHeight}
-function buildPanel(p){p=p||{actions:[],models:[],chips:[],groups:[]};var h='<div class="grp"><h4 data-act="fold">в–ё вљ™ Р”Р•Р™РЎРўР’РРЇ (Р±РµР· РР)</h4><div class="gbody" style="display:none">';
+function buildPanel(p){p=p||{actions:[],models:[],chips:[],groups:[]};var h='<div class="grp"><h4 data-act="fold">▸ ⚙ ДЕЙСТВИЯ (без ИИ)</h4><div class="gbody" style="display:none">';
 (p.actions||[]).forEach(function(a){h+='<div class="tool" data-act="act" data-val="'+a.endpoint+'"><b>'+esc(a.label)+'</b></div>'});h+='</div></div>';
-h+='<div class="grp"><h4 data-act="fold">в–ё рџ§  РњРћР”Р•Р›Р¬ РР (РєР»РёРє вЂ” СЃРјРµРЅР°)</h4><div class="gbody" style="display:none">';
-(p.models||[]).forEach(function(m){h+='<div class="tool" data-act="setm" data-val="'+att(m)+'">'+esc(m)+(m==CURM?' в†ђ':'')+'</div>'});h+='</div></div>';
-h+='<div class="grp"><h4 data-act="fold">в–ё вљЎ Р‘Р«РЎРўР Р«Р• Р—РђР”РђР§Р</h4><div class="gbody" style="display:none">';
+h+='<div class="grp"><h4 data-act="fold">▸ 🧠 МОДЕЛЬ ИИ (клик — смена)</h4><div class="gbody" style="display:none">';
+(p.models||[]).forEach(function(m){h+='<div class="tool" data-act="setm" data-val="'+att(m)+'">'+esc(m)+(m==CURM?' ←':'')+'</div>'});h+='</div></div>';
+h+='<div class="grp"><h4 data-act="fold">▸ ⚡ БЫСТРЫЕ ЗАДАЧИ</h4><div class="gbody" style="display:none">';
 (p.chips||[]).forEach(function(c){h+='<div class="tool" data-act="chip" data-val="'+att(c)+'">'+esc(c)+'</div>'});h+='</div></div>';
-(p.groups||[]).forEach(function(g){h+='<div class="grp"><h4 data-act="fold">в–ё '+esc(g.title)+' ('+g.tools.length+')</h4><div class="gbody" style="display:none">';
-g.tools.forEach(function(t){h+='<div class="tool" data-act="chip" data-val="'+att(t.name)+'"><b>'+esc(t.name)+(t.approval?' рџ”’':'')+'</b><small>'+esc(t.desc)+'</small></div>'});h+='</div></div>'});
+(p.groups||[]).forEach(function(g){h+='<div class="grp"><h4 data-act="fold">▸ '+esc(g.title)+' ('+g.tools.length+')</h4><div class="gbody" style="display:none">';
+g.tools.forEach(function(t){h+='<div class="tool" data-act="chip" data-val="'+att(t.name)+'"><b>'+esc(t.name)+(t.approval?' 🔒':'')+'</b><small>'+esc(t.desc)+'</small></div>'});h+='</div></div>'});
 panel.innerHTML=h}
-function buildSettings(s){var h='<div class="grp"><h4 data-act="fold">в–ё РќРђРЎРўР РћР™РљР (РїРѕР»Р·СѓРЅРєРё)</h4><div class="gbody" style="display:none">';
-s.items.forEach(function(it){(window.CFG=window.CFG||{})[it.key]=it.value;h+='<div class="tool"><small>'+esc(it.space)+' В· '+esc(it.name)+'</small>';
+function buildSettings(s){var h='<div class="grp"><h4 data-act="fold">▸ НАСТРОЙКИ (ползунки)</h4><div class="gbody" style="display:none">';
+s.items.forEach(function(it){(window.CFG=window.CFG||{})[it.key]=it.value;h+='<div class="tool"><small>'+esc(it.space)+' · '+esc(it.name)+'</small>';
 if(it.kind=='range'){h+='<input type="range" data-cfg="'+att(it.key)+'" min="'+it.min+'" max="'+it.max+'" step="'+it.step+'" value="'+it.value+'" style="width:100%"><b data-v="'+att(it.key)+'"> '+it.value+'</b>';}
 else if(it.kind=='check'){h+='<input type="checkbox" data-cfg="'+att(it.key)+'" '+(it.value?'checked':'')+'>';}
 else{h+='<input data-cfg="'+att(it.key)+'" value="'+att(String(it.value))+'" style="width:100%;background:#232b36;color:#dfe6ee;border:1px solid #334052;border-radius:6px;padding:4px">';}
 h+='</div>';});
 h+='</div></div>';panel.innerHTML+=h;}
-function init(){J('/status').then(function(s){CURM=s.model;hdr.textContent=s.host+(s.user?' | '+(s.user.display_name||s.user.login):'')+' | '+s.model+' | Р±Р»РѕРєРѕРІ: '+s.blocks;J('/panel').then(function(p){buildPanel(p);J('/settings').then(buildSettings)})})}
+function init(){J('/status').then(function(s){CURM=s.model;hdr.textContent=s.host+(s.user?' | '+(s.user.display_name||s.user.login):'')+' | '+s.model+' | блоков: '+s.blocks;J('/panel').then(function(p){buildPanel(p);J('/settings').then(buildSettings)})})}
 document.addEventListener('click',function(e){var el=e.target.closest('[data-act]');if(!el)return;var a=el.getAttribute('data-act');
 if(a=='think'){var n=el.nextElementSibling;n.style.display=n.style.display=='none'?'block':'none'}
-else if(a=='fold'){var b=el.nextElementSibling;var hid=b.style.display=='none';b.style.display=hid?'block':'none';el.textContent=(hid?'в–ѕ':'в–ё')+el.textContent.slice(1)}
+else if(a=='fold'){var b=el.nextElementSibling;var hid=b.style.display=='none';b.style.display=hid?'block':'none';el.textContent=(hid?'▾':'▸')+el.textContent.slice(1)}
 else if(a=='send')send();
 else if(a=='wizard'){document.getElementById('wiz').style.display='flex'}
 else if(a=='w_close'){document.getElementById('wiz').style.display='none'}
-else if(a=='w_copy'){var o=document.getElementById('w_old').value,n=document.getElementById('w_new').value;if(!o||!n){alert('Р·Р°РїРѕР»РЅРё old Рё new');return}document.getElementById('wiz').style.display='none';qinp.value='copy_model old='+o+' new='+n+' dry_run='+(document.getElementById('w_dry').checked?1:0);send()}
+else if(a=='w_copy'){var o=document.getElementById('w_old').value,n=document.getElementById('w_new').value;if(!o||!n){alert('заполни old и new');return}document.getElementById('wiz').style.display='none';qinp.value='copy_model old='+o+' new='+n+' dry_run='+(document.getElementById('w_dry').checked?1:0);send()}
 else if(a=='w_audit'){document.getElementById('wiz').style.display='none';qinp.value='creo_audit_folder';send()}
 else if(a=='w_usage'){document.getElementById('wiz').style.display='none';qinp.value='usage_build full=1';send()}
 else if(a=='w_night'){document.getElementById('wiz').style.display='none';qinp.value='nightly_run';send()}
-else if(a=='snap')J('/snap',{token:TK}).then(function(r){addMsg(esc(r.msg||'РѕРє'))});
+else if(a=='snap')J('/snap',{token:TK}).then(function(r){addMsg(esc(r.msg||'ок'))});
 else if(a=='showlog')J('/log').then(function(r){addMsg('<div class="log">'+esc(r.log)+'</div>')});
 else if(a=='panel')panel.style.display=panel.style.display=='none'?'block':'none';
 else if(a=='logout'){localStorage.removeItem('tk');localStorage.removeItem('usr');TK='';showLogin()}
-else if(a=='showpro'){J('/profile',{token:TK}).then(function(u){document.getElementById('proinfo').textContent=(u.display_name||'')+' В· '+(u.role||'')+' В· '+u.login;document.getElementById('pname').value=u.display_name||'';document.getElementById('pro').style.display='flex';document.getElementById('adm_btn').style.display=u.can_manage?'block':'none'})}
+else if(a=='showpro'){J('/profile',{token:TK}).then(function(u){document.getElementById('proinfo').textContent=(u.display_name||'')+' · '+(u.role||'')+' · '+u.login;document.getElementById('pname').value=u.display_name||'';document.getElementById('pro').style.display='flex';document.getElementById('adm_btn').style.display=u.can_manage?'block':'none'})}
 else if(a=='closepro'){document.getElementById('pro').style.display='none'}
-else if(a=='savename'){var v=document.getElementById('pname').value;J('/setname',{token:TK,name:v}).then(function(r){alert(r.msg||'РѕРє');if(r.ok){document.getElementById('pro').style.display='none';init()}})}
-else if(a=='savepw'){J('/setpw',{token:TK,old:document.getElementById('pold').value,'new':document.getElementById('pnew').value}).then(function(r){alert(r.msg||'РѕРє');if(r.ok){document.getElementById('pold').value='';document.getElementById('pnew').value=''}})}
-else if(a=='openadm'){document.getElementById('pro').style.display='none';document.getElementById('adm').style.display='flex';J('/admin/users',{token:TK,op:'list'}).then(function(r){var out='';(r.users||[]).forEach(function(u){out+='<div style="padding:6px;background:#202834;border-radius:6px;margin:3px 0;display:flex;gap:6px;align-items:center"><b>'+esc(u.display_name)+'</b> <small style="color:#8fa3b8">('+esc(u.login)+')</small> ';out+='<select class="rsel" data-login="'+att(u.login)+'" style="background:#232b36;color:#dfe6ee;border:1px solid #334052;border-radius:4px;padding:4px">';(r.roles||[]).forEach(function(role){out+='<option'+(role===u.role?' selected':'')+'>'+esc(role)+'</option>'});out+='</select> ';out+='<button data-act="do_role" data-login="'+att(u.login)+'" style="background:#2b4a6f;color:#fff;border:0;border-radius:4px;padding:4px 8px;cursor:pointer">СЂРѕР»СЊ</button> ';out+='<button data-act="do_resetpw" data-login="'+att(u.login)+'" style="background:#6f4a2b;color:#fff;border:0;border-radius:4px;padding:4px 8px;cursor:pointer">СЃР±СЂРѕСЃ pw</button> <button data-act="do_del" data-login="'+att(u.login)+'" style="background:#6f2b2b;color:#fff;border:0;border-radius:4px;padding:4px 8px;cursor:pointer">СѓРґР°Р»РёС‚СЊ</button></div>'});document.getElementById('ulist').innerHTML=out||'(РїСѓСЃС‚Рѕ)';var sel=document.getElementById('nrole');if(sel)sel.innerHTML=(r.roles||[]).map(function(x){return '<option>'+esc(x)+'</option>'}).join('')})}
+else if(a=='savename'){var v=document.getElementById('pname').value;J('/setname',{token:TK,name:v}).then(function(r){alert(r.msg||'ок');if(r.ok){document.getElementById('pro').style.display='none';init()}})}
+else if(a=='savepw'){J('/setpw',{token:TK,old:document.getElementById('pold').value,'new':document.getElementById('pnew').value}).then(function(r){alert(r.msg||'ок');if(r.ok){document.getElementById('pold').value='';document.getElementById('pnew').value=''}})}
+else if(a=='openadm'){document.getElementById('pro').style.display='none';document.getElementById('adm').style.display='flex';J('/admin/users',{token:TK,op:'list'}).then(function(r){var out='';(r.users||[]).forEach(function(u){out+='<div style="padding:6px;background:#202834;border-radius:6px;margin:3px 0;display:flex;gap:6px;align-items:center"><b>'+esc(u.display_name)+'</b> <small style="color:#8fa3b8">('+esc(u.login)+')</small> ';out+='<select class="rsel" data-login="'+att(u.login)+'" style="background:#232b36;color:#dfe6ee;border:1px solid #334052;border-radius:4px;padding:4px">';(r.roles||[]).forEach(function(role){out+='<option'+(role===u.role?' selected':'')+'>'+esc(role)+'</option>'});out+='</select> ';out+='<button data-act="do_role" data-login="'+att(u.login)+'" style="background:#2b4a6f;color:#fff;border:0;border-radius:4px;padding:4px 8px;cursor:pointer">роль</button> ';out+='<button data-act="do_resetpw" data-login="'+att(u.login)+'" style="background:#6f4a2b;color:#fff;border:0;border-radius:4px;padding:4px 8px;cursor:pointer">сброс pw</button> <button data-act="do_del" data-login="'+att(u.login)+'" style="background:#6f2b2b;color:#fff;border:0;border-radius:4px;padding:4px 8px;cursor:pointer">удалить</button></div>'});document.getElementById('ulist').innerHTML=out||'(пусто)';var sel=document.getElementById('nrole');if(sel)sel.innerHTML=(r.roles||[]).map(function(x){return '<option>'+esc(x)+'</option>'}).join('')})}
 else if(a=='closeadm'){document.getElementById('adm').style.display='none'}
-else if(a=='do_role'){var lgn=el.getAttribute('data-login');var sel=document.querySelector('.rsel[data-login="'+lgn+'"]');J('/admin/users',{token:TK,op:'role',login:lgn,role:sel.value}).then(function(r){alert(r.msg||'РѕРє')})}
-else if(a=='do_del'){var lgn=el.getAttribute('data-login');if(!confirm('РЈРґР°Р»РёС‚СЊ РїРѕР»СЊР·РѕРІР°С‚РµР»СЏ '+lgn+'?'))return;J('/admin/users',{token:TK,op:'delete',login:lgn}).then(function(r){alert(r.msg||'РѕРє');if(r.ok){document.getElementById('adm').style.display='none';setTimeout(function(){document.getElementById('adm').style.display='flex';document.querySelector('[data-act="openadm"]').click()},100)}})}
-else if(a=='do_resetpw'){var lgn=el.getAttribute('data-login');var nw=prompt('РќРѕРІС‹Р№ РїР°СЂРѕР»СЊ РґР»СЏ '+lgn+' (РјРёРЅ 4):');if(nw)J('/admin/users',{token:TK,op:'resetpw',login:lgn,pw:nw}).then(function(r){alert(r.msg||'РѕРє')})}
-else if(a=='adduser'){J('/admin/users',{token:TK,op:'add',login:document.getElementById('nlog').value,pw:document.getElementById('npw').value,role:document.getElementById('nrole').value}).then(function(r){alert(r.msg||'РѕРє');if(r.ok){document.getElementById('nlog').value='';document.getElementById('npw').value='';document.getElementById('adm').style.display='none';setTimeout(function(){document.getElementById('adm').style.display='flex';document.querySelector('[data-act="openadm"]').click()},100)}})}
+else if(a=='do_role'){var lgn=el.getAttribute('data-login');var sel=document.querySelector('.rsel[data-login="'+lgn+'"]');J('/admin/users',{token:TK,op:'role',login:lgn,role:sel.value}).then(function(r){alert(r.msg||'ок')})}
+else if(a=='do_del'){var lgn=el.getAttribute('data-login');if(!confirm('Удалить пользователя '+lgn+'?'))return;J('/admin/users',{token:TK,op:'delete',login:lgn}).then(function(r){alert(r.msg||'ок');if(r.ok){document.getElementById('adm').style.display='none';setTimeout(function(){document.getElementById('adm').style.display='flex';document.querySelector('[data-act="openadm"]').click()},100)}})}
+else if(a=='do_resetpw'){var lgn=el.getAttribute('data-login');var nw=prompt('Новый пароль для '+lgn+' (мин 4):');if(nw)J('/admin/users',{token:TK,op:'resetpw',login:lgn,pw:nw}).then(function(r){alert(r.msg||'ок')})}
+else if(a=='adduser'){J('/admin/users',{token:TK,op:'add',login:document.getElementById('nlog').value,pw:document.getElementById('npw').value,role:document.getElementById('nrole').value}).then(function(r){alert(r.msg||'ок');if(r.ok){document.getElementById('nlog').value='';document.getElementById('npw').value='';document.getElementById('adm').style.display='none';setTimeout(function(){document.getElementById('adm').style.display='flex';document.querySelector('[data-act="openadm"]').click()},100)}})}
 else if(a=='closelogin'){login.style.display='none'}
-else if(a=='login')J('/login',{login:document.getElementById('lg').value,pw:document.getElementById('pw').value}).catch(function(e){alert('СЃРµСЂРІРµСЂ РЅРµРґРѕСЃС‚СѓРїРµРЅ: '+e);throw e}).then(function(r){if(r.ok){TK=r.token;localStorage.setItem('tk',TK);localStorage.setItem('usr',lg.value);login.style.display='none';init();if(!localStorage.getItem('seen_guide')){localStorage.setItem('seen_guide','1');setTimeout(function(){qinp.value='guide';send()},400)}}else alert('РЅРµРІРµСЂРЅС‹Р№ Р»РѕРіРёРЅ РёР»Рё РїР°СЂРѕР»СЊ')});
-else if(a=='reg')J('/register',{login:lg.value,pw:pw.value}).then(function(r){alert(r.msg||'РѕРє')});
+else if(a=='login')J('/login',{login:document.getElementById('lg').value,pw:document.getElementById('pw').value}).catch(function(e){alert('сервер недоступен: '+e);throw e}).then(function(r){if(r.ok){TK=r.token;localStorage.setItem('tk',TK);localStorage.setItem('usr',lg.value);login.style.display='none';init();if(!localStorage.getItem('seen_guide')){localStorage.setItem('seen_guide','1');setTimeout(function(){qinp.value='guide';send()},400)}}else alert('неверный логин или пароль')});
+else if(a=='reg')J('/register',{login:lg.value,pw:pw.value}).then(function(r){alert(r.msg||'ок')});
 else if(a=='appr'){var sp2=document.getElementById('spin');if(sp2)sp2.style.display='inline-block';J('/approve',{token:TK,pid:el.getAttribute('data-pid'),ok:el.getAttribute('data-ok')=='1'}).then(function(r){if(sp2)sp2.style.display='none';addMsg(esc((r.res||'')+((r.answer&&r.answer!==r.res)?'\n\n'+r.answer:'')))});}
-else if(a=='fb'){var okv=el.getAttribute('data-ok')=='1';var cm=okv?'':prompt('РљРѕСЂРѕС‚РєРёР№ РєРѕРјРјРµРЅС‚Р°СЂРёР№ (РїРѕС‡РµРјСѓ РЅРµ РїРѕРїР°Р»):','');if(!okv&&cm===null)return;var dd=el.closest('.msg');var rr=dd&&dd._r?dd._r:{};var tool='';if(rr.log&&rr.log.length){var mm=String(rr.log[rr.log.length-1]).match(/^([A-Za-z0-9_]+)\(/);if(mm)tool=mm[1]}J('/feedback',{token:TK,query:dd&&dd._query?dd._query:'',think:rr.think||'',tool:tool,result:rr.answer||'',ok:okv?1:0,comment:cm||''}).then(function(fb){el.parentNode.innerHTML='<span style="color:#8fa3b8">РѕС†РµРЅРєР° СЃРѕС…СЂР°РЅРµРЅР°</span>'})}
+else if(a=='fb'){var okv=el.getAttribute('data-ok')=='1';var cm=okv?'':prompt('Короткий комментарий (почему не попал):','');if(!okv&&cm===null)return;var dd=el.closest('.msg');var rr=dd&&dd._r?dd._r:{};var tool='';if(rr.log&&rr.log.length){var mm=String(rr.log[rr.log.length-1]).match(/^([A-Za-z0-9_]+)\(/);if(mm)tool=mm[1]}J('/feedback',{token:TK,query:dd&&dd._query?dd._query:'',think:rr.think||'',tool:tool,result:rr.answer||'',ok:okv?1:0,comment:cm||''}).then(function(fb){el.parentNode.innerHTML='<span style="color:#8fa3b8">оценка сохранена</span>'})}
 else if(a=='setm')J('/setmodel',{token:TK,model:el.getAttribute('data-val')}).then(function(){init()});
 else if(a=='act'){var ep=el.getAttribute('data-val');if(ep=='/log'){J('/log').then(function(r){addMsg('<div class="log">'+esc(r.log)+'</div>')})}else J(ep,{token:TK}).then(function(r){addMsg('<div class="log">'+esc(JSON.stringify(r).slice(0,800))+'</div>')})}
 else if(a=='chip'){qinp.value=el.getAttribute('data-val');send()}
@@ -582,15 +582,15 @@ var CLAST=0,CTMR=null;
 function chatRender(ms){var box=document.getElementById('cmsg');ms.forEach(function(m){if(m.id<=CLAST)return;CLAST=m.id;var d=document.createElement('div');d.style.cssText='background:#202834;border-radius:6px;padding:6px 8px';d.innerHTML='<b style="color:#7cc0f4">'+esc(m.name)+'</b> <small style="color:#8fa3b8">'+esc(m.ts)+'</small><br>'+esc(m.text);box.appendChild(d)});box.scrollTop=box.scrollHeight}
 function chatPoll(){J('/chat/poll',{token:TK,last:CLAST}).then(function(r){chatRender(r.msgs||[])})}
 var NEWMSG=0;
-function chatBadge(){var b=document.querySelector('[data-act="showchat"]');if(b)b.textContent=NEWMSG>0?'рџ’¬'+NEWMSG:'рџ’¬'}
+function chatBadge(){var b=document.querySelector('[data-act="showchat"]');if(b)b.textContent=NEWMSG>0?'💬'+NEWMSG:'💬'}
 setInterval(function(){if(document.getElementById('chatbox').style.display!='flex'&&TK){J('/chat/poll',{token:TK,last:CLAST}).then(function(r){var ms=r.msgs||[];if(ms.length){NEWMSG+=ms.length;chatBadge()}})}},15000)
 qinp.addEventListener('keydown',function(e){if(e.key=='Enter')send()});
-document.addEventListener('paste',function(e){var it=null,items=e.clipboardData.items;for(var i=0;i<items.length;i++){if(items[i].type.indexOf('image')==0){it=items[i];break}}if(!it)return;var f=it.getAsFile();var rd=new FileReader();rd.onload=function(){IMG=rd.result.split(',')[1];addMsg('рџ“· СЃРєСЂРёРЅС€РѕС‚ РїСЂРёРєСЂРµРїР»С‘РЅ',true)};rd.readAsDataURL(f)});
+document.addEventListener('paste',function(e){var it=null,items=e.clipboardData.items;for(var i=0;i<items.length;i++){if(items[i].type.indexOf('image')==0){it=items[i];break}}if(!it)return;var f=it.getAsFile();var rd=new FileReader();rd.onload=function(){IMG=rd.result.split(',')[1];addMsg('📷 скриншот прикреплён',true)};rd.readAsDataURL(f)});
 lg.addEventListener('keydown',function(e){if(e.key=='Enter')document.querySelector('[data-act="login"]').click()});
 pw.addEventListener('keydown',function(e){if(e.key=='Enter')document.querySelector('[data-act="login"]').click()});
 document.getElementById('cin').addEventListener('keydown',function(e){if(e.key=='Enter')document.querySelector('[data-act="chatsend"]').click()});
-if(TK){Promise.resolve().then(init).catch(function(e){addMsg('РѕС€РёР±РєР° РёРЅРёС†РёР°Р»РёР·Р°С†РёРё: '+e,true)})}else showLogin();
-(function(){var sp=document.getElementById('spin');if(!sp)return;var of=window.fetch;window.fetch=function(u){var url=String(u);var bg=url.indexOf('/chat/poll')>=0||url.indexOf('/status')>=0||url.indexOf('/ask')>=0;if(!bg)sp.style.display='inline-block';var p=of.apply(this,arguments);var t=new Promise(function(r,j){setTimeout(function(){j(new Error('С‚Р°Р№РјР°СѓС‚ 900СЃ: '+url))},900000)});return Promise.race([p,t]).finally(function(){if(!bg)sp.style.display='none';});};})();
+if(TK){Promise.resolve().then(init).catch(function(e){addMsg('ошибка инициализации: '+e,true)})}else showLogin();
+(function(){var sp=document.getElementById('spin');if(!sp)return;var of=window.fetch;window.fetch=function(u){var url=String(u);var bg=url.indexOf('/chat/poll')>=0||url.indexOf('/status')>=0||url.indexOf('/ask')>=0;if(!bg)sp.style.display='inline-block';var p=of.apply(this,arguments);var t=new Promise(function(r,j){setTimeout(function(){j(new Error('таймаут 900с: '+url))},900000)});return Promise.race([p,t]).finally(function(){if(!bg)sp.style.display='none';});};})();
 (function(){if(window.__slfix)return;window.__slfix=1;
 var busy=false;
 function sync(r){var lab=r.parentNode.querySelector('[data-v]')||r.nextElementSibling;if(lab&&String(lab.textContent)!==String(r.value))lab.textContent=r.value;}
@@ -599,7 +599,7 @@ document.addEventListener('change',function(e){var r=e.target;var k=r.getAttribu
 var mo=new MutationObserver(function(){if(busy)return;busy=true;try{document.querySelectorAll('input[type=range][data-cfg]').forEach(function(r){var want=parseFloat(r.getAttribute('data-val')||r.value);if(!isNaN(want)){if(parseFloat(r.max)<want)r.max=want;if(String(r.value)!==String(want))r.value=want;sync(r);}});}finally{busy=false;}});
 mo.observe(document.body,{childList:true,subtree:true});
 window.addEventListener('unhandledrejection',function(){var sp=document.getElementById('spin');if(sp)sp.style.display='none';});})();
-/*lm-deco*/(function(){var N=['Р°РІС‚Рѕ','Р°РІС‚Рѕ+С‚РѕРєРµРЅС‹','РѕС‚Р»Р°РґРєР°','РїРѕР»РЅС‹Р№'];function dec(){var b=document.querySelector('[data-v="log_mode"]');if(!b)return;var v=parseInt(b.textContent,10);var w=v+' В· '+(N[v]||'');if(b.textContent!=w)b.textContent=w;}document.addEventListener('input',function(e){var t=e.target;if(t&&t.getAttribute&&t.getAttribute('data-cfg')=='log_mode')setTimeout(dec,0);});setInterval(dec,1000);dec();})();
+/*lm-deco*/(function(){var N=['авто','авто+токены','отладка','полный'];function dec(){var b=document.querySelector('[data-v="log_mode"]');if(!b)return;var v=parseInt(b.textContent,10);var w=v+' · '+(N[v]||'');if(b.textContent!=w)b.textContent=w;}document.addEventListener('input',function(e){var t=e.target;if(t&&t.getAttribute&&t.getAttribute('data-cfg')=='log_mode')setTimeout(dec,0);});setInterval(dec,1000);dec();})();
 </script></body></html>"""
 
 class Hd(BaseHTTPRequestHandler):
@@ -707,17 +707,6 @@ class Hd(BaseHTTPRequestHandler):
             except Exception: pass
             self._j({"tail": tail})
             return
-        elif p == "/status":
-            import os as _os
-            try:
-                jf = core.REPO / "Трейлы" / "TRAIL_JOURNAL.md"
-                if jf.exists():
-                    tail = "\n".join(jf.read_text(encoding="utf-8", errors="ignore").splitlines()[-8:])
-            except Exception:
-                tail = ""
-            self._j({"host": HOSTNAME, "user": _os.environ.get("USERNAME", ""),
-                     "model": settings.get("llm_model"), "blocks": len(TR.BLOCKS),
-                     "tools": len(TR.TOOLS), "trails": tail})
         else:
             b = PAGE.encode()
             self.send_response(200)
@@ -734,10 +723,10 @@ class Hd(BaseHTTPRequestHandler):
             self._j(r or {"ok": False}); return
         if p == "/register":
             okf = users.add_user(b.get("login"), b.get("pw") or b.get("password"))
-            self._j({"msg": "РїРѕР»СЊР·РѕРІР°С‚РµР»СЊ СЃРѕР·РґР°РЅ" if okf else "Р»РѕРіРёРЅ Р·Р°РЅСЏС‚ РёР»Рё РїСѓСЃС‚РѕР№"}); return
+            self._j({"msg": "пользователь создан" if okf else "логин занят или пустой"}); return
         cl = self._client(b)
         if not cl:
-            self._j({"error": "РЅСѓР¶РµРЅ РІС…РѕРґ"}, 401); return
+            self._j({"error": "нужен вход"}, 401); return
         if p == "/ask":
             self._j(ask(b.get("q") or "", cl, b.get("image")))
         elif p == "/ask_stream":
@@ -746,7 +735,7 @@ class Hd(BaseHTTPRequestHandler):
             def _cb(line): qq.put(line)
             def _run():
                 try: holder["r"] = ask(b.get("q") or "", cl, b.get("image"), on_step=_cb)
-                except Exception as e: holder["r"] = {"answer": "РѕС€РёР±РєР°: %s" % e, "log": []}
+                except Exception as e: holder["r"] = {"answer": "ошибка: %s" % e, "log": []}
                 finally: qq.put(None)
             threading.Thread(target=_run, daemon=True).start()
             self.send_response(200)
@@ -774,28 +763,28 @@ class Hd(BaseHTTPRequestHandler):
                            (b.get("tool") or "")[:120], (b.get("result") or "")[:2000], 1 if b.get("ok") else 0, (b.get("comment") or "")[:500]))
                 c.commit(); c.close()
             except Exception as e:
-                self._j({"ok": False, "msg": "РѕС†РµРЅРєР° РЅРµ СЃРѕС…СЂР°РЅРµРЅР°: %s" % e}, 500); return
-            self._j({"ok": True, "msg": "РѕС†РµРЅРєР° СЃРѕС…СЂР°РЅРµРЅР°"})
+                self._j({"ok": False, "msg": "оценка не сохранена: %s" % e}, 500); return
+            self._j({"ok": True, "msg": "оценка сохранена"})
         elif p == "/setcfg":
             if (b.get("key") or "") in settings.PERSONAL_KEYS:
                 settings.set_for(cl, b.get("key"), b.get("value")); self._j({"ok": True}); return
             if not users.is_admin(cl):
-                self._j({"error": "РЅР°СЃС‚СЂРѕР№РєРё вЂ” С‚РѕР»СЊРєРѕ Р°РґРјРёРЅ"}, 403); return
+                self._j({"error": "настройки — только админ"}, 403); return
             settings.set_val(b.get("key"), b.get("value")); _SYS_CACHE.clear(); self._j({"ok": True})
         elif p == "/snap":
-            self._j({"msg": "СЃРєСЂРёРЅС€РѕС‚ РїСЂРёРЅРёРјР°РµС‚СЃСЏ С‡РµСЂРµР· Ctrl+V РІ РїРѕР»Рµ РІРІРѕРґР°"})
+            self._j({"msg": "скриншот принимается через Ctrl+V в поле ввода"})
         elif p == "/rescan":
             subprocess.Popen([sys.executable, "-c", "import scanner; scanner.index_all()"], cwd=r"D:\AI\tools\agent")
-            self._j({"msg": "РїРµСЂРµРёРЅРґРµРєСЃР°С†РёСЏ Р·Р°РїСѓС‰РµРЅР°"})
+            self._j({"msg": "переиндексация запущена"})
         elif p == "/scan":
             subprocess.Popen([sys.executable, "-c", "import scanner; scanner.scan_models()"], cwd=r"D:\AI\tools\agent")
-            self._j({"msg": "СЃРєР°РЅ РјРѕРґРµР»РµР№ Р·Р°РїСѓС‰РµРЅ"})
+            self._j({"msg": "скан моделей запущен"})
         elif p == "/profile":
             __prof = users.get_profile(cl)
             if __prof:
                 __prof = dict(__prof)
                 __prof["can_manage"] = users.can_manage_users(cl)
-                self._j(__prof or {"error": "РЅРµС‚ РїСЂРѕС„РёР»СЏ"})
+                self._j(__prof or {"error": "нет профиля"})
         elif p == "/setname":
             okf, msg = users.update_display_name(cl, b.get("name"))
             self._j({"ok": okf, "msg": msg})
@@ -808,7 +797,7 @@ class Hd(BaseHTTPRequestHandler):
             self._j({"msgs": chat_tools.chat_poll(b.get("last") or 0)})
         elif p == "/admin/users":
             if not users.can_manage_users(cl):
-                self._j({"error": "РЅРµС‚ РїСЂР°РІ"}, 403); return
+                self._j({"error": "нет прав"}, 403); return
             op = b.get("op")
             if op == "list":
                 self._j({"users": users.list_users(), "roles": users.ROLES})
@@ -816,34 +805,34 @@ class Hd(BaseHTTPRequestHandler):
                 okf, msg = users.admin_set_role(b.get("login") or "", b.get("role") or "")
                 self._j({"ok": okf, "msg": msg})
             elif op == "add":
-                okf = users.add_user(b.get("login") or "", b.get("pw") or b.get("password") or "", b.get("role") or "РРЅР¶РµРЅРµСЂ")
-                self._j({"ok": okf, "msg": "СЃРѕР·РґР°РЅ" if okf else "Р»РѕРіРёРЅ Р·Р°РЅСЏС‚ РёР»Рё РїСѓСЃС‚РѕР№"})
+                okf = users.add_user(b.get("login") or "", b.get("pw") or b.get("password") or "", b.get("role") or "Инженер")
+                self._j({"ok": okf, "msg": "создан" if okf else "логин занят или пустой"})
             elif op == "delete":
                 lg = (b.get("login") or "").strip()
                 if not lg:
-                    self._j({"ok": False, "msg": "Р»РѕРіРёРЅ РїСѓСЃС‚РѕР№"}, 400); return
+                    self._j({"ok": False, "msg": "логин пустой"}, 400); return
                 if lg == cl:
-                    self._j({"ok": False, "msg": "РЅРµР»СЊР·СЏ СѓРґР°Р»РёС‚СЊ СЃР°РјРѕРіРѕ СЃРµР±СЏ"}, 400); return
+                    self._j({"ok": False, "msg": "нельзя удалить самого себя"}, 400); return
                 us = users.list_users()
                 tgt = [x for x in us if x.get("login") == lg]
                 if not tgt:
-                    self._j({"ok": False, "msg": "Р»РѕРіРёРЅ %s РЅРµ РЅР°Р№РґРµРЅ" % lg}, 404); return
-                adm = [x for x in us if x.get("role") == "РђРґРјРёРЅРёСЃС‚СЂР°С‚РѕСЂ" and x.get("login") != lg]
-                if tgt[0].get("role") == "РђРґРјРёРЅРёСЃС‚СЂР°С‚РѕСЂ" and not adm:
-                    self._j({"ok": False, "msg": "РЅРµР»СЊР·СЏ СѓРґР°Р»РёС‚СЊ РїРѕСЃР»РµРґРЅРµРіРѕ Р°РґРјРёРЅРёСЃС‚СЂР°С‚РѕСЂР°"}, 400); return
+                    self._j({"ok": False, "msg": "логин %s не найден" % lg}, 404); return
+                adm = [x for x in us if x.get("role") == "Администратор" and x.get("login") != lg]
+                if tgt[0].get("role") == "Администратор" and not adm:
+                    self._j({"ok": False, "msg": "нельзя удалить последнего администратора"}, 400); return
                 okf = users.admin_delete_user(lg)
-                self._j({"ok": okf, "msg": ("РїРѕР»СЊР·РѕРІР°С‚РµР»СЊ %s СѓРґР°Р»С‘РЅ" % lg) if okf else "РѕС€РёР±РєР° СѓРґР°Р»РµРЅРёСЏ"})
+                self._j({"ok": okf, "msg": ("пользователь %s удалён" % lg) if okf else "ошибка удаления"})
             elif op == "resetpw":
                 okf, msg = users.admin_reset_password(b.get("login") or "", b.get("pw") or b.get("password") or "")
                 self._j({"ok": okf, "msg": msg})
             else:
-                self._j({"error": "РЅРµРёР·РІРµСЃС‚РЅР°СЏ op"}, 400)
+                self._j({"error": "неизвестная op"}, 400)
         else:
-            self._j({"error": "РЅРµ Р·РЅР°СЋ"}, 404)
+            self._j({"error": "не знаю"}, 404)
 
 if __name__ == "__main__":
     import os, atexit
-    log("=== СЃС‚Р°СЂС‚ РђР“Р•РќРў v14 РЅР° %s ===" % HOSTNAME)
+    log("=== старт АГЕНТ v14 на %s ===" % HOSTNAME)
     pidfile = core.BASE / "agent.pid"
     pidfile.write_text(str(os.getpid()), encoding="ascii")
     atexit.register(lambda: pidfile.unlink(missing_ok=True))
