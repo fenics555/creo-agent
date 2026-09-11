@@ -1,5 +1,9 @@
 # АГЕНТ v14 — локальный ИИ-напарник конструкторского бюро (Creo Parametric)
 
+> Обновление 11.09.2026: честная UTF-8 кодировка ядра, удалён дубль `/status`,
+> `read_file` ограничен корнями `read_roots` (панель → Главное), QA-секреты →
+> `data/secrets.json`, `doctor.py` удалён. Индекс — «История обновлений» в конце.
+
 Веб-агент на чистом Python (stdlib) + Ollama + CREOSON: чат с локальной LLM,
 живые данные Creo, база знаний, индекс «где используется», ПЛМ-реестр,
 ГОСТ-спецификации, трейлы, флот, бэкапы, ночные прогоны. Без внешних фреймворков.
@@ -28,12 +32,12 @@
 (REGISTRY-кортежи ровно по 7 элементов), `tools_registry.py` (автоподключение
 `*_tools.py`), `scanner.py` (files/chunks/models), `agent.py` (сервер + PAGE).
 
-## Блоки (30, 113 инструментов)
-backup(2) · behavior(1) · chat(1) · copy(1) · creo_ops(16) · creo(17) ·
-diagnostic(7) · find(3) · fleet(2) · git(4) · help(1) · knowledge(3) ·
-learn(2) · memory(6) · nightly(2) · one_c(1) · passport(2) · plm(7) ·
-predict(1) · role(3) · scanner(3) · settings(3) · spec(2) · sync(5) ·
-trail(4) · usage(3) · users(3) · vision(1) · web(3)
+## Блоки (31, 117 инструментов; по живому реестру 11.09 — источник правды tools_registry)
+backup(2) · behavior(1) · calc(3) · chat(1) · copy(1) · creo_ops(16) · creo(17) ·
+diagnostic(7) · find(3) · fleet(2) · git(4) · help(2) · knowledge(3) · learn(2) ·
+memory(6) · nightly(2) · one_c(1) · passport(2) · pdf(4) · plm(7) · predict(1) ·
+role(3) · scanner(3) · settings(3) · spec(2) · sync(5) · trail(4) · usage(3) ·
+users(3) · vision(1) · web(3)
 
 Новый блок = файл `my_tools.py` + рестарт:
 ```python
@@ -43,13 +47,15 @@ TOOLS = [
     {"name": "hello", "desc": "Пример", "params": {"q": "текст"},
      "approval": False, "fn": tool_hello},
 ]
-## Двухъярусный промт (agent.py:108-130)
+```
+
+## Двухъярусный промт (agent.py — build_system)
 Системный промт автоматически делит инструменты на два яруса:
 - **Ядро (15)** — частые, с полным описанием и параметрами в системном промпте:
   `creo_get_active, creo_status, creo_session, creo_list_files, models_find,
   models_where, models_stats, usage_state, search_kb, read_file, trail_predict,
   trail_problems, settings_show, help, tools_help`.
-- **Остальные (98)** — только имена компактным списком. Полное описание блока
+- **Остальные (102)** — только имена компактным списком. Полное описание блока
   доступно по запросу: `[TOOL: tools_help] {"block": "creo"} [/TOOL]` (или
   `web/trail/plm/...`).
 
@@ -98,9 +104,17 @@ Windows 10/11, Python 3.10+, Ollama, CREOSON 3.x, Creo 8–13.
 `diag_web` — веб-стек + внешний URL. Строка «поведение: ok/warn/bad» в логе —
 соблюдение моделью протокола.
 
-## Правки: workflow doctor
-Один файл `doctor.py`: перезаписать содержимое → `python doctor.py` →
- | `diag_web` FAIL | нет `fetch_html` → алиас `fetch_html = fetch` |
+## Правки: как править (doctor.py удалён 11.09)
+`doctor.py` был временным хирургическим инструментом и удалён из репо; старые
+doctor-скрипты повторно НЕ запускать — они ломают новые правки. Правки кода —
+по контракту `D:\AI\.clinerules` (v5.1, read-only, правит только человек):
+бекап в `data\backup\pre_*` → правка → `py_compile` → одна целевая проба →
+отчёт; два провала — откат из бекапа. Живая самопроверка — `diag_run`
+(см. «Диагностика»). Типовые прошлые фиксы — в таблице ниже.
+
+| Симптом | Причина / фикс |
+|---|---|
+| `diag_web` FAIL | нет `fetch_html` → алиас `fetch_html = fetch` |
  | `plm_where/plm_lifecycle/plm_ii` NameError | `db()` вместо `_db()` |
  | Индекс виснет при overlap ≥ size | `chunker`: `s += max(1, size - ov)` |
  | Скан 0 моделей | `scanner.db()` на локальную `data/agent.sqlite`; `is_excluded` понимает Path |
@@ -108,9 +122,18 @@ Windows 10/11, Python 3.10+, Ollama, CREOSON 3.x, Creo 8–13.
  | `[TOOL] имя` без двоеточия/JSON | парсер принимает и такой формат (fallback) |
  | Настройки не сохраняются после рестарта | выключить `auto_mode` и панелью поставить дефолтные температуру/креатив |
  | `REGISTRY` кортеж не 7 элементов | проверять через `list_ui`; фикс через doctor |
-`.\AI_RESTART.bat` → Ctrl+F5 → `GIT_SYNC.bat`.
-⚠️ Старые doctor-скрипты повторно НЕ запускать — они ломают новые правки.
-Каждая правка — с guard-ом и CHECK-выводом дисковой правды.
+`.\AI_RESTART.bat` → Ctrl+F5 → `GIT_SYNC.bat` (лог: `D:\AI\tools\git_sync.log`).
+
+## История обновлений (индекс)
+- 11.09.2026: agent.py/qa_run.py перекодированы в честный UTF-8 (системный промт
+  и QA без кракозябр); удалён дубль `/status` (мёртвый elif в do_GET); `read_file`
+  ограничен корнями `read_roots` (панель → Главное, дефолт `D:\AI`, лимит 2 МБ);
+  QA-секреты вынесены в `data/secrets.json` (в git не попадают); `doctor.py`
+  удалён как временный инструмент; `GIT_SYNC.bat` пишет лог; задача AI-WATCH
+  исправлена (пугала пусками несуществующего `D:\AI\agent.py`); счёт обновлён
+  по живому реестру — 31 блок / 117 инструментов (+pdf(4), help 1→2).
+- 09.07.2026: блок calc_tools (+3), счёт 30 блоков / 113 инструментов.
+- 09.04.2026: базовая редакция README v14.
 
 ## Известные грабли и их лечение
 | Симптом | Причина / фикс |
