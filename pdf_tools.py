@@ -86,6 +86,9 @@ def pdf_status(name):
         return {"status": "УСТАРЕЛ"}
 
 def pdf_refresh(name, approval=True):
+    if approval:
+        return "[СОГЛАСОВАНИЕ]"
+        
     res_drw, _, _ = _get_file_info(name)
     if not res_drw:
         return {"error": "нет чертежа"}
@@ -127,3 +130,10 @@ def pdf_refresh(name, approval=True):
             
     except Exception as e:
         return {"error": f"pdf_refresh failed: {e}"}
+
+TOOLS = [
+    {"name": "pdf_pages", "desc": "Количество страниц в PDF", "params": {"name": "имя"}, "fn": pdf_pages},
+    {"name": "pdf_img", "desc": "Получить изображение страницы PDF", "params": {"name": "имя", "page": "номер страницы"}, "fn": pdf_img},
+    {"name": "pdf_status", "desc": "Проверить актуальность PDF относительно чертежа", "params": {"name": "имя"}, "fn": pdf_status},
+    {"name": "pdf_refresh", "desc": "Обновить PDF из чертежа (экспорт)", "params": {"name": "имя"}, "approval": True, "fn": pdf_refresh},
+]

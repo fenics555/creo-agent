@@ -62,8 +62,7 @@ def start_copyserver():
                       "Start-Process python -ArgumentList 'copy\\copy_server.py' "
                       "-WorkingDirectory '%s' -WindowStyle Hidden "
                       "-RedirectStandardOutput '%s\\data\\tmp\\copy_out.txt' "
-                      "-RedirectStandardError '%s\\data\\tmp\\copy_err.txt'" % (AG, AG, AG)],
-                     capture_output=False)
+                      "-RedirectStandardError '%s\data\tmp\copy_err.txt'" % (AG, AG, AG)])
 
 def start_agent(hidden):
     if hidden:
