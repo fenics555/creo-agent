@@ -212,7 +212,7 @@ else if(a=='closechat'){document.getElementById('chatbox').style.display='none';
 else if(a=='chatsend'){var t=document.getElementById('cin').value;J('/chat/send',{token:TK,text:t}).then(function(r){if(r.ok)document.getElementById('cin').value='';chatPoll()})}});
 document.getElementById('lbx').addEventListener('click',function(){this.style.display='none'});
 var CLAST=0,CTMR=null;
-function chatRender(ms){var box=document.getElementById('cmsg');ms.forEach(function(m){if(m.id<=CLAST)return;CLAST=m.id;var d=document.createElement('div');d.style.cssText='background:#2C2D30;border-radius:6px;padding:6px 8px';d.innerHTML='<b style="color:#4C8FD6">'+esc(m.name)+'</b> <small style="color:#A6A8AB">'+esc(m.ts)+'</small><br>'+esc(m.text);box.appendChild(d)});box.scrollTop=box.scrollHeight}
+function chatRender(ms){var box=document.getElementById('cmsg');ms.forEach(function(m){if(m.id<=CLAST)return;CLAST=m.id;var d=document.createElement('div');d.style.cssText='background:#2C2D30;border-radius:6px;padding:6px 8px';d.innerHTML='<b style="color:#4C8FD6">'+esc(m.name)+'</b> <small style="color:#A6A8AB">'+esc(m.ts)+'</small><br>'+(function(atxt){atxt=atxt.replace(/\[\/?ANSWER\]/g,\'\').replace(/\[\/?TOOL[^\].*?\]/g,\'\');return atxt})(esc(m.text));box.appendChild(d)});box.scrollTop=box.scrollHeight}
 function chatPoll(){J('/chat/poll',{token:TK,last:CLAST}).then(function(r){chatRender(r.msgs||[])})}
 var NEWMSG=0;
 function chatBadge(){var b=document.querySelector('[data-act="showchat"]');if(b)b.textContent=NEWMSG>0?'💬'+NEWMSG:'💬'}

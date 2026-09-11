@@ -13,6 +13,10 @@ from core import log, trace
 import settings
 import pdf_tools
 
+def _clean(txt):
+    return re.sub(r"\[/?ANSWER\]|\[/?THINK\]|\[TOOL[^\]]*\]|\[/TOOL\]", "", txt or "")
+
+
 # === v15: стриминг токенов ===
 import urllib.request as _ur
 LIVE_TOK = {}
@@ -312,7 +316,7 @@ def run_loop(messages, client, has_link=False, on_step=None):
             except Exception as e:
                 if attempt == 1 and "500" in str(e):
                     time.sleep(2); continue
-                return {"answer": "ошибка модели: %s" % e, "think": "", "steps": step + 1, "log": steps_log}
+                return {"answer": _clean("ошибка модели: %s" % e), "think": "", "steps": step + 1, "log": steps_log}
         raw = (r.get("message") or {}).get("content") or ""
         try: LAST_META["p"] += r.get("prompt_eval_count") or 0; LAST_META["r"] += r.get("eval_count") or 0
         except Exception: pass
@@ -330,14 +334,14 @@ def run_loop(messages, client, has_link=False, on_step=None):
                 _log("web_nudge"); continue
             txt = payload
             if len(txt) < 40 and last_res: txt = last_res + "\n\n" + txt
-            return {"answer": txt, "think": think, "steps": step + 1, "log": steps_log}
+            return {"answer": _clean(txt), "think": think, "steps": step + 1, "log": steps_log}
         if kind == "answer" and len(payload) < 80 and payload.strip().lower() in _NUDGE.lower():
             _log("echo_guard: %r" % payload[:40]); kind, payload = "invalid", raw
         if kind == "invalid":
             invalid_cnt += 1
             if last_res and len(payload or "") > 150 and not _refusal(payload):
                 _log("parse_invalid -> проза после результата = ответ")
-                return {"answer": payload, "think": think, "steps": step + 1, "log": steps_log}
+                return {"answer": _clean(payload), "think": think, "steps": step + 1, "log": steps_log}
             if invalid_cnt < 3:
                 nudge = _ACCESS_NUDGE if _refusal(payload) else _NUDGE
                 messages.append({"role": "assistant", "content": raw})
@@ -347,7 +351,7 @@ def run_loop(messages, client, has_link=False, on_step=None):
             tail = (" Инструмент вернул: «%s»." % last_res[:200]) if last_res else ""
             if _refusal(pl) or (len(pl) < 80 and pl.lower() in _NUDGE.lower()):
                 pl = "Ответ модели не распознан." + tail + " Уточни запрос (пример: models_where q=<имя детали>) или введи прямую команду инструмента."
-            return {"answer": pl, "think": think, "steps": step + 1, "log": steps_log}
+            return {"answer": _clean(pl), "think": think, "steps": step + 1, "log": steps_log}
         name = payload
         sig = (name, json.dumps(args, sort_keys=True, ensure_ascii=False))
         if sig == sig_prev:
@@ -472,7 +476,7 @@ def do_approve(pid, okf):
         msgs.append({"role": "assistant", "content": p.get("raw", "")})
         msgs.append({"role": "user", "content": "[РЕЗУЛЬТАТ %s]: %s" % (p["name"], res[:4000])})
         r = run_loop(msgs, p.get("client"), has_link=False)
-        return {"res": res, "answer": r["answer"], "think": r.get("think", ""), "log": r.get("log", [])}
+        return {"res": res, "answer": _clean(r["answer"]), "think": r.get("think", ""), "log": r.get("log", [])}
     return {"res": res}
 
 
@@ -567,13 +571,15 @@ class Hd(BaseHTTPRequestHandler):
             out = []
             try:
                 c = core.db()
-                for tbl in ("usage", "bom", "links"):
+                for sql in ("SELECT child FROM usage WHERE parent LIKE ?",
+                            "SELECT child FROM bom WHERE parent LIKE ?",
+                            "SELECT child FROM links WHERE parent LIKE ?"):
                     try:
-                        rows = c.execute("SELECT child FROM %s WHERE parent LIKE ?" % tbl, ("%" + name + "%",)).fetchall()
+                        rows = c.execute(sql, ("%" + name + "%",)).fetchall()
                         out = [r[0] for r in rows]
-                        if out: break
                     except Exception:
                         continue
+                    if out: break
                 c.close()
             except Exception as e:
                 self._j({"error": str(e)}); return
