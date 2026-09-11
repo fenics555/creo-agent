@@ -462,7 +462,14 @@ class Hd(BaseHTTPRequestHandler):
             token = self.headers.get("X-Token") or ""
             cl2 = users.token_info(token)
             prof = users.get_profile(cl2["login"]) if cl2 else None
-            self._j({"host": HOSTNAME, "model": settings.get("llm_model"), "blocks": len(TR.BLOCKS), "tools": len(TR.TOOLS), "user": prof, "is_manager": users.can_manage_users(prof["login"]) if prof else False})
+            _trails = ""
+            try:
+                _jf = core.REPO / "Трейлы" / "TRAIL_JOURNAL.md"
+                if _jf.exists():
+                    _trails = "\n".join(_jf.read_text(encoding="utf-8", errors="ignore").splitlines()[-10:])
+            except Exception:
+                pass
+            self._j({"host": HOSTNAME, "model": settings.get("llm_model"), "blocks": len(TR.BLOCKS), "tools": len(TR.TOOLS), "user": prof, "is_manager": users.can_manage_users(prof["login"]) if prof else False, "trails": _trails})
             return
         elif p == "/pdfpages":
             token = self.headers.get("X-Token") or ""
