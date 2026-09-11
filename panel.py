@@ -66,6 +66,7 @@ def build():
     group_configs = [
         ("🛠 Creo: сессия и операции", "🛠", ["creo_", "copy_", "usage_", "creoson_"]),
         ("🧭 Модели", "🧭", ["models_", "find_", "index_", "family_", "scan_"]),
+        ("🗄 Базы данных", "🗄", ["db_"]),
         ("📈 Трейлы и диагностика", "📈", ["trail_", "diag_", "predict_", "probe_"]),
         ("📚 База знаний и память", "📚", ["search_kb", "read_file", "memory_", "learn_", "save_"]),
         ("🧮 Инженерное", "🧮", ["calc_", "vision_", "plm_", "spec_"]),
