@@ -1,4 +1,4 @@
-﻿# -*- coding: utf-8 -*-
+# -*- coding: utf-8 -*-
 """QA regression runner for CREO-AGENT. Stdlib only."""
 import urllib.request, json, re, time, os, datetime, subprocess, sys, socket
 
