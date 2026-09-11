@@ -423,6 +423,23 @@ def ask(q, client, image=None, on_step=None):
         c.execute("INSERT INTO history(client,q,a,ts) VALUES(?,?,?,?)", (client, q, res[:2000], datetime.datetime.now().isoformat()))
         c.commit(); c.close()
         return {"answer": res, "think": "", "steps": 1, "log": ["%s(прямой вызов) → %s" % (name, res[:120])]}
+    m2 = re.match(r"^([A-Za-z0-9_]+)\s+([A-Za-z0-9_]+)=(\S+)$", q.strip())
+    if m2 and not image:
+        t2 = TR.get(m2.group(1))
+        if t2 and m2.group(2) in (t2.get("params") or {}):
+            if msg := _role_check(client, m2.group(1)):
+                return {"answer": msg, "think": "", "steps": 1, "log": [m2.group(1) + "(прямой вызов)"]}
+            if t2.get("approval"):
+                pid = datetime.datetime.now().strftime("%H%M%S%f")
+                PENDING[pid] = {"name": m2.group(1), "args": {m2.group(2): m2.group(3)},
+                                "client": client, "messages": [], "raw": ""}
+                return {"answer": "[СОГЛАСОВАНИЕ] операция %s ждёт подтверждения (id %s)" % (m2.group(1), pid),
+                        "think": "", "steps": 1, "log": [m2.group(1) + "(прямой вызов)"]}
+            try:
+                res = str(t2["fn"](**{m2.group(2): m2.group(3)}))
+            except Exception as e:
+                res = "ошибка исполнения %s: %s" % (m2.group(1), e)
+            return {"answer": res, "think": "", "steps": 1, "log": [m2.group(1) + "(прямой вызов) → " + res[:120]]}
     q2 = q2 + "\n\n[СЛУЖЕБНОЕ: отвечай только по-русски. Один ход = один [TOOL] или один [ANSWER]. Никакого текста до и после блока.]"
     messages = [{"role": "system", "content": build_system()}] + hist_block(client) + [{"role": "user", "content": q2}]
     _ta = time.time()

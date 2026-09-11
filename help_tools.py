@@ -4,9 +4,10 @@ import core
 
 GUIDE_DIR = core.REPO / "GUIDE"
 
-_KEYS = ["db", "creoson", "creo", "models", "trails", "pdf", "copy", "plm", "fleet", "settings", "kb"]
+_KEYS = ["db", "passport", "creoson", "creo", "models", "trails", "pdf", "copy", "plm", "fleet", "settings", "kb"]
 _TITLES = {
     "db": "Базы данных: что где лежит и как проверить",
+    "passport": "Паспорт компании: люди, цели, стратегия, живые базы",
     "creoson": "CREOSON: мост к Creo, команды, согласования",
     "creo": "Creo: сессия, параметры, аудит, сохранение",
     "models": "Модели: поиск, где используется, состав",
@@ -33,6 +34,11 @@ def tool_guide(topic="", **kw):
     topic = (topic or "").strip()
     if not topic:
         return _menu()
+    if topic == "passport":
+        pp = core.REPO / "PASSPORT.md"
+        if pp.exists():
+            return pp.read_text(encoding="utf-8")
+        return _menu() + "\n\n(паспорт ещё не ведётся)"
     p = GUIDE_DIR / ("%s.md" % topic)
     if p.exists():
         return p.read_text(encoding="utf-8")

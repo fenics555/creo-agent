@@ -142,7 +142,7 @@ var h='<div class="grp"><h4 data-act="fold">▾ ⚙ НАСТРОЙКИ</h4><div 
 MK.forEach(function(k){var it=find(k);if(!it)return;
 h+='<div class="tool"><small>'+esc(it.name)+'</small><select data-cfg="'+att(k)+'" style="width:100%">';
 if(k!='llm_model')h+='<option value=""'+(String(it.value)==''?' selected':'')+'>— как чат —</option>';
-MODELS.forEach(function(m){h+='<option'+(m==String(it.value)?' selected':'')+'>'+esc(m)+'</option'});
+MODELS.forEach(function(m){h+='<option value="'+att(m)+'"'+(m==String(it.value)?' selected':'')+'>'+esc(m)+'</option>'});
 if(MODELS.indexOf(String(it.value))<0&&String(it.value)!='')h+='<option selected>'+esc(String(it.value))+'</option>';
 h+='</select></div>';});
 h+='<h4 style="color:#4C8FD6">Параметры</h4>';

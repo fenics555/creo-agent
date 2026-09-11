@@ -50,10 +50,10 @@ def db_state(verbose=0):
     except Exception:
         pass
     stale = bool(files_ts) and (datetime.datetime.now() - datetime.datetime.fromtimestamp(files_ts)).days > 3
-    v_files = "ПУСТО" if not files_n else ("УСТАРЕЛО" if stale else "ОК")
-    v_chunks = "ПУСТО" if not chunks_n else "ОК"
-    v_links = "ПУСТО" if not links_n else ("ТРЕБУЕТ ПЕРЕСБОРА" if (not names_n or not roots_n) else "ОК")
-    v_trails = "ПУСТО" if not jlines else "ОК"
+    v_files = "пусто, наполни сканом" if not files_n else ("устарело, обнови скан" if stale else "актуально")
+    v_chunks = "пусто, переиндексируй" if not chunks_n else "актуально"
+    v_links = "пусто, пересобери" if not links_n else ("пересобери связи" if (not names_n or not roots_n) else "актуально")
+    v_trails = "пусто, никто не работал" if not jlines else "актуально"
     out = ["🗄 СОСТОЯНИЕ БАЗ ДАННЫХ (полное):"]
     out.append("1. Файловый индекс: %d строк; скан %s → %s" % (files_n, _fmt_ts(files_ts), v_files))
     out.append("2. База знаний: %d фрагментов → %s" % (chunks_n, v_chunks))
@@ -61,7 +61,8 @@ def db_state(verbose=0):
     out.append("4. Трейлы: журнал %d строк → %s" % (jlines, v_trails))
     out.append("5. История диалогов: %d; feedback: %d → ОК" % (hist_n, fb_n))
     out.append("6. Бэкапы sqlite: %d; pdf-кэш: %d → ОК" % (bak_n, pdf_n))
-    out.append("Ноль или пусто там, где не должно: вердикт кричит сам; лечение — кнопкой индексации ниже.")
+    bad = [l for l in out[1:] if not l.endswith("актуально")]
+    out.append("Все базы актуальны." if not bad else "Требуют внимания: " + "; ".join(bad) + " — нажми кнопку индексации этого пункта.")
     if verbose:
         out.append("")
         out.append("ПОЛНАЯ ВЫГРУЗКА:")
