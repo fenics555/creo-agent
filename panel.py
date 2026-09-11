@@ -1,9 +1,7 @@
 ﻿# -*- coding: utf-8 -*-
-"""
-АГЕНТ v12 — ПАНЕЛЬ (panel.py)
-Собирает боковую панель: секции блоков, чипы-задачи, кнопки действий,
-модели ИИ, ползунки поведения. Чипы — рабочие задачи, без пружин.
-"""
+"""АГЕНТ v15 — ПАНЕЛЬ (panel.py)
+Собирает боковую панель: пространства блоков, чипы-задачи, кнопки действий,
+модели ИИ. Чипы — рабочие задачи, без пружин."""
 import importlib, json, urllib.request
 import core
 import tools_registry as TR
@@ -26,6 +24,7 @@ TITLES = {
     "backup_tools": "🚀 Флот и служба",
     "calc_tools": "🧮 Инженерное",
 }
+
 CHIPS = [
     "статус Creo и открытые модели",
     "аудит рабочей папки по эталону КБ",
@@ -54,6 +53,7 @@ BEHAVIOR = [
     {"key": "think_mode", "name": "Рассуждения 0-2", "min": 0, "max": 2, "step": 1},
 ]
 
+
 def models():
     try:
         j = json.load(urllib.request.urlopen(core.OLL + "/api/tags", timeout=5))
@@ -61,8 +61,8 @@ def models():
     except Exception:
         return []
 
+
 def build():
-    # Конфигурация пространств (Title, Group Icon, Prefixes)
     group_configs = [
         ("🛠 Creo: сессия и операции", "🛠", ["creo_", "copy_", "usage_", "creoson_"]),
         ("🧭 Модели", "🧭", ["models_", "find_", "index_", "family_", "scan_"]),
@@ -73,7 +73,6 @@ def build():
         ("👥 Команда и справка", "👥", ["chat_", "help_", "behavior_", "passport_", "role_", "users_"]),
         ("⚙ Настройки", "⚙", ["settings_"]),
     ]
-    # Карта иконок инструментов
     icon_map = {
         "creo_status": "🖥", "creo_session": "🪟", "creo_get_active": "🎯",
         "creo_pwd": "📁", "creo_list_files": "📄", "creo_find_model": "🔍",
@@ -82,66 +81,44 @@ def build():
         "usage_build": "🧩", "trail_analyze": "📈", "trail_problems": "⚠",
         "trail_predict": "🔮", "calc": "🧮", "search_kb": "📚",
         "read_file": "📖", "vision_analyze": "👁", "backup_make": "💼",
-        "git_sync": "⎇", "chat_send": "💬", "help": "❓"
+        "git_sync": "⎇", "chat_send": "💬", "help": "❓",
+        "pdf_pages": "📄", "pdf_img": "🖼", "pdf_status": "🕒", "pdf_refresh": "🔄",
     }
-
-    # РРЅРёС†РёР°Р»РёР·Р°С†РёСЏ С…СЂР°РЅРёР»РёС‰Р° РёРЅСЃС‚СЂСѓРјРµРЅС‚РѕРІ РґР»СЏ РєР°Р¶РґРѕР№ РіСЂСѓРїРїС‹
     groups_data = [[] for _ in range(len(group_configs))]
-
-    # Собираем все инструменты из всех блоков
     for b in TR.BLOCKS:
         try:
             m = importlib.import_module(b)
             ts = getattr(m, "TOOLS", [])
         except Exception:
             ts = []
-        
         for t in ts:
             t_name = t["name"]
             matched = False
-            # РС‰РµРј, Рє РєР°РєРѕР№ РіСЂСѓРїРїРµ РѕС‚РЅРѕСЃРёС‚СЃСЏ РёРЅСЃС‚СЂСѓРјРµРЅС‚ РїРѕ РµРіРѕ РёРјРµРЅРё (РїСЂРµС„РёРєСЃСѓ)
             for idx, (_, _, prefixes) in enumerate(group_configs):
                 if any(t_name.startswith(p) for p in prefixes):
                     groups_data[idx].append(t)
                     matched = True
                     break
-            
             if not matched:
-                # Fallback: 🚀 Флот и служба (индекс 5)
                 groups_data[5].append(t)
-
-    # Формируем финальный список групп
     final_groups = []
     for i, (title_base, group_icon, _) in enumerate(group_configs):
         tools_in_group = groups_data[i]
-        count = len(tools_in_group)
-        
-        # Заголовок с иконкой и счётчиком
-        display_title = title_base
-        
         group_tools = []
         for t in tools_in_group:
             t_name = t["name"]
-            # РРєРѕРЅРєР° РёРЅСЃС‚СЂСѓРјРµРЅС‚Р° (РёР· РєР°СЂС‚С‹ РёР»Рё РёРєРѕРЅРєР° РїСЂРѕСЃС‚СЂР°РЅСЃС‚РІР°)
             t_icon = icon_map.get(t_name, group_icon)
-            
             group_tools.append({
                 "name": t_name,
                 "desc": t["desc"],
                 "approval": bool(t.get("approval")),
-                "icon": t_icon
+                "icon": t_icon,
             })
-        
-        final_groups.append({
-            "title": display_title,
-            "tools": group_tools
-        })
-
+        final_groups.append({"title": title_base, "tools": group_tools})
     return {
         "groups": final_groups,
         "chips": CHIPS,
         "actions": ACTIONS,
         "behavior": BEHAVIOR,
-        "models": models()
+        "models": models(),
     }
-
