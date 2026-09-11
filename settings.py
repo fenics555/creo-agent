@@ -71,6 +71,8 @@ REGISTRY = [
     ("ИИ-роли", "model_trail", "Модель трейлов", "str", "", "Диагностика трейлов.", True),
     ("ИИ-роли", "model_web", "Модель веб", "str", "", "Пусто = llm_model.", False),
     ("ИИ-роли", "model_audit", "Модель аудита", "str", "", "Пусто = llm_model.", False),
+    ("ИИ-роли", "model_vision", "Модель визии", "str", "qwen2-vl:7b", "Vision-модель Ollama.", True),
+
 ]
 
 def _ensure():
@@ -161,7 +163,6 @@ def _prefs():
     except Exception: return {}
 def get_for(login, key, default=None):
     return _prefs().get(login or "", {}).get(key, default)
-    ("ИИ-роли", "model_vision", "Модель визии", "str", "qwen2-vl:7b", "Vision-модель Ollama.", True),
 
 def set_for(login, key, value):
     d = _prefs(); u = d.setdefault(login or "", {}); u[key] = value
