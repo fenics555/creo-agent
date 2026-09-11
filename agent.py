@@ -1,7 +1,7 @@
-# -*- coding: utf-8 -*-
-"""АГЕНТ v15 — agent.py (полная сборка)
-ThreadingHTTPServer + стриминг токенов + параллельные инструменты + планировщик.
-Витрина живёт в data/ui/index.html; константы PAGE больше нет.
+﻿# -*- coding: utf-8 -*-
+"""РђР“Р•РќРў v15 вЂ” agent.py (РїРѕР»РЅР°СЏ СЃР±РѕСЂРєР°)
+ThreadingHTTPServer + СЃС‚СЂРёРјРёРЅРі С‚РѕРєРµРЅРѕРІ + РїР°СЂР°Р»Р»РµР»СЊРЅС‹Рµ РёРЅСЃС‚СЂСѓРјРµРЅС‚С‹ + РїР»Р°РЅРёСЂРѕРІС‰РёРє.
+Р’РёС‚СЂРёРЅР° Р¶РёРІС‘С‚ РІ data/ui/index.html; РєРѕРЅСЃС‚Р°РЅС‚С‹ PAGE Р±РѕР»СЊС€Рµ РЅРµС‚.
 """
 import json, re, os, socket, threading, time, datetime
 from concurrent.futures import ThreadPoolExecutor
@@ -17,7 +17,7 @@ def _clean(txt):
     return re.sub(r"\[/?ANSWER\]|\[/?THINK\]|\[TOOL[^\]]*\]|\[/TOOL\]", "", txt or "")
 
 
-# === v15: стриминг токенов ===
+# === v15: СЃС‚СЂРёРјРёРЅРі С‚РѕРєРµРЅРѕРІ ===
 import urllib.request as _ur
 LIVE_TOK = {}
 LIVE_THINK = {}
@@ -83,7 +83,7 @@ def _post_think_off(path, payload, *ar, **kw):
 
 
 core.post = _post_think_off
-# === конец стриминга ===
+# === РєРѕРЅРµС† СЃС‚СЂРёРјРёРЅРіР° ===
 
 import tools_registry as TR
 import scanner
@@ -94,15 +94,15 @@ import vision_tools as VI
 
 
 def _role_check(client, tool):
-    """Вердикт: None = роль разрешает, строка = сообщение о запрете."""
+    """Р’РµСЂРґРёРєС‚: None = СЂРѕР»СЊ СЂР°Р·СЂРµС€Р°РµС‚, СЃС‚СЂРѕРєР° = СЃРѕРѕР±С‰РµРЅРёРµ Рѕ Р·Р°РїСЂРµС‚Рµ."""
     if not client or not tool:
         return None
     prof = users.get_profile(client)
     if not prof:
         return None
-    role = prof.get("role", "Инженер")
+    role = prof.get("role", "РРЅР¶РµРЅРµСЂ")
     if users.role_denied(role, tool):
-        return "🛔 роль «%s» не может выполнить «%s» (запрет администратора)" % (role, tool)
+        return "рџ›” СЂРѕР»СЊ В«%sВ» РЅРµ РјРѕР¶РµС‚ РІС‹РїРѕР»РЅРёС‚СЊ В«%sВ» (Р·Р°РїСЂРµС‚ Р°РґРјРёРЅРёСЃС‚СЂР°С‚РѕСЂР°)" % (role, tool)
     return None
 
 
@@ -113,36 +113,36 @@ LIVE = {}
 LAST_META = {"p": 0, "r": 0}
 UI_FILE = os.path.join(os.path.dirname(os.path.abspath(__file__)), "ui", "index.html")
 _UI_CACHE = [0, b""]
-STUB_PAGE = ("<html><head><meta charset='utf-8'><title>АГЕНТ v15</title></head>"
+STUB_PAGE = ("<html><head><meta charset='utf-8'><title>РђР“Р•РќРў v15</title></head>"
              "<body style='background:#1B1C1E;color:#E8E8E8;font:14px Segoe UI,sans-serif;padding:40px'>"
-             "<h2>ВИТРИНА НЕ НАЙДЕНА</h2><p>Положи index.html в D:\\AI\\tools\\agent\\data\\ui\\</p></body></html>")
+             "<h2>Р’РРўР РРќРђ РќР• РќРђР™Р”Р•РќРђ</h2><p>РџРѕР»РѕР¶Рё index.html РІ D:\\AI\\tools\\agent\\data\\ui\\</p></body></html>")
 
-DEFAULT_PROTO = """# ПРОТОКОЛ ИНЖЕНЕРА-НАПАРНИКА
-РОЛЬ
-Ты — старший инженер-конструктор КБ, напарник пользователя. Говоришь кратко, по делу, только проверенными фактами.
-Скиллы в репо — справочники; при противоречии этот протокол главный.
-ЯЗЫК
-Думаешь и отвечаешь ТОЛЬКО на русском. Исключение — имена файлов, переменные, команды, код.
-ФОРМАТ — ОДИН БЛОК НА ХОД
-После ровно ОДИН блок, ничего до и после:
-[TOOL: имя_инструмента] {"параметр": "значение"} [/TOOL]
-или
-[ANSWER] готовый ответ [/ANSWER]
-ПРОТИВ ВЫДУМЫВАНИЯ
-ЖИВЫЕ ДАННЫЕ (Creo, файлы, трейлы, база, 1С, настройки, история, пружины, стандарты, масса) — ТОЛЬКО через инструмент.
-Справочные факты — через search_kb/read_file. Пока нет [РЕЗУЛЬТАТ] — не называй имён, шифров, чисел.
-Доступ к базе, файлам и Creo у тебя ЕСТЬ — через инструменты из списка ниже. Никогда не говори «у меня нет доступа» — просто вызывай инструмент.
-ПОРЯДОК
-1. Определи, каких данных не хватает. 2. Вызови инструмент, жди [РЕЗУЛЬТАТ].
-Мало — следующий; достаточно — [ANSWER] только из фактов [РЕЗУЛЬТАТ].
-После [РЕЗУЛЬТАТ] НИКОГДА не отвечай «не понял/уточните» — данные уже в [РЕЗУЛЬТАТ],
-кратко перескажи их в [ANSWER].
-ПИШУЩИЕ ОПЕРАЦИИ
-[СОГЛАСОВАНИЕ] меняет данные; вызывай только по прямой просьбе.
-ПРИМЕРЫ
-«какая модель открыта в Creo?» → [TOOL: creo_get_active] {} [/TOOL]
-после [РЕЗУЛЬТАТ] → [ANSWER] Активная модель — korpus.prt [/ANSWER]
-«привет» → [ANSWER] Привет! С чем помочь по Creo? [/ANSWER]"""
+DEFAULT_PROTO = """# РџР РћРўРћРљРћР› РРќР–Р•РќР•Р Рђ-РќРђРџРђР РќРРљРђ
+Р РћР›Р¬
+РўС‹ вЂ” СЃС‚Р°СЂС€РёР№ РёРЅР¶РµРЅРµСЂ-РєРѕРЅСЃС‚СЂСѓРєС‚РѕСЂ РљР‘, РЅР°РїР°СЂРЅРёРє РїРѕР»СЊР·РѕРІР°С‚РµР»СЏ. Р“РѕРІРѕСЂРёС€СЊ РєСЂР°С‚РєРѕ, РїРѕ РґРµР»Сѓ, С‚РѕР»СЊРєРѕ РїСЂРѕРІРµСЂРµРЅРЅС‹РјРё С„Р°РєС‚Р°РјРё.
+РЎРєРёР»Р»С‹ РІ СЂРµРїРѕ вЂ” СЃРїСЂР°РІРѕС‡РЅРёРєРё; РїСЂРё РїСЂРѕС‚РёРІРѕСЂРµС‡РёРё СЌС‚РѕС‚ РїСЂРѕС‚РѕРєРѕР» РіР»Р°РІРЅС‹Р№.
+РЇР—Р«Рљ
+Р”СѓРјР°РµС€СЊ Рё РѕС‚РІРµС‡Р°РµС€СЊ РўРћР›Р¬РљРћ РЅР° СЂСѓСЃСЃРєРѕРј. РСЃРєР»СЋС‡РµРЅРёРµ вЂ” РёРјРµРЅР° С„Р°Р№Р»РѕРІ, РїРµСЂРµРјРµРЅРЅС‹Рµ, РєРѕРјР°РЅРґС‹, РєРѕРґ.
+Р¤РћР РњРђРў вЂ” РћР”РРќ Р‘Р›РћРљ РќРђ РҐРћР”
+РџРѕСЃР»Рµ СЂРѕРІРЅРѕ РћР”РРќ Р±Р»РѕРє, РЅРёС‡РµРіРѕ РґРѕ Рё РїРѕСЃР»Рµ:
+[TOOL: РёРјСЏ_РёРЅСЃС‚СЂСѓРјРµРЅС‚Р°] {"РїР°СЂР°РјРµС‚СЂ": "Р·РЅР°С‡РµРЅРёРµ"} [/TOOL]
+РёР»Рё
+[ANSWER] РіРѕС‚РѕРІС‹Р№ РѕС‚РІРµС‚ [/ANSWER]
+РџР РћРўРР’ Р’Р«Р”РЈРњР«Р’РђРќРРЇ
+Р–РР’Р«Р• Р”РђРќРќР«Р• (Creo, С„Р°Р№Р»С‹, С‚СЂРµР№Р»С‹, Р±Р°Р·Р°, 1РЎ, РЅР°СЃС‚СЂРѕР№РєРё, РёСЃС‚РѕСЂРёСЏ, РїСЂСѓР¶РёРЅС‹, СЃС‚Р°РЅРґР°СЂС‚С‹, РјР°СЃСЃР°) вЂ” РўРћР›Р¬РљРћ С‡РµСЂРµР· РёРЅСЃС‚СЂСѓРјРµРЅС‚.
+РЎРїСЂР°РІРѕС‡РЅС‹Рµ С„Р°РєС‚С‹ вЂ” С‡РµСЂРµР· search_kb/read_file. РџРѕРєР° РЅРµС‚ [Р Р•Р—РЈР›Р¬РўРђРў] вЂ” РЅРµ РЅР°Р·С‹РІР°Р№ РёРјС‘РЅ, С€РёС„СЂРѕРІ, С‡РёСЃРµР».
+Р”РѕСЃС‚СѓРї Рє Р±Р°Р·Рµ, С„Р°Р№Р»Р°Рј Рё Creo Сѓ С‚РµР±СЏ Р•РЎРўР¬ вЂ” С‡РµСЂРµР· РёРЅСЃС‚СЂСѓРјРµРЅС‚С‹ РёР· СЃРїРёСЃРєР° РЅРёР¶Рµ. РќРёРєРѕРіРґР° РЅРµ РіРѕРІРѕСЂРё В«Сѓ РјРµРЅСЏ РЅРµС‚ РґРѕСЃС‚СѓРїР°В» вЂ” РїСЂРѕСЃС‚Рѕ РІС‹Р·С‹РІР°Р№ РёРЅСЃС‚СЂСѓРјРµРЅС‚.
+РџРћР РЇР”РћРљ
+1. РћРїСЂРµРґРµР»Рё, РєР°РєРёС… РґР°РЅРЅС‹С… РЅРµ С…РІР°С‚Р°РµС‚. 2. Р’С‹Р·РѕРІРё РёРЅСЃС‚СЂСѓРјРµРЅС‚, Р¶РґРё [Р Р•Р—РЈР›Р¬РўРђРў].
+РњР°Р»Рѕ вЂ” СЃР»РµРґСѓСЋС‰РёР№; РґРѕСЃС‚Р°С‚РѕС‡РЅРѕ вЂ” [ANSWER] С‚РѕР»СЊРєРѕ РёР· С„Р°РєС‚РѕРІ [Р Р•Р—РЈР›Р¬РўРђРў].
+РџРѕСЃР»Рµ [Р Р•Р—РЈР›Р¬РўРђРў] РќРРљРћР“Р”Рђ РЅРµ РѕС‚РІРµС‡Р°Р№ В«РЅРµ РїРѕРЅСЏР»/СѓС‚РѕС‡РЅРёС‚РµВ» вЂ” РґР°РЅРЅС‹Рµ СѓР¶Рµ РІ [Р Р•Р—РЈР›Р¬РўРђРў],
+РєСЂР°С‚РєРѕ РїРµСЂРµСЃРєР°Р¶Рё РёС… РІ [ANSWER].
+РџРРЁРЈР©РР• РћРџР•Р РђР¦РР
+[РЎРћР“Р›РђРЎРћР’РђРќРР•] РјРµРЅСЏРµС‚ РґР°РЅРЅС‹Рµ; РІС‹Р·С‹РІР°Р№ С‚РѕР»СЊРєРѕ РїРѕ РїСЂСЏРјРѕР№ РїСЂРѕСЃСЊР±Рµ.
+РџР РРњР•Р Р«
+В«РєР°РєР°СЏ РјРѕРґРµР»СЊ РѕС‚РєСЂС‹С‚Р° РІ Creo?В» в†’ [TOOL: creo_get_active] {} [/TOOL]
+РїРѕСЃР»Рµ [Р Р•Р—РЈР›Р¬РўРђРў] в†’ [ANSWER] РђРєС‚РёРІРЅР°СЏ РјРѕРґРµР»СЊ вЂ” korpus.prt [/ANSWER]
+В«РїСЂРёРІРµС‚В» в†’ [ANSWER] РџСЂРёРІРµС‚! РЎ С‡РµРј РїРѕРјРѕС‡СЊ РїРѕ Creo? [/ANSWER]"""
 
 
 def load_skill(name):
@@ -162,29 +162,29 @@ _SYS_CACHE = {}
 
 def build_system(mode=1):
     if mode == 2:
-        return """ТЫ — СОБЕСЕДНИК И ПОМОЩНИК НА ЛЮБЫЕ ТЕМЫ. Язык ответа — русский; код, термины и формулы — как принято в теме. Ты умеешь: разговаривать, объяснять, решать математику и физику с пошаговым решением, писать программы и скрипты в код-блоках, переводить, пересказывать.
-В ЭТОМ РЕЖИМЕ у тебя нет доступа к Creo, файлам и базам: если вопрос требует живых данных, скажи «в режиме инженера я достану это из Creo или базы — переключи режим» и не выдумывай.
-Формат: свободный текст; код внутри блоков с языком; служебных тегов нет.
-Краткость ценится, но полнота решения важнее."""
+        return """РўР« вЂ” РЎРћР‘Р•РЎР•Р”РќРРљ Р РџРћРњРћР©РќРРљ РќРђ Р›Р®Р‘Р«Р• РўР•РњР«. РЇР·С‹Рє РѕС‚РІРµС‚Р° вЂ” СЂСѓСЃСЃРєРёР№; РєРѕРґ, С‚РµСЂРјРёРЅС‹ Рё С„РѕСЂРјСѓР»С‹ вЂ” РєР°Рє РїСЂРёРЅСЏС‚Рѕ РІ С‚РµРјРµ. РўС‹ СѓРјРµРµС€СЊ: СЂР°Р·РіРѕРІР°СЂРёРІР°С‚СЊ, РѕР±СЉСЏСЃРЅСЏС‚СЊ, СЂРµС€Р°С‚СЊ РјР°С‚РµРјР°С‚РёРєСѓ Рё С„РёР·РёРєСѓ СЃ РїРѕС€Р°РіРѕРІС‹Рј СЂРµС€РµРЅРёРµРј, РїРёСЃР°С‚СЊ РїСЂРѕРіСЂР°РјРјС‹ Рё СЃРєСЂРёРїС‚С‹ РІ РєРѕРґ-Р±Р»РѕРєР°С…, РїРµСЂРµРІРѕРґРёС‚СЊ, РїРµСЂРµСЃРєР°Р·С‹РІР°С‚СЊ.
+Р’ Р­РўРћРњ Р Р•Р–РРњР• Сѓ С‚РµР±СЏ РЅРµС‚ РґРѕСЃС‚СѓРїР° Рє Creo, С„Р°Р№Р»Р°Рј Рё Р±Р°Р·Р°Рј: РµСЃР»Рё РІРѕРїСЂРѕСЃ С‚СЂРµР±СѓРµС‚ Р¶РёРІС‹С… РґР°РЅРЅС‹С…, СЃРєР°Р¶Рё В«РІ СЂРµР¶РёРјРµ РёРЅР¶РµРЅРµСЂР° СЏ РґРѕСЃС‚Р°РЅСѓ СЌС‚Рѕ РёР· Creo РёР»Рё Р±Р°Р·С‹ вЂ” РїРµСЂРµРєР»СЋС‡Рё СЂРµР¶РёРјВ» Рё РЅРµ РІС‹РґСѓРјС‹РІР°Р№.
+Р¤РѕСЂРјР°С‚: СЃРІРѕР±РѕРґРЅС‹Р№ С‚РµРєСЃС‚; РєРѕРґ РІРЅСѓС‚СЂРё Р±Р»РѕРєРѕРІ СЃ СЏР·С‹РєРѕРј; СЃР»СѓР¶РµР±РЅС‹С… С‚РµРіРѕРІ РЅРµС‚.
+РљСЂР°С‚РєРѕСЃС‚СЊ С†РµРЅРёС‚СЃСЏ, РЅРѕ РїРѕР»РЅРѕС‚Р° СЂРµС€РµРЅРёСЏ РІР°Р¶РЅРµРµ."""
     if _SYS_CACHE.get(("v", mode)): return _SYS_CACHE[("v", mode)]
     p = load_skill("SKILL_agent_protocol.md") or DEFAULT_PROTO
     core_lines, rest = [], []
     for t in TR.TOOLS:
         ps = ", ".join(t.get("params", {}).keys()) if t.get("params") else ""
         d = (t.get("desc") or "").strip()
-        if len(d) > 45: d = d[:43].rstrip(" ,.;:-") + "…"
-        line = "- %s(%s) — %s%s" % (t["name"], ps, d, " [СОГЛАСОВАНИЕ]" if t.get("approval") else "")
+        if len(d) > 45: d = d[:43].rstrip(" ,.;:-") + "вЂ¦"
+        line = "- %s(%s) вЂ” %s%s" % (t["name"], ps, d, " [РЎРћР“Р›РђРЎРћР’РђРќРР•]" if t.get("approval") else "")
         (core_lines if t["name"] in _CORE else rest).append(line)
-    tail = "=== ТВОИ ИНСТРУМЕНТЫ — ОСНОВНЫЕ (частые, полные) ===\n" + "\n".join(core_lines)
-    tail += "\n\n=== ПРОЧИЕ ИНСТРУМЕНТЫ (только имена; описание блока — tools_help block=<имя>) ===\n"
+    tail = "=== РўР’РћР РРќРЎРўР РЈРњР•РќРўР« вЂ” РћРЎРќРћР’РќР«Р• (С‡Р°СЃС‚С‹Рµ, РїРѕР»РЅС‹Рµ) ===\n" + "\n".join(core_lines)
+    tail += "\n\n=== РџР РћР§РР• РРќРЎРўР РЈРњР•РќРўР« (С‚РѕР»СЊРєРѕ РёРјРµРЅР°; РѕРїРёСЃР°РЅРёРµ Р±Р»РѕРєР° вЂ” tools_help block=<РёРјСЏ>) ===\n"
     tail += ", ".join(sorted({t["name"] for t in TR.TOOLS if t["name"] not in _CORE}))
     tm = int(settings.get("think_mode") or 0)
     if tm == 0:
-        think_rule = "=== РАЗМЫШЛЕНИЯ: запрещены. Не выводи [THINK]...[/THINK]. Сразу один блок: [TOOL] или [ANSWER]."
+        think_rule = "=== Р РђР—РњР«РЁР›Р•РќРРЇ: Р·Р°РїСЂРµС‰РµРЅС‹. РќРµ РІС‹РІРѕРґРё [THINK]...[/THINK]. РЎСЂР°Р·Сѓ РѕРґРёРЅ Р±Р»РѕРє: [TOOL] РёР»Рё [ANSWER]."
     elif tm == 1:
-        think_rule = ("=== РАЗМЫШЛЕНИЯ (кратко, максимум 4 строки):\n1) суть задачи;\n2) объект;\n3) какой инструмент;\n4) что НЕ подходит.\nБлок: [THINK]...[/THINK], затем один блок: [TOOL] или [ANSWER].")
+        think_rule = ("=== Р РђР—РњР«РЁР›Р•РќРРЇ (РєСЂР°С‚РєРѕ, РјР°РєСЃРёРјСѓРј 4 СЃС‚СЂРѕРєРё):\n1) СЃСѓС‚СЊ Р·Р°РґР°С‡Рё;\n2) РѕР±СЉРµРєС‚;\n3) РєР°РєРѕР№ РёРЅСЃС‚СЂСѓРјРµРЅС‚;\n4) С‡С‚Рѕ РќР• РїРѕРґС…РѕРґРёС‚.\nР‘Р»РѕРє: [THINK]...[/THINK], Р·Р°С‚РµРј РѕРґРёРЅ Р±Р»РѕРє: [TOOL] РёР»Рё [ANSWER].")
     else:
-        think_rule = ("=== РАЗМЫШЛЕНИЯ (полно, на русском, 5-8 строк):\nнормализуй запрос;\nэтапы, если задача сложная;\nпочему именно этот инструмент;\nкакие альтернативы отверг и почему.\nБлок: [THINK]...[/THINK], затем один блок: [TOOL] или [ANSWER].\nПРИМЕР:\n[THINK]\nНормализация: проверить активную модель.\nЭтапы: один.\nИнструмент: creo_get_active — читает живую сессию.\nОтверг: models_find — это поиск по базе, не сессия.\n[/THINK]\n[TOOL: creo_get_active] {} [/TOOL]")
+        think_rule = ("=== Р РђР—РњР«РЁР›Р•РќРРЇ (РїРѕР»РЅРѕ, РЅР° СЂСѓСЃСЃРєРѕРј, 5-8 СЃС‚СЂРѕРє):\nРЅРѕСЂРјР°Р»РёР·СѓР№ Р·Р°РїСЂРѕСЃ;\nСЌС‚Р°РїС‹, РµСЃР»Рё Р·Р°РґР°С‡Р° СЃР»РѕР¶РЅР°СЏ;\nРїРѕС‡РµРјСѓ РёРјРµРЅРЅРѕ СЌС‚РѕС‚ РёРЅСЃС‚СЂСѓРјРµРЅС‚;\nРєР°РєРёРµ Р°Р»СЊС‚РµСЂРЅР°С‚РёРІС‹ РѕС‚РІРµСЂРі Рё РїРѕС‡РµРјСѓ.\nР‘Р»РѕРє: [THINK]...[/THINK], Р·Р°С‚РµРј РѕРґРёРЅ Р±Р»РѕРє: [TOOL] РёР»Рё [ANSWER].\nРџР РРњР•Р :\n[THINK]\nРќРѕСЂРјР°Р»РёР·Р°С†РёСЏ: РїСЂРѕРІРµСЂРёС‚СЊ Р°РєС‚РёРІРЅСѓСЋ РјРѕРґРµР»СЊ.\nР­С‚Р°РїС‹: РѕРґРёРЅ.\nРРЅСЃС‚СЂСѓРјРµРЅС‚: creo_get_active вЂ” С‡РёС‚Р°РµС‚ Р¶РёРІСѓСЋ СЃРµСЃСЃРёСЋ.\nРћС‚РІРµСЂРі: models_find вЂ” СЌС‚Рѕ РїРѕРёСЃРє РїРѕ Р±Р°Р·Рµ, РЅРµ СЃРµСЃСЃРёСЏ.\n[/THINK]\n[TOOL: creo_get_active] {} [/TOOL]")
     _SYS_CACHE[("v", mode)] = p + "\n\n" + tail + "\n\n" + think_rule
     return _SYS_CACHE[("v", mode)]
 
@@ -207,7 +207,7 @@ def _scheduler():
                             elif t == "usage":
                                 import usage_tools; usage_tools.build_usage(True)
                             elif t == "backup":
-                                import backup_tools; backup_tools.tool_make()
+                                import backup_tools; backup_tools.tool_make(); backup_tools.tool_housekeeping()
                         except Exception as e:
                             log("night %s err: %s" % (t, e))
                         else:
@@ -278,11 +278,11 @@ def parse_model(text):
     return "invalid", text.strip(), None, think_text
 
 
-_NUDGE = "[СЛУЖЕБНОЕ] Ответ не в формате. Дай ровно один блок: [TOOL: имя] {\"параметр\": \"значение\"} [/TOOL] или [ANSWER] краткий ответ по-русски [/ANSWER]. Слово «текст» само по себе — не ответ. Ничего до и после блока."
-_ACCESS_NUDGE = "[СЛУЖЕБНОЕ] Неверно. Доступ к базе, файлам и Creo у тебя ЕСТЬ через инструменты (список «ТВОИ ИНСТРУМЕНТЫ» выше). Никогда не отвечай «нет доступа». Повтори ровно один блок: [TOOL: имя] {\"параметр\": \"значение\"} [/TOOL] или [ANSWER] ответ [/ANSWER]."
-_REFUSAL = ("извините", "не могу", "не имею доступа", "нет доступа", "моя функциональность",
-            "виртуальной среде", "не понял", "уточните", "переформулируй", "как языковая модель",
-            "к сожалению, я", "буду отвечать", "какой у вас вопрос", "давайте начнём")
+_NUDGE = "[РЎР›РЈР–Р•Р‘РќРћР•] РћС‚РІРµС‚ РЅРµ РІ С„РѕСЂРјР°С‚Рµ. Р”Р°Р№ СЂРѕРІРЅРѕ РѕРґРёРЅ Р±Р»РѕРє: [TOOL: РёРјСЏ] {\"РїР°СЂР°РјРµС‚СЂ\": \"Р·РЅР°С‡РµРЅРёРµ\"} [/TOOL] РёР»Рё [ANSWER] РєСЂР°С‚РєРёР№ РѕС‚РІРµС‚ РїРѕ-СЂСѓСЃСЃРєРё [/ANSWER]. РЎР»РѕРІРѕ В«С‚РµРєСЃС‚В» СЃР°РјРѕ РїРѕ СЃРµР±Рµ вЂ” РЅРµ РѕС‚РІРµС‚. РќРёС‡РµРіРѕ РґРѕ Рё РїРѕСЃР»Рµ Р±Р»РѕРєР°."
+_ACCESS_NUDGE = "[РЎР›РЈР–Р•Р‘РќРћР•] РќРµРІРµСЂРЅРѕ. Р”РѕСЃС‚СѓРї Рє Р±Р°Р·Рµ, С„Р°Р№Р»Р°Рј Рё Creo Сѓ С‚РµР±СЏ Р•РЎРўР¬ С‡РµСЂРµР· РёРЅСЃС‚СЂСѓРјРµРЅС‚С‹ (СЃРїРёСЃРѕРє В«РўР’РћР РРќРЎРўР РЈРњР•РќРўР«В» РІС‹С€Рµ). РќРёРєРѕРіРґР° РЅРµ РѕС‚РІРµС‡Р°Р№ В«РЅРµС‚ РґРѕСЃС‚СѓРїР°В». РџРѕРІС‚РѕСЂРё СЂРѕРІРЅРѕ РѕРґРёРЅ Р±Р»РѕРє: [TOOL: РёРјСЏ] {\"РїР°СЂР°РјРµС‚СЂ\": \"Р·РЅР°С‡РµРЅРёРµ\"} [/TOOL] РёР»Рё [ANSWER] РѕС‚РІРµС‚ [/ANSWER]."
+_REFUSAL = ("РёР·РІРёРЅРёС‚Рµ", "РЅРµ РјРѕРіСѓ", "РЅРµ РёРјРµСЋ РґРѕСЃС‚СѓРїР°", "РЅРµС‚ РґРѕСЃС‚СѓРїР°", "РјРѕСЏ С„СѓРЅРєС†РёРѕРЅР°Р»СЊРЅРѕСЃС‚СЊ",
+            "РІРёСЂС‚СѓР°Р»СЊРЅРѕР№ СЃСЂРµРґРµ", "РЅРµ РїРѕРЅСЏР»", "СѓС‚РѕС‡РЅРёС‚Рµ", "РїРµСЂРµС„РѕСЂРјСѓР»РёСЂСѓР№", "РєР°Рє СЏР·С‹РєРѕРІР°СЏ РјРѕРґРµР»СЊ",
+            "Рє СЃРѕР¶Р°Р»РµРЅРёСЋ, СЏ", "Р±СѓРґСѓ РѕС‚РІРµС‡Р°С‚СЊ", "РєР°РєРѕР№ Сѓ РІР°СЃ РІРѕРїСЂРѕСЃ", "РґР°РІР°Р№С‚Рµ РЅР°С‡РЅС‘Рј")
 
 
 def _refusal(text):
@@ -321,7 +321,7 @@ def run_loop(messages, client, has_link=False, on_step=None):
             except Exception as e:
                 if attempt == 1 and "500" in str(e):
                     time.sleep(2); continue
-                return {"answer": _clean("ошибка модели: %s" % e), "think": "", "steps": step + 1, "log": steps_log}
+                return {"answer": _clean("РѕС€РёР±РєР° РјРѕРґРµР»Рё: %s" % e), "think": "", "steps": step + 1, "log": steps_log}
         raw = (r.get("message") or {}).get("content") or ""
         try: LAST_META["p"] += r.get("prompt_eval_count") or 0; LAST_META["r"] += r.get("eval_count") or 0
         except Exception: pass
@@ -335,7 +335,7 @@ def run_loop(messages, client, has_link=False, on_step=None):
             used_web = any("web_fetch" in s for s in steps_log)
             if has_link and not used_web and step < steps_max - 1 and len(payload) < 400:
                 messages.append({"role": "assistant", "content": raw})
-                messages.append({"role": "user", "content": "[СЛУЖЕБНОЕ] В задаче была ссылка http — сначала прочитай её через web_fetch, потом отвечай."})
+                messages.append({"role": "user", "content": "[РЎР›РЈР–Р•Р‘РќРћР•] Р’ Р·Р°РґР°С‡Рµ Р±С‹Р»Р° СЃСЃС‹Р»РєР° http вЂ” СЃРЅР°С‡Р°Р»Р° РїСЂРѕС‡РёС‚Р°Р№ РµС‘ С‡РµСЂРµР· web_fetch, РїРѕС‚РѕРј РѕС‚РІРµС‡Р°Р№."})
                 _log("web_nudge"); continue
             txt = payload
             if len(txt) < 40 and last_res: txt = last_res + "\n\n" + txt
@@ -345,7 +345,7 @@ def run_loop(messages, client, has_link=False, on_step=None):
         if kind == "invalid":
             invalid_cnt += 1
             if last_res and len(payload or "") > 150 and not _refusal(payload):
-                _log("parse_invalid -> проза после результата = ответ")
+                _log("parse_invalid -> РїСЂРѕР·Р° РїРѕСЃР»Рµ СЂРµР·СѓР»СЊС‚Р°С‚Р° = РѕС‚РІРµС‚")
                 return {"answer": _clean(payload), "think": think, "steps": step + 1, "log": steps_log}
             if invalid_cnt < 3:
                 nudge = _ACCESS_NUDGE if _refusal(payload) else _NUDGE
@@ -353,14 +353,14 @@ def run_loop(messages, client, has_link=False, on_step=None):
                 messages.append({"role": "user", "content": nudge})
                 _log("parse_invalid"); continue
             pl = (payload or "").strip()
-            tail = (" Инструмент вернул: «%s»." % last_res[:200]) if last_res else ""
+            tail = (" РРЅСЃС‚СЂСѓРјРµРЅС‚ РІРµСЂРЅСѓР»: В«%sВ»." % last_res[:200]) if last_res else ""
             if _refusal(pl) or (len(pl) < 80 and pl.lower() in _NUDGE.lower()):
-                pl = "Ответ модели не распознан." + tail + " Уточни запрос (пример: models_where q=<имя детали>) или введи прямую команду инструмента."
+                pl = "РћС‚РІРµС‚ РјРѕРґРµР»Рё РЅРµ СЂР°СЃРїРѕР·РЅР°РЅ." + tail + " РЈС‚РѕС‡РЅРё Р·Р°РїСЂРѕСЃ (РїСЂРёРјРµСЂ: models_where q=<РёРјСЏ РґРµС‚Р°Р»Рё>) РёР»Рё РІРІРµРґРё РїСЂСЏРјСѓСЋ РєРѕРјР°РЅРґСѓ РёРЅСЃС‚СЂСѓРјРµРЅС‚Р°."
             return {"answer": _clean(pl), "think": think, "steps": step + 1, "log": steps_log}
         name = payload
         sig = (name, json.dumps(args, sort_keys=True, ensure_ascii=False))
         if sig == sig_prev:
-            return {"answer": last_res or "зацикливание остановлено", "think": think, "steps": step + 1, "log": steps_log}
+            return {"answer": last_res or "Р·Р°С†РёРєР»РёРІР°РЅРёРµ РѕСЃС‚Р°РЅРѕРІР»РµРЅРѕ", "think": think, "steps": step + 1, "log": steps_log}
         sig_prev = sig
         if settings.get("parallel_tools"):
             others = []
@@ -375,39 +375,39 @@ def run_loop(messages, client, has_link=False, on_step=None):
                     nn, aa2 = oa
                     msg = _role_check(client, nn)
                     if msg:
-                        return "%s → %s" % (nn, msg)
+                        return "%s в†’ %s" % (nn, msg)
                     tt = TR.get(nn)
-                    try: return "%s → %s" % (nn, str(tt["fn"](**aa2))[:600])
-                    except Exception as e: return "%s → ошибка: %s" % (nn, e)
+                    try: return "%s в†’ %s" % (nn, str(tt["fn"](**aa2))[:600])
+                    except Exception as e: return "%s в†’ РѕС€РёР±РєР°: %s" % (nn, e)
                 try:
                     with ThreadPoolExecutor(max_workers=4) as ex: res = "\n".join(ex.map(_one, others))
                     _log("parallel[%d]: %s" % (len(others), ", ".join(o[0] for o in others)))
                     last_res = res; sig_prev = sig
                     messages.append({"role": "assistant", "content": raw})
-                    messages.append({"role": "user", "content": "[РЕЗУЛЬТАТ parallel]: %s" % res[:4000]})
+                    messages.append({"role": "user", "content": "[Р Р•Р—РЈР›Р¬РўРђРў parallel]: %s" % res[:4000]})
                     continue
                 except Exception: pass
         t = TR.get(name)
         if not t:
-            res = "нет такого инструмента: %s" % name
+            res = "РЅРµС‚ С‚Р°РєРѕРіРѕ РёРЅСЃС‚СЂСѓРјРµРЅС‚Р°: %s" % name
         elif msg := _role_check(client, name):
             res = msg
-            _log("%s(%s) → ЗАПРЕТ РОЛИ" % (name, "без параметров" if not args else json.dumps(args, ensure_ascii=False)))
+            _log("%s(%s) в†’ Р—РђРџР Р•Рў Р РћР›Р" % (name, "Р±РµР· РїР°СЂР°РјРµС‚СЂРѕРІ" if not args else json.dumps(args, ensure_ascii=False)))
         elif t.get("approval"):
             pid = datetime.datetime.now().strftime("%H%M%S%f")
             PENDING[pid] = {"name": name, "args": args, "client": client, "messages": messages, "raw": raw}
-            return {"answer": "[СОГЛАСОВАНИЕ] операция %s ждёт подтверждения пользователя (id %s)" % (name, pid),
+            return {"answer": "[РЎРћР“Р›РђРЎРћР’РђРќРР•] РѕРїРµСЂР°С†РёСЏ %s Р¶РґС‘С‚ РїРѕРґС‚РІРµСЂР¶РґРµРЅРёСЏ РїРѕР»СЊР·РѕРІР°С‚РµР»СЏ (id %s)" % (name, pid),
                     "think": think, "steps": step + 1, "log": steps_log}
         else:
             t0 = time.time()
             try: res = str(t["fn"](**args))
-            except Exception as e: res = "ошибка исполнения %s: %s" % (name, e)
+            except Exception as e: res = "РѕС€РёР±РєР° РёСЃРїРѕР»РЅРµРЅРёСЏ %s: %s" % (name, e)
             trace("AGENT %s" % name, "OK", int((time.time() - t0) * 1000))
-            _log("%s(%s) → %s" % (name, "без параметров" if not args else json.dumps(args, ensure_ascii=False), res[:120]))
+            _log("%s(%s) в†’ %s" % (name, "Р±РµР· РїР°СЂР°РјРµС‚СЂРѕРІ" if not args else json.dumps(args, ensure_ascii=False), res[:120]))
         last_res = res
         messages.append({"role": "assistant", "content": raw})
-        messages.append({"role": "user", "content": "[РЕЗУЛЬТАТ %s]: %s" % (name, res[:4000])})
-    return {"answer": last_res or "не уложился в шаги", "think": think, "steps": steps_max, "log": steps_log}
+        messages.append({"role": "user", "content": "[Р Р•Р—РЈР›Р¬РўРђРў %s]: %s" % (name, res[:4000])})
+    return {"answer": last_res or "РЅРµ СѓР»РѕР¶РёР»СЃСЏ РІ С€Р°РіРё", "think": think, "steps": steps_max, "log": steps_log}
 
 
 def ask(q, client, image=None, on_step=None, mode=None):
@@ -431,21 +431,21 @@ def ask(q, client, image=None, on_step=None, mode=None):
     t = TR.get(name)
     if t and not image:
         if msg := _role_check(client, name):
-            return {"answer": msg, "think": "", "steps": 1, "log": ["%s(прямой вызов) → ЗАПРЕТ РОЛИ" % name]}
+            return {"answer": msg, "think": "", "steps": 1, "log": ["%s(РїСЂСЏРјРѕР№ РІС‹Р·РѕРІ) в†’ Р—РђРџР Р•Рў Р РћР›Р" % name]}
         if t.get("approval") and eff_mode != 2:
             pid = datetime.datetime.now().strftime("%H%M%S%f")
             PENDING[pid] = {"name": name, "args": {}, "client": client, "messages": [], "raw": ""}
-            return {"answer": "[СОГЛАСОВАНИЕ] операция %s ждёт подтверждения пользователя (id %s)" % (name, pid), "think": "", "steps": 1, "log": ["%s(прямой вызов)" % name]}
+            return {"answer": "[РЎРћР“Р›РђРЎРћР’РђРќРР•] РѕРїРµСЂР°С†РёСЏ %s Р¶РґС‘С‚ РїРѕРґС‚РІРµСЂР¶РґРµРЅРёСЏ РїРѕР»СЊР·РѕРІР°С‚РµР»СЏ (id %s)" % (name, pid), "think": "", "steps": 1, "log": ["%s(РїСЂСЏРјРѕР№ РІС‹Р·РѕРІ)" % name]}
         t0 = time.time()
         try:
             try: res = str(t["fn"]())
             except TypeError: res = str(t["fn"]({k: "" for k in t.get("params", {})}))
-        except Exception as e: res = "ошибка исполнения %s: %s" % (name, e)
+        except Exception as e: res = "РѕС€РёР±РєР° РёСЃРїРѕР»РЅРµРЅРёСЏ %s: %s" % (name, e)
         trace("AGENT %s" % name, "OK", int((time.time() - t0) * 1000))
         c = core.db()
         c.execute("INSERT INTO history(client,q,a,ts) VALUES(?,?,?,?)", (client, q, res[:2000], datetime.datetime.now().isoformat()))
         c.commit(); c.close()
-        return {"answer": res, "think": "", "steps": 1, "log": ["%s(прямой вызов) → %s" % (name, res[:120])]}
+        return {"answer": res, "think": "", "steps": 1, "log": ["%s(РїСЂСЏРјРѕР№ РІС‹Р·РѕРІ) в†’ %s" % (name, res[:120])]}
 
     # 3. If mode 2, handle it immediately
     if eff_mode == 2:
@@ -474,19 +474,19 @@ def ask(q, client, image=None, on_step=None, mode=None):
         t2 = TR.get(m2.group(1))
         if t2 and m2.group(2) in (t2.get("params") or {}):
             if msg := _role_check(client, m2.group(1)):
-                return {"answer": msg, "think": "", "steps": 1, "log": [m2.group(1) + "(прямой вызов)"]}
+                return {"answer": msg, "think": "", "steps": 1, "log": [m2.group(1) + "(РїСЂСЏРјРѕР№ РІС‹Р·РѕРІ)"]}
             if t2.get("approval"):
                 pid = datetime.datetime.now().strftime("%H%M%S%f")
                 PENDING[pid] = {"name": m2.group(1), "args": {m2.group(2): m2.group(3)},
                                 "client": client, "messages": [], "raw": ""}
-                return {"answer": "[СОГЛАСОВАНИЕ] операция %s ждёт подтверждения (id %s)" % (m2.group(1), pid),
-                        "think": "", "steps": 1, "log": [m2.group(1) + "(прямой вызов)"]}
+                return {"answer": "[РЎРћР“Р›РђРЎРћР’РђРќРР•] РѕРїРµСЂР°С†РёСЏ %s Р¶РґС‘С‚ РїРѕРґС‚РІРµСЂР¶РґРµРЅРёСЏ (id %s)" % (m2.group(1), pid),
+                        "think": "", "steps": 1, "log": [m2.group(1) + "(РїСЂСЏРјРѕР№ РІС‹Р·РѕРІ)"]}
             try:
                 res = str(t2["fn"](**{m2.group(2): m2.group(3)}))
             except Exception as e:
-                res = "ошибка исполнения %s: %s" % (m2.group(1), e)
-            return {"answer": res, "think": "", "steps": 1, "log": [m2.group(1) + "(прямой вызов) → " + res[:120]]}
-    q2 = q2 + "\n\n[СЛУЖЕБНОЕ: отвечай только по-русски. Один ход = один [TOOL] или один [ANSWER]. Никакого текста до и после блока.]"
+                res = "РѕС€РёР±РєР° РёСЃРїРѕР»РЅРµРЅРёСЏ %s: %s" % (m2.group(1), e)
+            return {"answer": res, "think": "", "steps": 1, "log": [m2.group(1) + "(РїСЂСЏРјРѕР№ РІС‹Р·РѕРІ) в†’ " + res[:120]]}
+    q2 = q2 + "\n\n[РЎР›РЈР–Р•Р‘РќРћР•: РѕС‚РІРµС‡Р°Р№ С‚РѕР»СЊРєРѕ РїРѕ-СЂСѓСЃСЃРєРё. РћРґРёРЅ С…РѕРґ = РѕРґРёРЅ [TOOL] РёР»Рё РѕРґРёРЅ [ANSWER]. РќРёРєР°РєРѕРіРѕ С‚РµРєСЃС‚Р° РґРѕ Рё РїРѕСЃР»Рµ Р±Р»РѕРєР°.]"
     messages = [{"role": "system", "content": build_system(mode=eff_mode)}] + hist_block(client) + [{"role": "user", "content": q2}]
     _ta = time.time()
     LIVE_TOK[client] = []
@@ -497,7 +497,7 @@ def ask(q, client, image=None, on_step=None, mode=None):
     threading.current_thread()._tokclient = client
     r = run_loop(messages, client, has_link=("http" in q), on_step=on_step)
     if int(settings.get("log_mode") or 1) >= 1:
-        r.setdefault("log", []).append("⏱ %dмс · 🔢 %d ток (промт %d + ответ %d) · шагов: %d" % (int((time.time() - _ta) * 1000), LAST_META["p"] + LAST_META["r"], LAST_META["p"], LAST_META["r"], r.get("steps", 1)))
+        r.setdefault("log", []).append("вЏ± %dРјСЃ В· рџ”ў %d С‚РѕРє (РїСЂРѕРјС‚ %d + РѕС‚РІРµС‚ %d) В· С€Р°РіРѕРІ: %d" % (int((time.time() - _ta) * 1000), LAST_META["p"] + LAST_META["r"], LAST_META["p"], LAST_META["r"], r.get("steps", 1)))
     c = core.db()
     c.execute("INSERT INTO history(client,q,a,ts) VALUES(?,?,?,?)", (client, q, r["answer"][:2000], datetime.datetime.now().isoformat()))
     c.commit(); c.close()
@@ -506,17 +506,17 @@ def ask(q, client, image=None, on_step=None, mode=None):
 
 def do_approve(pid, okf):
     p = PENDING.pop(pid, None)
-    if not p: return {"res": "заявка не найдена"}
-    if not okf: return {"res": "отменено пользователем"}
+    if not p: return {"res": "Р·Р°СЏРІРєР° РЅРµ РЅР°Р№РґРµРЅР°"}
+    if not okf: return {"res": "РѕС‚РјРµРЅРµРЅРѕ РїРѕР»СЊР·РѕРІР°С‚РµР»РµРј"}
     t = TR.get(p["name"])
     if msg := _role_check(p.get("client"), p["name"]):
         return {"res": msg}
     try: res = str(t["fn"](**p["args"]))
-    except Exception as e: return {"res": "ошибка исполнения: %s" % e}
+    except Exception as e: return {"res": "РѕС€РёР±РєР° РёСЃРїРѕР»РЅРµРЅРёСЏ: %s" % e}
     msgs = p.get("messages")
     if msgs:
         msgs.append({"role": "assistant", "content": p.get("raw", "")})
-        msgs.append({"role": "user", "content": "[РЕЗУЛЬТАТ %s]: %s" % (p["name"], res[:4000])})
+        msgs.append({"role": "user", "content": "[Р Р•Р—РЈР›Р¬РўРђРў %s]: %s" % (p["name"], res[:4000])})
         r = run_loop(msgs, p.get("client"), has_link=False)
         return {"res": res, "answer": _clean(r["answer"]), "think": r.get("think", ""), "log": r.get("log", [])}
     return {"res": res}
@@ -573,7 +573,7 @@ class Hd(BaseHTTPRequestHandler):
             prof = users.get_profile(cl2["login"]) if cl2 else None
             tail = ""
             try:
-                jf = core.REPO / "Трейлы" / "TRAIL_JOURNAL.md"
+                jf = core.REPO / "РўСЂРµР№Р»С‹" / "TRAIL_JOURNAL.md"
                 if jf.exists():
                     tail = "\n".join(jf.read_text(encoding="utf-8", errors="ignore").splitlines()[-8:])
             except Exception:
@@ -640,22 +640,25 @@ class Hd(BaseHTTPRequestHandler):
                 bydir.setdefault(os.path.dirname(path), {})[os.path.basename(path).lower()] = (path, mt)
             pairs = []
             for d, fs in bydir.items():
+                du = d.upper()
+                if "\\CREO12\\" in du or "\\DATA\\" in du:
+                    continue
                 for nm, (path, mt) in fs.items():
                     if not nm.endswith(".drw"): continue
                     stem = nm[:-4]
                     pdf = fs.get(stem + ".pdf")
-                    verdict = "нет pdf" if not pdf else ("актуален" if pdf[1] >= mt else "УСТАРЕЛ")
+                    verdict = "РЅРµС‚ pdf" if not pdf else ("Р°РєС‚СѓР°Р»РµРЅ" if pdf[1] >= mt else "РЈРЎРўРђР Р•Р›")
                     pairs.append({"name": stem, "dir": d, "drw": path, "pdf": pdf[0] if pdf else "",
                                   "drw_mtime": mt, "pdf_mtime": pdf[1] if pdf else 0, "verdict": verdict})
                     if len(pairs) >= 500: break
-            pairs.sort(key=lambda r: (r["verdict"] != "УСТАРЕЛ", r["name"]))
+            pairs.sort(key=lambda r: (r["verdict"] != "РЈРЎРўРђР Р•Р›", r["name"]))
             self._j({"pairs": pairs, "total": len(pairs)})
             return
         elif p == "/panel":
             d = panel.build()
             _ui = users.token_info(self.headers.get("X-Token") or "")
             if not (_ui and users.is_admin(_ui["login"])):
-                d["groups"] = [g for g in d.get("groups", []) if "НАСТРОЙКИ" not in str(g.get("title", "")).upper()]
+                d["groups"] = [g for g in d.get("groups", []) if "РќРђРЎРўР РћР™РљР" not in str(g.get("title", "")).upper()]
                 d.pop("settings", None)
             self._j(d)
             return
@@ -665,7 +668,7 @@ class Hd(BaseHTTPRequestHandler):
                 c = core.db()
                 rows = c.execute("SELECT q,a,ts FROM history WHERE client=? ORDER BY id DESC LIMIT 40", (_tk["login"],)).fetchall()
                 c.close()
-                self._j({"log": "\n".join("%s · %s → %s" % (ts[:16], q, a[:80]) for q, a, ts in reversed(rows)) or "история пуста"})
+                self._j({"log": "\n".join("%s В· %s в†’ %s" % (ts[:16], q, a[:80]) for q, a, ts in reversed(rows)) or "РёСЃС‚РѕСЂРёСЏ РїСѓСЃС‚Р°"})
                 return
             else:
                 try:
@@ -673,7 +676,7 @@ class Hd(BaseHTTPRequestHandler):
                     self._j({"log": "\n".join(txt[-80:])})
                     return
                 except Exception:
-                    self._j({"log": "лога нет"})
+                    self._j({"log": "Р»РѕРіР° РЅРµС‚"})
                     return
         elif p == "/settings":
             self._j({"items": settings.list_ui()})
@@ -702,7 +705,7 @@ class Hd(BaseHTTPRequestHandler):
         elif p == "/fleet/info":
             tail = ""
             try:
-                jf = core.REPO / "Трейлы" / "TRAIL_JOURNAL.md"
+                jf = core.REPO / "РўСЂРµР№Р»С‹" / "TRAIL_JOURNAL.md"
                 if jf.exists():
                     tail = "\n".join(jf.read_text(encoding="utf-8", errors="ignore").splitlines()[-10:])
             except Exception: pass
@@ -719,10 +722,10 @@ class Hd(BaseHTTPRequestHandler):
             self._j(r or {"ok": False}); return
         if p == "/register":
             okf = users.add_user(b.get("login"), b.get("pw") or b.get("password"))
-            self._j({"msg": "пользователь создан" if okf else "логин занят или пустой"}); return
+            self._j({"msg": "РїРѕР»СЊР·РѕРІР°С‚РµР»СЊ СЃРѕР·РґР°РЅ" if okf else "Р»РѕРіРёРЅ Р·Р°РЅСЏС‚ РёР»Рё РїСѓСЃС‚РѕР№"}); return
         cl = self._client(b)
         if not cl:
-            self._j({"error": "нужен вход"}, 401); return
+            self._j({"error": "РЅСѓР¶РµРЅ РІС…РѕРґ"}, 401); return
         if p == "/ask":
             self._j(ask(b.get("q") or "", cl, b.get("image"), mode=b.get("mode")))
         elif p == "/ask_stream":
@@ -733,7 +736,7 @@ class Hd(BaseHTTPRequestHandler):
 
             def _run():
                 try: holder["r"] = ask(b.get("q") or "", cl, b.get("image"), on_step=_cb, mode=b.get("mode"))
-                except Exception as e: holder["r"] = {"answer": "ошибка: %s" % e, "log": []}
+                except Exception as e: holder["r"] = {"answer": "РѕС€РёР±РєР°: %s" % e, "log": []}
                 finally: qq.put(None)
             threading.Thread(target=_run, daemon=True).start()
             self.send_response(200)
@@ -749,7 +752,14 @@ class Hd(BaseHTTPRequestHandler):
         elif p == "/approve":
             self._j(do_approve(b.get("pid"), b.get("ok")))
         elif p == "/setmodel":
-            settings.set_val("llm_model", b.get("model")); self._j({"ok": True})
+            import panel as _pn
+            ok_names = _pn.models()
+            want = b.get("model") or ""
+            if want not in ok_names:
+                self._j({"ok": False, "error": "нет такой модели", "models": ok_names}, 400)
+                return
+            settings.set_val("llm_model", want)
+            self._j({"ok": True})
         elif p == "/setauto":
             settings.set_val("auto_mode", 1 if b.get("on") else 0); self._j({"ok": True})
         elif p == "/feedback":
@@ -761,28 +771,28 @@ class Hd(BaseHTTPRequestHandler):
                            (b.get("tool") or "")[:120], (b.get("result") or "")[:2000], 1 if b.get("ok") else 0, (b.get("comment") or "")[:500]))
                 c.commit(); c.close()
             except Exception as e:
-                self._j({"ok": False, "msg": "оценка не сохранена: %s" % e}, 500); return
-            self._j({"ok": True, "msg": "оценка сохранена"})
+                self._j({"ok": False, "msg": "РѕС†РµРЅРєР° РЅРµ СЃРѕС…СЂР°РЅРµРЅР°: %s" % e}, 500); return
+            self._j({"ok": True, "msg": "РѕС†РµРЅРєР° СЃРѕС…СЂР°РЅРµРЅР°"})
         elif p == "/setcfg":
             if (b.get("key") or "") in settings.PERSONAL_KEYS:
                 settings.set_for(cl, b.get("key"), b.get("value")); self._j({"ok": True}); return
             if not users.is_admin(cl):
-                self._j({"error": "настройки — только админ"}, 403); return
+                self._j({"error": "РЅР°СЃС‚СЂРѕР№РєРё вЂ” С‚РѕР»СЊРєРѕ Р°РґРјРёРЅ"}, 403); return
             settings.set_val(b.get("key"), b.get("value")); _SYS_CACHE.clear(); self._j({"ok": True})
         elif p == "/snap":
-            self._j({"msg": "скриншот принимается через Ctrl+V в поле ввода"})
+            self._j({"msg": "СЃРєСЂРёРЅС€РѕС‚ РїСЂРёРЅРёРјР°РµС‚СЃСЏ С‡РµСЂРµР· Ctrl+V РІ РїРѕР»Рµ РІРІРѕРґР°"})
         elif p == "/rescan":
             subprocess.Popen([sys.executable, "-c", "import scanner; scanner.index_all()"], cwd=r"D:\AI\tools\agent")
-            self._j({"msg": "переиндексация запущена"})
+            self._j({"msg": "РїРµСЂРµРёРЅРґРµРєСЃР°С†РёСЏ Р·Р°РїСѓС‰РµРЅР°"})
         elif p == "/scan":
             subprocess.Popen([sys.executable, "-c", "import scanner; scanner.scan_models()"], cwd=r"D:\AI\tools\agent")
-            self._j({"msg": "скан моделей запущен"})
+            self._j({"msg": "СЃРєР°РЅ РјРѕРґРµР»РµР№ Р·Р°РїСѓС‰РµРЅ"})
         elif p == "/profile":
             __prof = users.get_profile(cl)
             if __prof:
                 __prof = dict(__prof)
                 __prof["can_manage"] = users.can_manage_users(cl)
-            self._j(__prof or {"error": "нет профиля"})
+            self._j(__prof or {"error": "РЅРµС‚ РїСЂРѕС„РёР»СЏ"})
         elif p == "/setname":
             okf, msg = users.update_display_name(cl, b.get("name"))
             self._j({"ok": okf, "msg": msg})
@@ -795,7 +805,7 @@ class Hd(BaseHTTPRequestHandler):
             self._j({"msgs": chat_tools.chat_poll(b.get("last") or 0)})
         elif p == "/admin/users":
             if not users.can_manage_users(cl):
-                self._j({"error": "нет прав"}, 403); return
+                self._j({"error": "РЅРµС‚ РїСЂР°РІ"}, 403); return
             op = b.get("op")
             if op == "list":
                 self._j({"users": users.list_users(), "roles": users.ROLES})
@@ -803,35 +813,35 @@ class Hd(BaseHTTPRequestHandler):
                 okf, msg = users.admin_set_role(b.get("login") or "", b.get("role") or "")
                 self._j({"ok": okf, "msg": msg})
             elif op == "add":
-                okf = users.add_user(b.get("login") or "", b.get("pw") or b.get("password") or "", b.get("role") or "Инженер")
-                self._j({"ok": okf, "msg": "создан" if okf else "логин занят или пустой"})
+                okf = users.add_user(b.get("login") or "", b.get("pw") or b.get("password") or "", b.get("role") or "РРЅР¶РµРЅРµСЂ")
+                self._j({"ok": okf, "msg": "СЃРѕР·РґР°РЅ" if okf else "Р»РѕРіРёРЅ Р·Р°РЅСЏС‚ РёР»Рё РїСѓСЃС‚РѕР№"})
             elif op == "delete":
                 lg = (b.get("login") or "").strip()
                 if not lg:
-                    self._j({"ok": False, "msg": "логин пустой"}, 400); return
+                    self._j({"ok": False, "msg": "Р»РѕРіРёРЅ РїСѓСЃС‚РѕР№"}, 400); return
                 if lg == cl:
-                    self._j({"ok": False, "msg": "нельзя удалить самого себя"}, 400); return
+                    self._j({"ok": False, "msg": "РЅРµР»СЊР·СЏ СѓРґР°Р»РёС‚СЊ СЃР°РјРѕРіРѕ СЃРµР±СЏ"}, 400); return
                 us = users.list_users()
                 tgt = [x for x in us if x.get("login") == lg]
                 if not tgt:
-                    self._j({"ok": False, "msg": "логин %s не найден" % lg}, 404); return
-                adm = [x for x in us if x.get("role") == "Администратор" and x.get("login") != lg]
-                if tgt[0].get("role") == "Администратор" and not adm:
-                    self._j({"ok": False, "msg": "нельзя удалить последнего администратора"}, 400); return
+                    self._j({"ok": False, "msg": "Р»РѕРіРёРЅ %s РЅРµ РЅР°Р№РґРµРЅ" % lg}, 404); return
+                adm = [x for x in us if x.get("role") == "РђРґРјРёРЅРёСЃС‚СЂР°С‚РѕСЂ" and x.get("login") != lg]
+                if tgt[0].get("role") == "РђРґРјРёРЅРёСЃС‚СЂР°С‚РѕСЂ" and not adm:
+                    self._j({"ok": False, "msg": "РЅРµР»СЊР·СЏ СѓРґР°Р»РёС‚СЊ РїРѕСЃР»РµРґРЅРµРіРѕ Р°РґРјРёРЅРёСЃС‚СЂР°С‚РѕСЂР°"}, 400); return
                 okf = users.admin_delete_user(lg)
-                self._j({"ok": okf, "msg": ("пользователь %s удалён" % lg) if okf else "ошибка удаления"})
+                self._j({"ok": okf, "msg": ("РїРѕР»СЊР·РѕРІР°С‚РµР»СЊ %s СѓРґР°Р»С‘РЅ" % lg) if okf else "РѕС€РёР±РєР° СѓРґР°Р»РµРЅРёСЏ"})
             elif op == "resetpw":
                 okf, msg = users.admin_reset_password(b.get("login") or "", b.get("pw") or b.get("password") or "")
                 self._j({"ok": okf, "msg": msg})
             else:
-                self._j({"error": "неизвестная op"}, 400)
+                self._j({"error": "РЅРµРёР·РІРµСЃС‚РЅР°СЏ op"}, 400)
         else:
-            self._j({"error": "не знаю"}, 404)
+            self._j({"error": "РЅРµ Р·РЅР°СЋ"}, 404)
 
 
 if __name__ == "__main__":
     import atexit
-    log("=== старт АГЕНТ v15 на %s ===" % HOSTNAME)
+    log("=== СЃС‚Р°СЂС‚ РђР“Р•РќРў v15 РЅР° %s ===" % HOSTNAME)
     pidfile = core.BASE / "agent.pid"
     pidfile.write_text(str(os.getpid()), encoding="ascii")
     atexit.register(lambda: pidfile.unlink(missing_ok=True))
