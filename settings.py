@@ -67,7 +67,6 @@ REGISTRY = [
     ("ИИ-роли", "model_chat", "Модель чата", "str", "", "Пусто = llm_model.", False),
     ("ИИ-роли", "model_fast", "Модель рутины", "str", "", "Быстрые/простые ходы.", True),
     ("ИИ-роли", "model_creo", "Модель Creo", "str", "", "Пусто = llm_model.", False),
-    ("ИИ-роли", "model_vision", "Модель визии", "str", "gemma4:12b", "Скриншоты/чертежи.", True),
     ("ИИ-роли", "model_spec", "Модель спец", "str", "", "Пусто = llm_model.", False),
     ("ИИ-роли", "model_trail", "Модель трейлов", "str", "", "Диагностика трейлов.", True),
     ("ИИ-роли", "model_web", "Модель веб", "str", "", "Пусто = llm_model.", False),

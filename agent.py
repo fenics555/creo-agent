@@ -842,7 +842,7 @@ class Hd(BaseHTTPRequestHandler):
 if __name__ == "__main__":
     import atexit
     log("=== СЃС‚Р°СЂС‚ РђР“Р•РќРў v15 РЅР° %s ===" % HOSTNAME)
-    pidfile = core.BASE / "agent.pid"
+    pidfile = core.BASE / "agent" / "agent.pid"
     pidfile.write_text(str(os.getpid()), encoding="ascii")
     atexit.register(lambda: pidfile.unlink(missing_ok=True))
     threading.Thread(target=_scheduler, daemon=True).start()
