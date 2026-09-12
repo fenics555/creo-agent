@@ -1,0 +1,33 @@
+# Исключения для индексации и скана
+# Строка = шаблон. * - любой путь/имя.
+# Папки (заканчиваются на \ или /)
+.git\
+__pycache__\
+node_modules\
+venv\
+.venv\
+backup\
+old\
+temp\
+tmp\
+cache\
+.idea\
+.vscode\
+Z:\PTC\Work\000_03 401-LIT Литейное производство\000_5 401-LIT-MO Модельная оснастка для литья\000_10 СТОРОННИЕ РАЗРАБОТКИ\
+Z:\PTC\Work\УЧЕБА\
+# Файлы
+Thumbs.db
+desktop.ini
+*.tmp
+*.bak
+*~
+*.log
+*.sqlite
+*.db
+*.exe
+*.dll
+*.so
+*.o
+*.obj
+*.pyc
+.DS_Store

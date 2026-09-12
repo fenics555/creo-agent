@@ -1,0 +1,189 @@
+{
+  "results": [
+    {
+      "#": 1,
+      "q": "какая модель открыта в Creo?",
+      "expected": "creo_get_active",
+      "tools": [
+        "creo_get_active"
+      ],
+      "think": false,
+      "answer": "a338-6-75.mfg\n\nАктивная модель — a338-6-75.mfg",
+      "verdict": "FAIL",
+      "note": "think пустой (предупреждение); латиница 36%>25%"
+    },
+    {
+      "#": 2,
+      "q": "найди модель корпус",
+      "expected": "models_find",
+      "tools": [
+        "models_find"
+      ],
+      "think": true,
+      "answer": "Принято. Работаю строго по протоколу: один блок на ход, данные только через инструменты, ответы только на русском. Жду з",
+      "verdict": "PASS",
+      "note": ""
+    },
+    {
+      "#": 3,
+      "q": "где используется корпус?",
+      "expected": "models_where",
+      "tools": [
+        "models_where"
+      ],
+      "think": true,
+      "answer": "Деталь «корпус» не найдена ни в одной сборке.",
+      "verdict": "PASS",
+      "note": ""
+    },
+    {
+      "#": 4,
+      "q": "сколько всего моделей в базе?",
+      "expected": "models_stats",
+      "tools": [
+        "models_stats"
+      ],
+      "think": false,
+      "answer": "Всего в базе 40 967 моделей.\n\nРаспределение по типам:\n* **Детали (prt):** 19 344\n* **Чертежи (drw):** 11 743\n* **Сборки ",
+      "verdict": "PASS",
+      "note": "think пустой (предупреждение)"
+    },
+    {
+      "#": 5,
+      "q": "прочитай файл D:\\AI\\repo\\SKILL_index.md",
+      "expected": "read_file",
+      "tools": [
+        "read_file"
+      ],
+      "think": false,
+      "answer": "В репозитории (D:\\AI\\repo) выделено 6 доменов знаний:\n\n**1. Домен 1: Creo (Инженер/Веб-агент)**\n*   **API и команды:** `",
+      "verdict": "FAIL",
+      "note": "think пустой (предупреждение); латиница 47%>25%"
+    },
+    {
+      "#": 6,
+      "q": "что в базе знаний про пружины?",
+      "expected": "search_kb",
+      "tools": [
+        "search_kb"
+      ],
+      "think": false,
+      "answer": "В результатах поиска по базе знаний прямых справочных данных по пружинам (характеристик, формул или стандартов) не обнар",
+      "verdict": "PASS",
+      "note": "think пустой (предупреждение)"
+    },
+    {
+      "#": 7,
+      "q": "переведи 150 Нм в кгсм",
+      "expected": "calc",
+      "tools": [
+        "calc"
+      ],
+      "think": false,
+      "answer": "150 Нм = 15.2957 кгсм\n\n150 Нм = 15.2957 кгсм",
+      "verdict": "PASS",
+      "note": "think пустой (предупреждение)"
+    },
+    {
+      "#": 8,
+      "q": "какие накопленные проблемы по трейлам?",
+      "expected": "trail_problems",
+      "tools": [
+        "trail_problems"
+      ],
+      "think": false,
+      "answer": "Накопленные проблемы в трейлах:\n\n**Основные ошибки (Feature Errors):**\n* **feature**: 733 случая.\n* **A338-6-75**: 206 с",
+      "verdict": "FAIL",
+      "note": "think пустой (предупреждение); латиница 33%>25%"
+    },
+    {
+      "#": 9,
+      "q": "покажи текущие настройки",
+      "expected": "settings_show",
+      "tools": [
+        "settings_show"
+      ],
+      "think": false,
+      "answer": "Текущие настройки системы:\n\n**Основные параметры (LLM и логика):**\n* **Модель:** `gemma4:26b`.\n* **Режим:** Инженерный (",
+      "verdict": "PASS",
+      "note": "think пустой (предупреждение)"
+    },
+    {
+      "#": 10,
+      "q": "привет",
+      "expected": "answer",
+      "tools": [],
+      "think": false,
+      "answer": "Привет! С чем помочь по Creo?",
+      "verdict": "PASS",
+      "note": "think пустой (предупреждение)"
+    },
+    {
+      "#": 11,
+      "q": "найди модель держатель и покажи, где она используется",
+      "expected": "models_find",
+      "error": "timed out",
+      "verdict": "FAIL"
+    },
+    {
+      "#": 12,
+      "q": "посмотри деталь",
+      "expected": "creo_get_active",
+      "error": "timed out",
+      "verdict": "FAIL"
+    },
+    {
+      "#": 13,
+      "q": "index_state",
+      "expected": "index_state",
+      "tools": [
+        "index_state"
+      ],
+      "think": false,
+      "answer": "файлов: 27961, чанков: 34346, моделей: 40967, индексация: нет (0/0)",
+      "verdict": "PASS",
+      "note": ""
+    },
+    {
+      "#": 14,
+      "q": "creo_save",
+      "expected": "approval",
+      "tools": [
+        "creo_save"
+      ],
+      "think": false,
+      "answer": "[СОГЛАСОВАНИЕ] операция creo_save ждёт подтверждения пользователя (id 162838527317)",
+      "verdict": "FAIL",
+      "note": "ждал approval в инструментах И [СОГЛАСОВАНИЕ] в ответе; think пустой (предупреждение)"
+    },
+    {
+      "#": 15,
+      "q": "у тебя нет доступа к файлам?",
+      "expected": "no_refusal",
+      "tools": [],
+      "think": true,
+      "answer": "Доступ к файлам репозитория и базе знаний есть через инструменты `read_file` и `search_kb`.",
+      "verdict": "PASS",
+      "note": ""
+    },
+    {
+      "#": 16,
+      "q": "разбери последний трейл",
+      "expected": "trail_analyze",
+      "error": "timed out",
+      "verdict": "FAIL"
+    }
+  ],
+  "after": {
+    "traceback_new": 0,
+    "feedback_ok": true,
+    "status": {
+      "host": "frezer-4",
+      "model": "gemma4:26b",
+      "blocks": 30,
+      "tools": 113,
+      "user": null,
+      "is_manager": false
+    }
+  }
+}

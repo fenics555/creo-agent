@@ -1,0 +1,238 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="utf-8">
+    <title>Копия сборки</title>
+    <style>
+        body {
+            background-color: #1B1C1E;
+            color: #E4E6EB;
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+            display: flex;
+            justify-content: center;
+            padding: 20px;
+            margin: 0;
+        }
+        .container {
+            background-color: #242527;
+            padding: 24px;
+            border-radius: 8px;
+            width: 100%;
+            max-width: 600px;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.5);
+        }
+        h2 { margin-top: 0; color: #FFFFFF; }
+        .field { margin-bottom: 16px; }
+        label { display: block; margin-bottom: 6px; font-size: 14px; color: #B0B3B8; }
+        input[type="text"] {
+            width: 100%;
+            padding: 10px;
+            border: 1px solid #2C2D30;
+            border-radius: 4px;
+            background-color: #2C2D30;
+            color: #FFFFFF;
+            box-sizing: border-box;
+            font-size: 14px;
+        }
+        input[type="text"]:focus {
+            outline: none;
+            border-color: #1273EB;
+        }
+        .row { margin-bottom: 16px; display: flex; align-items: center; }
+        .row input { margin-right: 8px; }
+        .actions { display: flex; gap: 10px; margin-bottom: 20px; }
+        button {
+            flex: 1;
+            padding: 10px;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            font-weight: 600;
+            font-size: 14px;
+            transition: opacity 0.2s;
+        }
+        button:disabled { opacity: 0.5; cursor: not-allowed; }
+        .btn-plan { background-color: #2C2D30; color: #FFFFFF; }
+        .btn-exec { background-color: #1273EB; color: #FFFFFF; }
+        .btn-clean { background-color: #2C2D30; color: #FFFFFF; }
+        button:hover:not(:disabled) { opacity: 0.8; }
+
+        .result-area {
+            padding: 12px;
+            border: 1px solid #2C2D30;
+            border-radius: 4px;
+            min-height: 20px;
+            margin-bottom: 16px;
+            font-size: 14px;
+            white-space: pre-wrap;
+        }
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 10px;
+            font-size: 14px;
+        }
+        th, td {
+            text-align: left;
+            padding: 8px;
+            border-bottom: 1px solid #2C2D30;
+        }
+        th { color: #B0B3B8; }
+        tr:hover { background-color: #2C2D30; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h2>Копия сборки</h2>
+        
+        <div class="field">
+            <label>Источник (старое имя)</label>
+            <input type="text" id="src" placeholder="D:\AI\project\assembly">
+        </div>
+        
+        <div class="field">
+            <label>Копия (новое имя)</label>
+            <input type="text" id="dst" placeholder="D:\AI\project\assembly_copy">
+        </div>
+        
+        <div class="row">
+            <input type="checkbox" id="dry_run">
+            <label for="dry_run">Только план</label>
+        </div>
+
+        <div class="actions">
+            <button class="btn-plan" onclick="prepare()">Построить план</button>
+            <button class="btn-exec" id="btn-exec" onclick="execute()" disabled>Выполнить</button>
+            <button class="btn-clean" onclick="cleanup()">Уборка</button>
+        </div>
+
+        <div id="result" class="result-area">Ожидание действий...</div>
+        <div id="table-container"></div>
+    </div>
+
+    <!-- Hidden iframe and form for POST requests -->
+    <iframe name="frame_target" id="frame_target" style="display:none;"></iframe>
+    <form id="post_form" method="POST" target="frame_target" style="display:none;"></form>
+
+    <script>
+        let currentPlan = [];
+        let currentDir = "";
+
+        function log(msg, isError = false) {
+            const res = document.getElementById('result');
+            res.textContent = (isError ? '⚠ ' : '') + msg;
+            res.style.borderColor = isError ? '#CC3333' : '#1273EB';
+        }
+
+
+        function sendPost(url, data) {
+            const form = document.getElementById('post_form');
+            form.innerHTML = '';
+            for (const key in data) {
+                const input = document.createElement('input');
+                input.type = 'hidden';
+                input.name = key;
+                input.value = data[key];
+                form.appendChild(input);
+            }
+            form.action = url;
+            form.submit();
+        }
+
+        window.addEventListener('message', (event) => {
+            if (event.data && event.data.source === 'creo-specification-pdf') {
+                const payload = event.data.payload;
+                handlePayload(payload);
+            }
+        });
+
+        function handlePayload(res) {
+            if (!res.ok) {
+                log(res.error || "Ошибка", true);
+                return;
+            }
+
+            if (res.plan) {
+                currentPlan = res.plan;
+                currentDir = res.directory;
+                document.getElementById('btn-exec').disabled = false;
+                log("План построен.");
+                renderTable(currentPlan);
+            } else if (res.copied !== undefined) {
+                let msg = "Копирование завершено:\n";
+                if (res.copied.length) msg += `✅ Скопировано: ${res.copied.length}\n`;
+                if (res.occupied.length) msg += `⚠️ Уже занято: ${res.occupied.length}\n`;
+                if (res.missing.length) msg += `❌ Пропущено (нет файла): ${res.missing.length}\n`;
+                log(msg);
+            } else if (res.ok === true && res.path === undefined) {
+                log("ok");
+            } else if (res.entries) {
+                log("Записи обновлены.");
+            } else if (res.graph) {
+                log("Граф обновлен.");
+            } else {
+                log("Получен ответ: " + JSON.stringify(res));
+            }
+        }
+
+        function renderTable(plan) {
+            const container = document.getElementById('table-container');
+            if (plan.length === 0) {
+                container.innerHTML = '';
+                return;
+            }
+            let html = '<table><thead><tr><th style="color: #B0B3B8">Источник</th><th style="color: #B0B3B8">Копия</th></tr></thead><tbody>';
+            plan.forEach(item => {
+                html += `<tr><td>${item.old}</td><td>${item.new}</td></tr>`;
+            });
+            html += '</tbody></table>';
+            container.innerHTML = html;
+        }
+
+        function prepare() {
+            const src = document.getElementById('src').value;
+            const dst = document.getElementById('dst').value;
+            if (!src || !dst) return log("Укажите пути!", true);
+
+            log("Построение плана...");
+            sendPost('/api/assembly-copy-workspace-frame', {
+                action: "prepare",
+                source: src,
+                target: dst
+            });
+        }
+
+        function execute() {
+            const isDry = document.getElementById('dry_run').checked;
+            const src = document.getElementById('src').value;
+            const dst = document.getElementById('dst').value;
+
+            if (isDry) {
+                log("Режим: Только план (dry_run). Выполнение отменено.");
+                return;
+            }
+
+            if (!currentPlan.length) return log("Сначала постройте план!", true);
+
+            log("Выполнение копирования...");
+            sendPost('/api/assembly-copy-workspace-frame', {
+                action: "collect",
+                source: src,
+                target: dst,
+                names: JSON.stringify(currentPlan)
+            });
+        }
+
+        function cleanup() {
+            if (!currentDir) return log("Сначала постройте план!", true);
+
+            log("Уборка временных файлов...");
+            sendPost('/api/assembly-copy-workspace-frame', {
+                action: "cleanup",
+                directory: currentDir
+            });
+        }
+    </script>
+</body>
+</html>
+
