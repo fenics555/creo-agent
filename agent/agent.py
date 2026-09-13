@@ -626,6 +626,24 @@ class Hd(BaseHTTPRequestHandler):
                 self._j({"error": str(e)}); return
             self._j({"name": name, "children": out[:200]})
             return
+        elif p == "/graph/data":
+            if not users.token_info(self.headers.get("X-Token") or ""): return self._j({"error": "no token"})
+            qs = parse_qs(urlparse(self.path).query)
+            name = qs.get("name", [""])[0]
+            if not name: return self._j({"error": "no name"})
+            import graph_tools
+            self._j(graph_tools.build_graph(name))
+            return
+        elif p == "/graph":
+            if not users.token_info(self.headers.get("X-Token") or ""):
+                self.send_response(401); self.end_headers(); return
+            b = open(os.path.join(os.path.dirname(__file__), "ui", "graph.html"), "rb").read()
+            self.send_response(200)
+            self.send_header("Content-Type", "text/html; charset=utf-8")
+            self.send_header("Content-Length", str(len(b)))
+            self.end_headers()
+            self.wfile.write(b)
+            return
         elif p == "/pdfregistry":
             if not users.token_info(self.headers.get("X-Token") or ""): return self._j({"error": "no token"})
             try:
