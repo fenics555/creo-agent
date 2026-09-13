@@ -19,7 +19,7 @@ LIVE_THINK = {}
 
 
 # === Constants ===
-_NUDGE = "[СЛУЖЕБНОЕ] Ответ не в формате. Дай ровно один блок: [TOOL: имя] {\"параметр\": \"значение\"} [/TOOL] или [ANSWER] краткий ответ по-русски [/ANSWER]. Слово «текст» само по себе — не ответ. Ничего до и после блока."
+_NUDGE = "[СЛУЖЕБНОЕ] Неверно. Доступ к базе, файлам и Creo у тебя ЕСТЬ через инструменты (список «ТВОИ ИНСТРУМЕНТЫ» выше). Никогда не отвечай «нет доступа». Повтори ровно один блок: [TOOL: имя] {"параметр": "значение"} [/TOOL] или [ANSWER] ответ [/ANSWER]. Справочные факты через search_kb/read_file."
 _ACCESS_NUDGE = "[СРОЧНОЕ] 거예요. Доступ к базе, файлов и Creo у тебя ЧЕРЕЗ инструкции (список «TWO INSTRUMENTS» выше). Никогда не отвечай «нет доступа». Повтори ровно один блок: [TOOL: имя] {\"параметр\": \"значение\"} [/TOOL] или [ANSWER] ответ [/ANSWER]."
 _REFUSAL = ("извините", "не могу", "не имею доступа", "нет доступа", "моя функциональность",
             "виртуальной среде", "не понял", "уточните", "переформулируй", "как языковая модель",
@@ -35,7 +35,7 @@ def _role_check(client, tool):
     prof = users.get_profile(client)
     if not prof:
         return None
-    role = prof.get("role", "Исполнитель")
+    role = prof.get("role", "Инженер")
     if users.role_denied(role, tool):
         return "🛔 роль «%s» не может выполнить «%s» (запрет администратора)" % (role, tool)
     return None
@@ -196,11 +196,11 @@ def run_loop(messages, client, has_link=False, on_step=None):
             res = "нет такого инструмента: %s" % name
         elif msg := _role_check(client, name):
             res = msg
-            _log("%s(%s) в†’ Р—РђРџР Р•РТ Р РћР›Р" % (name, "Р±РµР· РїР°СЂР°РјРµС‚СЂРѕРІ" if not args else json.dumps(args, ensure_ascii=False)))
+            _log("%s(%s) → ЗАПРЕТ РОЛИ" % (name, "без параметров" if not args else json.dumps(args, ensure_ascii=False)))
         elif t.get("approval"):
             pid = datetime.datetime.now().strftime("%H%M%S%f")
             PENDING[pid] = {"name": name, "args": args, "client": client, "messages": messages, "raw": raw}
-            return {"answer": "[РЎРћР“Р›РђРЎРћР’РђРќРР•] РѕРїРµСЂР°С†РёСЏ %s Р¶РґС‘С‚ РїРѕРґС‚РІРµСЂР¶РґРµРЅРёСЏ РїРѕР»СЊР·РѕРІР°С‚РµР»СЏ (id %s)" % (name, pid),
+                return {"answer": msg, "think": "", "steps": 1, "log": ["%s(прямой вызов) → ЗАПРЕТ РОЛИ" % name]}
                     "think": think, "steps": step + 1, "log": steps_log}
         else:
             t0 = time.time()
