@@ -13,8 +13,6 @@ from core import log, trace
 import settings
 import pdf_tools
 
-def _clean(txt):
-    return re.sub(r"\[/?ANSWER\]|\[/?THINK\]|\[TOOL[^\]]*\]|\[/TOOL\]", "", txt or "")
 
 
 # === v15: стриминг токенов ===
