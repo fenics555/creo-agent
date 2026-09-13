@@ -3,6 +3,7 @@
 Вердикты: passed / failed / not_determined.
 material/roughness/scale и мета-поля — резерв спеки 21 (vision-модель): не галлюцинируем."""
 import json, base64, re
+import os
 import urllib.request
 from pathlib import Path
 import pdf_tools
@@ -55,6 +56,32 @@ def _check_item(cid, it, name, pdf):
         return "not_determined", "мета-поля не читаются из pdf_tools (резерв vision-модели)"
     return "not_determined", "резерв спеки 21 (vision-модель)"
 
+
+
+
+def _audit_pdf(name, checklist="gost_stamp"):
+    """Сверка PDF-экспорта модели с чек-листом. Возвращает список {"id","verdict","note"} и (P,F,N)."""
+    cl_path = CHECK_DIR / ("%s.json" % checklist)
+    if not cl_path.exists():
+        have = ", ".join(p.name for p in CHECK_DIR.glob("*.json")) or "пусто"
+        return [], (0, 0, 0, "Чек-лист «%s» не найден (есть: %s)" % (checklist, have))
+    try:
+        items = json.loads(cl_path.read_text(encoding="utf-8"))
+    except Exception as e:
+        return [], (0, 0, 0, "Чек-лист повреждён: %s" % e)
+    if not isinstance(items, list):
+        return [], (0, 0, 0, "Чек-лист должен быть JSON-списком пунктов.")
+    pdf = pdf_tools.pdf_pages(name)
+    rows = []
+    P = F = N = 0
+    for it in items:
+        cid = it.get("id") or ""
+        v, note = _check_item(cid, it, name, pdf)
+        rows.append({"id": cid, "verdict": v, "note": note})
+        if v == "passed": P += 1
+        elif v == "failed": F += 1
+        else: N += 1
+    return rows, (P, F, N)
 
 def tool_vision_audit(name="", checklist="gost_stamp"):
     if not (name or "").strip():
@@ -121,9 +148,63 @@ def tool_vision_audit(name="", checklist="gost_stamp"):
     return "\n".join(out)
 
 
+
+
+def audit_batch(limit=""):
+    """Пакетный аудит устаревших PDF-экспортов. Читает пары реестра, смотрит существующие PDF глазами model_vision по чек-листу."""
+    lim = int(limit) if limit else int(settings.get("audit_limit") or 20)
+    c = core.db()
+    try:
+        rows = c.execute("SELECT path, mtime FROM files").fetchall()
+    except Exception as e:
+        return "ошибка БД: %s" % e
+    finally:
+        c.close()
+    bydir = {}
+    for path, mt in rows:
+        d = os.path.dirname(path)
+        bydir.setdefault(d, {})[os.path.basename(path).lower()] = (path, mt)
+    expired = []
+    for d, fs in bydir.items():
+        du = d.upper()
+        if "CREO12" in du or "DATA" in du:
+            continue
+        for base, (pdf_path, mt) in fs.items():
+            if not base.endswith(".drw"):
+                continue
+            name = os.path.splitext(base)[0]
+            pdf_key = (name + ".pdf").lower()
+            if pdf_key in fs:
+                expired.append((name, pdf_path, d))
+    if not expired:
+        return "устаревших экспортов нет"
+    out = ["audit_batch: пакетный аудит устаревших экспортов (лимит=%d)" % lim]
+    audited = 0
+    need_export = 0
+    for name, pdf_path, d in expired[:lim]:
+        audited += 1
+        rows, (P, F, N) = _audit_pdf(name, "gost_stamp")
+        verdict_line = "passed %d | failed %d | nd %d" % (P, F, N)
+        fail_ids = ", ".join(r["id"] for r in rows if r["verdict"] == "failed")
+        out.append("%s: %s" % (name, verdict_line))
+        if fail_ids:
+            out.append("  провал: %s" % fail_ids)
+            need_export += 1
+        elif P == 0 and F == 0 and N > 0:
+            out.append("  провал: поле not_determined")
+            need_export += 1
+    out.append("устаревших найдено: %d, аудировано: %d, требуют переэкспорта: %d" % (len(expired), audited, need_export))
+    return "\n".join(out)
+
+
+
 TOOLS = [
     {"name": "vision_audit",
      "desc": "Сверка PDF-экспорта с чек-листом ГОСТ (passed/failed/not_determined)",
      "params": {"name": "имя модели", "checklist": "имя чек-листа из data\\checklists"},
      "fn": tool_vision_audit},
+    {"name": "audit_batch",
+     "desc": "Пакетный аудит устаревших PDF-экспортов (лимит из settings audit_limit)",
+     "params": {"limit": "макс. количество пар для аудита"},
+     "fn": audit_batch, "approval": False},
 ]

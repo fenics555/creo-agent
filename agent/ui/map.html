@@ -1,0 +1,36 @@
+<!DOCTYPE html><html><head><meta charset="utf-8"><title>Карта проекта</title>
+<style>
+body{margin:0;font-family:Segoe UI;background:#1B1C1E;color:#E8E8E8}
+#wrap{display:flex;height:100vh}
+#roots{width:300px;border-right:1px solid #333;overflow:auto;padding:10px}
+#top{flex:1;overflow:auto;padding:10px}
+.root{padding:8px;margin:4px 0;border-left:4px solid #4CAF50;background:#203a20;cursor:pointer}
+.root.active{border-color:#F44336;background:#3a2020}
+.root .name{font-weight:bold;font-size:14px}
+.root .stats{font-size:12px;color:#999}
+.model{padding:6px;margin:2px 0;border-left:4px solid #2196F3;cursor:pointer}
+.model:hover{border-color:#FF9800}
+.model .name{font-size:13px}
+.model .links{font-size:11px;color:#999}
+.empty{padding:40px;text-align:center;color:#999;font-size:16px}
+</style></head><body><div id="wrap"><div id="roots"></div><div id="top"></div></div>
+<script>
+const token=localStorage.getItem('token')||'';
+(async()=>{
+  const r=await fetch('/map/data?top=200&token='+token);
+  const data=await r.json();
+  const rootsEl=document.getElementById('roots');
+  const topEl=document.getElementById('top');
+  if(data.roots.length===0){rootsEl.innerHTML='<div class="empty">Нет данных, запусти скан моделей (/scan)</div>';topEl.innerHTML='<div class="empty">Нет данных</div>';return;}
+  data.roots.forEach(root=>{
+    const d=document.createElement('div');
+    d.className='root';
+    d.innerHTML='<div class="name">'+root.name+'</div>'+
+      '<div class="stats">моделей: '+root.count+' | связей: '+root.links+'</div>';
+    d.onclick=()=>{document.querySelectorAll('.root').forEach(r=>r.classList.remove('active'));d.classList.add('active');topEl.innerHTML='';data.top.filter(m=>m.name.toUpperCase().startsWith(root.name.toUpperCase()+'\\')).forEach(m=>{const row=document.createElement('div');row.className='model';row.innerHTML='<div class="name">'+m.name+'</div>'+
+ '<div class="links">связи: '+m.links+'</div>';row.onclick=()=>window.location.href='/graph?name='+encodeURIComponent(m.name);topEl.appendChild(row);});};
+    rootsEl.appendChild(d);
+  });
+  rootsEl.querySelector('.root')&&rootsEl.querySelector('.root').click();
+})();
+</script></body></html>

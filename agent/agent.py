@@ -644,6 +644,23 @@ class Hd(BaseHTTPRequestHandler):
             self.end_headers()
             self.wfile.write(b)
             return
+        elif p == "/map/data":
+            if not users.token_info(self.headers.get("X-Token") or ""): return self._j({"error": "no token"})
+            qs = parse_qs(urlparse(self.path).query)
+            top = int(qs.get("top", ["100"])[0])
+            import map_tools
+            self._j(map_tools.build_map(top))
+            return
+        elif p == "/map":
+            if not users.token_info(self.headers.get("X-Token") or ""):
+                self.send_response(401); self.end_headers(); return
+            b = open(os.path.join(os.path.dirname(__file__), "ui", "map.html"), "rb").read()
+            self.send_response(200)
+            self.send_header("Content-Type", "text/html; charset=utf-8")
+            self.send_header("Content-Length", str(len(b)))
+            self.end_headers()
+            self.wfile.write(b)
+            return
         elif p == "/pdfregistry":
             if not users.token_info(self.headers.get("X-Token") or ""): return self._j({"error": "no token"})
             try:
