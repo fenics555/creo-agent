@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-"""АГЕНТ v12 — ctl.py: единый пуск/стоп/сторож стека (Ollama, CREOSON, агент).
+"""АГЕНТ v15 — ctl.py: единый пуск/стоп/сторож стека (Ollama, CREOSON, агент).
 up [--browser] [--hidden] — идемпотентный пуск: поднимает ТОЛЬКО недостающее.
 down — явный стоп. restart — down+up. status — таблица портов. --watch — сторож 60 сек."""
 import os, sys, time, socket, subprocess, datetime

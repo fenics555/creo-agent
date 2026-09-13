@@ -43,7 +43,8 @@ def tool_vision_audit(name="", checklist="gost_stamp"):
         return "Чек-лист должен быть JSON-списком пунктов."
     pdf = pdf_tools.pdf_pages(name)
     if isinstance(pdf, dict) and pdf.get("error"):
-        pdf = None
+        return ("PDF не найден для модели «%s» (%s). Проверь имя или запусти скан моделей (/scan), затем повтори vision_audit."
+                % (name, pdf.get("error", "")))
     rows = []
     for it in items:
         cid = it.get("id") or ""

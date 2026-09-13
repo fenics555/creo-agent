@@ -642,8 +642,9 @@ class Hd(BaseHTTPRequestHandler):
                 if "\\CREO12\\" in du or "\\DATA\\" in du:
                     continue
                 for nm, (path, mt) in fs.items():
-                    if not nm.endswith(".drw"): continue
-                    stem = nm[:-4]
+                    m_drw = re.search(r"\.drw(\.\d+)?$", nm)
+                    if not m_drw: continue
+                    stem = nm[:m_drw.start()]
                     pdf = fs.get(stem + ".pdf")
                     verdict = "нет pdf" if not pdf else ("актуален" if pdf[1] >= mt else "УСТАРЕЛ")
                     pairs.append({"name": stem, "dir": d, "drw": path, "pdf": pdf[0] if pdf else "",
