@@ -157,8 +157,8 @@ def build_system(mode=1):
         if len(d) > 45: d = d[:43].rstrip(" ,.;:-") + "…"
         line = "- %s(%s) — %s%s" % (t["name"], ps, d, " [СОГЛАСОВАНИЕ]" if t.get("approval") else "")
         (core_lines if t["name"] in _CORE else rest).append(line)
-    tail = "=== ТВОИ ИНСТРУМЕНТР« — ОСНОВНЫЕ (частые, полные) ===\n" + "\n".join(core_lines)
-    tail += "\n\n=== ПРОЧИЕ ИНСТРУМЕНТР« (только имена; описание блока — tools_help block=<имя>) ===\n"
+    tail = "=== ТВОИ ИНСТРУМЕНТЫ — ОСНОВНЫЕ (частые, полные) ===\n" + "\n".join(core_lines)
+    tail += "\n\n=== ПРОЧИЕ ИНСТРУМЕНТЫ (только имена; описание блока — tools_help block=<имя>) ===\n"
     tail += ", ".join(sorted({t["name"] for t in TR.TOOLS if t["name"] not in _CORE}))
     tm = int(settings.get("think_mode") or 0)
     if tm == 0:
@@ -264,7 +264,7 @@ def parse_model(text):
 
 
 _NUDGE = "[СЛУЖЕБНОЕ] Ответ не в формате. Дай ровно один блок: [TOOL: имя] {\"параметр\": \"значение\"} [/TOOL] или [ANSWER] краткий ответ по-русски [/ANSWER]. Слово «текст» само по себе — не ответ. Ничего до и после блока."
-_ACCESS_NUDGE = "[СЛУЖЕБНОЕ] Неверно. Доступ к базе, файлам и Creo у тебя ЕСТЬ через инструменты (список В«ТВОИ ИНСТРУМЕНТР«В» выше). Никогда не отвечай «нет доступа». Повтори ровно один блок: [TOOL: имя] {\"параметр\": \"значение\"} [/TOOL] или [ANSWER] ответ [/ANSWER]."
+_ACCESS_NUDGE = "[СЛУЖЕБНОЕ] Неверно. Доступ к базе, файлам и Creo у тебя ЕСТЬ через инструменты (список «ТВОИ ИНСТРУМЕНТЫ» выше). Никогда не отвечай «нет доступа». Повтори ровно один блок: [TOOL: имя] {\"параметр\": \"значение\"} [/TOOL] или [ANSWER] ответ [/ANSWER]."
 _REFUSAL = ("извините", "не могу", "не имею доступа", "нет доступа", "моя функциональность",
             "виртуальной среде", "не понял", "уточните", "переформулируй", "как языковая модель",
             "к сожалению, я", "буду отвечать", "какой у вас вопрос", "давайте начнём")
@@ -338,7 +338,7 @@ def run_loop(messages, client, has_link=False, on_step=None):
                 messages.append({"role": "user", "content": nudge})
                 _log("parse_invalid"); continue
             pl = (payload or "").strip()
-            tail = (" Инструмент вернул: В«%sВ»." % last_res[:200]) if last_res else ""
+            tail = (" Инструмент вернул: «%s»." % last_res[:200]) if last_res else ""
             if _refusal(pl) or (len(pl) < 80 and pl.lower() in _NUDGE.lower()):
                 pl = "Ответ модели не распознан." + tail + " Уточни запрос (пример: models_where q=<имя детали>) или введи прямую команду инструмента."
             return {"answer": _clean(pl), "think": think, "steps": step + 1, "log": steps_log}

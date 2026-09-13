@@ -27,6 +27,11 @@ def load_all():
 
 load_all()
 
+import vision_audit
+TOOLS.extend(vision_audit.TOOLS)
+BLOCKS.append("vision_audit")
+
+
 def get(name):
     for t in TOOLS:
         if t["name"] == name: return t
