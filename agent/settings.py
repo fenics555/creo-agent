@@ -24,7 +24,7 @@ REGISTRY = [
     ("Расписание", "night_enable", "Ночной прогон", "bool", True, "Автопрогон тяжёлых задач ночью.", True),
     ("Расписание", "night_hour", "Час прогона", "int", 2, "0-23.", True),
     ("Расписание", "night_minute", "Минута прогона", "int", 0, "0-59.", True),
-    ("Расписание", "night_tasks", "Задачи ночи", "str", "scan,index,usage,drafts", "scan/index/usage/backup/drafts через запятую.", True),
+    ("Расписание", "night_tasks", "Задачи ночи", "str", "scan,index,usage,backup,drafts", "scan/index/usage/backup/drafts через запятую.", True),
     ("Главное", "parallel_tools", "Параллельные инструменты", "bool", False, "Несколько [TOOL] за ход — в потоках.", True),
     ("Главное", "stream_ui", "Стриминг в веб", "bool", False, "Токены в чат по мере генерации.", True),
     ("Главное", "log_mode", "Режим логов 0-3", "int", 1, "0 авто / 1 авто+токены / 2 отладка / 3 полный.", True),

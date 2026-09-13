@@ -570,12 +570,13 @@ class Hd(BaseHTTPRequestHandler):
             cl2 = users.token_info(token)
             prof = users.get_profile(cl2["login"]) if cl2 else None
             tail = ""
-            try:
-                jf = core.REPO / "Трейлы" / "TRAIL_JOURNAL.md"
-                if jf.exists():
-                    tail = "\n".join(jf.read_text(encoding="utf-8", errors="ignore").splitlines()[-8:])
-            except Exception:
-                tail = ""
+            if cl2:
+                try:
+                    jf = core.REPO / "Трейлы" / "TRAIL_JOURNAL.md"
+                    if jf.exists():
+                        tail = "\n".join(jf.read_text(encoding="utf-8", errors="ignore").splitlines()[-8:])
+                except Exception:
+                    tail = ""
             self._j({"host": HOSTNAME, "model": settings.get("llm_model"), "blocks": len(TR.BLOCKS),
                      "tools": len(TR.TOOLS), "user": prof,
                      "is_manager": users.can_manage_users(prof["login"]) if prof else False,
@@ -702,6 +703,9 @@ class Hd(BaseHTTPRequestHandler):
             self._j({"lines": lines[last:], "last": len(lines)})
             return
         elif p == "/fleet/info":
+            if not users.token_info(self.headers.get("X-Token") or ""):
+                self._j({"error": "нужен вход"}, code=401)
+                return
             tail = ""
             try:
                 jf = core.REPO / "Трейлы" / "TRAIL_JOURNAL.md"
