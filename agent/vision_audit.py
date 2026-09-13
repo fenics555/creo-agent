@@ -2,12 +2,41 @@
 """АГЕНТ v15 — vision_audit.py: сверка PDF-экспорта с чек-листом ГОСТ.
 Вердикты: passed / failed / not_determined.
 material/roughness/scale и мета-поля — резерв спеки 21 (vision-модель): не галлюцинируем."""
-import json
+import json, base64, re
+import urllib.request
 from pathlib import Path
 import pdf_tools
+import core
+import settings
 
 CHECK_DIR = Path(r"D:\AI\tools\agent\data\checklists")
 CHECK_DIR.mkdir(parents=True, exist_ok=True)
+
+_VISION_Q = {
+    "material": "Какая марка материала указана в графе 3 основной надписи?",
+    "roughness": "Есть ли на поле чертежа знаки шероховатости? Ответь ДА или НЕТ.",
+    "scale": "Какой масштаб указан в графе 6 основной надписи? Ответь вида 1:1 или НЕТ.",
+}
+
+
+def _vision_available():
+    """Модель model_vision есть в списке тегов Ollama."""
+    try:
+        d = json.loads(urllib.request.urlopen("http://127.0.0.1:11434/api/tags", timeout=10).read())
+        return settings.get("model_vision") in [m.get("name") for m in d.get("models", [])]
+    except Exception:
+        return False
+
+
+def _vision_ask(img_b64, question):
+    """Спросить vision-модель; строка ответа или None при любой ошибке."""
+    try:
+        r = core.post("/api/generate", {"model": settings.get("model_vision"),
+                                        "stream": False, "think": False, "images": [img_b64],
+                                        "prompt": question + " Ответь кратко по-русски."}, t=180)
+        return (r.get("response") or "").strip() or None
+    except Exception:
+        return None
 
 
 def _check_item(cid, it, name, pdf):
@@ -45,9 +74,38 @@ def tool_vision_audit(name="", checklist="gost_stamp"):
     if isinstance(pdf, dict) and pdf.get("error"):
         return ("PDF не найден для модели «%s» (%s). Проверь имя или запусти скан моделей (/scan), затем повтори vision_audit."
                 % (name, pdf.get("error", "")))
+    img_b64 = None
     rows = []
     for it in items:
         cid = it.get("id") or ""
+        if it.get("vision"):
+            ans = None
+            if _vision_available():
+                if img_b64 is None:
+                    try:
+                        ip = pdf_tools.pdf_img(name, "1")
+                        ipath = (ip or {}).get("image_path")
+                        if ipath:
+                            with open(ipath, "rb") as _f:
+                                img_b64 = base64.b64encode(_f.read()).decode("ascii")
+                    except Exception:
+                        img_b64 = ""
+                if img_b64:
+                    ans = _vision_ask(img_b64, _VISION_Q.get(cid, "Что видно на чертеже?"))
+            if ans:
+                low = (ans or "").upper()
+                if cid == "material":
+                    ok = len(ans.strip()) > 1 and not low.startswith("НЕТ")
+                elif cid == "roughness":
+                    ok = low.startswith("ДА")
+                else:
+                    ok = re.search(r"\d+\s*:\s*\d+", ans) is not None
+                rows.append((cid, it.get("title", cid), "passed" if ok else "failed", ans[:80]))
+            elif _vision_available():
+                rows.append((cid, it.get("title", cid), "not_determined", "визия недоступна: модель не ответила"))
+            else:
+                rows.append((cid, it.get("title", cid), "not_determined", "визия недоступна: модель не установлена"))
+            continue
         verdict, note = _check_item(cid, it, name, pdf)
         rows.append((cid, it.get("title", cid), verdict, note))
     out = ["vision_audit: %s | чек-лист «%s»" % (name, checklist)]
@@ -58,7 +116,7 @@ def tool_vision_audit(name="", checklist="gost_stamp"):
     n_nd = sum(1 for r in rows if r[2] == "not_determined")
     out.append("пройдено: %d | не пройдено: %d | не определено: %d" % (n_pass, n_fail, n_nd))
     for cid, title, verdict, note in rows:
-        if note and verdict == "not_determined":
+        if note:
             out.append("— %s: %s" % (cid, note))
     return "\n".join(out)
 
