@@ -12,11 +12,15 @@ import core
 from core import log, trace
 import settings
 import pdf_tools
-from engine import run_loop, parse_model, _clean, _refusal, _NUDGE, _ACCESS_NUDGE, _REFUSAL, beh, _role_check, PENDING, LIVE, LAST_META, LIVE_TOK, LIVE_THINK
 
+def _clean(txt):
+    return re.sub(r"\[/?ANSWER\]|\[/?THINK\]|\[TOOL[^\]]*\]|\[/TOOL\]", "", txt or "")
 
 
 # === v15: стриминг токенов ===
+import urllib.request as _ur
+LIVE_TOK = {}
+LIVE_THINK = {}
 _orig_core_post = core.post
 
 
@@ -89,6 +93,19 @@ import panel
 import vision_tools as VI
 
 
+def _role_check(client, tool):
+    """Вердикт: None = роль разрешает, строка = сообщение о запрете."""
+    if not client or not tool:
+        return None
+    prof = users.get_profile(client)
+    if not prof:
+        return None
+    role = prof.get("role", "РРЅР¶РµРЅРµСЂ")
+    if users.role_denied(role, tool):
+        return "🛔 роль «%s» не может выполнить «%s» (запрет администратора)" % (role, tool)
+    return None
+
+
 HOST, PORT = "0.0.0.0", 8765
 HOSTNAME = socket.gethostname()
 PENDING = {}
@@ -98,12 +115,31 @@ UI_FILE = os.path.join(os.path.dirname(os.path.abspath(__file__)), "ui", "index.
 _UI_CACHE = [0, b""]
 STUB_PAGE = ("<html><head><meta charset='utf-8'><title>АГЕНТ v15</title></head>"
              "<body style='background:#1B1C1E;color:#E8E8E8;font:14px Segoe UI,sans-serif;padding:40px'>"
-STUB_PAGE = ("<html><head><meta charset='utf-8'><title>АГЕНТ v15</title></head>" "<body style='background:#1B1C1E;color:#E8E8E8;font:14px Segoe UI,sans-serif;padding:40px'>" <h2>ВИТРИНА НЕ НАЙДЕНА</h2><p>Положи index.html в D:\\AI\\tools\\agent\\ui\\</p></body></html>")
+             "<h2>Р’РРўР РРќРђ РќР• РќРђР™Р”Р•РќРђ</h2><p>РџРѕР»РѕР¶Рё index.html РІ D:\\AI\\tools\\agent\\data\\ui\\</p></body></html>")
 
-DEFAULT_PROTO = ("# ПРОТОКОЛ ИНЖЕНЕРА-НАПАРНИКА\nРОЛЬ: старший инженер КБ, напарник пользователя, кратко и по делу.\n"
-"ЯЗЫК: думаешь и отвечаешь только по-русски.\nФОРМАТ: ровно один блок на ход: [TOOL: имя] {\"параметр\": \"значение\"} [/TOOL] или [ANSWER] ответ [/ANSWER].\n"
-"ЖИВЫЕ ДАННЫЕ только через инструменты; справочные факты через search_kb/read_file.\n"
-    role = prof.get("role", "\u0418\u043d\u0436\u0435\u043d\u0435\u0440")
+DEFAULT_PROTO = """# РџР РћРўРћРљРћР› РРќР–Р•РќР•Р Рђ-РќРђРџРђР РќРРљРђ
+РОЛЬ
+Ты — старший инженер-конструктор КБ, напарник пользователя. Говоришь кратко, по делу, только проверенными фактами.
+Скиллы в репо — справочники; при противоречии этот протокол главный.
+ЯЗЫК
+Р”СѓРјР°РµС€СЊ Рё РѕС‚РІРµС‡Р°РµС€СЊ РўРћР›Р¬РљРћ РЅР° СЂСѓСЃСЃРєРѕРј. РСЃРєР»СЋС‡РµРЅРёРµ вЂ” РёРјРµРЅР° С„Р°Р№Р»РѕРІ, РїРµСЂРµРјРµРЅРЅС‹Рµ, РєРѕРјР°РЅРґС‹, РєРѕРґ.
+Р¤РћР РњРђРў вЂ” РћР”РРќ Р‘Р›РћРљ РќРђ РҐРћР”
+РџРѕСЃР»Рµ СЂРѕРІРЅРѕ РћР”РРќ Р±Р»РѕРє, РЅРёС‡РµРіРѕ РґРѕ Рё РїРѕСЃР»Рµ:
+[TOOL: имя_инструмента] {"параметр": "значение"} [/TOOL]
+или
+[ANSWER] готовый ответ [/ANSWER]
+РџР РћРўРР’ Р’Р«Р”РЈРњР«Р’РђРќРРЇ
+Р–РР’Р«Р• Р”РђРќРќР«Р• (Creo, С„Р°Р№Р»С‹, С‚СЂРµР№Р»С‹, Р±Р°Р·Р°, 1РЎ, РЅР°СЃС‚СЂРѕР№РєРё, РёСЃС‚РѕСЂРёСЏ, РїСЂСѓР¶РёРЅС‹, СЃС‚Р°РЅРґР°СЂС‚С‹, РјР°СЃСЃР°) вЂ” РўРћР›Р¬РљРћ С‡РµСЂРµР· РёРЅСЃС‚СЂСѓРјРµРЅС‚.
+Справочные факты — через search_kb/read_file. Пока нет [РЕЗУЛЬТАТ] — не называй имён, шифров, чисел.
+Доступ к базе, файлам и Creo у тебя ЕСТЬ — через инструменты из списка ниже. Никогда не говори «у меня нет доступа» — просто вызывай инструмент.
+ПОРЯДОК
+1. Определи, каких данных не хватает. 2. Вызови инструмент, жди [РЕЗУЛЬТАТ].
+Мало — следующий; достаточно — [ANSWER] только из фактов [РЕЗУЛЬТАТ].
+РџРѕСЃР»Рµ [Р Р•Р—РЈР›Р¬РўРђРў] РќРРљРћР“Р”Рђ РЅРµ РѕС‚РІРµС‡Р°Р№ В«РЅРµ РїРѕРЅСЏР»/СѓС‚РѕС‡РЅРёС‚РµВ» вЂ” РґР°РЅРЅС‹Рµ СѓР¶Рµ РІ [Р Р•Р—РЈР›Р¬РўРђРў],
+кратко перескажи их в [ANSWER].
+РџРРЁРЈР©РР• РћРџР•Р РђР¦РР
+[РЎРћР“Р›РђРЎРћР’РђРќРР•] РјРµРЅСЏРµС‚ РґР°РЅРЅС‹Рµ; РІС‹Р·С‹РІР°Р№ С‚РѕР»СЊРєРѕ РїРѕ РїСЂСЏРјРѕР№ РїСЂРѕСЃСЊР±Рµ.
+РџР РРњР•Р Р«
 «какая модель открыта в Creo?» → [TOOL: creo_get_active] {} [/TOOL]
 после [РЕЗУЛЬТАТ] → [ANSWER] Активная модель — korpus.prt [/ANSWER]
 «привет» → [ANSWER] Привет! С чем помочь по Creo? [/ANSWER]"""
@@ -137,7 +173,7 @@ def build_system(mode=1):
         ps = ", ".join(t.get("params", {}).keys()) if t.get("params") else ""
         d = (t.get("desc") or "").strip()
         if len(d) > 45: d = d[:43].rstrip(" ,.;:-") + "…"
-        line = "- %s(%s) \u2192 %s%s" % (t["name"], ps, d, " [\u0421\u041e\u0413\u041b\u0410\u0421\u041e\u0412\u0410\u041d\u041e]" if t.get("approval") else "")
+        line = "- %s(%s) вЂ” %s%s" % (t["name"], ps, d, " [РЎРћР“Р›РђРЎРћР’РђРќРР•]" if t.get("approval") else "")
         (core_lines if t["name"] in _CORE else rest).append(line)
     tail = "=== РўР’РћР РРќРЎРўР РЈРњР•РќРўР« вЂ” РћРЎРќРћР’РќР«Р• (С‡Р°СЃС‚С‹Рµ, РїРѕР»РЅС‹Рµ) ===\n" + "\n".join(core_lines)
     tail += "\n\n=== РџР РћР§РР• РРќРЎРўР РЈРњР•РќРўР« (С‚РѕР»СЊРєРѕ РёРјРµРЅР°; РѕРїРёСЃР°РЅРёРµ Р±Р»РѕРєР° вЂ” tools_help block=<РёРјСЏ>) ===\n"
@@ -165,12 +201,11 @@ def _scheduler():
                     for t in str(settings.get("night_tasks") or "scan,index,usage").split(","):
                         t = t.strip()
                         log("night start: %s" % t)
-        think_rule = """ТЫ — СОБЕСЕДНИК И ПОМОЩНИК НА ЛЮБЫЕ ТЕМЫ. Язык ответа — русский; код, термины и формулы — как принято в теме. Ты умеешь: разговаривать, объяснять, решать математику и физику с пошаговым решением, писать программы и скрипты в код-блоках, переводить, пересказывать.
-В ЭТОМ РЕЖИМЕ у тебя нет доступа к Creo, файлам и базам: если вопрос требует живых данных, скажи «в режиме инженера я достану это из Creo или базы — переключи режим» и не выдумывай.
-Формат: свободный текст; код внутри блоков с языком; служебных тегов нет.
-Краткость ценится, но полнота решения важнее."""
-        _SYS_CACHE[("v", mode)] = p + "\n\n" + tail + "\n\n" + think_rule
-        return _SYS_CACHE[("v", mode)]
+                        try:
+                            if t == "scan": scanner.scan_models()
+                            elif t == "index": scanner.index_all()
+                            elif t == "usage":
+                                import usage_tools; usage_tools.build_usage(True)
                             elif t == "backup":
                                 import backup_tools; backup_tools.tool_make(); log(backup_tools.tool_housekeeping()); log(backup_tools.tool_drift_check())
                             elif t == "drafts":
@@ -184,6 +219,198 @@ def _scheduler():
         except Exception:
             pass
         time.sleep(30)
+
+
+def beh():
+    steps = int(settings.get("steps_max") or 6)
+    if settings.get("auto_mode"):
+        return ({"temperature": (settings.get("auto_temperature") or 10) / 100.0,
+                 "top_p": float(settings.get("top_p") or 0.9),
+                 "num_predict": int(settings.get("num_predict") or 1536), "num_ctx": int(settings.get("num_ctx") or 8192)}, steps)
+    return ({"temperature": (settings.get("creativity") or 30) / 100.0,
+             "top_p": float(settings.get("top_p") or 0.9),
+             "num_predict": int(settings.get("num_predict") or 1024), "num_ctx": int(settings.get("num_ctx") or 8192)}, steps)
+
+
+def parse_model(text):
+    THINK_TAGS = [
+        (r"<think>([\s\S]*?)</think>", re.S),
+        (r"<\|channel\|>thought\s*([\s\S]*?)\s*<\|channel\|>", re.S),
+        (r"<thought>([\s\S]*?)</thought>", re.S | re.I),
+        (r"\[THINK\]\s*([\s\S]*?)\s*\[/THINK\]", re.S),
+    ]
+    think_text = ""
+    for pat, flags in THINK_TAGS:
+        if think_text: break
+        m = re.search(pat, text, flags)
+        if m:
+            think_text = m.group(1).strip()
+            text = (text[:m.start()] + text[m.end():]).strip()
+    m = re.search(r"\[TOOL:\s*([A-Za-z0-9_]+)\s*\]\s*({.*?})\s*\[/TOOL\]", text, re.S)
+    if m:
+        try: args = json.loads(m.group(2))
+        except Exception: args = {}
+        if TR.get(m.group(1)): return "tool", m.group(1), args, think_text
+    m = re.search(r"\[TOOL:\s*([A-Za-z0-9_]+)\s*\]", text)
+    if m and TR.get(m.group(1)):
+        rest = text[m.end():m.end() + 800]
+        args = {}
+        mj = re.search(r"\s*({.*?})", rest, re.S)
+        if mj:
+            try: args = json.loads(mj.group(1))
+            except Exception: args = {}
+        return "tool", m.group(1), args, think_text
+    m = re.search(r"\[TOOL\]\s*([A-Za-z0-9_]+)\s*({.*?})?\s*(?:\[/TOOL\])?", text, re.S)
+    if m and TR.get(m.group(1)):
+        args = {}
+        if m.group(2):
+            try: args = json.loads(m.group(2))
+            except Exception: args = {}
+        return "tool", m.group(1), args, think_text
+    for mm in re.finditer(r"^\s*([A-Za-z0-9_]+)\s*({[^\n]+})\s*$", text, re.M):
+        if TR.get(mm.group(1)):
+            try: args = json.loads(mm.group(2))
+            except Exception: args = {}
+            return "tool", mm.group(1), args, think_text
+    m = re.search(r"\[ANSWER\]\s*(.*?)\[/ANSWER\]", text, re.S)
+    if m: return "answer", m.group(1).strip(), None, think_text
+    if "[ANSWER]" in text and "[/ANSWER]" not in text:
+        return "answer", text.split("[ANSWER]", 1)[1].strip(), None, think_text
+    ts = text.strip()
+    if TR.get(ts): return "tool", ts, {}, think_text
+    return "invalid", text.strip(), None, think_text
+
+
+_NUDGE = "[СЛУЖЕБНОЕ] Ответ не в формате. Дай ровно один блок: [TOOL: имя] {\"параметр\": \"значение\"} [/TOOL] или [ANSWER] краткий ответ по-русски [/ANSWER]. Слово «текст» само по себе — не ответ. Ничего до и после блока."
+_ACCESS_NUDGE = "[РЎР›РЈР–Р•Р‘РќРћР•] РќРµРІРµСЂРЅРѕ. Р”РѕСЃС‚СѓРї Рє Р±Р°Р·Рµ, С„Р°Р№Р»Р°Рј Рё Creo Сѓ С‚РµР±СЏ Р•РЎРўР¬ С‡РµСЂРµР· РёРЅСЃС‚СЂСѓРјРµРЅС‚С‹ (СЃРїРёСЃРѕРє В«РўР’РћР РРќРЎРўР РЈРњР•РќРўР«В» РІС‹С€Рµ). РќРёРєРѕРіРґР° РЅРµ РѕС‚РІРµС‡Р°Р№ В«РЅРµС‚ РґРѕСЃС‚СѓРїР°В». РџРѕРІС‚РѕСЂРё СЂРѕРІРЅРѕ РѕРґРёРЅ Р±Р»РѕРє: [TOOL: РёРјСЏ] {\"РїР°СЂР°РјРµС‚СЂ\": \"Р·РЅР°С‡РµРЅРёРµ\"} [/TOOL] РёР»Рё [ANSWER] РѕС‚РІРµС‚ [/ANSWER]."
+_REFUSAL = ("извините", "не могу", "не имею доступа", "нет доступа", "моя функциональность",
+            "виртуальной среде", "не понял", "уточните", "переформулируй", "как языковая модель",
+            "к сожалению, я", "буду отвечать", "какой у вас вопрос", "давайте начнём")
+
+
+def _refusal(text):
+    lo = (text or "").lower()
+    return any(w in lo for w in _REFUSAL)
+
+
+def hist_block(client):
+    c = core.db()
+    rows = c.execute("SELECT q,a FROM history WHERE client=? ORDER BY id DESC LIMIT 8", (client,)).fetchall()
+    c.close()
+    out = []
+    for q, a in reversed(rows):
+        out.append({"role": "user", "content": q[:500]})
+        out.append({"role": "assistant", "content": a[:800]})
+    return out
+
+
+def run_loop(messages, client, has_link=False, on_step=None):
+    opts, steps_max = beh()
+    LAST_META.update(p=0, r=0)
+    steps_log, last_res, sig_prev, invalid_cnt = [], "", None, 0
+
+    def _log(line): steps_log.append(line); LIVE.setdefault(client, []).append(line)
+
+    for step in range(steps_max):
+        r = None
+        for attempt in (1, 2):
+            try:
+                use_opts = dict(opts)
+                if invalid_cnt: use_opts = dict(use_opts, temperature=0)
+                _thk = int(settings.get("think_mode") or 0) > 0
+                r = core.post("/api/chat", {"model": settings.model_for("chat"),
+                                            "stream": False, "think": _thk, "options": use_opts, "messages": messages}, t=600)
+                break
+            except Exception as e:
+                if attempt == 1 and "500" in str(e):
+                    time.sleep(2); continue
+                return {"answer": _clean("ошибка модели: %s" % e), "think": "", "steps": step + 1, "log": steps_log}
+        raw = (r.get("message") or {}).get("content") or ""
+        try: LAST_META["p"] += r.get("prompt_eval_count") or 0; LAST_META["r"] += r.get("eval_count") or 0
+        except Exception: pass
+        kind, payload, args, think = parse_model(raw)
+        think = think or (((r.get("message") or {}).get("thinking") or "").strip())
+        if think and (int(settings.get("think_in_log") or 0) or int(settings.get("log_mode") or 1) >= 2):
+            _log("[THINK] %s" % think[:400])
+        if kind == "answer" and (_refusal(payload) or (len(payload) < 80 and payload.strip().lower() in _NUDGE.lower())):
+            _log("refusal/echo_guard"); kind, payload = "invalid", raw
+        if kind == "answer":
+            used_web = any("web_fetch" in s for s in steps_log)
+            if has_link and not used_web and step < steps_max - 1 and len(payload) < 400:
+                messages.append({"role": "assistant", "content": raw})
+                messages.append({"role": "user", "content": "[СЛУЖЕБНОЕ] В задаче была ссылка http — сначала прочитай её через web_fetch, потом отвечай."})
+                _log("web_nudge"); continue
+            txt = payload
+            if len(txt) < 40 and last_res: txt = last_res + "\n\n" + txt
+            return {"answer": _clean(txt), "think": think, "steps": step + 1, "log": steps_log}
+        if kind == "answer" and len(payload) < 80 and payload.strip().lower() in _NUDGE.lower():
+            _log("echo_guard: %r" % payload[:40]); kind, payload = "invalid", raw
+        if kind == "invalid":
+            invalid_cnt += 1
+            if last_res and len(payload or "") > 150 and not _refusal(payload):
+                _log("parse_invalid -> проза после результата = ответ")
+                return {"answer": _clean(payload), "think": think, "steps": step + 1, "log": steps_log}
+            if invalid_cnt < 3:
+                nudge = _ACCESS_NUDGE if _refusal(payload) else _NUDGE
+                messages.append({"role": "assistant", "content": raw})
+                messages.append({"role": "user", "content": nudge})
+                _log("parse_invalid"); continue
+            pl = (payload or "").strip()
+            tail = (" РРЅСЃС‚СЂСѓРјРµРЅС‚ РІРµСЂРЅСѓР»: В«%sВ»." % last_res[:200]) if last_res else ""
+            if _refusal(pl) or (len(pl) < 80 and pl.lower() in _NUDGE.lower()):
+                pl = "Ответ модели не распознан." + tail + " Уточни запрос (пример: models_where q=<имя детали>) или введи прямую команду инструмента."
+            return {"answer": _clean(pl), "think": think, "steps": step + 1, "log": steps_log}
+        name = payload
+        sig = (name, json.dumps(args, sort_keys=True, ensure_ascii=False))
+        if sig == sig_prev:
+            return {"answer": last_res or "зацикливание остановлено", "think": think, "steps": step + 1, "log": steps_log}
+        sig_prev = sig
+        if settings.get("parallel_tools"):
+            others = []
+            for m in re.finditer(r"\[TOOL:\s*([A-Za-z0-9_]+)\s*\]\s*({.*?})\s*\[/TOOL\]", raw, re.S):
+                try: aa = json.loads(m.group(2))
+                except Exception: aa = {}
+                tt = TR.get(m.group(1))
+                if tt and not tt.get("approval"): others.append((m.group(1), aa))
+            others = [o for o in others if (o[0], json.dumps(o[1], sort_keys=True, ensure_ascii=False)) != (name, json.dumps(args, sort_keys=True, ensure_ascii=False))]
+            if len(others) > 1:
+                def _one(oa):
+                    nn, aa2 = oa
+                    msg = _role_check(client, nn)
+                    if msg:
+                        return "%s → %s" % (nn, msg)
+                    tt = TR.get(nn)
+                    try: return "%s → %s" % (nn, str(tt["fn"](**aa2))[:600])
+                    except Exception as e: return "%s → ошибка: %s" % (nn, e)
+                try:
+                    with ThreadPoolExecutor(max_workers=4) as ex: res = "\n".join(ex.map(_one, others))
+                    _log("parallel[%d]: %s" % (len(others), ", ".join(o[0] for o in others)))
+                    last_res = res; sig_prev = sig
+                    messages.append({"role": "assistant", "content": raw})
+                    messages.append({"role": "user", "content": "[РЕЗУЛЬТАТ parallel]: %s" % res[:4000]})
+                    continue
+                except Exception: pass
+        t = TR.get(name)
+        if not t:
+            res = "нет такого инструмента: %s" % name
+        elif msg := _role_check(client, name):
+            res = msg
+            _log("%s(%s) в†’ Р—РђРџР Р•Рў Р РћР›Р" % (name, "Р±РµР· РїР°СЂР°РјРµС‚СЂРѕРІ" if not args else json.dumps(args, ensure_ascii=False)))
+        elif t.get("approval"):
+            pid = datetime.datetime.now().strftime("%H%M%S%f")
+            PENDING[pid] = {"name": name, "args": args, "client": client, "messages": messages, "raw": raw}
+            return {"answer": "[РЎРћР“Р›РђРЎРћР’РђРќРР•] РѕРїРµСЂР°С†РёСЏ %s Р¶РґС‘С‚ РїРѕРґС‚РІРµСЂР¶РґРµРЅРёСЏ РїРѕР»СЊР·РѕРІР°С‚РµР»СЏ (id %s)" % (name, pid),
+                    "think": think, "steps": step + 1, "log": steps_log}
+        else:
+            t0 = time.time()
+            try: res = str(t["fn"](**args))
+            except Exception as e: res = "ошибка исполнения %s: %s" % (name, e)
+            trace("AGENT %s" % name, "OK", int((time.time() - t0) * 1000))
+            _log("%s(%s) → %s" % (name, "без параметров" if not args else json.dumps(args, ensure_ascii=False), res[:120]))
+        last_res = res
+        messages.append({"role": "assistant", "content": raw})
+        messages.append({"role": "user", "content": "[РЕЗУЛЬТАТ %s]: %s" % (name, res[:4000])})
+    return {"answer": last_res or "не уложился в шаги", "think": think, "steps": steps_max, "log": steps_log}
 
 
 def ask(q, client, image=None, on_step=None, mode=None):
@@ -207,7 +434,7 @@ def ask(q, client, image=None, on_step=None, mode=None):
     t = TR.get(name)
     if t and not image:
         if msg := _role_check(client, name):
-            return {"answer": msg, "think": "", "steps": 1, "log": ["%s(прямой вызов) \u2192 \u0417\u0410\u041f\u0420\u0415\u0422 \u0420\u041e\u041b\u0418" % name]}
+            return {"answer": msg, "think": "", "steps": 1, "log": ["%s(РїСЂСЏРјРѕР№ РІС‹Р·РѕРІ) в†’ Р—РђРџР Р•Рў Р РћР›Р" % name]}
         if t.get("approval") and eff_mode != 2:
             pid = datetime.datetime.now().strftime("%H%M%S%f")
             PENDING[pid] = {"name": name, "args": {}, "client": client, "messages": [], "raw": ""}
@@ -262,8 +489,7 @@ def ask(q, client, image=None, on_step=None, mode=None):
             except Exception as e:
                 res = "ошибка исполнения %s: %s" % (m2.group(1), e)
             return {"answer": res, "think": "", "steps": 1, "log": [m2.group(1) + "(прямой вызов) → " + res[:120]]}
-    q2 = q2 + "\
-\n[\u0421\u041b\u0443\u0436\u0435\u0431\u043d\u043e\u0435: \u0435\u0441\u043b\u0438 \u0432\u043e\u043f\u0440\u043e\u0441 \u0442\u0440\u0435\u0431\u0443\u0435\u0442 \u0436\u0438\u0432\u044b\u0445 \u0434\u0430\u043d\u043d\u044b\u0445, \u0441\u043a\u0430\u0436\u0438 «\u0432 \u0440\u0435\u0436\u0438\u043c\u0435 \u0438\u043d\u0436\u0435\u043d\u0435\u0440\u0430 \u044f \u0434\u043e\u0441\u0442\u0430\u043d\u0443 \u044d\u0442\u043e \и\u0437 \u041a\u0440\u0435\u043e \u0438\u043b\u0438 \u0431\u0430\u0437\u044b \u2014 \u043f\u0435\u0440\u0435\u043a\u043b\u044e\u0447\u0438 \u0440\u0435\u0436\u0438\u043c\u0443\u0442\u044c» \u0438 \u043d\u0435 \u0432\u044b\u0434\u0443\u043c\u044b\u0432\u0430\u0439.]"
+    q2 = q2 + "\n\n[СЛУЖЕБНОЕ: отвечай только по-русски. Один ход = один [TOOL] или один [ANSWER]. Никакого текста до и после блока.]"
     messages = [{"role": "system", "content": build_system(mode=eff_mode)}] + hist_block(client) + [{"role": "user", "content": q2}]
     _ta = time.time()
     LIVE_TOK[client] = []
