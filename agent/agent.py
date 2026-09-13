@@ -103,7 +103,7 @@ STUB_PAGE = ("<html><head><meta charset='utf-8'><title>АГЕНТ v15</title></h
 DEFAULT_PROTO = ("# ПРОТОКОЛ ИНЖЕНЕРА-НАПАРНИКА\nРОЛЬ: старший инженер КБ, напарник пользователя, кратко и по делу.\n"
 "ЯЗЫК: думаешь и отвечаешь только по-русски.\nФОРМАТ: ровно один блок на ход: [TOOL: имя] {\"параметр\": \"значение\"} [/TOOL] или [ANSWER] ответ [/ANSWER].\n"
 "ЖИВЫЕ ДАННЫЕ только через инструменты; справочные факты через search_kb/read_file.\n"
-"Доступ к базе, файлам и Creo ЕСТЬ через инструменты; никогда не говори «нет доступа".")
+    role = prof.get("role", "\u0418\u043d\u0436\u0435\u043d\u0435\u0440")
 «какая модель открыта в Creo?» → [TOOL: creo_get_active] {} [/TOOL]
 после [РЕЗУЛЬТАТ] → [ANSWER] Активная модель — korpus.prt [/ANSWER]
 «привет» → [ANSWER] Привет! С чем помочь по Creo? [/ANSWER]"""
@@ -137,7 +137,7 @@ def build_system(mode=1):
         ps = ", ".join(t.get("params", {}).keys()) if t.get("params") else ""
         d = (t.get("desc") or "").strip()
         if len(d) > 45: d = d[:43].rstrip(" ,.;:-") + "…"
-        line = "- %s(%s) вЂ” %s%s" % (t["name"], ps, d, " [РЎРћР“Р›РђРЎРћР’РђРќРР•]" if t.get("approval") else "")
+        line = "- %s(%s) \u2192 %s%s" % (t["name"], ps, d, " [\u0421\u041e\u0413\u041b\u0410\u0421\u041e\u0412\u0410\u041d\u041e]" if t.get("approval") else "")
         (core_lines if t["name"] in _CORE else rest).append(line)
     tail = "=== РўР’РћР РРќРЎРўР РЈРњР•РќРўР« вЂ” РћРЎРќРћР’РќР«Р• (С‡Р°СЃС‚С‹Рµ, РїРѕР»РЅС‹Рµ) ===\n" + "\n".join(core_lines)
     tail += "\n\n=== РџР РћР§РР• РРќРЎРўР РЈРњР•РќРўР« (С‚РѕР»СЊРєРѕ РёРјРµРЅР°; РѕРїРёСЃР°РЅРёРµ Р±Р»РѕРєР° вЂ” tools_help block=<РёРјСЏ>) ===\n"
@@ -207,7 +207,7 @@ def ask(q, client, image=None, on_step=None, mode=None):
     t = TR.get(name)
     if t and not image:
         if msg := _role_check(client, name):
-            return {"answer": msg, "think": "", "steps": 1, "log": ["%s(РїСЂСЏРјРѕР№ РІС‹Р·РѕРІ) в†’ Р—РђРџР Р•Рў Р РћР›Р" % name]}
+            return {"answer": msg, "think": "", "steps": 1, "log": ["%s(прямой вызов) \u2192 \u0417\u0410\u041f\u0420\u0415\u0422 \u0420\u041e\u041b\u0418" % name]}
         if t.get("approval") and eff_mode != 2:
             pid = datetime.datetime.now().strftime("%H%M%S%f")
             PENDING[pid] = {"name": name, "args": {}, "client": client, "messages": [], "raw": ""}
@@ -262,7 +262,8 @@ def ask(q, client, image=None, on_step=None, mode=None):
             except Exception as e:
                 res = "ошибка исполнения %s: %s" % (m2.group(1), e)
             return {"answer": res, "think": "", "steps": 1, "log": [m2.group(1) + "(прямой вызов) → " + res[:120]]}
-    q2 = q2 + "\n\n[СЛУЖЕБНОЕ: отвечай только по-русски. Один ход = один [TOOL] или один [ANSWER]. Никакого текста до и после блока.]"
+    q2 = q2 + "\
+\n[\u0421\u041b\u0443\u0436\u0435\u0431\u043d\u043e\u0435: \u0435\u0441\u043b\u0438 \u0432\u043e\u043f\u0440\u043e\u0441 \u0442\u0440\u0435\u0431\u0443\u0435\u0442 \u0436\u0438\u0432\u044b\u0445 \u0434\u0430\u043d\u043d\u044b\u0445, \u0441\u043a\u0430\u0436\u0438 «\u0432 \u0440\u0435\u0436\u0438\u043c\u0435 \u0438\u043d\u0436\u0435\u043d\u0435\u0440\u0430 \u044f \u0434\u043e\u0441\u0442\u0430\u043d\u0443 \u044d\u0442\u043e \и\u0437 \u041a\u0440\u0435\u043e \u0438\u043b\u0438 \u0431\u0430\u0437\u044b \u2014 \u043f\u0435\u0440\u0435\u043a\u043b\u044e\u0447\u0438 \u0440\u0435\u0436\u0438\u043c\u0443\u0442\u044c» \u0438 \u043d\u0435 \u0432\u044b\u0434\u0443\u043c\u044b\u0432\u0430\u0439.]"
     messages = [{"role": "system", "content": build_system(mode=eff_mode)}] + hist_block(client) + [{"role": "user", "content": q2}]
     _ta = time.time()
     LIVE_TOK[client] = []
