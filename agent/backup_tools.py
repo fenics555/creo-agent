@@ -3,8 +3,6 @@
 import backup as BK
 import core
 import settings
-import os
-import datetime
 
 def tool_list(**kw): return BK.list_backups()
 def tool_restore(name="", **kw): return BK.restore(name)
