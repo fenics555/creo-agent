@@ -11,8 +11,12 @@ def _wd():
     d = CT.creo_call("creo", "pwd", {}, 10)
     if not CT.ok(d): return ""
     dd = d.get("data") or {}
-    s = dd.get("directory") if isinstance(dd, dict) else str(dd or "")
-    return s.replace("/", "\\").rstrip("\\") or ""
+    s = dd.get("dirname") or dd.get("directory") or ""
+    if not isinstance(s, str): s = str(s or "")
+    s = s.replace("/", "\\")
+    if len(s) > 3 and s[0].isalpha() and s[1] == ":" and s[3] == ":":
+        s = s[2:]  # CREOSON шлёт удвоение диска "Z:Z:/..."
+    return s.rstrip("\\") or ""
 
 def _latest(wd, base):
     best, bv = None, -1
@@ -38,7 +42,7 @@ def _family_instances(base):
     for ext in (".prt", ".asm"):
         hi = CT.creo_call("file", "has_instances", {"file": base + ext}, 10)
         if not CT.ok(hi): continue
-        if not (hi.get("data") or {}).get("has_instances"): continue
+        if not ((hi.get("data") or {}).get("has_instances") or (hi.get("data") or {}).get("exists")): continue
         li = CT.creo_call("file", "list_instances", {"file": base + ext}, 15)
         if not CT.ok(li): continue
         dd = li.get("data") or {}
@@ -50,6 +54,18 @@ def _family_instances(base):
         names = [n for n in names if n]
         if names: return names
     return None
+
+
+def _disk_instances(wd, old, ext):
+    """Экземпляры с диска: NTFS-формат old.<код>.<ext>.N (+ легаси-проверка уголков)."""
+    out = []
+    for p in sorted(Path(wd).glob("%s.*.%s.*" % (old, ext))):
+        m = re.match(r"^%s\.(.+)\.%s\.(\d+)$" % (re.escape(old), ext), p.name, re.I)
+        if m: out.append((p.name, m.group(1)))
+    for p in sorted(Path(wd).glob("%s<%s>.%s.*" % (old, "*", ext))):
+        code = _code_of(p.name, old)
+        if code: out.append((p.name, code))
+    return out
 
 
 def _plan(wd, old, new, family, drawings, template=""):
@@ -64,19 +80,19 @@ def _plan(wd, old, new, family, drawings, template=""):
         for code in inst:
             n += 1
             nc = _expand(template, code, n)
-            for p in sorted(Path(wd).glob("%s<%s>.prt.*" % (old, code))):
-                items.append((p.name, "%s<%s>.1" % (new, nc)))
+            for p in sorted(Path(wd).glob("%s.%s.prt.*" % (old, code))):
+                items.append((p.name, "%s.%s.prt.1" % (new, nc)))
             if drawings:
-                for p in sorted(Path(wd).glob("%s<%s>.drw.*" % (old, code))):
-                    items.append((p.name, "%s<%s>.1" % (new, nc)))
+                for p in sorted(Path(wd).glob("%s.%s.drw.*" % (old, code))):
+                    items.append((p.name, "%s.%s.drw.1" % (new, nc)))
     else:
-        for p in sorted(Path(wd).glob("*<%s>.prt.*" % old)):
+        for src_name, code in _disk_instances(wd, old, "prt"):
             n += 1
-            items.append((p.name, "%s<%s>.1" % (new, _expand(template, _code_of(p.name, old), n))))
+            items.append((src_name, "%s.%s.prt.1" % (new, _expand(template, code, n))))
         if drawings:
-            for p in sorted(Path(wd).glob("*<%s>.drw.*" % old)):
+            for src_name, code in _disk_instances(wd, old, "drw"):
                 n += 1
-                items.append((p.name, "%s<%s>.1" % (new, _expand(template, _code_of(p.name, old), n))))
+                items.append((src_name, "%s.%s.drw.1" % (new, _expand(template, code, n))))
     for ext in (".prt", ".asm"):
         if _latest(wd, old + ext): add(old + ext, new + ext); break
     if drawings:
