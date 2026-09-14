@@ -38,21 +38,30 @@ def _expand(tpl, code, n):
 
 
 def _family_instances(base):
-    """Имена исполнений из таблицы семейства через creoson (file:has_instances / file:list_instances)."""
+    """Имена исполнений из семейства: сначала file:list_instances, потом familytable:list (ПРАВКА спекы 37: семейство читается через creoson, не с диска)."""
     for ext in (".prt", ".asm"):
         hi = CT.creo_call("file", "has_instances", {"file": base + ext}, 10)
         if not CT.ok(hi): continue
         if not ((hi.get("data") or {}).get("has_instances") or (hi.get("data") or {}).get("exists")): continue
         li = CT.creo_call("file", "list_instances", {"file": base + ext}, 15)
-        if not CT.ok(li): continue
-        dd = li.get("data") or {}
-        lst = dd.get("instance_list") or dd.get("instances") or dd.get("names") or []
-        names = []
-        for it in lst:
-            if isinstance(it, str): names.append(it)
-            elif isinstance(it, dict): names.append(it.get("name") or it.get("instance") or "")
-        names = [n for n in names if n]
-        if names: return names
+        if CT.ok(li):
+            dd = li.get("data") or {}
+            lst = dd.get("instance_list") or dd.get("instances") or dd.get("names") or []
+            names = []
+            for it in lst:
+                if isinstance(it, str): names.append(it)
+                elif isinstance(it, dict): names.append(it.get("name") or it.get("instance") or "")
+            names = [n for n in names if n]
+            if names: return names
+    # семейство таблицей Creo (familytable:list) — живой вызов, не диск
+    for ext in (".prt", ".asm"):
+        ft = CT.creo_call("familytable", "list", {"file": base + ext}, 15)
+        if CT.ok(ft):
+            d = ft.get("data") or {}
+            inst = d.get("instances") or []
+            if inst:
+                out = [str(x) for x in inst if x]
+                if out: return out
     return None
 
 
