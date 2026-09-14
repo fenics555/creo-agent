@@ -76,15 +76,11 @@ input[type=checkbox]{accent-color:#1273EB}
 <div style="display:flex;gap:6px"><input id="cin" placeholder="Сообщение всем..." style="flex:1"><button data-act="chatsend">➤</button></div></div>
 <div id="lbx"><span class="x">✕</span><img src=""></div>
 <script>var NAME_RE = new RegExp("[A-Za-z0-9_.-]+?[.](?:prt|asm|drw)", "gi");
-var DETAILS_RE = new RegExp("[[]DETAILS:([A-Za-z0-9_]+)(?:\|([^\]]*))?[]]([^]*?)[[]/DETAILS[]]", "g");
-var TAGS_RE = new RegExp("[[]/?(ANSWER|TOOL)[^][]*[]]", "g");
-var foldKey = new RegExp("[^A-Za-z0-9_а-яА-ЯёЁ]", "gi");
+var DETAILS_RE = /\[DETAILS:([A-Za-z0-9_]+)(?:\|([^\]]*))?\]([\s\S]*?)\[\/DETAILS\]/g;
+var TAGS_RE = /\[\/?(ANSWER|TOOL)[^\]]*\]/g;
+var foldKey = /[^A-Za-z0-9_а-яА-ЯёЁ]/gi;
 
 var TK=localStorage.getItem('tk')||'',IMG=null,CURM='',MODELS=[],REG=[];
-var NAME_RE = new RegExp("[A-Za-z0-9_.-]+?[.](?:prt|asm|drw)", "gi");
-var DETAILS_RE = new RegExp("[[]DETAILS:([A-Za-z0-9_]+)(?:\|([^\]]*))?[]]([^]*?)[[]/DETAILS[]]", "g");
-var TAGS_RE = new RegExp("[[]/?(ANSWER|TOOL)[^][]*[]]", "g");
-var foldKey = new RegExp("[^A-Za-z0-9_а-яА-ЯёЁ]", "gi");
 var chat=document.getElementById('chat'),panel=document.getElementById('panel'),
 qinp=document.getElementById('q'),login=document.getElementById('login'),
 hdr=document.getElementById('hdr'),lg=document.getElementById('lg'),pw=document.getElementById('pw');
