@@ -554,8 +554,9 @@ def ask(q, client, image=None, on_step=None, mode=None):
 
 
 def do_approve(pid, okf):
+    pid = str(pid)
     p = PENDING.pop(pid, None)
-    if not p: return {"res": "заявка не найдена"}
+    if not p: return {"res": "согласование устарело или уже выполнено, повтори команду"}
     if not okf: return {"res": "отменено пользователем"}
     t = TR.get(p["name"])
     if msg := _role_check(p.get("client"), p["name"]):
