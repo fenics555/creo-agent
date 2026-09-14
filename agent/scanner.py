@@ -49,6 +49,7 @@ def init_tables():
     c.execute("CREATE TABLE IF NOT EXISTS files(path TEXT PRIMARY KEY, mtime REAL, size INTEGER)")
     c.execute("CREATE TABLE IF NOT EXISTS chunks(id INTEGER PRIMARY KEY, path TEXT, text TEXT, emb BLOB)")
     c.execute("CREATE TABLE IF NOT EXISTS models(name TEXT, ext TEXT, path TEXT)")
+    c.execute("CREATE TABLE IF NOT EXISTS model_embs(name TEXT PRIMARY KEY, emb BLOB)")
     c.commit(); c.close()
 
 def state():

@@ -694,7 +694,16 @@ class Hd(BaseHTTPRequestHandler):
             if not (_ui and users.is_admin(_ui["login"])):
                 d["groups"] = [g for g in d.get("groups", []) if "НАСТРОЙКИ" not in str(g.get("title", "")).upper()]
                 d.pop("settings", None)
-            self._j(d)
+                self._j(d)
+            return
+        elif p == "/similar":
+            if not users.token_info(self.headers.get("X-Token") or ""): return self._j({"error": "no token"})
+            qs = parse_qs(urlparse(self.path).query)
+            name = qs.get("name", [""])[0]
+            q = qs.get("q", [""])[0]
+            top = int(qs.get("top", ["10"])[0])
+            import similar_tools
+            self._j(similar_tools.find_similar(name=name, q=q, top=top))
             return
         elif p == "/log":
             _tk = users.token_info(self.headers.get("X-Token") or "")
