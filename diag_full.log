@@ -2305,3 +2305,131 @@
 09-10 10:36:48 >> web_study {} -> PASS (0мс) нужна ссылка
 09-10 10:36:48 == probe_run: инструментов 70, ошибок 1
 09-10 10:36:48 == diag_run вердикт: НЕ ПРОЙДЕН (2): bom:get_paths, probe_run
+09-14 21:24:27 == diag_run старт ==
+09-14 21:24:27 >> creo:pwd {}
+09-14 21:24:27 << creo:pwd OK
+09-14 21:24:27 >> creo:list_files {"filename": "*"}
+09-14 21:24:27 << creo:list_files OK
+09-14 21:24:27 >> file:list {}
+09-14 21:24:27 << file:list OK
+09-14 21:24:27 >> file:exists {"file": "creoson_tests-01.asm"}
+09-14 21:24:27 << file:exists OK
+09-14 21:24:27 >> file:get_fileinfo {"file": "creoson_tests-01.asm"}
+09-14 21:24:27 << file:get_fileinfo OK
+09-14 21:24:27 >> file:massprops {"file": "creoson_tests-01.asm"}
+09-14 21:24:27 << file:massprops OK
+09-14 21:24:27 >> file:relations_get {"file": "creoson_tests-01.asm"}
+09-14 21:24:27 << file:relations_get OK
+09-14 21:24:27 >> file:open_errors {"file": "creoson_tests-01.asm"}
+09-14 21:24:27 << file:open_errors OK
+09-14 21:24:27 >> parameter:list {"file": "creoson_tests-01.asm"}
+09-14 21:24:28 << parameter:list OK
+09-14 21:24:28 >> parameter:exists {"file": "creoson_tests-01.asm", "name": "ОБОЗНАЧЕНИЕ"}
+09-14 21:24:28 << parameter:exists OK
+09-14 21:24:28 >> dimension:list {"file": "creoson_tests-01.asm"}
+09-14 21:24:28 << dimension:list OK
+09-14 21:24:28 >> feature:list {"file": "creoson_tests-01.asm"}
+09-14 21:24:28 << feature:list OK
+09-14 21:24:28 >> bom:get_paths {"file": "creoson_tests-01.asm", "paths": false, "top_level": false, "exclude_inactive": true}
+09-14 21:24:28 << bom:get_paths OK
+09-14 21:24:28 >> familytable:list {"file": "creoson_tests-01.asm"}
+09-14 21:24:28 << familytable:list OK
+09-14 21:24:28 >> layer:list {"file": "creoson_tests-01.asm"}
+09-14 21:24:28 << layer:list OK
+09-14 21:24:28 >> note:list {"file": "creoson_tests-01.asm"}
+09-14 21:24:28 << note:list OK
+09-14 21:24:28 >> view:list {"file": "creoson_tests-01.asm"}
+09-14 21:24:28 << view:list OK
+09-14 21:24:28 >> geometry:bound_box {"file": "creoson_tests-01.asm"}
+09-14 21:24:28 << geometry:bound_box OK
+09-14 21:24:28 >> backup_list {} -> PASS (0мс) • agent_260914_1846.sqlite (452.9 МБ)
+09-14 21:24:28 >> backup_housekeeping {} -> FAIL (0мс) исключение: no such table: feedback
+09-14 21:24:29 >> drift_check {} -> PASS (542мс) files: db 11312, disk 11344, drift 0%
+09-14 21:27:11 >> behavior_run {} -> PASS (161877мс) === ПОВЕДЕНИЕ ИИ 14.09.2026 21:24 | gemma4:26b-131k === OK какая модель открыта в Creo?           -> tool ([TOOL: creo_get_active], 9320мс) OK статус 
+09-14 21:27:11 >> calc {} -> PASS (0мс) укажи выражение. Примеры: 'перевести 150 Нм в кгсм', 'круг_площадь 50', 'цилиндр_объем 50 120'
+09-14 21:27:11 >> calc_units {} -> PASS (0мс) Единицы: MN, ft, g, h, in, inch, kg, mg, min, ms, s, t, Вт, ГПа, МВт, МПа, Н, Н*м, Нм, Па, атм, бар, г, кВт, кН, кПа, кг, кгс, кгс*м, кгсм, км, м, м2,
+09-14 21:27:11 >> calc_formulas {} -> PASS (0мс) Формулы: - круг_площадь = π·d²/4 (d в мм) - круг_момент = π·d⁴/64 (d в мм) - круг_W = π·d³/32 (d в мм) - цилиндр_объем = π·d²·h/4 (d,h в мм) - напряже
+09-14 21:27:11 >> angle {} -> PASS (0мс) ошибка: could not convert string to float: ''
+09-14 21:27:11 >> chat_last {} -> PASS (0мс) в чате пусто
+09-14 21:27:11 >> creo_status {} -> PASS (3мс) CREOSON: жив; Creo запущен: ДА
+09-14 21:27:11 >> creo_session {} -> PASS (165мс) • creoson_tests-01.asm • creoson_tests-01-1.prt • creoson_tests-01-2.prt • df-stp2-sh-02.prt • df-stp2-vdf.prt • df-stp2-gdf.prt • df-stp2-gdf-02<df-s
+09-14 21:27:11 >> creo_get_active {} -> PASS (9мс) creoson_tests-01.asm
+09-14 21:27:11 >> creo_pwd {} -> PASS (13мс) Z:/PTC/Work/000_01 Пользовательские изделия/CREOSON TESTS/
+09-14 21:27:11 >> creo_list_files {} -> PASS (16мс) CREOSON_TESTS-01.xlsx creoson_tests-01-1.drw creoson_tests-01-1.prt creoson_tests-01-2.drw creoson_tests-01-2.prt creoson_tests-01.asm creoson_tests-0
+09-14 21:27:11 >> creo_find_model {} -> PASS (0мс) не нашёл в индексе
+09-14 21:27:11 >> creo_param_raw {} -> PASS (182мс) creoson_tests-01.asm -> {"status": {"error": false}, "data": {"paramlist": [{"owner_name": "creoson_tests-01.asm", "designate": true, "name": "ОБОЗНАЧ
+09-14 21:27:11 >> creo_get_params {} -> PASS (93мс) • ОБОЗНАЧЕНИЕ (STRING) = CREOSON_TESTS-01 • НАИМЕНОВАНИЕ (STRING) = Держатель черновых форм • НАИМЕНОВАНИЕ1 (STRING) = 5-1/2" • МЕЖОСЕВОЕ_РАССТОЯНИЕ (
+09-14 21:27:11 >> creo_get_relations {} -> PASS (47мс) ['Обозначение= rel_model_name']
+09-14 21:27:11 >> creo_get_mass {} -> PASS (45мс) масса 26.63 кг, объём 3574914 мм3, площадь 566451.5936646835 мм2
+09-14 21:27:11 >> creo_get_bom {} -> PASS (182мс) • creoson_tests-01.asm   • DF-STP2-VP-19_05X26<DF-STP2-VP>.PRT   • DF-STP2-VP-19_05X26<DF-STP2-VP>.PRT   • DF-STP2-VP-19_05X26<DF-STP2-VP>.PRT   • DF-
+09-14 21:27:11 >> creo_open_errors {} -> PASS (47мс) {'errors': False}
+09-14 21:27:11 >> creo_read_trail {} -> PASS (22мс) ~ Move `main_dlg_cur` `proe_win` 9 244 705 0 1 1568 815 1920 1080 9513264 ~ LButtonDisarm `main_dlg_cur` `proe_win` 9 244 705 0 0 1568 815 1920 1080 9
+09-14 21:27:11 >> creo_open {} -> PASS (0мс) укажи имя модели или чертежа
+09-14 21:27:12 >> creo_bom_raw {} -> PASS (166мс) {"status": {"error": false}, "data": {"has_simprep": false, "children": {"children": [{"file": "CREOSON_TESTS-01-1.PRT", "seq_path": "root.1"}, {"file
+09-14 21:27:12 >> creo_audit_folder {} -> PASS (429мс) АУДИТ папки Z:/PTC/Work/000_01 Пользовательские изделия/CREOSON TESTS/ (3 моделей): • creoson_tests-01-1 — ОК • creoson_tests-01-2 — ОК • creoson_test
+09-14 21:28:17 >> creo_trail_analyze {} -> FAIL (65203мс) исключение: database is locked
+09-14 21:28:17 >> db_state {} -> PASS (154мс) 🗄 СОСТОЯНИЕ БАЗ ДАННЫХ (полное): 1. Файловый индекс: 28002 строк; скан 09-14 16:16 (сегодня) → актуально 2. База знаний: 34372 фрагментов → актуально 
+09-14 21:28:17 >> db_index_models {} -> PASS (3мс) {'msg': 'скан 3D-моделей запущен в фоне; состояние — db_state или models_stats'}
+09-14 21:28:17 >> db_index_kb {} -> PASS (3мс) {'msg': 'переиндексация базы знаний запущена в фоне; состояние — db_state или index_state'}
+09-14 21:28:17 >> db_index_links {} -> PASS (2мс) {'msg': 'пересбор базы связей запущен в фоне (тяжёлый); состояние — db_state или usage_state'}
+09-14 21:28:17 >> diag_usage {} -> PASS (33мс) ссылок: 347705, известная пара: 0 -> НЕ ПРОЙДЕН: известный ответ не найден: creoson_tests-01-1 в creoson_tests-01
+09-14 21:28:18 >> diag_web {} -> PASS (412мс) • http://127.0.0.1:8765/status -> 200 | 193 симв • https://ya.ru -> direct | 557114 симв вердикт: ПРОЙДЕН
+09-14 21:28:18 >> drafts_build {} -> PASS (3мс) черновиков создано: 0
+09-14 21:28:18 >> drafts_list {} -> PASS (0мс) chain_models_find_models_where.md
+09-14 21:28:18 >> drafts_reject {} -> FAIL (0мс) исключение: tool_drafts_reject() missing 1 required positional argument: 'name'
+09-14 21:28:18 >> models_find {} -> PASS (276мс) 'все': найдено 4944 моделей в 7 категориях (автогруппировка). 📁 000_02 ST Стеклосфера — 2741 📁 НАСТРОЙКИ — 859 📁 Libraries — 624 📁 000_01 Пользователь
+09-14 21:28:18 >> models_stats {} -> PASS (7мс) всего моделей: 41259; по типам: prt=19423, drw=11838, asm=9990, sec=8
+09-14 21:28:18 >> family_parse {} -> PASS (0мс) укажи имя generic или путь к .prt
+09-14 21:28:18 >> fleet_status {} -> PASS (30мс) - 192.168.88.159 | жив | gemma4:26b-131k | блоков: 38 | инструментов: 134
+09-14 21:28:18 >> fleet_hosts {} -> PASS (0мс) текущие хосты: 192.168.88.159
+09-14 21:28:18 >> git_status {} -> PASS (14мс) ок
+09-14 21:28:19 >> git_pull {} -> PASS (688мс) Already up to date.
+09-14 21:28:19 >> graph {} -> FAIL (0мс) исключение: build_graph() missing 1 required positional argument: 'name'
+09-14 21:28:19 >> guide {} -> PASS (0мс) 📖 СПРАВОЧНИК АГЕНТА — направления (guide topic=<ключ> или кнопка «подробнее»): — Базы данных: что где лежит и как проверить [DETAILS:db]подробнее[/DET
+09-14 21:28:19 >> tools_help {} -> FAIL (0мс) - backup_list() — Список бэкапов базы - backup_restore(name) — Восстановить базу из бэкапа [СОГЛАСОВАНИЕ] - backup_housekeeping() — Ночная уборка: бек
+09-14 21:28:19 >> search_kb {} -> PASS (0мс) пустой запрос
+09-14 21:28:19 >> read_file {} -> PASS (0мс) укажите path
+09-14 21:28:19 >> model_rules {} -> PASS (0мс) === SKILL_object_creoson_tests-01_asm.md === **Конструкторские правила для модели "Держатель черновых форм" (CREOSON_TESTS-01):**  ### Входные парамет
+09-14 21:28:19 >> map {} -> FAIL (0мс) исключение: 'str' object is not callable
+09-14 21:28:19 >> history_search {} -> PASS (0мс) история пуста
+09-14 21:28:19 >> strategy_read {} -> PASS (0мс) --- name: strategy system: общее description: Use when: стратегия развития АГЕНТА и КБ when: strategy priority: normal --- # СТРАТЕГИЯ РАЗВИТИЯ АГЕНТА
+09-14 21:28:19 >> proven_show {} -> PASS (0мс) пока нет скиллов с 3+ пользователями
+09-14 21:28:19 >> fav_show {} -> PASS (0мс) избранное пусто
+09-14 21:28:19 >> fav_add {} -> PASS (0мс) укажите текст
+09-14 21:28:19 >> save_error {} -> PASS (0мс) не нашёл ошибку в последних диалогах
+09-14 21:28:19 >> nightly_state {} -> PASS (2мс) индекс готов (из базы): ссылок 347705 (имён 0). Корни: 
+09-14 21:28:19 >> one_c_status {} -> PASS (0мс) выгрузка 1С не найдена: D:\AI\1c
+09-14 21:28:19 >> passport_show {} -> PASS (190мс) ПАСПОРТ (живой сбор): • pro_unit_sys = MMKS • pro_unit_length = UNIT_MM • pro_unit_mass = UNIT_KILOGRAM • default_dec_places = 4 • tolerance_standard 
+09-14 21:28:19 >> passport_refresh {} -> PASS (184мс) ПАСПОРТ (живой сбор): • pro_unit_sys = MMKS • pro_unit_length = UNIT_MM • pro_unit_mass = UNIT_KILOGRAM • default_dec_places = 4 • tolerance_standard 
+09-14 21:28:19 >> pdf_pages {} -> FAIL (0мс) исключение: pdf_pages() missing 1 required positional argument: 'name'
+09-14 21:28:19 >> pdf_img {} -> FAIL (0мс) исключение: pdf_img() missing 2 required positional arguments: 'name' and 'page'
+09-14 21:28:19 >> pdf_status {} -> FAIL (0мс) исключение: pdf_status() missing 1 required positional argument: 'name'
+09-14 21:28:19 >> plm_item {} -> PASS (0мс) укажи обозначение
+09-14 21:28:19 >> plm_bom {} -> PASS (0мс) укажи обозначение сборки
+09-14 21:28:19 >> plm_where {} -> PASS (0мс) укажи обозначение детали
+09-14 21:28:20 >> plm_audit {} -> PASS (1093мс) АУДИТ ПЛМ: изделий 0; без материала 0; без формата 0; дубли: нет
+09-14 21:28:20 >> trail_predict {} -> PASS (4мс) нет данных для прогноза
+09-14 21:28:20 >> role_tools_show {} -> FAIL (0мс) РОЛЬ Инженер (134 всего, 0 запрещено): ✅ angle — Расчет углов и гипотенузы по двум катетам ✅ audit_batch — Пакетный аудит устаревших PDF-экспортов (ли
+09-14 21:28:20 >> role_tools_search {} -> PASS (0мс) ✅ backup_list ✅ backup_restore ✅ backup_housekeeping ✅ drift_check ✅ behavior_run ✅ calc ✅ calc_units ✅ calc_formulas ✅ angle ✅ chat_last ✅ copy_model
+09-14 21:28:20 >> index_state {} -> PASS (36мс) файлов: 28002, чанков: 34372, моделей: 41293, индексация: нет (0/0)
+09-14 21:28:20 >> settings_show {} -> PASS (0мс) • [Главное] llm_model = gemma4:26b-131k — Какая модель думает. • [Главное] creativity = 40 — 0-34 строго, 35-66 нейтрально, 67-100 свободно. • [Главно
+09-14 21:28:20 >> settings_models {} -> PASS (25мс) • gemma4:26b-131k ← активна • deepseek-v4-flash:cloud • gemma4:12b • gemma4:26b • qwen3-coder:30b-a3b-q4_K_M • qwen3.8:latest • qwen3:14b • minicpm-v:
+09-14 21:28:20 >> find_similar {} -> PASS (0мс) [{'error': 'укажите name или q'}]
+09-14 21:28:20 >> spec_read {} -> PASS (0мс) укажи существующий путь к XLSX
+09-14 21:28:20 >> fleet_pull {} -> PASS (14мс) error: cannot pull with rebase: You have unstaged changes. error: Please commit or stash them.
+09-14 21:28:20 >> case_save {} -> PASS (0мс) укажи title и text
+09-14 21:28:20 >> timeline {} -> FAIL (0мс) исключение: build_timeline() missing 1 required positional argument: 'name'
+09-14 21:28:20 >> trail_analyze {} -> PASS (62мс) === trail.txt.359 === сессия: 2026/09/14  18:37:40 | ~0 мин | простой ~0 мин (никто не работал) | память 0 МБ регенераций: 776, подавлено макс: 0 (инф
+09-14 21:28:50 >> trail_diagnose {} -> PASS (29379мс) 📐 ПО ШАБЛОНУ: === trail.txt.359 === сессия: 2026/09/14  18:37:40 | ~0 мин | простой ~0 мин (никто не работал) | память 0 МБ регенераций: 776, подавлен
+09-14 21:28:50 >> trail_problems {} -> PASS (0мс) НАКОПЛЕННЫЕ БОЛЕЗНИ ТРЕЙЛОВ: • [ПЕРЕВОД] afx_options.txt — open — 2 раз (первый 2026-09-14 21:28, последний 2026-09-14 21:28, сумма 0 сек) • [ДИАГРАММ
+09-14 21:28:50 >> trail_trend {} -> PASS (0мс) ТРЕНД ПОТЕРЬ ВРЕМЕНИ: • МЕДЛЕННЫЕ ОТКРЫТИЯ / creoson_tests-01.asm.1 — 22 сек (0.4 мин) за 2 случаев • ОШИБКИ FEATURE / G11074 — 0 сек (0.0 мин) за 2 с
+09-14 21:28:50 >> models_where {} -> PASS (2мс) укажи имя модели
+09-14 21:28:50 >> usage_state {} -> PASS (1мс) индекс готов (из базы): ссылок 347705 (имён 0). Корни: 
+09-14 21:28:50 >> users_list {} -> PASS (0мс) • admin — роль: Администратор — был: 2026-09-14T21:14 • 555 — роль: Инженер — был: 
+09-14 21:28:54 >> vision_analyze {} -> PASS (4231мс) 📷 260911_164313.png (minicpm-v:8b): Веб-разработчика видно на экране.
+09-14 21:28:54 >> web_fetch {} -> PASS (0мс) нужна ссылка
+09-14 21:28:54 >> web_study {} -> PASS (0мс) нужна ссылка
+09-14 21:28:54 >> vision_audit {} -> PASS (0мс) Подсказка: vision_audit name=<имя модели> [checklist=gost_stamp]. Сверяет PDF-экспорт модели с чек-листом из data\checklists.
+09-14 21:28:54 >> audit_batch {} -> PASS (77мс) устаревших экспортов нет
+09-14 21:28:54 == probe_run: инструментов 89, ошибок 11
+09-14 21:28:54 == diag_run вердикт: НЕ ПРОЙДЕН (3): статика:agent.py: invalid non-printabl, статика:panel.py: invalid non-printabl, probe_run

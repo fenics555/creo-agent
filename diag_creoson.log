@@ -782,3 +782,39 @@
 09-10 10:35:15 << view:list OK
 09-10 10:35:15 >> geometry:bound_box {"file": "a338-6-75.prt"}
 09-10 10:35:15 << geometry:bound_box OK
+09-14 21:24:27 >> creo:pwd {}
+09-14 21:24:27 << creo:pwd OK
+09-14 21:24:27 >> creo:list_files {"filename": "*"}
+09-14 21:24:27 << creo:list_files OK
+09-14 21:24:27 >> file:list {}
+09-14 21:24:27 << file:list OK
+09-14 21:24:27 >> file:exists {"file": "creoson_tests-01.asm"}
+09-14 21:24:27 << file:exists OK
+09-14 21:24:27 >> file:get_fileinfo {"file": "creoson_tests-01.asm"}
+09-14 21:24:27 << file:get_fileinfo OK
+09-14 21:24:27 >> file:massprops {"file": "creoson_tests-01.asm"}
+09-14 21:24:27 << file:massprops OK
+09-14 21:24:27 >> file:relations_get {"file": "creoson_tests-01.asm"}
+09-14 21:24:27 << file:relations_get OK
+09-14 21:24:27 >> file:open_errors {"file": "creoson_tests-01.asm"}
+09-14 21:24:27 << file:open_errors OK
+09-14 21:24:27 >> parameter:list {"file": "creoson_tests-01.asm"}
+09-14 21:24:28 << parameter:list OK
+09-14 21:24:28 >> parameter:exists {"file": "creoson_tests-01.asm", "name": "ОБОЗНАЧЕНИЕ"}
+09-14 21:24:28 << parameter:exists OK
+09-14 21:24:28 >> dimension:list {"file": "creoson_tests-01.asm"}
+09-14 21:24:28 << dimension:list OK
+09-14 21:24:28 >> feature:list {"file": "creoson_tests-01.asm"}
+09-14 21:24:28 << feature:list OK
+09-14 21:24:28 >> bom:get_paths {"file": "creoson_tests-01.asm", "paths": false, "top_level": false, "exclude_inactive": true}
+09-14 21:24:28 << bom:get_paths OK
+09-14 21:24:28 >> familytable:list {"file": "creoson_tests-01.asm"}
+09-14 21:24:28 << familytable:list OK
+09-14 21:24:28 >> layer:list {"file": "creoson_tests-01.asm"}
+09-14 21:24:28 << layer:list OK
+09-14 21:24:28 >> note:list {"file": "creoson_tests-01.asm"}
+09-14 21:24:28 << note:list OK
+09-14 21:24:28 >> view:list {"file": "creoson_tests-01.asm"}
+09-14 21:24:28 << view:list OK
+09-14 21:24:28 >> geometry:bound_box {"file": "creoson_tests-01.asm"}
+09-14 21:24:28 << geometry:bound_box OK
