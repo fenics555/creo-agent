@@ -147,7 +147,7 @@ function buildSettings(s){var MK=['llm_model','model_fast','model_trail','model_
 var hasMV=false;s.items.forEach(function(it){if(it.key=='model_vision')hasMV=true});
 var skip=function(it){return it.key=='model_chat'||(it.key=='vision_model'&&hasMV)};
 var find=function(k){var r=null;s.items.forEach(function(it){if(it.key==k)r=it});return r};
-var h='<div class="grp"><h4 data-act="fold">▾ ⚙ НАСТРОЙКИ</h4><div class="gbody" style="display:block"><h4 style="color:#4C8FD6">Модели и роли</h4>';
+var h='<div class="grp" data-gkey="settings"><h4 data-act="fold" data-fkey="settings">▸ ⚙ НАСТРОЙКИ</h4><div class="gbody" style="display:none"><h4 style="color:#4C8FD6">Модели и роли</h4>';
 MK.forEach(function(k){var it=find(k);if(!it)return;
 h+='<div class="tool"><small>'+esc(it.name)+'</small><select data-cfg="'+att(k)+'" style="width:100%">';
 if(k!='llm_model')h+='<option value=""'+(String(it.value)==''?' selected':'')+'>— как чат —</option>';
@@ -161,7 +161,7 @@ if(it.kind=='range'){h+=`<div class="row"><input type="range" data-cfg="${att(it
 else if(it.kind=='check'){h+=`<input type="checkbox" data-cfg="${att(it.key)}" ${it.value?'checked':''}>`;}
 else{h+=`<input data-cfg="${att(it.key)}" value="${att(String(it.value))}" style="width:100%">`;}
 h+='</div>';});
-h+='</div></div>';panel.innerHTML+=h}
+h+='</div></div>';panel.querySelectorAll('.grp').forEach(g=>{if(g.textContent.includes('НАСТРОЙКИ'))g.remove()});panel.innerHTML+=h}
 function loadReg(){J('/pdfregistry').catch(function(){return{}}).then(function(rr){if(!rr||!rr.rows||!rr.rows.length)return;REG=rr.rows;
 var h='<div class="grp" data-gkey="reg"><h4 data-act="fold">▸  PDF-РЕЕСТР ('+rr.rows.length+')</h4><div class="gbody" style="display:none">';
 h+='<small id="reghdr" style="color:#A6A8AB"></small><div class="row"><label><input type="checkbox" id="regstale"> только устаревшие</label><button id="regall" class="sec" style="padding:4px 8px">Обновить все устаревшие</button></div>';
@@ -184,7 +184,7 @@ box.innerHTML=h+'</table>'}
 function init(){J('/status').then(function(s){CURM=s.model;hdr.textContent=s.host+(s.user?' | '+(s.user.display_name||s.user.login):'')+' | '+s.model+' | блоков: '+s.blocks;var mb=document.querySelector('[data-act="mode"]');if(mb){mb.textContent=(s.mode==2?'💬 Собеседник':'🛠 Инженер');}qinp.placeholder='Задача для АГЕНТА... (Enter) | Ctrl+V — вставить скриншот | chat <вопрос> — разовый режим собеседника';J('/panel').then(function(p){buildPanel(p);J('/settings').then(buildSettings)})})}
 document.addEventListener('click',function(e){var el=e.target.closest('[data-act]');if(!el)return;var a=el.getAttribute('data-act');
 if(a=='think'){var n=el.nextElementSibling;n.style.display=n.style.display=='none'?'block':'none'}
-else if(a=='fold'){var b=el.nextElementSibling;var hid=b.style.display=='none';b.style.display=hid?'block':'none';el.textContent=(hid?'▾':'')+el.textContent.slice(1);var fk=el.getAttribute('data-fkey');if(fk){var F=JSON.parse(localStorage.getItem('panel_fold')||'{}');F[fk]=hid?1:0;localStorage.setItem('panel_fold',JSON.stringify(F))}}
+else if(a=='fold'){var b=el.nextElementSibling;var hid=b.style.display=='none';b.style.display=hid?'block':'none';el.textContent=(hid?'▾':'▸')+el.textContent.replace(/[▾▸]/,'');var fk=el.getAttribute('data-fkey');if(fk){var F=JSON.parse(localStorage.getItem('panel_fold')||'{}');F[fk]=hid?1:0;localStorage.setItem('panel_fold',JSON.stringify(F))}}
 else if(a=='send')send();
 else if(a=='wizard'){document.getElementById('wiz').style.display='flex'}
 else if(a=='w_close'){document.getElementById('wiz').style.display='none'}
