@@ -1,6 +1,7 @@
-# -*- coding: utf-8 -*-
+﻿# -*- coding: utf-8 -*-
 """SIMILAR: поиск похожих Creo-моделей по эмбеддингам (спека 30)."""
 import numpy as np
+import os
 from core import log, embed, db
 import scanner
 
@@ -45,7 +46,25 @@ def find_similar(name="", q="", top=10):
         if model:
             path = model[0]
             c = db()
+            # 1. Try exact path
             rows = c.execute("SELECT emb FROM chunks WHERE path LIKE ?", (path + '%',)).fetchall()
+            
+            # 2. Try disk swap
+            if not rows:
+                alt_path = None
+                if path.startswith("Z:"):
+                    alt_path = "D:" + path[2:]
+                elif path.startswith("D:"):
+                    alt_path = "Z:" + path[2:]
+                
+                if alt_path:
+                    rows = c.execute("SELECT emb FROM chunks WHERE path LIKE ?", (alt_path + '%',)).fetchall()
+                    
+            # 3. Try base filename
+            if not rows:
+                fname = os.path.basename(path)
+                rows = c.execute("SELECT emb FROM chunks WHERE path LIKE ?", ('%' + fname,)).fetchall()
+                
             c.close()
             if rows:
                 embs = [np.frombuffer(r[0], np.float32) for r in rows]
