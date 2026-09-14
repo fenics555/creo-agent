@@ -1,4 +1,4 @@
-﻿# -*- coding: utf-8 -*-
+# -*- coding: utf-8 -*-
 """SIMILAR: поиск похожих Creo-моделей по эмбеддингам (спека 30)."""
 import numpy as np
 import os
@@ -41,40 +41,39 @@ def find_similar(name="", q="", top=10):
     qv = None
     if name:
         c = db()
-        model = c.execute("SELECT path FROM models WHERE name=?", (name,)).fetchone()
-        c.close()
-        if model:
-            path = model[0]
-            c = db()
-            # 1. Try exact path
-            rows = c.execute("SELECT emb FROM chunks WHERE path LIKE ?", (path + '%',)).fetchall()
-            
-            # 2. Try disk swap
-            if not rows:
-                alt_path = None
-                if path.startswith("Z:"):
-                    alt_path = "D:" + path[2:]
-                elif path.startswith("D:"):
-                    alt_path = "Z:" + path[2:]
+        # 1. Try model_embs directly
+        r_emb = c.execute("SELECT emb FROM model_embs WHERE name=?", (name,)).fetchone()
+        if r_emb:
+            qv = np.frombuffer(r_emb[0], np.float32)
+        
+        # 2. Try chunks (if model in models)
+        if qv is None:
+            model = c.execute("SELECT path FROM models WHERE name=?", (name,)).fetchone()
+            if model:
+                path = model[0]
+                rows = c.execute("SELECT emb FROM chunks WHERE path LIKE ?", (path + '%',)).fetchall()
+                if not rows:
+                    alt_path = None
+                    if path.startswith("Z:"): alt_path = "D:" + path[2:]
+                    elif path.startswith("D:"): alt_path = "Z:" + path[2:]
+                    if alt_path:
+                        rows = c.execute("SELECT emb FROM chunks WHERE path LIKE ?", (alt_path + '%',)).fetchall()
+                if not rows:
+                    fname = os.path.basename(path)
+                    rows = c.execute("SELECT emb FROM chunks WHERE path LIKE ?", ('%' + fname,)).fetchall()
                 
-                if alt_path:
-                    rows = c.execute("SELECT emb FROM chunks WHERE path LIKE ?", (alt_path + '%',)).fetchall()
-                    
-            # 3. Try base filename
-            if not rows:
-                fname = os.path.basename(path)
-                rows = c.execute("SELECT emb FROM chunks WHERE path LIKE ?", ('%' + fname,)).fetchall()
-                
-            c.close()
-            if rows:
-                embs = [np.frombuffer(r[0], np.float32) for r in rows]
-                qv = np.mean(embs, axis=0)
-            else:
-                return [{"error": "chunks not found for model"}]
-        else:
+                if rows:
+                    embs = [np.frombuffer(row[0], np.float32) for row in rows]
+                    qv = np.mean(embs, axis=0)
+        
+        # 3. Fallback to embed(name)
+        if qv is None:
             e = embed(name)
-            if not e: return [{"error": "embed fail"}]
+            if not e:
+                c.close()
+                return [{"error": "embed fail"}]
             qv = np.array(e, np.float32)
+        c.close()
     elif q:
         e = embed(q)
         if not e: return [{"error": "embed fail"}]
