@@ -629,10 +629,15 @@ class Hd(BaseHTTPRequestHandler):
                         tail = "\n".join(jf.read_text(encoding="utf-8", errors="ignore").splitlines()[-8:])
                 except Exception:
                     tail = ""
+            def _alive(p_):
+                try:
+                    s_ = socket.create_connection(("127.0.0.1", p_), timeout=1); s_.close(); return True
+                except Exception: return False
             self._j({"host": HOSTNAME, "model": settings.get("llm_model"), "blocks": len(TR.BLOCKS),
                      "tools": len(TR.TOOLS), "user": prof,
                      "is_manager": users.can_manage_users(prof["login"]) if prof else False,
-                     "trails": tail, "mode": settings.get_for(cl2["login"], "chat_mode", 1) if cl2 else 1})
+                     "trails": tail, "mode": settings.get_for(cl2["login"], "chat_mode", 1) if cl2 else 1,
+                     "up_ollama": _alive(11434), "up_creoson": _alive(8080), "up_agent": True})
             return
         elif p == "/pdfpages":
             if not users.token_info(self.headers.get("X-Token") or ""): return self._j({"error": "no token"})
