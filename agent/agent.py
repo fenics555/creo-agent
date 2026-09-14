@@ -3,8 +3,6 @@
 ThreadingHTTPServer + стриминг токенов + параллельные инструменты + планировщик.
 Витрина живёт в data/ui/index.html; константы PAGE больше нет.
 """
-Согласования хранятся строковым id, живут между ходами, ошибка заявки — строкой в ответе.
-Согласования хранятся строковым id, живут между ходами, ошибка заявки — строкой в ответе. (Хвост: except Exception: pass)
 import json, re, os, socket, threading, time, datetime
 from concurrent.futures import ThreadPoolExecutor
 import subprocess, sys

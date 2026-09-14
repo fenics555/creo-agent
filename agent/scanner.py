@@ -34,10 +34,6 @@ def read_roots():
         return []
 
 
-    except Exception:
-        return []
-
-
 
 
 EXTS = {".htm", ".html", ".md", ".txt", ".py", ".xml", ".json", ".csv",
