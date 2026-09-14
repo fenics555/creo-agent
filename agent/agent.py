@@ -233,7 +233,7 @@ def _scheduler():
                             elif t == "usage":
                                 import usage_tools; usage_tools.build_usage(True)
                             elif t == "backup":
-                                import backup_tools; backup_tools.tool_make(); log(backup_tools.tool_housekeeping()); log(backup_tools.tool_drift_check())
+                                import backup; backup._do(); import backup_tools; log(backup_tools.tool_housekeeping()); log(backup_tools.tool_drift_check())
                             elif t == "drafts":
                                 import draft_tools
                                 log(draft_tools.tool_drafts_build())
@@ -319,6 +319,10 @@ def _refusal(text):
     return any(w in lo for w in _REFUSAL)
 
 
+def _two(res):
+    return " ".join(str(res).split()[:2]) or "пусто"
+
+
 def hist_block(client):
     c = core.db()
     rows = c.execute("SELECT q,a FROM history WHERE client=? ORDER BY id DESC LIMIT 8", (client,)).fetchall()
@@ -356,8 +360,6 @@ def run_loop(messages, client, has_link=False, on_step=None):
         except Exception: pass
         kind, payload, args, think = parse_model(raw)
         think = think or (((r.get("message") or {}).get("thinking") or "").strip())
-        if think and (int(settings.get("think_in_log") or 0) or int(settings.get("log_mode") or 1) >= 2):
-            _log("[THINK] %s" % think[:400])
         if kind == "answer" and (_refusal(payload) or (len(payload) < 80 and payload.strip().lower() in _NUDGE.lower())):
             _log("refusal/echo_guard"); kind, payload = "invalid", raw
         if kind == "answer":
@@ -432,7 +434,7 @@ def run_loop(messages, client, has_link=False, on_step=None):
             try: res = str(t["fn"](**args))
             except Exception as e: res = "ошибка исполнения %s: %s" % (name, e)
             trace("AGENT %s" % name, "OK", int((time.time() - t0) * 1000))
-            _log("%s(%s) → %s" % (name, "без параметров" if not args else json.dumps(args, ensure_ascii=False), res[:120]))
+            _log("%s(%s) → %s" % (name, "без параметров" if not args else json.dumps(args, ensure_ascii=False), _two(res)))
         last_res = res
         messages.append({"role": "assistant", "content": raw})
         messages.append({"role": "user", "content": "[РЕЗУЛЬТАТ %s]: %s" % (name, res[:4000])})
@@ -474,7 +476,7 @@ def ask(q, client, image=None, on_step=None, mode=None):
         c = core.db()
         c.execute("INSERT INTO history(client,q,a,ts) VALUES(?,?,?,?)", (client, q, res[:2000], datetime.datetime.now().isoformat()))
         c.commit(); c.close()
-        return {"answer": res, "think": "", "steps": 1, "log": ["%s(прямой вызов) → %s" % (name, res[:120])]}
+        return {"answer": res, "think": "", "steps": 1, "log": ["%s(прямой вызов) → %s" % (name, _two(res))]}
 
     # 2.5 Fast router for special commands
     if q.strip().lower().startswith("угол "):
@@ -521,7 +523,7 @@ def ask(q, client, image=None, on_step=None, mode=None):
                 res = str(t2["fn"](**{m2.group(2): m2.group(3)}))
             except Exception as e:
                 res = "ошибка исполнения %s: %s" % (m2.group(1), e)
-            return {"answer": res, "think": "", "steps": 1, "log": [m2.group(1) + "(прямой вызов) → " + res[:120]]}
+            return {"answer": res, "think": "", "steps": 1, "log": [m2.group(1) + "(прямой вызов) → " + _two(res)]}
     q2 = q2 + "\n\n[СЛУЖЕБНОЕ: отвечай только по-русски. Один ход = один [TOOL] или один [ANSWER]. Никакого текста до и после блока.]"
     messages = [{"role": "system", "content": build_system(mode=eff_mode)}] + hist_block(client) + [{"role": "user", "content": q2}]
     _ta = time.time()
@@ -858,6 +860,10 @@ class Hd(BaseHTTPRequestHandler):
             return
         elif p == "/approve":
             self._j(do_approve(b.get("pid"), b.get("ok")))
+        elif p == "/wiz_preview":
+            import copy_tools as _cp37
+            self._j(_cp37.preview(old=b.get("old") or "", new=b.get("new") or "", template=b.get("template") or "",
+                                  family=b.get("family", 1), drawings=b.get("drawings", 0)))
         elif p == "/setmodel":
             import panel as _pn
             ok_names = _pn.models()

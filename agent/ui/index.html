@@ -66,8 +66,12 @@ input[type=checkbox]{accent-color:#1273EB}
 <input id="lg" placeholder="логин"><input id="pw" type="password" placeholder="пароль"><button data-act="login">Войти</button><button data-act="reg" class="sec">Регистрация</button></div></div>
 <div id="wiz"><div style="width:430px"><b>🧙 МАСТЕР ОПЕРАЦИЙ</b><small style="color:#A6A8AB">Копия сборки (сначала план)</small>
 <input id="w_old" placeholder="старое имя (old)"><input id="w_new" placeholder="новое имя (new)">
+<input id="w_tpl" placeholder="шаблон кода исполнения: {name} {n} {date}">
+<label style="color:#A6A8AB"><input type="checkbox" id="w_family" checked> исполнения (family)</label>
+<label style="color:#A6A8AB"><input type="checkbox" id="w_draw"> чертежи (drawings)</label>
 <label style="color:#A6A8AB"><input type="checkbox" id="w_dry" checked> только план (dry_run)</label>
-<button data-act="w_copy">📋 Сделать копию</button><hr style="border-color:#3E4043">
+<button data-act="w_prev">👁 Предпросмотр</button><button data-act="w_copy">📋 Сделать копию</button>
+<div id="w_out" style="max-height:180px;overflow:auto;margin-top:6px"></div><hr style="border-color:#3E4043">
 <button data-act="w_audit">🔍 Аудит папки Creo</button><button data-act="w_usage">🧩 Пересобрать «где используется»</button>
 <button data-act="w_night">🌙 Ночной прогон</button><button data-act="w_close" class="sec">Закрыть</button></div></div>
 <div id="pro"><div style="width:340px"><b>👤 ПРОФИЛЬ</b><span id="proinfo" style="color:#A6A8AB;font-size:13px"></span>
