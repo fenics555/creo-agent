@@ -100,7 +100,7 @@ if(r.think)h+='<div class="think" data-act="think">🧠 размышления (
 if(r.log&&r.log.length&&(window.CFG||{}).show_steps!==0)h+=`<div class="log">🔎 ХОД РАБОТЫ:
 ${r.log.map(esc).join(String.fromCharCode(10))}</div>`; // 10 = newline
 var atxt=esc(String(r.answer).replace(new RegExp('[<][/]?think[>]', 'g'),''));
-atxt=atxt.replace(DETAILS_RE, function(m,k,l,t){var lbl=l||'подробнее';return '<div class="details-wrap"><button class="sec" data-act="details-toggle" data-val="'+k+'" style="margin:2px">'+lbl+'</button><div class="details-content" style="display:none; margin-left:10px; border-left:2px solid #555; padding-left:5px">'+t+'</div></div>';}
+atxt=atxt.replace(DETAILS_RE, function(m,k,l,t){var lbl=l||'подробнее';return '<div class="details-wrap"><button class="sec" data-act="details-toggle" data-val="'+k+'" style="margin:2px">'+lbl+'</button><div class="details-content" style="display:none; margin-left:10px; border-left:2px solid #555; padding-left:5px">'+t+'</div></div>';});
 h+='<div>'+atxt+'</div><div class="pdfrow"></div>';
 d._r=r;
 if(String(r.answer).indexOf('[СОГЛАСОВАНИЕ]')<0)h+='<div style="margin-top:6px"><button data-act="fb" data-ok="1">✅ попал</button> <button data-act="fb" data-ok="0" class="sec">❌ не попал</button></div>';
