@@ -1,4 +1,4 @@
-﻿# -*- coding: utf-8 -*-
+# -*- coding: utf-8 -*-
 """АГЕНТ v15 — agent.py (полная сборка)
 ThreadingHTTPServer + стриминг токенов + параллельные инструменты + планировщик.
 Витрина живёт в data/ui/index.html; константы PAGE больше нет.
@@ -14,7 +14,25 @@ import settings
 import pdf_tools
 
 def _clean(txt):
-    return re.sub(r"\[/?ANSWER\]|\[/?THINK\]|\[TOOL[^\]]*\]|\[/TOOL\]", "", txt or "")
+    if not txt:
+        return ""
+    # 1. Remove [THINK]...[/THINK] blocks (with content)
+    txt = re.sub(r"\[THINK\].*?\[/THINK\]", "", txt, flags=re.DOTALL)
+    # 2. Remove single tags [THINK], [/THINK], [ANSWER], [/ANSWER]
+    txt = re.sub(r"\[/?(THINK|ANSWER)\]", "", txt)
+    # 3. Remove [TOOL] tags but keep content
+    txt = re.sub(r"\[TOOL[^\]]*\]|\[/TOOL\]", "", txt)
+    # 4. Remove English reasoning before the first Russian sentence
+    cyrillic_match = re.search(r'[а-яА-ЯёЁ]', txt)
+    if cyrillic_match:
+        txt = txt[cyrillic_match.start():]
+    else:
+        if txt.strip():
+            txt = ""
+    return txt.strip()
+
+
+
 
 
 # === v15: стриминг токенов ===
@@ -143,11 +161,18 @@ _SYS_CACHE = {}
 
 def build_system(mode=1):
     if mode == 2:
-        return """Ты — собеседник и помощник по любым темам. Язык ответа — русский; код, термины и формулы — как принято в теме.
-В этом режиме нет доступа к Creo, файлам и базам: если вопрос требует живых данных, скажи «в режиме инженера я достану это из Creo или базы — переключи режим» и не выдумывай.
-Формат: свободный текст; код внутри блоков с языком; служебных тегов нет.
-Краткость ценится, но полнота решения важнее."""
+        return """Ты — собеседник и помощник по любым темам. Язык ответа — русский; код, термины и формулы — как принято в теме.\nВ этом режиме нет доступа к Creo, файлам и базам: если вопрос требует живых данных, скажи 'в режиме инженера я достану это из Creo или базы — переключи режим' и не выдумывай.\nФормат: свободный текст; код внутри блоков с языком; служебных тегов нет.\nКраткость ценится, но полнота решения важнее."""
     if _SYS_CACHE.get(("v", mode)): return _SYS_CACHE[("v", mode)]
+    p = load_skill("SKILL_agent_protocol.md") or DEFAULT_PROTO
+    core_lines, rest = [], []
+
+    p = load_skill("SKILL_agent_protocol.md") or DEFAULT_PROTO
+    core_lines, rest = [], []
+
+    p = load_skill("SKILL_agent_protocol.md") or DEFAULT_PROTO
+    core_lines, rest = [], []
+    p = load_skill("SKILL_agent_protocol.md") or DEFAULT_PROTO
+    core_lines, rest = [], []
     p = load_skill("SKILL_agent_protocol.md") or DEFAULT_PROTO
     core_lines, rest = [], []
     for t in TR.TOOLS:
