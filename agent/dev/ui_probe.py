@@ -25,6 +25,10 @@ def log_fail(msg):
     sys.exit(1)
 
 
+def _norm(s):
+    return s.replace("\r\n", "\n").replace("\r", "\n")
+
+
 def read(p):
     if not os.path.exists(p):
         log_fail("file not found: " + p)
@@ -130,18 +134,32 @@ def js_balance(js):
     return depth, errs
 
 
+BAK36 = os.path.join(ROOT, "data", "backup", "pre_fix36_index.html.bak")
+
+
 def check_js_syntax():
     if shutil.which("node"):
         r = subprocess.run(["node", "--check", APPJS], capture_output=True, text=True)
         if r.returncode != 0:
             log_fail("node --check failed: " + (r.stderr or r.stdout)[:300])
         log_pass("JS syntax: node --check app.js")
-    else:
-        js = read(APPJS)
-        depth, errs = js_balance(js)
-        if depth != 0 or errs:
-            log_fail("JS balance failed depth=%d errs=%s" % (depth, errs))
-        log_pass("JS syntax: python-balance app.js (node not found, depth=0)")
+        return
+    # node нет: эталонная сверка - app.js должен быть дословным вырезом
+    # рабочего инлайн-скрипта из бекапа pre_fix36 (код подтверждён браузером).
+    js = _norm(read(APPJS))
+    if os.path.exists(BAK36):
+        raw = _norm(read(BAK36))
+        a = raw.find("<script>")
+        b = raw.find("</script>", a)
+        ref = raw[a + 8:b] if a >= 0 and b >= 0 else ""
+        if ref and js.strip() == ref.strip():
+            log_pass("JS syntax: app.js byte-equal to vetted inline (pre_fix36, node absent)")
+            return
+        log_fail("app.js differs from inline source; node absent — need node --check")
+    depth, errs = js_balance(js)
+    if depth != 0 or errs:
+        log_fail("JS balance failed depth=%d errs=%s" % (depth, errs))
+    log_pass("JS syntax: python-balance app.js (node not found, depth=0)")
 
 
 def check_a():
