@@ -806,6 +806,18 @@ class Hd(BaseHTTPRequestHandler):
             except Exception: pass
             self._j({"tail": tail})
             return
+        elif p == "/ui/app.js":
+            try:
+                b = open(os.path.join(os.path.dirname(__file__), "ui", "app.js"), "rb").read()
+            except Exception:
+                self._j({"error": "app.js not found"})
+                return
+            self.send_response(200)
+            self.send_header("Content-Type", "text/javascript; charset=utf-8")
+            self.send_header("Content-Length", str(len(b)))
+            self.end_headers()
+            self.wfile.write(b)
+            return
         else:
             _serve_ui(self)
 

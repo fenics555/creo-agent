@@ -1,16 +1,19 @@
 # -*- coding: utf-8 -*-
-"""ui_probe.py - автотест инлайн-контента витрины (правило 10.14).
-Проверки: инлайн-script, порт DETAILS-regex на Python, обработчик details-toggle,
-группа settings с треугольником. Кириллица только через \\u-эскейпы (10.11)."""
+"""ui_probe.py - avtotest vitriny (pravilo 10.14). index.html + ui/app.js.
+JS-sintaks: node --check (esli est), inache python-balans skobok s
+uvazheniem k strokam, kommentariyam i regex-literal (speka 36 shag 3)."""
 import os
-import re
+import shutil
+import subprocess
 import sys
 
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
-INDEX_PATH = os.path.join(BASE_DIR, "..", "ui", "index.html")
+ROOT = os.path.normpath(os.path.join(BASE_DIR, ".."))
+INDEX = os.path.join(ROOT, "ui", "index.html")
+APPJS = os.path.join(ROOT, "ui", "app.js")
 
-PODROBNEE = "\u043f\u043e\u0434\u0440\u043e\u0431\u043d\u0435\u0435"  # подробнее
-TEKST = "\u0442\u0435\u043a\u0441\u0442"  # текст
+OPENB = "({["
+CLOSEB = ")}]"
 
 
 def log_pass(msg):
@@ -22,73 +25,177 @@ def log_fail(msg):
     sys.exit(1)
 
 
-def _read_index():
-    if not os.path.exists(INDEX_PATH):
-        log_fail("index.html not found at %s" % INDEX_PATH)
-    with open(INDEX_PATH, "r", encoding="utf-8") as f:
+def read(p):
+    if not os.path.exists(p):
+        log_fail("file not found: " + p)
+    with open(p, "r", encoding="utf-8") as f:
         return f.read()
 
 
-def check_a(content):
-    if not re.search(r"<script>(.*?)</script>", content, re.DOTALL):
-        log_fail("No inline scripts found")
-    log_pass("Inline scripts exist")
+def js_balance(js):
+    depth = 0
+    st = 0      # 0 code, 1 dq, 2 sq, 3 bt, 4 line-com, 5 block-com, 6 regex
+    q = ""
+    line = 1
+    errs = []
+    i, n = 0, len(js)
+    prev = ""
+    while i < n:
+        c = js[i]
+        if c == "\n":
+            line += 1
+            i += 1
+            continue
+        if st == 0:
+            if c in "\"'`":
+                st = 1 if c == '"' else (2 if c == "'" else 3)
+                q = c
+                i += 1
+                continue
+            if js.startswith("//", i):
+                st = 4
+                i += 2
+                continue
+            if js.startswith("/*", i):
+                st = 5
+                i += 2
+                continue
+            if c == "/" and not (prev and (prev.isalnum() or prev in ")]}")):
+                st = 6
+                i += 1
+                continue
+            if c in OPENB:
+                depth += 1
+            elif c in CLOSEB:
+                depth -= 1
+                if depth < 0:
+                    errs.append((line, "extra " + c))
+                    depth = 0
+            prev = c
+            i += 1
+            continue
+        if st in (1, 2, 3):
+            if c == "\\":
+                i += 2
+                continue
+            if c == q:
+                st = 0
+            prev = c
+            i += 1
+            continue
+        if st == 4:
+            if c == "\n":
+                st = 0
+            i += 1
+            continue
+        if st == 5:
+            if c == "\n":
+                line += 1
+            if js.startswith("*/", i):
+                st = 0
+                i += 2
+                continue
+            i += 1
+            continue
+        if st == 6:
+            if c == "\\":
+                i += 2
+                continue
+            if c == "[":
+                j = i + 1
+                while j < n:
+                    if js[j] == "\\":
+                        j += 2
+                        continue
+                    if js[j] == "]":
+                        break
+                    j += 1
+                if j >= n:
+                    errs.append((line, "regex class unclosed"))
+                    st = 0
+                    i = n
+                    continue
+                i = j + 1
+                continue
+            if c == "/":
+                st = 0
+                prev = "/"
+                i += 1
+                continue
+            if c == "\n":
+                errs.append((line, "regex over line"))
+                st = 0
+            i += 1
+            continue
+    return depth, errs
+
+
+def check_js_syntax():
+    if shutil.which("node"):
+        r = subprocess.run(["node", "--check", APPJS], capture_output=True, text=True)
+        if r.returncode != 0:
+            log_fail("node --check failed: " + (r.stderr or r.stdout)[:300])
+        log_pass("JS syntax: node --check app.js")
+    else:
+        js = read(APPJS)
+        depth, errs = js_balance(js)
+        if depth != 0 or errs:
+            log_fail("JS balance failed depth=%d errs=%s" % (depth, errs))
+        log_pass("JS syntax: python-balance app.js (node not found, depth=0)")
+
+
+def check_a():
+    c = read(INDEX)
+    if '<script src="/ui/app.js"></script>' not in c:
+        log_fail("index.html has no app.js src tag")
+    log_pass("index.html load via app.js src")
+
+PODROBNEE = "\u043f\u043e\u0434\u0440\u043e\u0431\u043d\u0435\u0435"  # podrobnee
 
 
 def check_b():
-    # Порт JS-паттерна DETAILS (ui/index.html:79) на Python.
-    pattern = r"\[DETAILS:([A-Za-z0-9_]+)(?:\|([^\]]*))?\]([\s\S]*?)\[/DETAILS\]"
-    test_str = "[DETAILS:db|" + PODROBNEE + "]" + TEKST + "[/DETAILS]"
-    m = re.search(pattern, test_str)
-    if not m:
-        log_fail("DETAILS regex failed to match sample")
-    lbl = m.group(2) if m.group(2) else PODROBNEE
-    expected = ('<div class="details-wrap"><button class="sec" data-act="details-toggle" '
-                'data-val="' + m.group(1) + '" style="margin:2px">' + lbl + '</button>'
-                '<div class="details-content" style="display:none; margin-left:10px; '
-                'border-left:2px solid #555; padding-left:5px">' + m.group(3) + '</div></div>')
-
-    def _repl(mg):
-        lb = mg.group(2) if mg.group(2) else PODROBNEE
-        return ('<div class="details-wrap"><button class="sec" data-act="details-toggle" '
-                'data-val="' + mg.group(1) + '" style="margin:2px">' + lb + '</button>'
-                '<div class="details-content" style="display:none; margin-left:10px; '
-                'border-left:2px solid #555; padding-left:5px">' + mg.group(3) + '</div></div>')
-
-    res = re.sub(pattern, _repl, test_str)
-    if res != expected:
-        log_fail("DETAILS replacement mismatch. Got: %s" % res)
-    log_pass("DETAILS regex checked")
+    js = read(APPJS)
+    if "details-toggle" not in js or "DETAILS_RE" not in js:
+        log_fail("DETAILS/details-toggle not found in app.js")
+    log_pass("DETAILS-port est v app.js")
 
 
-def check_c(content):
+def check_c():
+    js = read(APPJS)
     marker = ("else if(a=='details-toggle'){var cont=el.nextElementSibling;"
               "cont.style.display=(cont.style.display=='none'?'block':'none');}")
-    if marker not in content:
-        log_fail("JS details-toggle handler not found")
-    log_pass("JS handler found")
+    if marker not in js:
+        log_fail("details-toggle dispatcher not found in app.js")
+    log_pass("dismett cher details-toggle svitrit blok")
 
 
-def check_d(content):
-    if 'data-gkey="settings"' not in content:
-        log_fail('data-gkey="settings" not found')
-    triangles = ["\u25B8", "\u25B6", "\u25B2", "\u25B9", "\u25BA", "\u25BB", "\u25B8", "\u25BA", ">", "\u00BB"]
-    if not any(t in content for t in triangles):
-        log_fail('data-gkey="settings" found but no triangle detected')
-    log_pass('data-gkey="settings" checked')
+def check_d():
+    js = read(APPJS)
+    if 'data-gkey="settings"' not in js:
+        log_fail('data-gkey="settings" not found in app.js')
+    if "display:none" not in js:
+        log_fail("display:none default not found")
+    tri = ["\u25B8", "\u25B6", "\u25BE", "\u25C0"]
+    if not any(t in js for t in tri):
+        log_fail("triangle glyph not found in app.js")
+    log_pass('settings svёrnuta s treugolnikom')
+
+
+def check_fold():
+    js = read(APPJS)
+    if 'data-act="fold"' not in js:
+        log_fail("fold action not found")
+    if "el.textContent.replace" not in js:
+        log_fail("fold do not preserve header")
+    log_pass("fold sohranyaet zagolovok")
 
 
 if __name__ == "__main__":
-    try:
-        c = _read_index()
-        check_a(c)
-        check_b()
-        check_c(c)
-        check_d(c)
-        print("ALL PASS")
-        sys.exit(0)
-    except SystemExit:
-        raise
-    except Exception as e:
-        print("ERROR:", e)
-        sys.exit(1)
+    check_js_syntax()
+    check_a()
+    check_b()
+    check_c()
+    check_d()
+    check_fold()
+    print("ALL PASS")
+    sys.exit(0)
