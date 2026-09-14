@@ -67,8 +67,28 @@ def tool_calc_formulas(**kw):
         out.append("- %s = %s (%s)" % (name, formula, hint))
     return "\n".join(out)
 
+def tool_angle(a="", b="", text=""):
+    import re, math
+    try:
+        target_text = text or (a if not b and not text else "")
+        if target_text:
+            m = re.search(r"([\d.,]+)[x\s,]+([\d.,]+)", target_text)
+            if not m: return "непонятный формат. Пример: 'угол 10x2', 'угол 10 2', 'угол 10,2'"
+            a_val = float(m.group(1).replace(',', '.'))
+            b_val = float(m.group(2).replace(',', '.'))
+        else:
+            a_val, b_val = float(a), float(b)
+        if a_val <= 0 or b_val <= 0: return "катеты должны быть > 0"
+        x_deg = math.degrees(math.atan(b_val / a_val))
+        y_deg = math.degrees(math.atan(a_val / b_val))
+        c = round(math.sqrt(a_val*a_val + b_val*b_val), 2)
+        return "Углы: 90°, %.2f°, %.2f°; катеты %g, %g; гипотенуза %g" % (x_deg, y_deg, a_val, b_val, c)
+    except Exception as e:
+        return "ошибка: %s" % e
+
 TOOLS = [
     {"name": "calc", "desc": "Инженерный калькулятор с единицами и формулами", "params": {"expr": "выражение", "unit": "желаемая единица"}, "approval": False, "fn": tool_calc},
     {"name": "calc_units", "desc": "Список единиц калькулятора", "params": {}, "approval": False, "fn": tool_calc_units},
     {"name": "calc_formulas", "desc": "Список формул калькулятора", "params": {}, "approval": False, "fn": tool_calc_formulas},
+    {"name": "angle", "desc": "Расчет углов и гипотенузы по двум катетам", "params": {"a": "катет A", "b": "катет B", "text": "строка для быстрого разбора"}, "approval": False, "fn": tool_angle},
 ]

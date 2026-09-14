@@ -1,4 +1,4 @@
-# -*- coding: utf-8 -*-
+﻿# -*- coding: utf-8 -*-
 """АГЕНТ v15 — agent.py (полная сборка)
 ThreadingHTTPServer + стриминг токенов + параллельные инструменты + планировщик.
 Витрина живёт в data/ui/index.html; константы PAGE больше нет.
@@ -16,23 +16,49 @@ import pdf_tools
 def _clean(txt):
     if not txt:
         return ""
-    # 1. Remove [THINK]...[/THINK] blocks (with content)
+    
+    # 1. Remove [THINK]...[/THINK] blocks
     txt = re.sub(r"\[THINK\].*?\[/THINK\]", "", txt, flags=re.DOTALL)
-    # 2. Remove single tags [THINK], [/THINK], [ANSWER], [/ANSWER]
-    txt = re.sub(r"\[/?(THINK|ANSWER)\]", "", txt)
-    # 3. Remove [TOOL] tags but keep content
+    
+    # 2. Remove [ANSWER] and [/ANSWER] tags
+    txt = re.sub(r"\[/?ANSWER\]", "", txt)
+
+    # 3. Protect [TOOL] content using non-printable markers
+    tool_contents = []
+    def tool_replacer(m):
+        content = m.group(1)
+        idx = len(tool_contents)
+        tool_contents.append(content)
+        return f"\x00{idx}\x00"
+
+    # We replace [TOOL: ...] content [/TOOL] with \x00idx\x00
+    txt = re.sub(r"\[TOOL[^\]]*\](.*?)\[/TOOL\]", tool_replacer, txt, flags=re.DOTALL)
+    
+    # 4. Remove remaining [TOOL...] or [/TOOL] tags
     txt = re.sub(r"\[TOOL[^\]]*\]|\[/TOOL\]", "", txt)
-    # 4. Remove English reasoning before the first Russian sentence
-    cyrillic_match = re.search(r'[а-яА-ЯёЁ]', txt)
+
+    # 5. Handle reasoning removal if Cyrillic is present
+    cyrillic_match = re.search(r'[а-яА-Я]', txt)
     if cyrillic_match:
-        txt = txt[cyrillic_match.start():]
-    else:
-        if txt.strip():
-            txt = ""
+        first_cyrillic_idx = cyrillic_match.start()
+        reasoning_part = txt[:first_cyrillic_idx]
+        answer_part = txt[first_cyrillic_idx:]
+        
+        # Find all markers in reasoning_part and move them to answer_part
+        new_answer_part = answer_part
+        for i, content in enumerate(tool_contents):
+            marker = f"\x00{i}\x00"
+            if marker in reasoning_part:
+                new_answer_part = content + new_answer_part
+        
+        txt = new_answer_part
+    
+    # 6. Final cleanup: replace markers with actual content
+    for i, content in enumerate(tool_contents):
+        marker = f"\x00{i}\x00"
+        txt = txt.replace(marker, content)
+    
     return txt.strip()
-
-
-
 
 
 # === v15: стриминг токенов ===
@@ -135,12 +161,13 @@ STUB_PAGE = ("<html><head><meta charset='utf-8'><title>АГЕНТ v15</title></h
              "<body style='background:#1B1C1E;color:#E8E8E8;font:14px Segoe UI,sans-serif;padding:40px'>"
              "<h2>ВИТРИНА НЕ НАЙДЕНА</h2><p>Положи index.html в D:\\AI\\tools\\agent\\data\\ui\\</p></body></html>")
 
-# \u0420\u041e\u041b\u042c: \u0442\u044b \u2014 \u0441\u0442\u0430\u0440\u0448\u0438\u0439 \u0438\u043d\u0436\u0435\u043d\u0435\u0440-\u043a\u043e\u043d\u0441\u0442\u0440\u0443\u043a\u0442\u043e\u0440 \u041a\u0411, \u043d\u0430\u043f\u0430\u0440\u043d\u0438\u043a \u043f\u043e\u043b\u044c\u0437\u043e\u0432\u0430\u0442\u0435\u043b\u044f; \u0433\u043e\u0432\u043e\u0440\u0438\u043a\u043e, \u043a\u0440\u0430\u0442\u043a\u043e, \u0442\u043e\u043b\u044c\u043a\u043e \u043f\u0440\u043e\u0432\u0435\u0440\u0435\u043d\u043d\u044b\u043c\u0438 \u0444\u0430\u043a\u0442\u0430\u043c\u0438.
-# \u042f\u0417\u042b\u041a: \u0442\u043e\u043b\u044c\u043a\u043e \u0440\u0443\u0441\u0441\u043a\u0438\u0439; \u043a\u043e\u0434 \u0438 \u0438\u043c\u044f\u0444\u0430 \u0444\u0430\u0439\u043b\u043e\u0432 \u2014 \u043a\u0430\u043a \u0432 \u043E\u0440\u0438\u0433\u0438\u043d\u0430\u043b\u0435.
-# \u0424\u041e\u0420\u041c\u0410\u0422: \u043e\u0434\u0438\u043d \u0431\u043b\u043e\u043a \u043d\u0430 \u0445\u043e\u0434 \u2014 [TOOL: \u0438\u043c\u044f] {...} [/TOOL] \u0438\u043b\u0438 [ANSWER] \u0442\u0435\u043a\u0441\u0442 [/ANSWER], \u043d\u0438\u0447\u0435\u0433\u043e \u0434\u043e \u0438 \u043f\u043e\u0441\u043b\u0435.
-# \u0416\u0418\u0412\u042b\u0415 \u0414\u0410\u041d\u041d\u042b\u0415: \u0441\u0442\u0430\u0442\u0443\u0441\u044b \u0438 \u0437\u043d\u0430\u0447\u0435\u043d\u0438\u044f \u0442\u043e\u043b\u044c\u043a\u043e \u0438\u0437 \u0441\u0432\u0435\u0436\u043d\u0438\u0445 \u0446\u0438\u0442\u0430\u0442 \u0441 \u043c\u0435\u0445\u0430\u043d\u0438. \u041d\u0438 \u0432\u043E\u043f\u0440\u043E\u0441\u0430\u0448 \u0435\u043c\u0443 \u043b\u044e\u0431\u043e\u0439.
-# \u0414\u041e\u0421\u0422\u0423\u041f: \u0442\u043e\u043a\u0435\u043d\u044b, \u043f\u0430\u0440\u043e\u043b\u0438 \u0438 \u0441\u0435\u043a\u0440\u0435\u0442\u044b \u043d\u0430\u0440\u0443\u0436\u0430\u0458\u044c \u043d\u0435 \u0432\u044b\u0432\u043e\u0434\u0438.
-# \u041f\u0420\u0418\u041c\u0415\u0420\u042b: "\u043e\u0442\u0432\u0435\u0442"\u043d\u044c "\u043a\u0430\u0436\u0434\u044b\u0439 \u0434\u043e\u043f\u043e\u043b\u043d\u0438\u0442"? [AWEET]\u041e CEH!\u0441 \u0441\u0435 \u043c\u043e\u043c\u043E\u0439\u043c?\u041e [/AWEET]
+DEFAULT_PROTO = """# ПРОТОКОЛ ИНЖЕНЕРА-НАПАРНИКА
+РОЛЬ: ты — старший инженер-конструктор КБ, напарник пользователя; говори кратко, по делу, только проверенными фактами.
+ЯЗЫК: только русский; код, термины и имена файлов — как в оригинале.
+ФОРМАТ: один блок на ход — [TOOL: имя] {...} [/TOOL] или [ANSWER] текст [/ANSWER], ничего до и после.
+ЖИВЫЕ ДАННЫЕ: статусы и значения только из свежих цитат с машины через инструменты.
+ДОСТУП: токены, пароли и секреты наружу не выводи.
+ПРИМЕРЫ: «привет» → [ANSWER] Привет! С чем помочь? [/ANSWER]
 """
 
 
@@ -161,18 +188,11 @@ _SYS_CACHE = {}
 
 def build_system(mode=1):
     if mode == 2:
-        return """Ты — собеседник и помощник по любым темам. Язык ответа — русский; код, термины и формулы — как принято в теме.\nВ этом режиме нет доступа к Creo, файлам и базам: если вопрос требует живых данных, скажи 'в режиме инженера я достану это из Creo или базы — переключи режим' и не выдумывай.\nФормат: свободный текст; код внутри блоков с языком; служебных тегов нет.\nКраткость ценится, но полнота решения важнее."""
+        return """Ты — собеседник и помощник по любым темам. Язык ответа — русский; код, термины и формулы — как принято в теме.
+В этом режиме нет доступа к Creo, файлам и базам: если вопрос требует живых данных, скажи «в режиме инженера я достану это из Creo или базы — переключи режим» и не выдумывай.
+Формат: свободный текст; код внутри блоков с языком; служебных тегов нет.
+Краткость ценится, но полнота решения важнее."""
     if _SYS_CACHE.get(("v", mode)): return _SYS_CACHE[("v", mode)]
-    p = load_skill("SKILL_agent_protocol.md") or DEFAULT_PROTO
-    core_lines, rest = [], []
-
-    p = load_skill("SKILL_agent_protocol.md") or DEFAULT_PROTO
-    core_lines, rest = [], []
-
-    p = load_skill("SKILL_agent_protocol.md") or DEFAULT_PROTO
-    core_lines, rest = [], []
-    p = load_skill("SKILL_agent_protocol.md") or DEFAULT_PROTO
-    core_lines, rest = [], []
     p = load_skill("SKILL_agent_protocol.md") or DEFAULT_PROTO
     core_lines, rest = [], []
     for t in TR.TOOLS:
@@ -287,7 +307,7 @@ def parse_model(text):
     return "invalid", text.strip(), None, think_text
 
 
-_NUDGE = "[C\u0421\u0423\u0416\u0415\u0411\u041d\u041e\u0415] \u041e\u0442\u0432\u0435\u0442 \u043d\u0435 \u0432 \u0444\u043e\u0440\u043c\u0430\u0442\u0435. \u0414\u0430\u0439 \u0440\u043e\u0432\u043d\u044b \u043e\u0434\u0438\u043d \u0431\u043b\u043e\u043a: [TOOL: \u0438\u043c\u044f] {"\u043f\u0430\u0440\u0430\u043c\u0435\u0442\u0440": "\u0437\u043d\u0430\u0447\u0435\u043d\u0438\u0435"} [/TOOL] \u0438\u043b\u0438 [ANSWER] \u043a\u0440\u0430\u0442\u043a\u0438\u0439 \u043e\u0442\u0432\u0435\u0442 \u043f\u043e-\u0440\u0443\u0441\u0441\u043a\u0438 [/ANSWER]. \u0421\u043b\u043e\u0432\u043e "\u0442\u0435\u043a\u0441\u0442" \u0441\u0430\u043c\u043e \u043e\u043d\u043e \u043f\u043E\u0441\u043e \u2014 \u043d\u0435 \u043E\u0442\u0432\u0435\u0442. \u041D\u0438\u0447\u0435\u0433\u043e \u0434\u043e \u0438 \u043f\u043e\u0441\u043b\u0435 \u0431\u043b\u043e\u043a\u0430.
+_NUDGE = "[СЛУЖЕБНОЕ] Ответ не в формате. Дай ровно один блок: [TOOL: имя] {\"параметр\": \"значение\"} [/TOOL] или [ANSWER] краткий ответ по-русски [/ANSWER]. Слово «текст» само по себе — не ответ. Ничего до и после блока."
 _ACCESS_NUDGE = "[СЛУЖЕБНОЕ] Неверно. Доступ к базе, файлам и Creo у тебя ЕСТЬ через инструменты (список «ТВОИ ИНСТРУМЕНТЫ» выше). Никогда не отвечай «нет доступа». Повтори ровно один блок: [TOOL: имя] {\"параметр\": \"значение\"} [/TOOL] или [ANSWER] ответ [/ANSWER]."
 _REFUSAL = ("извините", "не могу", "не имею доступа", "нет доступа", "моя функциональность",
             "виртуальной среде", "не понял", "уточните", "переформулируй", "как языковая модель",
@@ -455,6 +475,13 @@ def ask(q, client, image=None, on_step=None, mode=None):
         c.execute("INSERT INTO history(client,q,a,ts) VALUES(?,?,?,?)", (client, q, res[:2000], datetime.datetime.now().isoformat()))
         c.commit(); c.close()
         return {"answer": res, "think": "", "steps": 1, "log": ["%s(прямой вызов) → %s" % (name, res[:120])]}
+
+    # 2.5 Fast router for special commands
+    if q.strip().lower().startswith("угол "):
+        import calc_tools
+        rest = q.strip()[5:].strip()
+        res = calc_tools.tool_angle(text=rest)
+        return {"answer": res, "think": "", "steps": 1, "log": ["fast_router(угол)"]}
 
     # 3. If mode 2, handle it immediately
     if eff_mode == 2:
@@ -719,16 +746,7 @@ class Hd(BaseHTTPRequestHandler):
             if not (_ui and users.is_admin(_ui["login"])):
                 d["groups"] = [g for g in d.get("groups", []) if "НАСТРОЙКИ" not in str(g.get("title", "")).upper()]
                 d.pop("settings", None)
-                self._j(d)
-            return
-        elif p == "/similar":
-            if not users.token_info(self.headers.get("X-Token") or ""): return self._j({"error": "no token"})
-            qs = parse_qs(urlparse(self.path).query)
-            name = qs.get("name", [""])[0]
-            q = qs.get("q", [""])[0]
-            top = int(qs.get("top", ["10"])[0])
-            import similar_tools
-            self._j(similar_tools.find_similar(name=name, q=q, top=top))
+            self._j(d)
             return
         elif p == "/log":
             _tk = users.token_info(self.headers.get("X-Token") or "")
