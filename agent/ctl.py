@@ -17,7 +17,7 @@ def _cfg(key, defl):
         return defl
 
 
-CREOSON_DIR = _cfg("creoson_dir", r"D:\AI\creoson\CreosonServer-3.0.2-win64")
+CREOSON_DIR = _cfg("creoson_dir", r"D:\PTC\CREO-LOCAL-SETUP\creoson")
 LOG = TOOLS + r"\startup.log"
 
 

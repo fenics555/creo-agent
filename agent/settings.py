@@ -55,7 +55,7 @@ REGISTRY = [
     ("Web", "web_render", "Рендер браузером (Playwright)", "bool", False, "Вкл: при сбое fetch — headless Chrome.", True),
     ("Web", "web_test_url", "URL для diag_web", "str", "https://ya.ru", "Внешняя цель для diag_web.", True),
     ("Пути", "creoson_url", "URL CREOSON", "str", "http://127.0.0.1:8080/creoson", "Мост Creo.", True),
-    ("Пути", "creoson_dir", "Папка CREOSON", "str", r"D:\AI\creoson\CreosonServer-3.0.2-win64", "Где creoson_run.bat.", True),
+    ("Пути", "creoson_dir", "Папка CREOSON", "str", r"D:\PTC\CREO-LOCAL-SETUP\creoson", "Где creoson_run.bat.", True),
     ("Пути", "pdf_out", "Папка PDF", "str", "", "Пусто = рядом с чертежом.", True),
     ("Пути", "backup_dir", "Папка бэкапов", "str", "", "Пусто = agent/data/backups.", True),
     ("Пути", "trail_dirs", "Папки трейлов", "list", [], "Пусто = trail_dir из Creo + CREO-LOCAL-SETUP.", True),
