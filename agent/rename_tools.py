@@ -246,22 +246,3 @@ TOOLS = [
     {"name": "rename_model", "desc": "Переименовать модель и её чертёж (сессионно + save), старые версии — в backup. dry_run=1 — только план", "params": {"old_name": "старое имя", "new_name": "новое имя", "drawings": "1 переименовать чертёж", "parents": "1 сохранить сборки-владельцы", "dry_run": "1 план / 0 выполнить"}, "approval": True, "fn": tool_rename_model},
     {"name": "rename_preview", "desc": "План переименования модели и чертежа (только чтение)", "params": {"old": "старое имя", "new": "новое имя", "drawings": "1 с чертежом"}, "approval": False, "fn": tool_preview},
 ]
-    if not ext:
-        return {"error": "в %s нет файлов %s (prt/asm)" % (wd, old_b)}
-    conflict = []
-    for e in (ext, ".drw"):
-        if list(Path(wd).glob(new_b + e + ".*")):
-            conflict.append(new_b + e)
-    rows = [{"old": old_b + ext, "new": new_b + ext, "kind": "модель"}]
-    if str(drawings) in ("1", "true", "да") and _latest(wd, old_b, ".drw"):
-        rows.append({"old": old_b + ".drw", "new": new_b + ".drw", "kind": "чертёж"})
-    parents = _parents(wd, old_b)
-    return {
-        "wd": wd,
-        "ext": ext,
-        "rows": rows,
-        "parents": parents,
-        "conflict": conflict,
-        "total": len(rows),
-        "session": _session(),
-    }

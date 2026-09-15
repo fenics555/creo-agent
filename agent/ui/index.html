@@ -70,7 +70,13 @@ input[type=checkbox]{accent-color:#1273EB}
 <label style="color:#A6A8AB"><input type="checkbox" id="w_family" checked> исполнения (family)</label>
 <label style="color:#A6A8AB"><input type="checkbox" id="w_draw"> чертежи (drawings)</label>
 <label style="color:#A6A8AB"><input type="checkbox" id="w_dry" checked> только план (dry_run)</label>
-<button data-act="w_prev">👁 Предпросмотр</button><button data-act="w_copy">📋 Сделать копию</button>
+<button data-act="w_prev">👁 Предпросмотр копии</button><button data-act="w_copy">📋 Сделать копию</button>
+<div style="border-top:1px solid #3E4043;margin:8px 0 6px"></div>
+<b>✏ ПЕРЕИМЕНОВАНИЕ</b><small style="color:#A6A8AB">модель и её чертёж: сессионный rename + save, старые версии — в backup</small>
+<input id="w_rnew" placeholder="новое имя модели">
+<label style="color:#A6A8AB"><input type="checkbox" id="w_rdraw" checked> переименовать чертёж</label>
+<label style="color:#A6A8AB"><input type="checkbox" id="w_rpar" checked> сохранить сборки-владельцы</label>
+<button data-act="w_rprev">👁 План переименования</button><button data-act="w_rename">✏ Переименовать</button>
 <div id="w_out" style="max-height:180px;overflow:auto;margin-top:6px"></div><hr style="border-color:#3E4043">
 <button data-act="w_audit">🔍 Аудит папки Creo</button><button data-act="w_usage">🧩 Пересобрать «где используется»</button>
 <button data-act="w_night">🌙 Ночной прогон</button><button data-act="w_close" class="sec">Закрыть</button></div></div>
