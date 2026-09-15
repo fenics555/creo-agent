@@ -1,4 +1,4 @@
-﻿# -*- coding: utf-8 -*-
+# -*- coding: utf-8 -*-
 """АГЕНТ v15 — agent.py (полная сборка)
 ThreadingHTTPServer + стриминг токенов + параллельные инструменты + планировщик.
 Витрина живёт в data/ui/index.html; константы PAGE больше нет.
@@ -498,12 +498,15 @@ def ask(q, client, image=None, on_step=None, mode=None):
         q2 = VI.attach(q, image, client)
         messages = [{"role": "system", "content": build_system(mode=2)}] + hist_block(client) + [{"role": "user", "content": q2}]
         opts, _ = beh()
+        if doc:
+            opts["num_predict"] = 4096
+            messages[0]["content"] += "\n=== ДОКУМЕНТ: краткость отменена. Пиши полный текст внутри [ANSWER], без обрыва."
         r = core.post("/api/chat", {
             "model": settings.model_for("chat"),
             "stream": False,
             "think": int(settings.get("think_mode") or 0) > 0,
             "options": opts,
-            "messages": messages
+            "messages": messages,
         }, t=600)
         return {
             "answer": _clean(r.get("message", {}).get("content", "")),
