@@ -1,196 +1,187 @@
+# file_hand_tools.py — руки дома: список, запись, правка файлов с согласованием и предохранителем
 # -*- coding: utf-8 -*-
-"""ФАЙЛОВЫЕ ИНСТРУМЕНТЫ (file_hand_tools.py)
-Инструменты для безопасного манипулирования файлами с бекапами и компиляционным контролем.
-"""
-import os
-import shutil
-import datetime
-import subprocess
-import sys
+import os, shutil, subprocess, datetime, sys, fnmatch
 from pathlib import Path
-import glob
 import core
 from core import log, REPO, BASE
 
-# === Политика путей ===
-# Разрешены: D:\AI\repo и D:\AI\tools\agent (с ограничениями)
-# Запрещены: users.py, users.json, data\backup, .git, agent.pid, и др.
+AG = os.path.dirname(os.path.abspath(__file__))
+ALLOW = (r"D:\\AI\\repo", AG)
+DENY_FILES = ("users.py", "users.json", "agent.pid")
+DENY_DIRS = ("data\\backup", ".git")
 
-FORBIDDEN_NAMES = {"users.py", "users.json", "agent.pid"}
-FORBIDDEN_DIRS = {"data\\backup", ".git"}
+def _ok(p):
+    p = os.path.abspath(p)
+    if not p.startswith(ALLOW): return False, "путь вне разрешённых корней"
+    for d in DENY_DIRS:
+        if ("\\" + d + "\\") in (p + "\\"): return False, "запрещённый каталог " + d
+    if os.path.basename(p) in DENY_FILES: return False, "запрещённый файл " + os.path.basename(p)
+    return True, p
 
-def _is_allowed(p: Path):
-    """Проверка пути на соответствие политике безопасности."""
-    try:
-        # Разрешаем только абсолютные пути, которые мы резолвим
-        abs_p = p.resolve()
-        abs_str = str(abs_p)
-        
-        # 1. Проверка на запрещенные файлы по имени
-        if abs_p.name in FORBIDDEN_NAMES:
-            return False, f"защищённый путь: {abs_p.name}"
-        
-        # 2. Проверка на запрещенные директории
-        for fdir in FORBIDDEN_DIRS:
-            if fdir in abs_str:
-                return False, f"защищённый путь: {fdir}"
-        
-        # 3. Проверка на принадлежность к разрешенным корням
-        # Разрешен REPO
-        if abs_str.startswith(str(REPO)):
-            return True, ""
-            
-        # Разрешен BASE (D:\AI\tools\agent)
-        if abs_str.startswith(str(BASE)):
-            # Внутри agent разрешены: ui, dev, data\tmp, и *.py в корне agent
-            # Проверяем sub-parts
-            rel = abs_p.relative_to(BASE)
-            
-            # Если это файл в корне agent (.py)
-            if len(rel.parts) == 1 and rel.suffix == ".py":
-                return True, ""
-            
-            # Если это папка/файл в ui, dev, data/tmp
-            parts = rel.parts
-            if parts[0] in {"ui", "dev"}:
-                return True, ""
-            if parts[0] == "data" and len(parts) >= 2 and parts[1] == "tmp":
-                return True, ""
-            
-            # Если путь в другом месте внутри BASE, но не запрещенный (например, core.py)
-            # Но по спеке: "D:\AI\tools\agent (ui, dev, data\tmp, *.py дома)"
-            # Это значит, что другие файлы в BASE могут быть запрещены или не указаны.
-            # Будем придерживаться строгого списка из спеки.
-            return False, f"путь вне разрешенных зон агента: {rel}"
-            
-        return False, f"путь вне разрешенных корней: {abs_p}"
-    except Exception as e:
-        return False, f"ошибка проверки пути: {e}"
+def _bak(p):
+    b = os.path.join(AG, "data", "backup", "pre_fs_%s_%s" % (
+        datetime.datetime.now().strftime("%y%m%d_%H%M%S"), os.path.basename(p)))
+    shutil.copy2(p, b); return b
 
-def _create_backup(p: Path):
-    r"""Создание бекапа в data\backup\pre_fs_<время>_<имя>"""
-    try:
-        timestamp = datetime.datetime.now().strftime("%Y%m%d_%H%M%S")
-        backup_dir = BASE / "data" / "backup"
-        backup_dir.mkdir(parents=True, exist_ok=True)
-        
-        backup_name = f"pre_fs_{timestamp}_{p.name}.bak"
-        backup_path = backup_dir / backup_name
-        
-        shutil.copy2(p, backup_path)
-        return backup_path
-    except Exception as e:
-        log(f"backup err: {e}")
-        return None
+def _compile(p):
+    if not p.lower().endswith(".py"): return True, ""
+    r = subprocess.run([sys.executable, "-m", "py_compile", p], capture_output=True, text=True)
+    return r.returncode == 0, (r.stderr or "")[:500]
 
-def _compile_py(p: Path):
-    """Компиляционный предохранитель для .py файлов."""
-    try:
-        # Используем sys.executable для запуска модуля py_compile
-        result = subprocess.run([sys.executable, "-m", "py_compile", str(p)], 
-                                capture_output=True, text=True, check=True)
-        return True, ""
-    except subprocess.CalledProcessError as e:
-        return False, e.stderr.strip()
-    except Exception as e:
-        return False, str(e)
+def tool_fs_list(path=AG, mask="*"):
+    ok, p = _ok(path)
+    if not ok: return {"error": p}
+    if not os.path.isdir(p): return {"error": "не каталог"}
+    out = []
+    for f in sorted(os.listdir(p)):
+        if fnmatch.fnmatch(f, mask):
+            fp = os.path.join(p, f)
+            out.append({"name": f, "dir": os.path.isdir(fp),
+                        "size": os.path.getsize(fp) if os.path.isfile(fp) else 0})
+    return {"path": p, "items": out[:200]}
 
-def fs_list(path=".", mask="*", **kw):
-    """Список файлов (approval=False)"""
-    try:
-        p = Path(path).resolve()
-        allowed, msg = _is_allowed(p)
-        if not allowed: return msg
-        if not p.is_dir(): return "путь не является директорией"
-        
-        files = list(p.glob(mask))
-        if not files: return "пусто"
-        
-        out = []
-        for f in files:
-            out.append(f"{f.name} ({f.stat().st_size} bytes)")
-        return "\n".join(out)
-    except Exception as e:
-        return f"ошибка: {e}"
+def tool_fs_write(path, text):
+    ok, p = _ok(path)
+    if not ok: return {"error": p}
+    d = os.path.dirname(p)
+    if d and not os.path.isdir(d): os.makedirs(d, exist_ok=True)
+    bak = _bak(p) if os.path.exists(p) else None
+    open(p, "w", encoding="utf-8", newline="").write(text)
+    cok, err = _compile(p)
+    if not cok:
+        if bak: shutil.copy2(bak, p)
+        return {"error": "компиляция провалена, откат: " + err}
+    return {"ok": True, "path": p, "backup": bak, "bytes": len(text)}
 
-def fs_write(path="", text="", **kw):
-    """Запись файла целиком (approval=True)"""
-    try:
-        p = Path(path).resolve()
-        allowed, msg = _is_allowed(p)
-        if not allowed: return msg
-        if not text: return "пустой текст"
+def tool_fs_edit(path, old, new):
+    ok, p = _ok(path)
+    if not ok: return {"error": p}
+    if not os.path.exists(p): return {"error": "нет файла"}
+    
+    s = None
+    for enc in ['utf-8', 'cp1251']:
+        try:
+            with open(p, 'r', encoding=enc) as f:
+                s = f.read()
+            if s and '\\ufffd' not in s:
+                break
+        except:
+            continue
+    
+    if s is None:
+        s = open(p, 'r', encoding='utf-8', errors='replace').read()
 
-        # Бекап
-        backup_path = _create_backup(p) if p.exists() else None
+    n = s.count(old)
+    if n != 1: return {"error": "old встретился %d раз, нужен ровно 1" % n}
+    bak = _bak(p)
+    open(p, "w", encoding="utf-8", newline="").write(s.replace(old, new, 1))
+    cok, err = _compile(p)
+    if not cok:
+        shutil.copy2(bak, p)
+        return {"error": "компиляция провалена, откат: " + err}
+    return {"ok": True, "path": p, "backup": bak}
 
-        # Запись
-        p.write_text(text, encoding="utf-8")
-
-        # Компиляция
-        if p.suffix == ".py":
-            success, err = _compile_py(p)
-            if not success:
-                if backup_path: shutil.copy2(backup_path, p)
-                return f"ошибка компиляции: {err}. Откат выполнен."
-
-        return f"файл записан: {p}"
-    except Exception as e:
-        return f"ошибка при записи: {e}"
-
-def fs_edit(path="", old="", new="", **kw):
-    """Точечная правка (approval=True): old должен встретиться РАВНО ОДИН раз"""
-    try:
-        p = Path(path).resolve()
-        allowed, msg = _is_allowed(p)
-        if not allowed: return msg
-        if not p.exists(): return "файл не найден"
-        if not old or not new: return "нужны old и new"
-
-        content = p.read_text(encoding="utf-8")
-        
-        # Поиск вхождений
-        count = content.count(old)
-        if count == 0:
-            return f"ошибка: текст '{old[:20]}...' не найден"
-        if count > 1:
-            # Ищем позиции первых двух для цитирования
-            idx1 = content.find(old)
-            idx2 = content.find(old, idx1 + 1)
-            
-            # Чтобы дать цитату с номером строки, посчитаем строки
-            lines = content.splitlines()
-            line_num1, line_num2 = -1, -1
-            curr = 1
-            for l in lines:
-                if old in l:
-                    if line_num1 == -1: line_num1 = curr
-                    else:
-                        line_num2 = curr
-                        break
-                curr += 1
-            return f"ошибка: текст найден {count} раза. Первые места: строка {line_num1}, строка {line_num2}. Требуется уникальность."
-
-        # Бекап
-        backup_path = _create_backup(p)
-
-        # Правка
-        new_content = content.replace(old, new, 1)
-        p.write_text(new_content, encoding="utf-8")
-
-        # Компиляция
-        if p.suffix == ".py":
-            success, err = _compile_py(p)
-            if not success:
-                if backup_path: shutil.copy2(backup_path, p)
-                return f"ошибка компиляции: {err}. Откат выполнен."
-
-        return f"файл отредактирован: {p}"
-    except Exception as e:
-        return f"ошибка при редактировании: {e}"
+fs_edit = tool_fs_edit
+fs_write = tool_fs_write
+fs_list = tool_fs_list
 
 TOOLS = [
-    {"name": "fs_list", "desc": "Список файлов (path, mask)", "params": {"path": "путь", "mask": "маска"}, "approval": False, "fn": fs_list},
-    {"name": "fs_write", "desc": "Запись файла целиком (path, text)", "params": {"path": "путь", "text": "текст"}, "approval": True, "fn": fs_write},
-    {"name": "fs_edit", "desc": "Точечная правка (path, old, new)", "params": {"path": "путь", "old": "текст", "new": "текст"}, "approval": True, "fn": fs_edit},
+    {"name": "fs_list", "desc": "Список файлов каталога с маской (только чтение)",
+     "params": {"path": "каталог", "mask": "маска"}, "approval": False, "fn": tool_fs_list},
+    {"name": "fs_write", "desc": "Запись файла целиком; бекап до записи, для .py компиляционный предохранитель с откатом",
+     "params": {"path": "файл", "text": "содержимое"}, "approval": True, "fn": tool_fs_write},
+    {"name": "fs_edit", "desc": "Точечная правка: old обязан встретиться ровно один раз; бекап и предохранитель",
+     "params": {"path": "файл", "old": "точный фрагмент", "new": "замена"}, "approval": True, "fn": tool_fs_edit},
+]
+
+# file_hand_tools.py — руки дома: список, запись, правка файлов с согласованием и предохранителем
+# -*- coding: utf-8 -*-
+import os, shutil, subprocess, datetime, sys, fnmatch
+from pathlib import Path
+import core
+from core import log, REPO, BASE
+
+AG = os.path.dirname(os.path.abspath(__file__))
+ALLOW = (r"D:\AI\repo", AG)
+DENY_FILES = ("users.py", "users.json", "agent.pid")
+DENY_DIRS = ("data\backup", ".git")
+
+def _ok(p):
+    p = os.path.abspath(p)
+    if not p.startswith(ALLOW): return False, "путь вне разрешённых корней"
+    for d in DENY_DIRS:
+        if ("\\" + d + "\\") in (p + "\\"): return False, "запрещённый каталог " + d
+    if os.path.basename(p) in DENY_FILES: return False, "запрещённый файл " + os.path.basename(p)
+    return True, p
+
+def _bak(p):
+    b = os.path.join(AG, "data", "backup", "pre_fs_%s_%s" % (
+        datetime.datetime.now().strftime("%y%m%d_%H%M%S"), os.path.basename(p)))
+    shutil.copy2(p, b); return b
+
+def _compile(p):
+    if not p.lower().endswith(".py"): return True, ""
+    r = subprocess.run([sys.executable, "-m", "py_compile", p], capture_output=True, text=True)
+    return r.returncode == 0, (r.stderr or "")[:500]
+
+def tool_fs_list(path=AG, mask="*"):
+    ok, p = _ok(path)
+    if not ok: return {"error": p}
+    if not os.path.isdir(p): return {"error": "не каталог"}
+    out = []
+    for f in sorted(os.listdir(p)):
+        if fnmatch.fnmatch(f, mask):
+            fp = os.path.join(p, f)
+            out.append({"name": f, "dir": os.path.isdir(fp),
+                        "size": os.path.getsize(fp) if os.path.isfile(fp) else 0})
+    return {"path": p, "items": out[:200]}
+
+def tool_fs_write(path, text):
+    ok, p = _ok(path)
+    if not ok: return {"error": p}
+    d = os.path.dirname(p)
+    if d and not os.path.isdir(d): os.makedirs(d, exist_ok=True)
+    bak = _bak(p) if os.path.exists(p) else None
+    open(p, "w", encoding="utf-8", newline="").write(text)
+    cok, err = _compile(p)
+    if not cok:
+        if bak: shutil.copy2(bak, p)
+        return {"error": "компиляция провалена, откат: " + err}
+    return {"ok": True, "path": p, "backup": bak, "bytes": len(text)}
+
+def tool_fs_edit(path, old, new):
+    ok, p = _ok(path)
+    if not ok: return {"error": p}
+    if not os.path.exists(p): return {"error": "нет файла"}
+    
+    s = None
+    for enc in ['utf-8', 'cp1251']:
+        try:
+            with open(p, 'r', encoding=enc) as f:
+                s = f.read()
+            if s and '\ufffd' not in s:
+                break
+        except:
+            continue
+    
+    if s is None:
+        s = open(p, 'r', encoding='utf-8', errors='replace').read()
+
+    n = s.count(old)
+    if n != 1: return {"error": "old встретился %d раз, нужен ровно 1" % n}
+    bak = _bak(p)
+    open(p, "w", encoding="utf-8", newline="").write(s.replace(old, new, 1))
+    cok, err = _compile(p)
+    if not cok:
+        shutil.copy2(bak, p)
+        return {"error": "компиляция провалена, откат: " + err}
+    return {"ok": True, "path": p, "backup": bak}
+
+TOOLS = [
+    {"name": "fs_list", "desc": "Список файлов каталога с маской (только чтение)",
+     "params": {"path": "каталог", "mask": "маска"}, "approval": False, "fn": tool_fs_list},
+    {"name": "fs_write", "desc": "Запись файла целиком; бекап до записи, для .py компиляционный предохранитель с откатом",
+     "params": {"path": "файл", "text": "содержимое"}, "approval": True, "fn": tool_fs_write},
+    {"name": "fs_edit", "desc": "Точечная правка: old обязан встретиться ровно один раз; бекап и предохранитель",
+     "params": {"path": "файл", "old": "точный фрагмент", "new": "замена"}, "approval": True, "fn": tool_fs_edit},
 ]
