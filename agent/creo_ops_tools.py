@@ -62,22 +62,13 @@ def tool_erase(name="", **kw):
     j = cc("file", "erase", {"file": name}, 15)
     return "выгружено из памяти: %s" % name if ok(j) else "не выгрузилось: %s" % errmsg(j)
 
-def tool_rename_model(old_name="", new_name="", **kw):
-    if not old_name or not new_name: return "нужны old_name и new_name"
-    old_b = re.sub(r"\.(prt|asm|drw)(\.\d+)?$", "", old_name, flags=re.I)
-    new_b = re.sub(r"\.(prt|asm|drw)(\.\d+)?$", "", new_name, flags=re.I)
-    opened = []
-    for ext in ("prt", "drw"):
-        if ok(cc("file", "open", {"file": "%s.%s" % (old_b, ext), "display": True}, 30)):
-            opened.append("%s.%s" % (old_b, ext))
-    if not opened: return "не смог открыть %s ни как .prt, ни как .drw" % old_b
-    for f in opened:
-        j = cc("file", "rename", {"file": f, "new_name": new_b, "rename_dependencies": True}, 30)
-        if not ok(j): return "rename %s не удался: %s" % (f, errmsg(j))
-    cc("drawing", "regenerate", {"drawing": "%s.drw" % new_b}, 30)
-    for f in opened:
-        cc("file", "save", {"file": f.replace(old_b, new_b)}, 20)
-    return "переименовано %s → %s (%s); чертёж регенерирован; сохранено" % (old_b, new_b, ", ".join(opened))
+def tool_rename_model(old_name="", new_name="", drawings=1, parents=1, dry_run=1, **kw):
+    """Делегат в rename_tools: там доказанный механизм (onlysession + save).
+    Прежний путь через file:rename с rename_dependencies:true падал живым
+    «Pro/TOOLKIT General Error» (проба 15.09.2026)."""
+    import rename_tools as RT
+    return RT.tool_rename_model(old_name=old_name, new_name=new_name,
+                                drawings=drawings, parents=parents, dry_run=dry_run)
 
 def tool_purge_versions(**kw):
     wd = CT.tool_pwd()

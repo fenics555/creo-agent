@@ -899,6 +899,10 @@ class Hd(BaseHTTPRequestHandler):
             import copy_tools as _cp37
             self._j(_cp37.preview(old=b.get("old") or "", new=b.get("new") or "", template=b.get("template") or "",
                                   family=b.get("family", 1), drawings=b.get("drawings", 0)))
+        elif p == "/wiz_rename_preview":
+            import rename_tools as _rn37
+            self._j(_rn37.build_plan(old=b.get("old") or "", new=b.get("new") or "",
+                                     drawings=b.get("drawings", 1)))
         elif p == "/setmodel":
             import panel as _pn
             ok_names = _pn.models()
