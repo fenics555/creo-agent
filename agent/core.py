@@ -143,3 +143,84 @@ def client_id(handler, b=None):
 
 def db():
     c = sqlite3.connect(DB, timeout=60); c.execute("PRAGMA journal_mode=WAL"); return c
+
+def save_fact(entity_type, entity_name, fact_key, value, source):
+    """Сохранить факт в базу данных"""
+    try:
+        c = db()
+        c.execute("""
+            CREATE TABLE IF NOT EXISTS facts (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                ts TEXT NOT NULL,
+                entity_type TEXT NOT NULL,
+                entity_name TEXT NOT NULL,
+                fact_key TEXT NOT NULL,
+                value TEXT,
+                source TEXT,
+                valid_until TEXT
+            )
+        """)
+        c.execute("""
+            CREATE INDEX IF NOT EXISTS idx_facts_entity ON facts(entity_type, entity_name)
+        """)
+        ts = datetime.datetime.now().isoformat()
+        c.execute(
+            "INSERT INTO facts (ts, entity_type, entity_name, fact_key, value, source) VALUES (?, ?, ?, ?, ?, ?)",
+            (ts, entity_type, entity_name, fact_key, value, source)
+        )
+        c.commit()
+        c.close()
+    except Exception as e:
+        # В случае ошибки просто пропускаем, чтобы не ломать работу агента
+        pass
+
+def get_facts(entity_type=None, entity_name=None, limit=100):
+    """Получить факты из базы данных"""
+    try:
+        c = db()
+        query = "SELECT * FROM facts WHERE 1=1"
+        params = []
+        
+        if entity_type is not None:
+            query += " AND entity_type = ?"
+            params.append(entity_type)
+        if entity_name is not None:
+            query += " AND entity_name = ?"
+            params.append(entity_name)
+            
+        query += " ORDER BY ts DESC LIMIT ?"
+        params.append(limit)
+        
+        rows = c.execute(query, params).fetchall()
+        c.close()
+        
+        facts = []
+        for row in rows:
+            facts.append({
+                'id': row[0],
+                'ts': row[1],
+                'entity_type': row[2],
+                'entity_name': row[3],
+                'fact_key': row[4],
+                'value': row[5],
+                'source': row[6],
+                'valid_until': row[7]
+            })
+        return facts
+    except Exception as e:
+        return []
+
+def mark_facts_stale(days_old=30):
+    """Пометить старые факты как устаревшие"""
+    try:
+        c = db()
+        cutoff_date = datetime.datetime.now() - datetime.timedelta(days=days_old)
+        c.execute(
+            "UPDATE facts SET valid_until = ? WHERE ts < ? AND valid_until IS NULL",
+            (datetime.datetime.now().isoformat(), cutoff_date.isoformat())
+        )
+        c.commit()
+        c.close()
+    except Exception as e:
+        # В случае ошибки просто пропускаем
+        pass

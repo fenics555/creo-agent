@@ -137,22 +137,60 @@ def tool_param_raw(name="", **kw):
 def tool_get_params(name="", **kw):
     nm = name or tool_get_active()
     pl = _param_list(nm)
-    return "\n".join("• %s (%s) = %s" % (p.get("name"), p.get("type"), p.get("value")) for p in pl) or "параметров нет"
+    result = "\n".join("• %s (%s) = %s" % (p.get("name"), p.get("type"), p.get("value")) for p in pl) or "параметров нет"
+    
+    # Сохраняем параметры в память
+    try:
+        from core import save_fact
+        for p in pl:
+            param_name = p.get("name")
+            param_value = p.get("value")
+            if param_name and param_value:
+                save_fact('part', f"{nm}:{param_name}", 'param_value', str(param_value), 'creo_get_params')
+    except Exception: 
+        pass
+    
+    return result
 
 def tool_get_relations(name="", **kw):
     nm = name or tool_get_active()
     j = creo_call("file", "relations_get", {"file": nm}, 20)
     if not ok(j): return "ошибка отношений: %s" % errmsg(j)
     d = j.get("data")
-    return (d if isinstance(d, str) else (d or {}).get("relations") or "") or "отношений нет"
+    result = (d if isinstance(d, str) else (d or {}).get("relations") or "") or "отношений нет"
+    
+    # Сохраняем информацию о отношениях в память
+    try:
+        from core import save_fact
+        import zlib
+        relations_text = result
+        if relations_text:
+            count = len(relations_text.split('\n')) if relations_text else 0
+            crc32_hash = str(zlib.crc32(relations_text.encode('utf-8')) & 0xffffffff)
+            save_fact('part', nm, 'relations_count', str(count), 'creo_get_relations')
+            save_fact('part', nm, 'relations_hash', crc32_hash, 'creo_get_relations')
+    except Exception: 
+        pass
+    
+    return result
 
 def tool_get_mass(name="", **kw):
     nm = name or tool_get_active()
     j = creo_call("file", "massprops", {"file": nm}, 30)
     if not ok(j): return "ошибка massprops: %s" % errmsg(j)
     d = j.get("data") or {}
-    return "масса %.2f кг, объём %.0f мм3, площадь %s мм2" % (
+    result = "масса %.2f кг, объём %.0f мм3, площадь %s мм2" % (
         d.get("mass") or 0, d.get("volume") or 0, d.get("area") or d.get("surface_area") or 0)
+    
+    # Сохраняем массу в память
+    try:
+        from core import save_fact
+        mass_value = d.get("mass") or 0
+        save_fact('part', nm, 'mass', str(mass_value), 'creo_get_mass')
+    except Exception: 
+        pass
+    
+    return result
 
 def tool_get_bom(name="", **kw):
     nm = name or tool_get_active()
