@@ -1,0 +1,156 @@
+<!doctype html>
+<html lang="ru">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Переименование — граф зависимостей Creo</title>
+  <script src="creojs.js"></script>
+  <link rel="stylesheet" href="index_rename.css?v=20260904-121">
+</head>
+<body>
+  <header class="toolbar">
+    <div class="title">
+      <h1>Переименование</h1>
+      <small>Граф ссылок моделей Creo</small>
+    </div>
+    <button type="button" id="scan-button" class="scan-button">Сканировать папку</button>
+    <button type="button" id="unused-button" disabled>Показать неиспользуемые</button>
+    <button type="button" id="assembly-copy-button" disabled>Копия сборки</button>
+    <div id="folder-change-notice" class="folder-change-notice" role="status"></div>
+    <div class="scan-info">
+      <div id="directory" class="directory">Рабочая папка Creo: определяется…</div>
+      <div id="status" class="status">Ожидание Creo.</div>
+    </div>
+    <div class="toolbar-right">
+      <button type="button" id="copy-settings-button" title="Настройки копии сборки: признак библиотечного элемента и правило не копировать библиотечные элементы">Настройки</button>
+      <button type="button" id="theme-button" class="theme-button label-swap"><span class="copy-tool-sizer" aria-hidden="true">Светлая тема</span><span id="theme-button-label" class="copy-tool-label">Светлая тема</span></button>
+    </div>
+  </header>
+
+  <main class="workspace">
+    <section id="graph-viewport" class="graph-viewport" aria-label="Граф зависимостей">
+      <div id="graph-surface" class="graph-surface">
+        <svg id="edges" class="edges" aria-hidden="true"></svg>
+        <div id="nodes"></div>
+      </div>
+      <div id="empty-state" class="empty-state">
+        <div><strong>Граф пока пуст</strong><br>Нажмите «Сканировать папку».</div>
+      </div>
+    </section>
+    <section id="copy-table-panel" class="copy-table-panel" aria-label="Копия сборки" hidden>
+      <div class="copy-table-tools">
+        <div class="copy-table-tools-row">
+          <div id="copy-common-rule" class="copy-common-rule"></div>
+          <button type="button" id="copy-table-run" class="scan-button copy-tool-button">Создать копию</button>
+        </div>
+        <div class="copy-table-tools-row">
+          <button type="button" id="copy-toggle-all" class="copy-tool-button copy-tool-toggle"><span class="copy-tool-sizer" aria-hidden="true">Развернуть все</span><span id="copy-toggle-all-label" class="copy-tool-label">Развернуть все</span></button>
+          <button type="button" id="copy-structure-only" class="copy-tool-button">Только состав</button>
+          <span class="copy-tool-combo">
+            <button type="button" id="copy-select-dependent" class="copy-tool-button">Выбрать зависимые</button>
+            <select id="copy-dependent-mode" class="copy-tool-select" aria-label="Что копировать вместе с зависимой деталью">
+              <option value="file">только файл</option>
+              <option value="sources">файл и источник геометрии</option>
+            </select>
+          </span>
+          <label class="copy-tool-option" title="Чертежи копируются вместе со своими моделями. Снятый флажок оставляет копию без чертежей.">
+            <input type="checkbox" id="copy-drawings-toggle" checked>Копировать чертежи
+          </label>
+          <label class="copy-tool-option" title="Обработки копируются вместе с картами наладки и заготовкой. Снятый флажок оставляет копию без обработок.">
+            <input type="checkbox" id="copy-manufacturing-toggle" checked>Копировать обработки
+          </label>
+          <span class="copy-tool-combo copy-target">
+            <button type="button" id="copy-target-button" class="copy-tool-button" title="Выбрать папку, в которую будут перенесены файлы копии. По умолчанию копия переносится в рабочую папку Creo.">Куда сохранить копию</button>
+            <button type="button" id="copy-target-reset" class="copy-tool-button copy-target-reset" title="Снова переносить копию в рабочую папку Creo" aria-label="Сбросить папку копии" hidden>×</button>
+          </span>
+          <span id="copy-target-path" class="copy-target-path" hidden></span>
+        </div>
+      </div>
+      <div id="copy-table-scroll" class="copy-table-scroll">
+        <table id="copy-table" class="copy-table">
+          <colgroup>
+            <col><col><col><col><col>
+          </colgroup>
+          <thead>
+            <tr>
+              <th class="copy-cell-flag" scope="col" title="Копировать" aria-label="Копировать"><span class="copy-col-resizer" title="Потяните, чтобы изменить ширину столбца"></span></th>
+              <th class="copy-cell-file" scope="col">Файл<span class="copy-col-resizer" title="Потяните, чтобы изменить ширину столбца"></span></th>
+              <th class="copy-cell-name" scope="col">Новое имя файла<span class="copy-col-resizer" title="Потяните, чтобы изменить ширину столбца"></span></th>
+              <th class="copy-cell-common" scope="col">Common name<span class="copy-col-resizer" title="Потяните, чтобы изменить ширину столбца"></span></th>
+              <th class="copy-cell-rule" scope="col">Правило</th>
+            </tr>
+          </thead>
+          <tbody id="copy-table-body"></tbody>
+        </table>
+      </div>
+      <div id="copy-table-summary" class="copy-table-summary" role="status" hidden></div>
+    </section>
+  </main>
+  <div id="copy-settings" class="copy-settings" hidden>
+    <div class="copy-settings-panel" role="dialog" aria-labelledby="copy-settings-title">
+      <h2 id="copy-settings-title">Настройки копии сборки</h2>
+      <label class="copy-settings-field">
+        <span>Признак библиотечного элемента</span>
+        <input type="text" id="copy-library-param" placeholder="ПАРАМЕТР=ЗНАЧЕНИЕ,ДРУГОЙ=ЗНАЧЕНИЕ" aria-label="Параметры и значения, по которым файл считается библиотечным">
+        <small>Например <code>GROUP=СТАНДАРТНОЕ,TYPE=LIB</code> — несколько пар через запятую, как в правиле переименования; файл библиотечный, если совпала хотя бы одна. Параметры читаются у generic каждого файла состава, исполнения не открываются. Пусто — библиотечных элементов нет.</small>
+      </label>
+      <div class="copy-settings-group" role="group" aria-labelledby="copy-library-group-title">
+        <div id="copy-library-group-title" class="copy-settings-group-title">Библиотечные элементы</div>
+        <label class="copy-tool-option copy-settings-option" title="Включено: библиотечные элементы остаются общими, копия сборки ссылается на исходные файлы, флажок заблокирован. Снято: флажок решает — с флажком элемент копируется под новым именем, без флажка остаётся общим.">
+          <input type="checkbox" id="copy-library-exclude" checked>Не копировать библиотечные элементы, в том числе в папку копии
+        </label>
+        <label class="copy-tool-option copy-settings-option copy-settings-suboption" title="Доступно, когда библиотечные элементы разрешено копировать. Включено: библиотечные элементы без флажка «Копировать» переносятся в выбранную папку копии под прежними именами; с флажком — как обычно, под новыми. Снято: без флажка они в папку копии не попадают.">
+          <input type="checkbox" id="copy-library-unchanged" disabled>Копировать в новую папку без изменений
+        </label>
+        <button type="button" id="copy-library-help-toggle" class="copy-settings-help-toggle" aria-expanded="false" aria-controls="copy-library-help"><span class="copy-settings-help-arrow" aria-hidden="true">▸</span>Описание</button>
+        <div id="copy-library-help" class="copy-settings-help" hidden>
+          <div class="copy-settings-case" data-exclude="1" data-unchanged="0" role="button" tabindex="0" title="Щелчок ставит флажки как в этом случае">
+            <div class="copy-settings-case-states">
+              <span class="copy-settings-chip on">вкл</span><span class="copy-settings-case-name">Не копировать…</span>
+            </div>
+            <div class="copy-settings-case-text">В новую папку не копируются, выделить нельзя. Для большого проекта, чтобы не пропустить визуально.</div>
+          </div>
+          <div class="copy-settings-case" data-exclude="0" data-unchanged="0" role="button" tabindex="0" title="Щелчок ставит флажки как в этом случае">
+            <div class="copy-settings-case-states">
+              <span class="copy-settings-chip off">выкл</span><span class="copy-settings-case-name">Не копировать…</span>
+              <span class="copy-settings-chip off">выкл</span><span class="copy-settings-case-name">Копировать в новую…</span>
+            </div>
+            <div class="copy-settings-case-text">В новую папку не копируются, но выделить можно: выделенные скопируются только с новым именем.</div>
+          </div>
+          <div class="copy-settings-case" data-exclude="0" data-unchanged="1" role="button" tabindex="0" title="Щелчок ставит флажки как в этом случае">
+            <div class="copy-settings-case-states">
+              <span class="copy-settings-chip off">выкл</span><span class="copy-settings-case-name">Не копировать…</span>
+              <span class="copy-settings-chip on">вкл</span><span class="copy-settings-case-name">Копировать в новую…</span>
+            </div>
+            <div class="copy-settings-case-text">В новую папку копируются под прежними именами, выделенные — с новым именем.</div>
+          </div>
+        </div>
+      </div>
+      <label class="copy-tool-option copy-settings-option" title="Флажок «Копировать» ставится только у файлов, имя которых меняет общее правило; при каждом изменении общего правила и при применении настроек флажки расставляются заново. Флажок, закреплённый правой кнопкой, маска не меняет. Корневая сборка копируется всегда.">
+        <input type="checkbox" id="copy-mask-toggle">Выделять по маске: только файлы, которые переименовывает общее правило
+      </label>
+      <label class="copy-tool-option copy-settings-option" title="Действует при копии в выбранную папку. Включено: туда уходят только модели с флажком «Копировать» (ручным или по маске) под новыми именами. Снято: вместе с ними переносится и остальной состав сборки без изменений, чтобы копия открывалась без рабочей папки.">
+        <input type="checkbox" id="copy-only-selected-toggle">Копировать только выделенное в новую папку
+      </label>
+      <label class="copy-tool-option copy-settings-option" title="Действует при копии в выбранную папку. Включено: оснастка обработки (модели признаков наладки) без флажка «Копировать» переносится туда под прежними именами. Снято: без флажка она в папку копии не попадает, копия обработки ссылается на исходные файлы. С флажком оснастка копируется под новым именем при любом состоянии.">
+        <input type="checkbox" id="copy-fixtures-toggle">Копировать оснастку: без флажка — в новую папку без изменений
+      </label>
+      <div class="copy-settings-actions">
+        <button type="button" id="copy-settings-apply" class="scan-button copy-tool-button">Применить</button>
+        <button type="button" id="copy-settings-close" class="copy-tool-button">Закрыть</button>
+      </div>
+    </div>
+  </div>
+  <div id="graph-context-menu" class="graph-context-menu">
+    <button type="button" id="open-model-command">Открыть в Creo</button>
+    <button type="button" id="rename-model-command">Переименовать</button>
+  </div>
+  <div id="copy-library-menu" class="graph-context-menu" role="menu" aria-label="Библиотечные элементы">
+    <button type="button" id="copy-library-deselect">Снять выделение с библиотечных</button>
+    <button type="button" id="copy-library-select">Выделить библиотечные</button>
+  </div>
+
+  <script type="text/creojs" id="creo-rename.creojs" src="index_rename.creojs"></script>
+  <script src="rename.js?v=20260904-119"></script>
+</body>
+</html>
