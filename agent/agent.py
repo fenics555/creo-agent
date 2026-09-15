@@ -574,6 +574,37 @@ def do_approve(pid, okf):
     return {"res": res}
 
 
+def _wd_port(port, host="127.0.0.1"):
+    import socket as _s
+    try:
+        with _s.create_connection((host, port), timeout=2): return True
+    except Exception: return False
+
+def _wd_spawn(cmd):
+    if not cmd: return False
+    try:
+        subprocess.Popen(cmd if isinstance(cmd, list) else cmd, shell=isinstance(cmd, str),
+                         cwd=r"D:\AI\tools\agent", creationflags=getattr(subprocess, "CREATE_NO_WINDOW", 0))
+        return True
+    except Exception: return False
+
+def _watchdog():
+    fails = {}
+    while True:
+        try:
+            if int(settings.get("wd_enable") or 1):
+                for name, port, key, dflt in (("ollama", 11434, "wd_ollama_cmd", "ollama serve"),
+                                              ("creoson", 8080, "wd_creoson_cmd", "")):
+                    if not _wd_port(port):
+                        n = fails.get(name, 0) + 1; fails[name] = n
+                        if n <= 3:
+                            log("wd: %s down, raising (%d)" % (name, n))
+                            _wd_spawn(settings.get(key) or dflt)
+                        elif n == 4: log("wd: %s still down, cooldown" % name)
+                    else: fails[name] = 0
+        except Exception: pass
+        time.sleep(int(settings.get("wd_interval") or 60))
+
 def _serve_ui(handler):
     try:
         mt = int(os.path.getmtime(UI_FILE))
@@ -640,6 +671,10 @@ class Hd(BaseHTTPRequestHandler):
                      "is_manager": users.can_manage_users(prof["login"]) if prof else False,
                      "trails": tail, "mode": settings.get_for(cl2["login"], "chat_mode", 1) if cl2 else 1,
                      "up_ollama": _alive(11434), "up_creoson": _alive(8080), "up_agent": True})
+            return
+        elif p == "/health":
+            if not users.token_info(self.headers.get("X-Token") or ""): return self._j({"error": "no token"})
+            self._j({"ollama": _wd_port(11434), "creoson": _wd_port(8080), "agent": True})
             return
         elif p == "/pdfpages":
             if not users.token_info(self.headers.get("X-Token") or ""): return self._j({"error": "no token"})
@@ -959,6 +994,7 @@ if __name__ == "__main__":
     pidfile.write_text(str(os.getpid()), encoding="ascii")
     atexit.register(lambda: pidfile.unlink(missing_ok=True))
     threading.Thread(target=_scheduler, daemon=True).start()
+    threading.Thread(target=_watchdog, daemon=True).start()
     try:
         ThreadingHTTPServer((HOST, PORT), Hd).serve_forever()
     finally:
