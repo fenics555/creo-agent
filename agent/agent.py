@@ -334,8 +334,11 @@ def hist_block(client):
     return out
 
 
-def run_loop(messages, client, has_link=False, on_step=None):
-    opts, steps_max = beh()
+def run_loop(messages, client, has_link=False, on_step=None, opts_and_steps=None):
+    if opts_and_steps:
+        opts, steps_max = opts_and_steps
+    else:
+        opts, steps_max = beh()
     LAST_META.update(p=0, r=0)
     steps_log, last_res, sig_prev, invalid_cnt = [], "", None, 0
 
@@ -456,6 +459,11 @@ def ask(q, client, image=None, on_step=None, mode=None):
         eff_mode = settings.get_for(client, "chat_mode", 1)
         if not isinstance(eff_mode, int) or eff_mode not in (1, 2):
             eff_mode = 1
+
+    # Check for engineering mode (doc mode)
+    doc_keywords = ["спека", "документ", "пиши полностью", "развёрнуто", "подробный отчёт"]
+    doc = any(kw in q.lower() for kw in doc_keywords)
+
 
     # 2. Check for direct tool call (works in both modes)
     name = q.strip()
