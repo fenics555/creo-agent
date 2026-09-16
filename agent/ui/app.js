@@ -38,13 +38,11 @@ if(st=='УСТАРЕЛ')return '<span class="badge" style="background:#E8912D">�
 if(st=='нет чертежа')return '<span class="badge" style="background:#3E4043">нет чертежа</span>';
 if(st=='нет pdf')return '<span class="badge" style="background:#3E4043">нет pdf</span>';return ''}
 function addPdfBlock(row,nm){var box=document.createElement('div');box.className='pdfblk';box.innerHTML='<span class="nm">'+esc(nm)+'</span> <span style="color:#A6A8AB">…</span>';row.appendChild(box);
-Promise.all([J('/pdfstatus?name='+encodeURIComponent(nm)).catch(function(){return{}}),J('/pdfpages?name='+encodeURIComponent(nm)).catch(function(){return{}})]).then(function(rr){var st=(rr[0]||{}).status||'';var pp=rr[1]||{};var h='<span class="nm">'+esc(nm)+'</span>'+badgeHtml(st);
+Promise.all([J('/pdfstatus?name='+encodeURIComponent(nm)).catch(function(){return{}}),J('/pdfpages?name='+encodeURIComponent(nm)).catch(function(){return{}})]).then(function(rr){var st=(rr[0]||{}).status||'';var pp=rr[1]||{};var h='<span class="nm">'+esc(nm)+'</span> <button class="sec" data-act="pdfthumb" data-val="'+att(nm)+'" style="padding:3px 8px">👁</button>'+badgeHtml(st);
 if(pp.pages)h+=' <button class="sec" data-act="pdfref" data-val="'+att(nm)+'" style="padding:3px 8px">🔄 Обновить PDF</button>';
 h+='<div>';var n=Math.min(pp.pages||0,8);for(var i=1;i<=n;i++){h+='<img class="thumb" data-act="lbx" src="/pdfimg?name='+encodeURIComponent(nm)+'&page='+i+'" width="84" height="60">'}h+='</div>';
 box.innerHTML=h;
-if(new RegExp("[.][a-zA-Z][a-zA-Z][a-zA-Z]$", "i").test(nm)){
-J('/children?name='+encodeURIComponent(nm)).catch(function(){return{}}).then(function(cc){var ch=(cc&&cc.children)||[];if(!ch.length)return;var s='<div style="font-size:12px;color:#A6A8AB">Состав: '+ch.length+' детей: ';
-ch.slice(0,12).forEach(function(c){s+='<span class="pin" data-act="childname" data-val="'+att(c)+'">'+esc(c)+'</span>'});s+='</div>';box.innerHTML+=s;});}})}
+if(new RegExp("[.][a-zA-Z][a-zA-Z][a-zA-Z]$", "i").test(nm)){J('/children?name='+encodeURIComponent(nm)).catch(function(){return{}}).then(function(cc){var ch=(cc&&cc.children)||[];if(!ch.length)return;var s='<div style="font-size:12px;color:#A6A8AB">Состав: '+ch.length+' детей: ';ch.slice(0,12).forEach(function(c){s+='<span class="pin" data-act="childname" data-val="'+att(c)+'">'+esc(c)+'</span>'});s+='</div>';box.innerHTML+=s;});}})}
 function scanPdf(d,ans){var row=d.querySelector('.pdfrow');if(!row)return;var mm=ans.match(NAME_RE)||[];var un=[];
 mm.forEach(function(n){n=n.toLowerCase();if(un.indexOf(n)<0&&un.length<6)un.push(n)});
 un.forEach(function(nm){addPdfBlock(row,nm)})}
@@ -107,22 +105,8 @@ var dir=String(r.dir||'').split(String.fromCharCode(92)).slice(-2).join(String.f
 h+='<tr><td>'+esc(r.name)+'</td><td style="color:#A6A8AB">'+esc(dir)+'</td><td class="'+col+'">'+esc(r.verdict)+'</td></tr>'});
 box.innerHTML=h+'</table>'}
 function setSt(id,on){if(on===undefined)return;var e=document.getElementById('st_'+id);if(e)e.className='stc'+(on?' ok':' bad')}
-function init(){J('/status').then(function(s){CURM=s.model;hdr.textContent=s.host+(s.user?' | '+(s.user.display_name||s.user.login):'')+' | '+s.model+' | блоков: '+s.blocks+' · инструментов: '+(s.tools||0);setSt('oll',s.up_ollama);setSt('creo',s.up_creoson);setSt('ag',s.up_agent);var mb=document.querySelector('[data-act="mode"]');if(mb){mb.textContent=(s.mode==2?'💬 Собеседник':'🛠 Инженер');}qinp.placeholder='Задача для АГЕНТА... (Enter) | Ctrl+V — вставить скриншот | chat <вопрос> — разовый режим собеседника';J('/panel').then(function(p){buildPanel(p);J('/settings').then(buildSettings)})})}
-
-function initModal(){var modal=document.createElement('div');modal.id='pdf-modal';modal.style.cssText='display:none;position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,0.8);z-index:9999;justify-content:center;align-items:center;flex-direction:column;cursor:zoom-in';modal.innerHTML='<div style=\"position:relative\"><span id=\"pdf-modal-close\" style=\"position:absolute;top:-30px;right:0;color:white;font-size:24px;cursor:pointer\">✖</span><img src=\"\" style=\"max-width:90%;max-height:80%;border:2px solid #555;cursor:zoom-in\" data-act=\"pdf-enlarge\"></div><div style=\"color:white;margin-top:10px;font-size:12px\">клик для увеличения/открытия, Esc для закрытия</div>';document.body.appendChild(modal);modal.addEventListener('click',function(e){if(e.target===modal||e.target.id==='pdf-modal-close')modal.style.display='none'});modal.querySelector('img').addEventListener('click',function(e){e.stopPropagation();var nm=this.getAttribute('data-nm');window.open(\'/\'+nm,\'_blank\')});document.addEventListener('keydown',function(e){if(e.key===\'Escape\'&&modal.style.display===\'flex\')modal.style.display=\'none\'});}
-
-
-function initModal(){
-    var modal=document.createElement('div');modal.id='pdf-modal';modal.style.cssText='display:none;position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,0.8);z-index:9999;justify-content:center;align-items:center;flex-direction:column;cursor:zoom-in';
-    modal.innerHTML='<div style=\"position:relative\"><span id=\"pdf-modal-close\" style=\"position:absolute;top:-30px;right:0;color:white;font-size:24px;cursor:pointer\">✖</span><img src=\"\" style=\"max-width:90%;max-height:80%;border:2px solid #555;cursor:zoom-in\" data-act=\"pdf-enlarge\"></div><div style=\"color:white;margin-top:10px;font-size:12px\">клик для увеличения/открытия, Esc для закрытия</div>';
-    document.body.appendChild(modal);
-    modal.addEventListener('click',function(e){if(e.target===modal||e.target.id==='pdf-modal-close')modal.style.display='none'});
-    modal.querySelector('img').addEventListener('click',function(e){e.stopPropagation();var nm=this.getAttribute('data-nm');window.open('/'+nm,'_blank')});
-    document.addEventListener('keydown',function(e){if(e.key==='Escape'&&modal.style.display==='flex')modal.style.display='none'});
-}
-// Call it after init
-init().then(initModal);
-
+function init(){J('/status').then(function(s){CURM=s.model;hdr.textContent=s.host+(s.user?' | '+(s.user.display_name||s.user.login):'')+' | '+s.model+' | блоков: '+s.blocks+' · инструментов: '+(s.tools||0);setSt('oll',s.up_ollama);setSt('creo',s.up_creoson);setSt('ag',s.up_agent);var mb=document.querySelector('[data-act="mode"]');if(mb){mb.textContent=(s.mode==2?'💬 Собеседник':'🛠 Инженер');}qinp.placeholder='Задача для АГЕНТА... (Enter) | Ctrl+V — вставить скриншот | chat <вопрос> — разовый режим собеседника';J('/panel').then(function(p){buildPanel(p);J('/settings').then(buildSettings)})}).then(function(){initModal();})}
+function initModal(){var modal=document.createElement('div');modal.id='pdf-modal';modal.style.cssText='display:none;position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,0.8);z-index:9999;justify-content:center;align-items:center;flex-direction:column;cursor:zoom-in';modal.innerHTML='<div style="position:relative"><span id="pdf-modal-close" style="position:absolute;top:-30px;right:0;color:white;font-size:24px;cursor:pointer">✖</span><img src="" style="max-width:90%;max-height:80%;border:2px solid #555;cursor:zoom-in" data-act="pdf-enlarge"></div><div style="color:white;margin-top:10px;font-size:12px">клик для увеличения/открытия, Esc для закрытия</div>';document.body.appendChild(modal);modal.addEventListener('click',function(e){if(e.target===modal||e.target.id==='pdf-modal-close')modal.style.display='none'});modal.querySelector('img').addEventListener('click',function(e){e.stopPropagation();var nm=this.getAttribute('data-nm');window.open('/'+nm,'_blank')});document.addEventListener('keydown',function(e){if(e.key==='Escape'&&modal.style.display==='flex')modal.style.display='none'});}
 document.addEventListener('click',function(e){var el=e.target.closest('[data-act]');if(!el)return;var a=el.getAttribute('data-act');
 if(a=='think'){var n=el.nextElementSibling;n.style.display=n.style.display=='none'?'block':'none'}
 else if(a=='fold'){var b=el.nextElementSibling;var hid=b.style.display=='none';b.style.display=hid?'block':'none';el.textContent=(hid?'▾':'▸')+el.textContent.replace(/[▾▸]/,'');var fk=el.getAttribute('data-fkey');if(fk){var F=JSON.parse(localStorage.getItem('panel_fold')||'{}');F[fk]=hid?1:0;localStorage.setItem('panel_fold',JSON.stringify(F))}}
@@ -161,6 +145,8 @@ else if(a=='act'){var ep=el.getAttribute('data-val');if(ep=='/log'){J('/log').th
 else if(a=='chip'){qinp.value=el.getAttribute('data-val');send()}
 else if(a=='details-toggle'){var k=el.getAttribute('data-val');J('/ask',{token:TK,q:'guide topic='+k}).then(function(r){var d2=addMsg('');render(d2,r)})}
 else if(a=='pdfref'){qinp.value='pdf_refresh name='+el.getAttribute('data-val');send()}
+else if(a=='pdfthumb'){var nm=el.getAttribute('data-val');var url='/pdfthumb?name='+encodeURIComponent(nm)+'&page=1&token='+TK;var modal=document.getElementById('pdf-modal');modal.querySelector('img').src=url;modal.style.display='flex';}
+
 else if(a=='childname'){var row=el.closest('.msg').querySelector('.pdfrow');if(row)addPdfBlock(row,el.getAttribute('data-val'))}
 else if(a=='lbx'){var lb=document.getElementById('lbx');lb.style.display='flex';lb.querySelector('img').src=el.getAttribute('src')}
 else if(a=='showchat'){var cb=document.getElementById('chatbox');if(cb.style.display=='flex'){cb.style.display='none';if(CTMR){clearInterval(CTMR);CTMR=null}}else{cb.style.display='flex';CLAST=0;document.getElementById('cmsg').innerHTML='';chatPoll();if(CTMR)clearInterval(CTMR);CTMR=setInterval(chatPoll,5000);NEWMSG=0;chatBadge()}}
