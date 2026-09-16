@@ -188,16 +188,18 @@ def check_b():
     js = read(APPJS)
     if "details-toggle" not in js or "DETAILS_RE" not in js:
         log_fail("DETAILS/details-toggle not found in app.js")
-    log_pass("DETAILS-port est v app.js")
+    if "render._dseen" not in js:
+        log_fail("render dseen dedup not found in app.js")
+    log_pass("DETAILS-port est v app.js (dedup odna knopka na temu)")
 
 
 def check_c():
     js = read(APPJS)
-    marker = ("else if(a=='details-toggle'){var cont=el.nextElementSibling;"
-              "cont.style.display=(cont.style.display=='none'?'block':'none');}")
+    marker = ("else if(a=='details-toggle'){var k=el.getAttribute('data-val');"
+              "J('/ask',{token:TK,q:'guide topic='+k})")
     if marker not in js:
         log_fail("details-toggle dispatcher not found in app.js")
-    log_pass("dismett cher details-toggle svitrit blok")
+    log_pass("details-toggle shlet guide topic zapros")
 
 
 def check_d():

@@ -18,12 +18,12 @@ var TKI=0,ST2=setInterval(function(){J('/livetoks?last='+TKI).then(function(g){(
 var LV=0,LT=setInterval(function(){J('/livesteps?last='+LV).then(function(g){(g.lines||[]).forEach(function(l){LV++;var lg=d.querySelector('.live')||(function(){var e=document.createElement('div');e.className='log live';d.appendChild(e);return e})();lg.textContent+=String.fromCharCode(10)+'· '+l;chat.scrollTop=chat.scrollHeight;});});},700); // 10 = newline
 var THI=0,THB=null,TT=setInterval(function(){J('/livethink?last='+THI).then(function(g){(g.toks||[]).forEach(function(t){THI++;if(!THB){THB=document.createElement('div');THB.className='thinkbody';d.appendChild(THB);}THB.textContent+=t;chat.scrollTop=chat.scrollHeight;});});},700);
 J('/ask',{token:TK,q:q,image:IMG}).then(function(r){d._query=q;clearInterval(LT);clearInterval(ST2);clearInterval(TT);if(sp)sp.style.display='none';if(r&&r.error){localStorage.removeItem('tk');TK='';showLogin();d.innerHTML='⚠ нужен вход';return}IMG=null;render(d,r)}).catch(function(e){clearInterval(LT);clearInterval(ST2);clearInterval(TT);if(sp)sp.style.display='none';d.innerHTML='ошибка: '+esc(e)})}
-function render(d,r){var h='';
+function render(d,r){var h='';render._dseen={};
 if(r.think)h+='<div class="think" data-act="think">🧠 размышления (клик)</div><div class="thinkbody" style="display:none">'+esc(r.think)+'</div>';
 if(r.log&&r.log.length&&(window.CFG||{}).show_steps!==0)h+=`<div class="log">🔎 ХОД РАБОТЫ:
 ${r.log.map(esc).join(String.fromCharCode(10))}</div>`; // 10 = newline
 var atxt=esc(String(r.answer).replace(new RegExp('[<][/]?think[>]', 'g'),''));
-atxt=atxt.replace(DETAILS_RE, function(m,k,l,t){var lbl=l||'подробнее';return '<div class="details-wrap"><button class="sec" data-act="details-toggle" data-val="'+k+'" style="margin:2px">'+lbl+'</button><div class="details-content" style="display:none; margin-left:10px; border-left:2px solid #555; padding-left:5px">'+t+'</div></div>';});
+atxt=atxt.replace(DETAILS_RE, function(m,k,l,t){var lbl=l||'подробнее';if(!render._dseen)render._dseen={};if(render._dseen[k])return '';render._dseen[k]=1;return '<button class="sec" data-act="details-toggle" data-val="'+k+'" style="margin:2px">'+lbl+'</button>'+(t?'<div class="details-content" style="display:none; margin-left:10px; border-left:2px solid #555; padding-left:5px">'+t+'</div>':'');});
 h+='<div>'+atxt+'</div><div class="pdfrow"></div>';
 d._r=r;
 if(String(r.answer).indexOf('[СОГЛАСОВАНИЕ]')<0)h+='<div style="margin-top:6px"><button data-act="fb" data-ok="1">✅ попал</button> <button data-act="fb" data-ok="0" class="sec">❌ не попал</button></div>';
@@ -142,7 +142,7 @@ else if(a=='mode'){var mb=document.querySelector('[data-act="mode"]');var curTex
 else if(a=='setm')J('/setmodel',{token:TK,model:el.getAttribute('data-val')}).then(function(){init()});
 else if(a=='act'){var ep=el.getAttribute('data-val');if(ep=='/log'){J('/log').then(function(r){addMsg('<div class="log">'+esc(r.log)+'</div>')})}else J(ep,{token:TK}).then(function(r){addMsg('<div class="log">'+esc(JSON.stringify(r).slice(0,800))+'</div>')})}
 else if(a=='chip'){qinp.value=el.getAttribute('data-val');send()}
-else if(a=='details-toggle'){var cont=el.nextElementSibling;cont.style.display=(cont.style.display=='none'?'block':'none');}
+else if(a=='details-toggle'){var k=el.getAttribute('data-val');J('/ask',{token:TK,q:'guide topic='+k}).then(function(r){var d2=addMsg('');render(d2,r)})}
 else if(a=='pdfref'){qinp.value='pdf_refresh name='+el.getAttribute('data-val');send()}
 else if(a=='childname'){var row=el.closest('.msg').querySelector('.pdfrow');if(row)addPdfBlock(row,el.getAttribute('data-val'))}
 else if(a=='lbx'){var lb=document.getElementById('lbx');lb.style.display='flex';lb.querySelector('img').src=el.getAttribute('src')}

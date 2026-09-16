@@ -24,7 +24,7 @@ _TITLES = {
 def _menu():
     lines = ["📖 СПРАВОЧНИК АГЕНТА — направления (guide topic=<ключ> или кнопка «подробнее»):"]
     for k in _KEYS:
-        lines.append("— %s [DETAILS:%s]подробнее[/DETAILS]" % (_TITLES[k], k))
+        lines.append("— %s [DETAILS:%s][/DETAILS]" % (_TITLES[k], k))
     lines.append("Пиши по-русски, один вопрос за ход.")
     return "\n".join(lines)
 
