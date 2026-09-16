@@ -37,7 +37,7 @@ def read_roots():
 
 
 EXTS = {".htm", ".html", ".md", ".txt", ".py", ".xml", ".json", ".csv",
-        ".pro", ".dtl", ".pnt", ".pdf", ".mil", ".drl"}
+        ".pro", ".dtl", ".pnt", ".pdf", ".mil", ".drl", ".drw"}
 STATE = {"indexing": False, "done": 0, "total": 0, "errors": 0, "fscan": False, "fcount": 0}
 
 def init_tables():
@@ -61,6 +61,7 @@ def state():
                 done=STATE["done"], total=STATE["total"])
 
 def read_file_text(f):
+    if f.suffix.lower() == ".drw": return None
     if f.suffix.lower() == ".pdf":
         if not HAS_PYPDF: return None
         try:
@@ -122,7 +123,7 @@ def index_all():
                             okf = False; STATE["errors"] += 1; break
                         c.execute("INSERT INTO chunks(path,text,emb) VALUES(?,?,?)",
                                   (str(f), ch, np.array(e, np.float32).tobytes()))
-            if okf:
+            if okf or f.suffix.lower() == ".drw":
                 st = f.stat()
                 c.execute("REPLACE INTO files VALUES(?,?,?)", (str(f), st.st_mtime, st.st_size))
                 STATE["done"] += 1
