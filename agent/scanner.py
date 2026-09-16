@@ -98,7 +98,7 @@ def index_all():
             if not rp.exists(): continue
             for f in rp.rglob("*"):
                 try:
-                    if f.is_file() and f.suffix.lower() in EXTS \
+                    if f.is_file() and (f.suffix.lower() in EXTS or ".drw." in f.name.lower()) \
                        and f.stat().st_size < max_mb * 1024 * 1024 \
                        and not is_excluded(f, pats):
                         seen.add(str(f)); st = f.stat()
@@ -110,6 +110,7 @@ def index_all():
                 c.execute("DELETE FROM chunks WHERE path=?", (p,))
                 c.execute("DELETE FROM files WHERE path=?", (p,))
         STATE["total"] = len(todo)
+        print(f"DEBUG: todo={len(todo)}, seen={len(seen)}")
         cs, ov = settings.get("chunk_size") or 1500, settings.get("chunk_overlap") or 200
         for f in todo:
             c.execute("DELETE FROM chunks WHERE path=?", (str(f),))
@@ -123,7 +124,7 @@ def index_all():
                             okf = False; STATE["errors"] += 1; break
                         c.execute("INSERT INTO chunks(path,text,emb) VALUES(?,?,?)",
                                   (str(f), ch, np.array(e, np.float32).tobytes()))
-            if okf or f.suffix.lower() == ".drw":
+            if okf or ".drw" in f.name.lower():
                 st = f.stat()
                 c.execute("REPLACE INTO files VALUES(?,?,?)", (str(f), st.st_mtime, st.st_size))
                 STATE["done"] += 1
