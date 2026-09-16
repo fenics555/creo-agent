@@ -821,7 +821,34 @@ class Hd(BaseHTTPRequestHandler):
             pairs.sort(key=lambda r: (r["verdict"] != "УСТАРЕЛ", r["name"]))
             self._j({"pairs": pairs, "total": len(pairs)})
             return
-        elif p == "/panel":
+        elif p == "/pdfthumb":
+            _tk = users.token_info(self.headers.get("X-Token") or "")
+            if not _tk:
+                self._j({"error": "token required"})
+                return
+            qs = parse_qs(urlparse(self.path).query)
+            nm = qs.get("name", [None])[0]
+            pg = qs.get("page", ["1"])[0]
+            if not nm:
+                self._j({"error": "name required"})
+                return
+            res = pdf_tools.pdf_img(nm, pg)
+            if "error" in res:
+                self._j(res)
+                return
+            img_path = res["image_path"]
+            try:
+                with open(img_path, "rb") as f:
+                    content = f.read()
+                self.send_response(200)
+                self.send_header("Content-Type", "image/png")
+                self.send_header("Content-Length", str(len(content)))
+                self.end_headers()
+                self.wfile.write(content)
+            except Exception as e:
+                self._j({"error": f"failed to serve image: {e}"})
+            return
+
             d = panel.build()
             _ui = users.token_info(self.headers.get("X-Token") or "")
             if not (_ui and users.is_admin(_ui["login"])):

@@ -1,4 +1,6 @@
 var NAME_RE = new RegExp("[A-Za-z0-9_.-]+?[.](?:prt|asm|drw)", "gi");
+var PDF_NAME_RE = /[A-Za-z0-9_.-]+\.pdf/gi;
+
 var DETAILS_RE = /\[DETAILS:([A-Za-z0-9_]+)(?:\|([^\]]*))?\]([\s\S]*?)\[\/DETAILS\]/g;
 var TAGS_RE = /\[\/?(ANSWER|TOOL)[^\]]*\]/g;
 var foldKey = /[^A-Za-z0-9_а-яА-ЯёЁ]/gi;
@@ -106,6 +108,21 @@ h+='<tr><td>'+esc(r.name)+'</td><td style="color:#A6A8AB">'+esc(dir)+'</td><td c
 box.innerHTML=h+'</table>'}
 function setSt(id,on){if(on===undefined)return;var e=document.getElementById('st_'+id);if(e)e.className='stc'+(on?' ok':' bad')}
 function init(){J('/status').then(function(s){CURM=s.model;hdr.textContent=s.host+(s.user?' | '+(s.user.display_name||s.user.login):'')+' | '+s.model+' | блоков: '+s.blocks+' · инструментов: '+(s.tools||0);setSt('oll',s.up_ollama);setSt('creo',s.up_creoson);setSt('ag',s.up_agent);var mb=document.querySelector('[data-act="mode"]');if(mb){mb.textContent=(s.mode==2?'💬 Собеседник':'🛠 Инженер');}qinp.placeholder='Задача для АГЕНТА... (Enter) | Ctrl+V — вставить скриншот | chat <вопрос> — разовый режим собеседника';J('/panel').then(function(p){buildPanel(p);J('/settings').then(buildSettings)})})}
+
+function initModal(){var modal=document.createElement('div');modal.id='pdf-modal';modal.style.cssText='display:none;position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,0.8);z-index:9999;justify-content:center;align-items:center;flex-direction:column;cursor:zoom-in';modal.innerHTML='<div style=\"position:relative\"><span id=\"pdf-modal-close\" style=\"position:absolute;top:-30px;right:0;color:white;font-size:24px;cursor:pointer\">✖</span><img src=\"\" style=\"max-width:90%;max-height:80%;border:2px solid #555;cursor:zoom-in\" data-act=\"pdf-enlarge\"></div><div style=\"color:white;margin-top:10px;font-size:12px\">клик для увеличения/открытия, Esc для закрытия</div>';document.body.appendChild(modal);modal.addEventListener('click',function(e){if(e.target===modal||e.target.id==='pdf-modal-close')modal.style.display='none'});modal.querySelector('img').addEventListener('click',function(e){e.stopPropagation();var nm=this.getAttribute('data-nm');window.open(\'/\'+nm,\'_blank\')});document.addEventListener('keydown',function(e){if(e.key===\'Escape\'&&modal.style.display===\'flex\')modal.style.display=\'none\'});}
+
+
+function initModal(){
+    var modal=document.createElement('div');modal.id='pdf-modal';modal.style.cssText='display:none;position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,0.8);z-index:9999;justify-content:center;align-items:center;flex-direction:column;cursor:zoom-in';
+    modal.innerHTML='<div style=\"position:relative\"><span id=\"pdf-modal-close\" style=\"position:absolute;top:-30px;right:0;color:white;font-size:24px;cursor:pointer\">✖</span><img src=\"\" style=\"max-width:90%;max-height:80%;border:2px solid #555;cursor:zoom-in\" data-act=\"pdf-enlarge\"></div><div style=\"color:white;margin-top:10px;font-size:12px\">клик для увеличения/открытия, Esc для закрытия</div>';
+    document.body.appendChild(modal);
+    modal.addEventListener('click',function(e){if(e.target===modal||e.target.id==='pdf-modal-close')modal.style.display='none'});
+    modal.querySelector('img').addEventListener('click',function(e){e.stopPropagation();var nm=this.getAttribute('data-nm');window.open('/'+nm,'_blank')});
+    document.addEventListener('keydown',function(e){if(e.key==='Escape'&&modal.style.display==='flex')modal.style.display='none'});
+}
+// Call it after init
+init().then(initModal);
+
 document.addEventListener('click',function(e){var el=e.target.closest('[data-act]');if(!el)return;var a=el.getAttribute('data-act');
 if(a=='think'){var n=el.nextElementSibling;n.style.display=n.style.display=='none'?'block':'none'}
 else if(a=='fold'){var b=el.nextElementSibling;var hid=b.style.display=='none';b.style.display=hid?'block':'none';el.textContent=(hid?'▾':'▸')+el.textContent.replace(/[▾▸]/,'');var fk=el.getAttribute('data-fkey');if(fk){var F=JSON.parse(localStorage.getItem('panel_fold')||'{}');F[fk]=hid?1:0;localStorage.setItem('panel_fold',JSON.stringify(F))}}
