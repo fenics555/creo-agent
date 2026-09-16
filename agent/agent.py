@@ -778,19 +778,72 @@ class Hd(BaseHTTPRequestHandler):
             for path, mt in rows:
                 bydir.setdefault(os.path.dirname(path), {})[os.path.basename(path).lower()] = (path, mt)
             pairs = []
+            seen_names = set()
             for d, fs in bydir.items():
                 du = d.upper()
                 if "\\CREO12\\" in du or "\\DATA\\" in du:
                     continue
                 for nm, (path, mt) in fs.items():
-                    m_drw = re.search(r"\.drw(\.\d+)?$", nm)
-                    if not m_drw: continue
-                    stem = nm[:m_drw.start()]
-                    pdf = fs.get(stem + ".pdf")
-                    verdict = "нет pdf" if not pdf else ("актуален" if pdf[1] >= mt else "УСТАРЕЛ")
-                    pairs.append({"name": stem, "dir": d, "drw": path, "pdf": pdf[0] if pdf else "",
-                                  "drw_mtime": mt, "pdf_mtime": pdf[1] if pdf else 0, "verdict": verdict})
-                    if len(pairs) >= 500: break
+                    if nm in seen_names: continue
+                    verdict, entry = None, {}
+                    m_drw = re.search(r"\\.drw(\\.\\d+)?$", nm)
+                    if m_drw:
+                        stem = nm[:m_drw.start()]
+                        pdf = fs.get(stem + ".pdf")
+                        verdict = "нет pdf" if not pdf else ("актуален" if pdf[1] >= mt else "УСТАРЕЛ")
+                        entry = {"name": nm, "dir": d, "drw": path, "pdf": pdf[0] if pdf else "",
+                                 "drw_mtime": mt, "pdf_mtime": pdf[1] if pdf else 0, "verdict": verdict}
+                    elif nm.lower().endswith((".prt", ".asm")):
+                        base = nm.rsplit(".", 1)[0]
+                        drw = fs.get(base + ".drw")
+                        pdf = fs.get(base + ".pdf")
+                        if drw:
+                            drw_p, drw_mt = drw
+                            if pdf:
+                                pdf_p, pdf_mt = pdf
+                                v = "актуален" if pdf_mt >= drw_mt else "устарел"
+                                verdict = f"pdf через чертёж {base}.drw: {v}"
+                            else:
+                                verdict = f"чертёж {base}.drw: нет pdf"
+                                pdf_p, pdf_mt = "", 0
+                            entry = {"name": nm, "dir": d, "drw": drw_p, "pdf": pdf_p,
+                                     "drw_mtime": drw_mt, "pdf_mtime": pdf_mt, "verdict": verdict}
+                        else:
+                            verdict = "чертежа нет"
+                            entry = {"name": nm, "dir": d, "drw": "", "pdf": "",
+                                     "drw_mtime": 0, "pdf_mtime": 0, "verdict": verdict}
+                    if verdict:
+                        pairs.append(entry)
+                        seen_names.add(nm)
+                        if len(pairs) >= 500: break
+                if len(pairs) >= 500: break
+                        verdict = "нет pdf" if not pdf else ("актуален" if pdf[1] >= mt else "УСТАРЕЛ")
+                        entry = {"name": nm, "dir": d, "drw": path, "pdf": pdf[0] if pdf else "",
+                                 "drw_mtime": mt, "pdf_mtime": pdf[1] if pdf else 0, "verdict": verdict}
+                    elif nm.lower().endswith((".prt", ".asm")):
+                        base = nm.rsplit(".", 1)[0]
+                        drw = fs.get(base + ".drw")
+                        pdf = fs.get(base + ".pdf")
+                        if drw:
+                            drw_p, drw_mt = drw
+                            if pdf:
+                                pdf_p, pdf_mt = pdf
+                                v = "актуален" if pdf_mt >= drw_mt else "устарел"
+                                verdict = f"pdf через чертёж {base}.drw: {v}"
+                            else:
+                                verdict = f"чертёж {base}.drw: нет pdf"
+                                pdf_p, pdf_mt = "", 0
+                            entry = {"name": nm, "dir": d, "drw": drw_p, "pdf": pdf_p,
+                                     "drw_mtime": drw_mt, "pdf_mtime": pdf_mt, "verdict": verdict}
+                        else:
+                            verdict = "чертежа нет"
+                            entry = {"name": nm, "dir": d, "drw": "", "pdf": "",
+                                     "drw_mtime": 0, "pdf_mtime": 0, "verdict": verdict}
+                    if verdict:
+                        pairs.append(entry)
+                        seen_names.add(nm)
+                        if len(pairs) >= 500: break
+                if len(pairs) >= 500: break
             pairs.sort(key=lambda r: (r["verdict"] != "УСТАРЕЛ", r["name"]))
             self._j({"pairs": pairs, "total": len(pairs)})
             return
