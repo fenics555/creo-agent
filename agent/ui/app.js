@@ -142,7 +142,7 @@ else if(a=='mode'){var mb=document.querySelector('[data-act="mode"]');var curTex
 else if(a=='setm')J('/setmodel',{token:TK,model:el.getAttribute('data-val')}).then(function(){init()});
 else if(a=='act'){var ep=el.getAttribute('data-val');if(ep=='/log'){J('/log').then(function(r){addMsg('<div class="log">'+esc(r.log)+'</div>')})}else J(ep,{token:TK}).then(function(r){addMsg('<div class="log">'+esc(JSON.stringify(r).slice(0,800))+'</div>')})}
 else if(a=='chip'){qinp.value=el.getAttribute('data-val');send()}
-else if(a=='details'){var k=el.getAttribute('data-val');qinp.value=(k=='dbfull')?'db_state verbose=1':'guide topic='+k;send()}else if(a=='details-toggle'){var cont=el.nextElementSibling;cont.style.display=(cont.style.display=='none'?'block':'none');}
+else if(a=='details-toggle'){var cont=el.nextElementSibling;cont.style.display=(cont.style.display=='none'?'block':'none');}
 else if(a=='pdfref'){qinp.value='pdf_refresh name='+el.getAttribute('data-val');send()}
 else if(a=='childname'){var row=el.closest('.msg').querySelector('.pdfrow');if(row)addPdfBlock(row,el.getAttribute('data-val'))}
 else if(a=='lbx'){var lb=document.getElementById('lbx');lb.style.display='flex';lb.querySelector('img').src=el.getAttribute('src')}
