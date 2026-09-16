@@ -2,4 +2,6 @@
 D:\PTC\CREO12\Creo 12.4.2.0\creo_help_pma\russian
 D:\AI\repo
 Z:\PTC\Work
+D:\AI\ИЗУЧИТЬ
+D:\AI\PROBA
 Z:\PTC\CREO-START
