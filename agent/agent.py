@@ -696,14 +696,9 @@ class Hd(BaseHTTPRequestHandler):
             if not name: return self._j({"error": "no name"})
             self._j(pdf_tools.pdf_pages(name))
             return
-        elif p == "/pdfimg":
-            if not users.token_info(self.headers.get("X-Token") or ""): return self._j({"error": "no token"})
-            qs = parse_qs(urlparse(self.path).query)
-            name = qs.get("name", [""])[0]
-            page = qs.get("page", ["1"])[0]
-            if not name: return self._j({"error": "no name"})
-            self._j(pdf_tools.pdf_img(name, page))
-            return
+        # /pdfimg обслуживается общим блоком /pdfthumb|/pdfimg ниже (PNG-байты
+        # для <img src> + токен из заголовка или query) — ранний JSON-вариант
+        # снят 66e/N10: витрина ждёт image/png, а не словарь pdf_img.
         elif p == "/pdfstatus":
             if not users.token_info(self.headers.get("X-Token") or ""): return self._j({"error": "no token"})
             qs = parse_qs(urlparse(self.path).query)
