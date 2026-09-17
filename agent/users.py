@@ -59,7 +59,16 @@ def check_login(login, pw):
     return {"ok": True, "token": token, "login": login,
             "display_name": u.get("display_name", login), "role": u.get("role", "Инженер")}
 
-def token_info(token): return TOKENS.get(token)
+TOKEN_TTL = 24 * 3600  # аудит 66c P9/I1: токен живёт сутки
+
+def token_info(token):
+    t = TOKENS.get(token)
+    if not t:
+        return None
+    if time.time() - t.get("ts", 0) > TOKEN_TTL:
+        TOKENS.pop(token, None)
+        return None
+    return t
 
 def list_users():
     return [{"login": u["login"], "display_name": u.get("display_name", u["login"]),
@@ -115,8 +124,23 @@ def can_manage_users(login):
     u = _find(_load(), login)
     return bool(u) and u.get("role") in ("Администратор", "Руководитель")
 
-if not _find(_load(), "admin"):
-    add_user("admin", "admin", role="Администратор")
+def ensure_admin():
+    """Аудит 66c P8/H1: дефолтного admin/admin больше нет. Пустой users.json ->
+    админ создаётся из data\secrets.json (М4); secrets недоступен -> админа нет,
+    лог и стоп-состояние, а не дверь с дефолтным ключом."""
+    if _find(_load(), "admin"):
+        return
+    try:
+        s = json.loads((UFILE.parent / "secrets.json").read_text(encoding="utf-8"))
+        pw = s.get("admin_pw") or s.get("admin_password") or ""
+        if pw:
+            add_user("admin", pw, role="Администратор")
+        else:
+            log("admin не создан: в secrets.json нет admin_pw")
+    except Exception:
+        log("admin не создан: secrets.json недоступен")
+
+ensure_admin()
 
 
 # # == ROLE PERMS ==
