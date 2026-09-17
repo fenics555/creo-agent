@@ -9,9 +9,6 @@ import core
 from core import log, trace
 import settings
 import pdf_tools
-import urllib.request as _ur
-core.post = loop._stream_post
-core.post = loop._post_think_off
 import tools_registry as TR
 import scanner
 import users
