@@ -126,7 +126,7 @@ def can_manage_users(login):
 
 def ensure_admin():
     """Аудит 66c P8/H1: дефолтного admin/admin больше нет. Пустой users.json ->
-    админ создаётся из data\secrets.json (М4); secrets недоступен -> админа нет,
+    админ создаётся из data\\secrets.json (М4); secrets недоступен -> админа нет,
     лог и стоп-состояние, а не дверь с дефолтным ключом."""
     if _find(_load(), "admin"):
         return
