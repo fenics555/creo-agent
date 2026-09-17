@@ -823,12 +823,14 @@ class Hd(BaseHTTPRequestHandler):
             pairs.sort(key=lambda r: (r["verdict"] != "УСТАРЕЛ", r["name"]))
             self._j({"pairs": pairs, "total": len(pairs)})
             return
-        elif p == "/pdfthumb":
-            _tk = users.token_info(self.headers.get("X-Token") or self.headers.get("query", {}).get("token", ""))
+        elif p in ("/pdfthumb", "/pdfimg"):
+            qs = parse_qs(urlparse(self.path).query)
+            _tk = users.token_info(self.headers.get("X-Token") or qs.get("token", [""])[0])
             if not _tk:
+                if p == "/pdfimg":
+                    self.send_response(401); self.end_headers(); return
                 self._j({"error": "token required"})
                 return
-            qs = parse_qs(urlparse(self.path).query)
             nm = qs.get("name", [None])[0]
             pg = qs.get("page", ["1"])[0]
             res = pdf_tools.pdf_img(nm, pg)

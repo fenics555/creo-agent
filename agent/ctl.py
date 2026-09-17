@@ -126,12 +126,31 @@ def status():
         print("%-8s %-6d %s" % (name, port, "жив" if alive(port) else "МЁРТВ"))
 
 
+def _kill_stray_agents():
+    """66c P15/Q3: python agent.py с PID != содержимого agent.pid снимаются
+    детерминированно (не по «старший/младший»): приёмка рестарта всегда
+    сходится с профилактикой crash_agent-duplicate-restart-race."""
+    try:
+        keep = int(open(AG + r"\agent.pid").read().strip() or 0)
+    except Exception:
+        keep = 0
+    subprocess.run(["powershell", "-NoProfile", "-Command",
+        "Get-CimInstance Win32_Process -Filter \"Name='python.exe'\" | "
+        "Where-Object { $_.CommandLine -like '*agent.py*' -and $_.ProcessId -ne %d } | "
+        "ForEach-Object { taskkill /PID $_.ProcessId /F | Out-Null }" % keep],
+        capture_output=True)
+
+
 def watch():
     log("== ctl watch старт ==")
     while True:
         try:
             if not (alive(11434) and alive(8080) and alive(8765)):
-                up(browser=False, hidden=True)
+                time.sleep(8)  # Q2 дебаунс: не махать up в окно ручного рестарта
+                if not (alive(11434) and alive(8080) and alive(8765)):
+                    up(browser=False, hidden=True)
+            if alive(8765):
+                _kill_stray_agents()  # Q3 дедуп: всё, что не в agent.pid
         except Exception as e:
             log("watch err: %s" % e)
         time.sleep(60)

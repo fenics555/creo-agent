@@ -34,6 +34,12 @@ def check_crash_skills():
         if "executor:" not in content:
             violations.append(f"{filename}: missing executor field")
 
+        # 4. ОШИБКА-поле обязано быть grep-имым (66c P16): строка начинается
+        # с «ОШИБКА», дальше «(» или «:» — оба живых написания принимаются:
+        # «ОШИБКА (дословно…» и «ОШИБКА (для grep)».
+        if not re.search(r"^\s*ОШИБКА\s*[(:]", content, re.MULTILINE):
+            violations.append(f"{filename}: missing ОШИБКА (grep field)")
+
         # Примечание (аудит 66c, P2/B2): требование «MANIFEST.md reference» снято
         # для экземпляров-прецедентов: прецедент читается как совет, а не закон
         # (конституция, «Маршрут приложений»); закон подключается конституцией.
