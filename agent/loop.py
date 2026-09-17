@@ -455,3 +455,313 @@ def _post_think_off(path, payload, *ar, **kw):
         if int(settings.get("think_mode") or 0) == 0:
             payload["think"] = False
     return _post_before_think(path, payload, *ar, **kw)
+
+
+def parse_model(text):
+    THINK_TAGS = [
+        (r"<think>([\\s\\S]*?)</think>", re.S),
+        (r"<\\|channel\\|>thought\\s*([\\s\\S]*?)\\s*<\\|channel\\|>\", re.S),
+        (r"<thought>([\\s\\S]*?)</thought>", re.S | re.I),
+        (r"\\[THINK\\]\\s*([\\s\\S]*?)\\s*\\[/THINK\\]", re.S),
+    ]
+    think_text = ""
+    for pat, flags in THINK_TAGS:
+        if think_text: break
+        m = re.search(pat, text, flags)
+        if m:
+            think_text = m.group(1).strip()
+            text = (text[:m.start()] + text[m.end():]).strip()
+    m = re.search(r"\\[TOOL:\\s*([A-Za-z0-9_]+)\\s*\\]\\s*({.*?})\\s*\\[/TOOL\\]", text, re.S)
+    if m:
+        try: args = json.loads(m.group(2))
+        except Exception: args = {}
+
+
+def _stream_post(path, payload, *ar, **kw):
+    push = getattr(threading.current_thread(), \"_tokpush\", None)
+    if path != \"/api/chat\" or not push or not settings.get(\"stream_tokens\"):\n        return _orig_core_post(path, payload, *ar, **kw)\n    payload = dict(payload); payload[\"stream\"] = True\n    parts = []; state = {\"buf\": \"\", \"mode\": None}; lastj = {}\n    thparts = []\n    req = _ur.Request(core.OLL + path, data=json.dumps(payload).encode(), headers={\"Content-Type\": \"application/json\"})\n    try:\n        with _ur.urlopen(req, timeout=600) as resp:\n            for line in resp:\n                line = line.strip()\n                if not line: continue\n                try: j = json.loads(line)\n                except Exception: continue\n                lastj = j\n                t = (j.get(\"message\") or {}).get(\"content\") or \"\"\n                tth = (j.get(\"message\") or {}).get(\"thinking\") or \"\"\n                if tth:\n                    thparts.append(tth)\n                    _tc = getattr(threading.current_thread(), \"_tokclient\", None)\n                    if _tc is not None:\n                        LIVE_THINK.setdefault(_tc, []).append(tth)\n                if tth and not t:\n                    continue\n                if t:\n                    parts.append(t)\n                    if state[\"mode\"] != \"tool\":\n                        state[\"buf\"] += t\n                    if state[\"mode\"] is None:\n                        if len(state[\"buf\"]) >= 8:\n                            if state[\"buf\"].lstrip().startswith(\"[TOOL\"):\n                                state[\"mode\"] = \"tool\"\n                            else:\n                                state[\"mode\"] = \"ans\"; push(state[\"buf\"]); state[\"buf\"] = \"\"\n                    elif state[\"mode\"] == \"ans\":\n                        push(state[\"buf\"]); state[\"buf\"] = \"\"\n    except Exception:\n        p2 = dict(payload); p2[\"stream\"] = False\n        return _orig_core_post(path, p2, *ar, **kw)\n    r = {\"message\": {\"content\": \"\".join(parts), \"thinking\": \"\".join(thparts)}}\n    for _kk in (\"prompt_eval_count\", \"eval_count\", \"prompt_eval_duration\", \"eval_duration\"):\n        if _kk in lastj: r[_kk] = lastj[_kk]\n    return r
+
+
+        t = TR.get(name)
+        if not t:
+            res = \"нет такого инструмента: %s\" % name
+        elif msg := _role_check(client, name):
+            res = msg
+            _log(\"%s(%s) → ЗАПРЕТ РОЛИ\" % (name, \"без параметров\" if not args else json.dumps(args, ensure_ascii=False)))
+        elif t.get(\"approval\"):
+            pid = datetime.datetime.now().strftime(\"%H%M%S%f\")
+            PENDING[pid] = {\"name\": name, \"args\": args, \"client\": client, \"messages\": messages, \"raw\": raw}
+            return {\"answer\": \"[СОГЛАСОВАНИЕ] операция %s ждёт подтверждения пользователя (id %s)\" % (name, pid),
+                    \"think\": think, \"steps\": step + 1, \"log\": steps_log}
+        else:
+            t0 = time.time()
+            try: res = str(t[\"fn\"](**args))
+            except Exception as e: res = \"ошибка исполнения %s: %s\" % (name, e)
+            trace(\"AGENT %s\" % name, \"OK\", int((time.time() - t0) * 1000))
+            _log(\"%s(%s) → %s\" % (name, \"без параметров\" if not args else json.dumps(args, ensure_ascii=False), _two(res)))
+        last_res = res
+        messages.append({\"role\": \"assistant\", \"content\": raw})
+        messages.append({\"role\": \"user\", \"content\": \"[РЕЗУЛЬТАТ %s]: %s\" % (name, res[:4000])})
+    return {\"answer\": last_res or \"не уложился в шагах\", \"think\": think, \"steps\": steps_max, \"log\": steps_log}
+
+
+
+def run_loop(messages, client, has_link=False, on_step=None, opts_and_steps=None):
+    if opts_and_steps:
+        opts, steps_max = opts_and_steps
+    else:
+        opts, steps_max = beh()
+    LAST_META.update(p=0, r=0)
+    steps_log, last_res, sig_prev, invalid_cnt = [], "", None, 0
+
+    def _log(line): steps_log.append(line); LIVE.setdefault(client, []).append(line)
+
+    for step in range(steps_max):
+        r = None
+        for attempt in (1, 2):
+            try:
+                use_opts = dict(opts)
+                if invalid_cnt: use_opts = dict(use_opts, temperature=0)
+                _thk = int(settings.get(\"think_mode\") or 0) > 0
+                r = core.post(\"/api/chat\", {\"model\": settings.model_for(\"chat\"),
+                                            \"stream\": False, \"think\": _thk, \"options\": use_opts, \"messages\": messages}, t=600)
+                break
+            except Exception as e:
+                if attempt == 1 and \"500\" in str(e):
+                    time.sleep(2); continue
+                return {\"answer\": _clean(\"ошибка модели: %s\" % e), \"think\": \"\", \"steps\": step + 1, \"log\": steps_log}
+        raw = (r.get(\"message\") or {}).get(\"content\") or \"\"
+        try: LAST_META[\"p\"] += r.get(\"prompt_eval_count\") or 0; LAST_META[\"r\"] += r.get(\"eval_count\") or 0
+        except Exception: pass
+        kind, payload, args, think = parse_model(raw)
+        think = think or (((r.get(\"message\") or {}).get(\"thinking\") or \"\").strip())
+        if kind == \"answer\" and (_refusal(payload) or (len(payload) < 80 and payload.strip().lower() in _NUDGE.lower())):
+            _log(\"refusal/echo_guard\"); kind, payload = \"invalid\", raw
+        if kind == \"answer\":
+            used_web = any(\"web_fetch\" in s for s in steps_log)
+            if has_link and not used_web and step < steps_max - 1 and len(payload) < 400:
+                messages.append({\"role\": \"assistant\", \"content\": raw})
+                messages.append({\"role\": \"user\", \"content\": \"[СЛУЖЕБНОЕ] В задаче была ссылка http — сначала прочитай её через web_fetch, потом отвечай.\"})
+                _log(\"web_nudge\"); continue
+            txt = payload
+            if len(txt) < 40 and last_res: txt = last_res + \"\\n\\n\" + txt
+            return {\"answer\": _clean(txt), \"think\": think, \"steps\": step + 1, \"log\": steps_log}
+        if kind == \"answer\" and len(payload) < 80 and payload.strip().lower() in _NUDGE.lower():
+            _log(\"echo_guard: %r\" % payload[:40]); kind, payload = \"invalid\", raw
+        if kind == \"invalid\":
+            invalid_cnt += 1
+            if last_res and len(payload or \"\") > 150 and not _refusal(payload):
+                _log(\"parse_invalid -> проза после результата = ответ\")
+                return {\"answer\": _clean(payload), \"think\": think, \"steps\": step + 1, \"log\": steps_log}
+            if invalid_cnt < 3:
+                nudge = _ACCESS_NUDGE if _refusal(payload) else _NUDGE
+                messages.append({\"role\": \"assistant\", \"content\": raw})
+                messages.append({\"role\": \"user\", \"content\": nudge})
+                _log(\"parse_invalid\"); continue
+            pl = (payload or \"\").strip()
+            tail = (\" Инструмент вернул: «%s».\" % last_res[:200]) if last_res else \"\"
+            if _refusal(pl) or (len(pl) < 80 and pl.lower() in _NUDGE.lower()):
+                pl = \"Ответ модели не распознан.\" + tail + \" Уточни запрос (пример: models_where q=<имя детали>) или введи прямую команду инструмента.\"
+            return {\"answer\": _clean(pl), \"think\": think, \"steps\": step + 1, \"log\": steps_log}
+        name = payload
+        sig = (name, json.dumps(args, sort_keys=True, ensure_ascii=False))
+        if sig == sig_prev:
+            return {\"answer\": last_res or \"зацикливание остановлено\", \"think\": think, \"steps\": step + 1, \"log\": steps_log}
+        sig_prev = sig
+        if settings.get(\"parallel_tools\"):
+            others = []
+            for m in re.finditer(r\"\\[TOOL:\\s*([A-Za-z0-9_]+)\\s*\\]\\s*({.*?})\\s*\\[/TOOL\\]\", raw, re.S):
+                try: aa = json.loads(m.group(2))
+                except Exception: aa = {}
+                tt = TR.get(m.group(1))
+                if tt and not tt.get(\"approval\"): others.append((m.group(1), aa))
+            others = [o for o in others if (o[0], json.dumps(o[1], sort_keys=True, ensure_ascii=False)) != (name, json.dumps(args, sort_keys=True, ensure_ascii=False))]
+            if len(others) > 1:
+                def _one(oa):
+                    nn, aa2 = oa
+                    msg = _role_check(client, nn)
+                    if msg:
+                        return \"%s → %s\" % (nn, msg)
+                    tt = TR.get(nn)
+                    try: return \"%s → %s\" % (nn, str(tt[\"fn\"](**aa2))[:600])
+                    except Exception as e: return \"%s → ошибка: %s\" % (nn, e)
+                try:
+                    with ThreadPoolExecutor(max_workers=4) as ex: res = \"\\n\".join(ex.map(_one, others))
+                    _log(\"parallel[%d]: %s\" % (len(others), \", \".join(o[0] for o in others)))
+                    last_res = res; sig_prev = sig
+                    messages.append({\"role\": \"assistant\", \"content\": raw})
+                    messages.append({\"role\": \"user\", \"content\": \"[РЕЗУЛЬТАТ parallel]: %s\" % res[:4000]})
+                    continue
+                except Exception: pass
+
+
+
+    # 3. If mode 2, handle it immediately
+    if eff_mode == 2:
+        q2 = VI.attach(q, image, client)
+        messages = [{"role": "system", "content": build_system(mode=2)}] + hist_block(client) + [{"role": "user", "content": q2}]
+        opts, _ = beh()
+        if doc:
+            opts["num_predict"] = 4096
+            messages[0]["content"] += "\n=== ДОКУМЕНТ: краткость отменена. Пиши полный текст внутри [ANSWER], без обрыва."
+        r = core.post("/api/chat", {
+            "model": settings.model_for("chat"),
+            "stream": False,
+            "think": int(settings.get("think_mode") or 0) > 0,
+            "options": opts,
+            "messages": messages,
+        }, t=600)
+        return {
+            "answer": _clean(r.get("message", {}).get("content", "")),
+            "think": r.get("message", {}).get("thinking", ""),
+            "steps": 1,
+            "log": ["chat_mode"]
+        }
+
+    # 4. Else mode 1 (existing logic)
+    q2 = VI.attach(q, image, client)
+    LIVE[client] = []
+    m2 = re.match(r"^([A-Za-z0-9_]+)\\s+([A-Za-z0-9_]+)=(\\S+)$", q.strip())
+    if m2 and not image:
+        t2 = TR.get(m2.group(1))
+        if t2 and m2.group(2) in (t2.get("params") or {}):
+            if msg := _role_check(client, m2.group(1)):
+                return {"answer": msg, "think": "", "steps": 1, "log": [m2.group(1) + "(прямой вызов) → ЗАПРЕТ РОЛИ"]}
+            if t2.get("approval"):
+                pid = datetime.datetime.now().strftime("%H%M%S%f")
+                PENDING[pid] = {"name": m2.group(1), "args": {m2.group(2): m2.group(3)},
+                                "client": client, "messages": [], "raw": ""}
+                return {"answer": "[СОГЛАСОВАНИЕ] операция %s ждёт подтверждения (id %s)" % (m2.group(1), pid),
+                        "think": "", "steps": 1, "log": [m2.group(1) + "(прямой вызов)"]}
+            try: res = str(t2["fn"](**{m2.group(2): m2.group(3)}))
+            except Exception as e: res = "ошибка исполнения %s: %s" % (m2.group(1), e)
+            return {"answer": res, "think": "", "steps": 1, "log": [m2.group(1) + "(прямой вызов) → " + _two(res)]}
+    q2 = q2 + "\n\n[СЛУЖЕБНОЕ: отвечай только по-русски. Один ход = один [TOOL] или один [ANSWER]. Никакого текста до и после блока.]"
+    messages = [{"role": "system", "content": build_system(mode=eff_mode)}] + hist_block(client) + [{"role": "user", "content": q2}]
+    _ta = time.time()
+    LIVE_TOK[client] = []
+    LIVE_THINK[client] = []
+
+    def _push(t): LIVE_TOK.setdefault(client, []).append(t)
+    threading.current_thread()._tokpush = _push
+    threading.current_thread()._tokclient = client
+    r = run_loop(messages, client, has_link=("http" in q), on_step=on_step)
+    try:
+        _tools_chain = []
+        for _ln in r.get("log", []):
+            _m = re.match(r"^([A-Za-z0-9_]+)\\(", _ln)
+            if _m and _m.group(1) not in _tools_chain:
+                _tools_chain.append(_m.group(1))
+        _ok = (not _refusal(r.get("answer", ""))) and len(r.get("answer", "")) > 200
+        with open(core.DATA_DIR / "chains.jsonl", "a", encoding="utf-8") as _f:
+            _f.write(json.dumps({"ts": datetime.datetime.now().isoformat(), "client": client,
+                                 "q": q[:300], "tools": _tools_chain, "ok": bool(_ok)},
+                                 ensure_ascii=False) + "\\n")
+    except Exception:
+        pass
+    if int(settings.get("log_mode") or 1) >= 1:
+        r.setdefault("log", []).append("⏱ %dмс · 🔢 %d ток (промт %d + ответ %d) · шагов: %d" % (int((time.time() - _ta) * 1000), LAST_META["p"] + LAST_META["r"], LAST_META["p"], LAST_META["r"], r.get("steps", 1)))
+    c = core.db()
+    c.execute("INSERT INTO history(client,q,a,ts) VALUES(?,?,?,?)", (client, q, r["answer"][:2000], datetime.datetime.now().isoformat()))
+    c.commit(); c.close()
+    return r
+
+def do_approve(pid, okf):
+    pid = str(pid)
+    p = PENDING.pop(pid, None)
+    if not p: return {"res": "согласование устарело или уже выполнено, повтори команду"}
+    if not okf: return {"res": "отменено пользователем"}
+    t = TR.get(p["name"])
+    if msg := _role_check(p.get("client"), p["name"]):
+        return {"res": msg}
+    try: res = str(t["fn"](**p["args"]))
+    except Exception as e: return {"res": "ошибка исполнения: %s" % e}
+    msgs = p.get("messages")
+    if msgs:
+        msgs.append({"role": "assistant", "content": p.get("raw", "")})
+        msgs.append({"role": "user", "content": "[РЕЗУЛЬТАТ %s]: %s" % (p["name"], res[:4000])})
+        r = run_loop(msgs, p.get("client"), has_link=False)
+        return {"res": res, "answer": _clean(r["answer"]), "think": r.get("think", ""), "log": r.get("log", [])}
+    return {"res": res}
+
+
+
+def ask(q, client, image=None, on_step=None, mode=None):
+    # 1. Determine mode
+    eff_mode = 1
+    if mode in (1, 2):
+        eff_mode = mode
+    elif q.strip().startswith(\"chat \"):
+        eff_mode = 2
+        q = q.strip()[5:]
+    elif q.strip().startswith(\"agent \"):
+        eff_mode = 1
+        q = q.strip()[6:]
+    else:
+        eff_mode = settings.get_for(client, \"chat_mode\", 1)
+        if not isinstance(eff_mode, int) or eff_mode not in (1, 2):
+            eff_mode = 1
+
+    # Check for engineering mode (doc mode)
+    doc_keywords = [\"спека\", \"документ\", \"пиши полностью\", \"развёрнуто\", \"подробный отчёт\"]
+    doc = any(kw in q.lower() for kw in doc_keywords)
+
+
+    # 2. Check for direct tool call (works in both modes)
+    name = q.strip()
+    t = TR.get(name)
+    if t and not image:
+        if msg := _role_check(client, name):
+            return {\"answer\": msg, \"think\": \"\", \"steps\": 1, \"log\": [\"%s(прямой вызов) → ЗАПРЕТ РОЛИ\" % name]}
+        if t.get(\"approval\") and eff_mode != 2:
+            pid = datetime.datetime.now().strftime(\"%H%M%S%f\")
+            PENDING[pid] = {\"name\": name, \"args\": {}, \"client\": client, \"messages\": [], \"raw\": \"\"}
+            return {\"answer\": \"[СОГЛАСОВАНИЕ] операция %s ждёт подтверждения пользователя (id %s)\" % (name, pid), \"think\": \"\", \"steps\": 1, \"log\": [\"%s(прямой вызов)\" % name]}
+        t0 = time.time()
+        try:
+            try: res = str(t[\"fn\"]())
+            except TypeError: res = str(t[\"fn\"]({k: \"\" for k in t.get(\"params\", {})}))
+        except Exception as e: res = \"ошибка исполнения %s: %s\" % (name, e)
+        trace(\"AGENT %s\" % name, \"OK\", int((time.time() - t0) * 1000))
+        c = core.db()
+        c.execute(\"INSERT INTO history(client,q,a,ts) VALUES(?,?,?,?)\", (client, q, res[:2000], datetime.datetime.now().isoformat()))
+        c.commit(); c.close()
+        return {\"answer\": res, \"think\": \"\", \"steps\": 1, \"log\": [\"%s(прямой вызов) → %s\" % (name, _two(res))]}
+
+    # 2.5 Fast router for special commands
+    if q.strip().lower().startswith(\"угол \"):
+        import calc_tools
+        rest = q.strip()[5:].strip()
+        res = calc_tools.tool_angle(text=rest)
+        return {\"answer\": res, \"think\": \"\", \"steps\": 1, \"log\": [\"fast_router(угол)\"]}
+
+        if TR.get(m.group(1)): return "tool", m.group(1), args, think_text
+    m = re.search(r"\\[TOOL:\\s*([A-Za-z0-9_]+)\\s*\\]", text)
+    if m and TR.get(m.group(1)):
+        rest = text[m.end():m.end() + 800]
+        args = {}
+        mj = re.search(r"\\s*({.*?})", rest, re.S)
+        if mj:
+            try: args = json.loads(mj.group(1))
+            except Exception: args = {}
+        return "tool", m.group(1), args, think_text
+    m = re.search(r"\\[TOOL\\]\\s*([A-Za-z0-9_]+)\\s*({.*?})?\\s*(?:\\\[/TOOL\\])?", text, re.S)
+    if m and TR.get(m.group(1)):
+        args = {}
+        if m.group(2):
+            try: args = json.loads(m.group(2))
+            except Exception: args = {}
+        return "tool", m.group(1), args, think_text
+    for mm in re.finditer(r"^\\s*([A-Za-z0-9_]+)\\s*({[^\\n]+})\\s*$", text, re.M):
+        if TR.get(mm.group(1)):
+            try: args = json.loads(mm.group(2))
+            except Exception: args = {}
+            return "tool", mm.group(1), args, think_text
+    m = re.search(r"\\[ANSWER\\]\\s*(.*?)\\[/ANSWER\\]", text, re.S)
+    if m: return "answer", m.group(1).strip(), None, think_text
+    if "[ANSWER]" in text and "[/ANSWER]" not in text:
+        return "answer", text.split("[ANSWER]", 1)[1].strip(), None, think_text
+    ts = text.strip()
+    if TR.get(ts): return "tool", ts, {}, think_text
+    return "invalid", text.strip(), None, think_text
+
