@@ -105,10 +105,14 @@ def index_all():
                         m = c.execute("SELECT mtime,size FROM files WHERE path=?", (str(f),)).fetchone()
                         if not m or m[0] != st.st_mtime or m[1] != st.st_size: todo.append(f)
                 except Exception: pass
-        for (p,) in c.execute("SELECT path FROM files").fetchall():
-            if p not in seen:
-                c.execute("DELETE FROM chunks WHERE path=?", (p,))
-                c.execute("DELETE FROM files WHERE path=?", (p,))
+        dead = [r for r in read_roots() if not Path(r).exists()]
+        if dead:
+            log("purge пропущен: корень %s недоступен, чтобы не стереть живое" % "; ".join(dead))
+        else:
+            for (p,) in c.execute("SELECT path FROM files").fetchall():
+                if p not in seen:
+                    c.execute("DELETE FROM chunks WHERE path=?", (p,))
+                    c.execute("DELETE FROM files WHERE path=?", (p,))
         STATE["total"] = len(todo)
         print(f"DEBUG: todo={len(todo)}, seen={len(seen)}")
         cs, ov = settings.get("chunk_size") or 1500, settings.get("chunk_overlap") or 200

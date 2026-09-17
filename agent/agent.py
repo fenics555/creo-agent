@@ -192,8 +192,8 @@ def build_system(mode=1):
 В этом режиме нет доступа к Creo, файлам и базам: если вопрос требует живых данных, скажи «в режиме инженера я достану это из Creo или базы — переключи режим» и не выдумывай.
 Формат: свободный текст; код внутри блоков с языком; служебных тегов нет.
 Краткость ценится, но полнота решения важнее."""
-    if _SYS_CACHE.get(("v", mode)): return _SYS_CACHE[("v", mode)]
-    p = ((load_skill("MANIFEST.md") + "\n\n" + load_skill("SKILL_agent_protocol.md")) or DEFAULT_PROTO).strip() + "\n"
+    _SYS_CACHE.clear()  # надёжность: промпт всегда собирается свежим с диска
+    p = ((load_skill("MANIFEST.md") or "") + "\n\n" + (load_skill("SKILL_agent_protocol.md") or DEFAULT_PROTO)).strip() + "\n"
     core_lines, rest = [], []
     for t in TR.TOOLS:
         ps = ", ".join(t.get("params", {}).keys()) if t.get("params") else ""
@@ -230,8 +230,6 @@ def _scheduler():
                         try:
                             if t == "scan": scanner.scan_models()
                             elif t == "index": scanner.index_all()
-                            elif t == "check": subprocess.run([sys.executable, r"D:\AI\tools\agent\dev\skills_check.py"], cwd=r"D:\AI\tools\agent");
-
                             elif t == "usage":
                                 import usage_tools; usage_tools.build_usage(True)
                             elif t == "backup":
@@ -239,6 +237,8 @@ def _scheduler():
                             elif t == "drafts":
                                 import draft_tools
                                 log(draft_tools.tool_drafts_build())
+                            elif t == "check":
+                                subprocess.run([sys.executable, r"D:\AI\tools\agent\dev\skills_check.py"], cwd=r"D:\AI\tools\agent")
                         except Exception as e:
                             log("night %s err: %s" % (t, e))
                         else:
@@ -848,6 +848,9 @@ class Hd(BaseHTTPRequestHandler):
                 self._j({"error": f"failed to serve image: {e}"})
             return
 
+        elif p == "/panel":
+            if not users.token_info(self.headers.get("X-Token") or ""):
+                self.send_response(401); self.end_headers(); return
             d = panel.build()
             _ui = users.token_info(self.headers.get("X-Token") or "")
             if not (_ui and users.is_admin(_ui["login"])):
