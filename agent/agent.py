@@ -193,7 +193,7 @@ def build_system(mode=1):
 Формат: свободный текст; код внутри блоков с языком; служебных тегов нет.
 Краткость ценится, но полнота решения важнее."""
     if _SYS_CACHE.get(("v", mode)): return _SYS_CACHE[("v", mode)]
-    p = load_skill("SKILL_agent_protocol.md") or DEFAULT_PROTO
+    p = ((load_skill("MANIFEST.md") + "\n\n" + load_skill("SKILL_agent_protocol.md")) or DEFAULT_PROTO).strip() + "\n"
     core_lines, rest = [], []
     for t in TR.TOOLS:
         ps = ", ".join(t.get("params", {}).keys()) if t.get("params") else ""
@@ -230,6 +230,8 @@ def _scheduler():
                         try:
                             if t == "scan": scanner.scan_models()
                             elif t == "index": scanner.index_all()
+                            elif t == "check": subprocess.run([sys.executable, r"D:\AI\tools\agent\dev\skills_check.py"], cwd=r"D:\AI\tools\agent");
+
                             elif t == "usage":
                                 import usage_tools; usage_tools.build_usage(True)
                             elif t == "backup":
@@ -822,19 +824,16 @@ class Hd(BaseHTTPRequestHandler):
             self._j({"pairs": pairs, "total": len(pairs)})
             return
         elif p == "/pdfthumb":
-            _tk = users.token_info(self.headers.get("X-Token") or "")
+            _tk = users.token_info(self.headers.get("X-Token") or self.headers.get("query", {}).get("token", ""))
             if not _tk:
                 self._j({"error": "token required"})
                 return
             qs = parse_qs(urlparse(self.path).query)
             nm = qs.get("name", [None])[0]
             pg = qs.get("page", ["1"])[0]
-            if not nm:
-                self._j({"error": "name required"})
-                return
             res = pdf_tools.pdf_img(nm, pg)
             if "error" in res:
-                self._j(res)
+                self._j({"error": "миниатюры нет"})
                 return
             img_path = res["image_path"]
             try:
