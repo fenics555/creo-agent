@@ -131,6 +131,7 @@ core.post = _post_think_off
 
 import tools_registry as TR
 import scanner
+import sched  # спека 71/Ф1: планировщик и сторож вынесены из agent.py
 import users
 import chat_tools
 import panel
@@ -215,38 +216,7 @@ def build_system(mode=1):
     return _SYS_CACHE[("v", mode)]
 
 
-def _scheduler():
-    last_day = ""
-    while True:
-        try:
-            now = datetime.datetime.now()
-            if settings.get("night_enable"):
-                hh = int(settings.get("night_hour") or 2); mm = int(settings.get("night_minute") or 0)
-                if now.hour == hh and now.minute == mm and now.strftime("%Y-%m-%d") != last_day:
-                    last_day = now.strftime("%Y-%m-%d")
-                    for t in str(settings.get("night_tasks") or "scan,index,usage").split(","):
-                        t = t.strip()
-                        log("night start: %s" % t)
-                        try:
-                            if t == "scan": scanner.scan_models()
-                            elif t == "index": scanner.index_all()
-                            elif t == "usage":
-                                import usage_tools; usage_tools.build_usage(True)
-                            elif t == "backup":
-                                import backup; backup._do(); import backup_tools; log(backup_tools.tool_housekeeping()); log(backup_tools.tool_drift_check())
-                            elif t == "drafts":
-                                import draft_tools
-                                log(draft_tools.tool_drafts_build())
-                            elif t == "check":
-                                subprocess.run([sys.executable, r"D:\AI\tools\agent\dev\skills_check.py"], cwd=r"D:\AI\tools\agent")
-                        except Exception as e:
-                            log("night %s err: %s" % (t, e))
-                        else:
-                            log("night ok: %s" % t)
-                    log("night run done")
-        except Exception:
-            pass
-        time.sleep(30)
+# _scheduler перенесён в sched.py (спека 71/Ф1)
 
 
 def beh():
@@ -587,36 +557,7 @@ def do_approve(pid, okf):
     return {"res": res}
 
 
-def _wd_port(port, host="127.0.0.1"):
-    import socket as _s
-    try:
-        with _s.create_connection((host, port), timeout=2): return True
-    except Exception: return False
-
-def _wd_spawn(cmd):
-    if not cmd: return False
-    try:
-        subprocess.Popen(cmd if isinstance(cmd, list) else cmd, shell=isinstance(cmd, str),
-                         cwd=r"D:\AI\tools\agent", creationflags=getattr(subprocess, "CREATE_NO_WINDOW", 0))
-        return True
-    except Exception: return False
-
-def _watchdog():
-    fails = {}
-    while True:
-        try:
-            if int(settings.get("wd_enable") or 1):
-                for name, port, key, dflt in (("ollama", 11434, "wd_ollama_cmd", "ollama serve"),
-                                              ("creoson", 8080, "wd_creoson_cmd", "")):
-                    if not _wd_port(port):
-                        n = fails.get(name, 0) + 1; fails[name] = n
-                        if n <= 3:
-                            log("wd: %s down, raising (%d)" % (name, n))
-                            _wd_spawn(settings.get(key) or dflt)
-                        elif n == 4: log("wd: %s still down, cooldown" % name)
-                    else: fails[name] = 0
-        except Exception: pass
-        time.sleep(int(settings.get("wd_interval") or 60))
+# _wd_port / _wd_spawn / _watchdog перенесены в sched.py (спека 71/Ф1)
 
 def _serve_ui(handler):
     try:
@@ -687,7 +628,7 @@ class Hd(BaseHTTPRequestHandler):
             return
         elif p == "/health":
             if not users.token_info(self.headers.get("X-Token") or ""): return self._j({"error": "no token"})
-            self._j({"ollama": _wd_port(11434), "creoson": _wd_port(8080), "agent": True})
+            self._j({"ollama": sched._wd_port(11434), "creoson": sched._wd_port(8080), "agent": True})
             return
         elif p == "/pdfpages":
             if not users.token_info(self.headers.get("X-Token") or ""): return self._j({"error": "no token"})
@@ -1061,8 +1002,8 @@ if __name__ == "__main__":
     pidfile = core.BASE / "agent" / "agent.pid"
     pidfile.write_text(str(os.getpid()), encoding="ascii")
     atexit.register(lambda: pidfile.unlink(missing_ok=True))
-    threading.Thread(target=_scheduler, daemon=True).start()
-    threading.Thread(target=_watchdog, daemon=True).start()
+    threading.Thread(target=sched._scheduler, daemon=True).start()
+    threading.Thread(target=sched._watchdog, daemon=True).start()
     try:
         ThreadingHTTPServer((HOST, PORT), Hd).serve_forever()
     finally:
