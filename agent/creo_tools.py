@@ -157,7 +157,14 @@ def tool_get_relations(name="", **kw):
     j = creo_call("file", "relations_get", {"file": nm}, 20)
     if not ok(j): return "ошибка отношений: %s" % errmsg(j)
     d = j.get("data")
-    result = (d if isinstance(d, str) else (d or {}).get("relations") or "") or "отношений нет"
+    # CREOSON отдаёт отношения по-разному (диагноз 17.09.2026): data может быть строкой,
+    # списком строк ИЛИ словарём {"relations": [ ... ]}. Раньше список доходил до
+    # строковых операций и падал AttributeError — нормализуем здесь и только здесь.
+    if isinstance(d, dict):
+        d = d.get("relations")
+    if isinstance(d, list):
+        d = "\n".join(str(x) for x in d)
+    result = (d if isinstance(d, str) else "") or "отношений нет"
     
     # Сохраняем информацию о отношениях в память
     try:
