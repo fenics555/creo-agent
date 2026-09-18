@@ -8,6 +8,8 @@ try:
     import pymupdf as fitz
 except Exception:
     import fitz
+import re
+
 import core
 import settings
 
@@ -17,6 +19,7 @@ CREOSON_URL = "http://127.0.0.1:8080/creoson"
 
 
 def _get_file_info(name):
+    name = re.sub(r"\.(prt|asm|drw|pdf)$", "", str(name or "").strip(), flags=re.I)
     """(pdf, drw, prt) как (path, mtime) или None.
     pdf ищем точным совпадением.stem; drw/prt — точно ИЛИ с m-префиксом
     (чертежи сборок зовутся m-<имя>-...), регистр расширения любой."""
