@@ -19,8 +19,10 @@ def _scheduler():
                         t = t.strip()
                         log("night start: %s" % t)
                         try:
-                            if t == "scan": scanner.scan_models()
-                            elif t == "index": scanner.index_all()
+                            if t == "scan":
+                                log("night %s: пропущено по пункту 19 (harvest.py вне процесса агента)" % t)
+                            elif t == "index":
+                                log("night %s: пропущено по пункту 19 (harvest.py вне процесса агента)" % t)
                             elif t == "usage":
                                 import usage_tools; usage_tools.build_usage(True)
                             elif t == "backup":

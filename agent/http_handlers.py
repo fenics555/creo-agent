@@ -396,9 +396,17 @@ class Hd(BaseHTTPRequestHandler):
         elif p == "/snap":
             self._j({"msg": "скриншот принимается через Ctrl+V в поле ввода"})
         elif p == "/rescan":
-            self._j({"error": "скан ушёл в harvest.py, не готов"}, 503)
+            subprocess.Popen([sys.executable, "-u", r"D:\AI\tools\agent\harvest.py"],
+                             cwd=r"D:\AI\tools\agent")
+            self._j({"msg": "harvest запущен детачем, отчёт в data/last_harvest.json",
+                     "report": r"D:\AI\tools\agent\data\last_harvest.json",
+                     "warning": "идёт по kb_roots.txt (Z: включён в корнях)"})
         elif p == "/scan":
-            self._j({"error": "скан ушёл в harvest.py, не готов"}, 503)
+            subprocess.Popen([sys.executable, "-u", r"D:\AI\tools\agent\harvest.py"],
+                             cwd=r"D:\AI\tools\agent")
+            self._j({"msg": "harvest запущен детачем, отчёт в data/last_harvest.json",
+                     "report": r"D:\AI\tools\agent\data\last_harvest.json",
+                     "warning": "идёт по kb_roots.txt (Z: включён в корнях)"})
         elif p == "/profile":
             __prof = users.get_profile(cl)
             if __prof:
