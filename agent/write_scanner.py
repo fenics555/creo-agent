@@ -1,9 +1,11 @@
-# -*- coding: utf-8 -*-
-"""
+import os
+
+content = """# -*- coding: utf-8 -*-
+\"\"\"
 АГЕНТ v13 — БИБЛИОТЕКА СКАНЕРА (scanner.py)
 Чистая библиотека без управления состоянием. 
 Управляется через harvest.py.
-"""
+\"\"\"
 import os
 import re
 import time
@@ -30,7 +32,7 @@ class ScannerLibrary:
     def _get_pats(self) -> List[str]:
         pats = []
         # Пытаемся найти исключения из файлов конфигурации
-        for base in ["D:\\AI\\", "D:\\AI\\tools\\agent\\"]:
+        for base in ["D:\\\\AI\\\\", "D:\\\\AI\\\\tools\\\\agent\\\\"]:
             f = Path(base) / "kb_exclude.txt"
             if f.exists():
                 try:
@@ -42,7 +44,7 @@ class ScannerLibrary:
         return pats
 
     def scan_files_generator(self, root_path: str) -> Generator[dict, None, None]:
-        """Генератор метаданных файлов для потокового сканирования."""
+        \"\"\"Генератор метаданных файлов для потокового сканирования.\"\"\"
         rp = Path(root_path).resolve()
         if not rp.exists():
             return
@@ -69,7 +71,7 @@ class ScannerLibrary:
                     continue
 
     def scan_models(self, root_path: str) -> List[Tuple[str, str, str]]:
-        """Сканирование только Creo моделей."""
+        \"\"\"Сканирование только Creo моделей.\"\"\"
         rp = Path(root_path).resolve()
         if not rp.exists():
             return []
@@ -81,13 +83,13 @@ class ScannerLibrary:
                 full = os.path.join(dirpath, fn)
                 if is_creo(fn) and not is_excluded(full, self.pats):
                     # m.group(1) из спеки
-                    m = re.search(r"\.(prt|asm|drw|frm|sec|lay)(?:\.\d+)?$", fn.lower())
+                    m = re.search(r"\\.(prt|asm|drw|frm|sec|lay)(?:\\.\\d+)?$", fn.lower())
                     ext = m.group(1) if m else ""
                     models.append((fn.lower(), ext, full))
         return models
 
     def get_duplicates(self) -> List[Tuple[str, int]]:
-        """Поиск дублей по имени в БД."""
+        \"\"\"Поиск дублей по имени в БД.\"\"\"
         c = db()
         try:
             rows = c.execute("SELECT name, COUNT(*) FROM models GROUP BY name HAVING COUNT(*) > 1 ORDER BY COUNT(*) DESC LIMIT 40").fetchall()
@@ -96,7 +98,7 @@ class ScannerLibrary:
             c.close()
 
 def init_db_schema():
-    """Инициализация таблиц (вызывается один раз при старте harvest)."""
+    \"\"\"Инициализация таблиц (вызывается один раз при старте harvest).\"\"\"
     c = db()
     try:
         # Таблицы для файлов и FTS
@@ -107,3 +109,8 @@ def init_db_schema():
         c.commit()
     finally:
         c.close()
+"""
+
+with open(r"D:\AI\tools\agent\scanner.py", "w", encoding="utf-8") as f:
+    f.write(content)
+print("scanner.py updated successfully")
