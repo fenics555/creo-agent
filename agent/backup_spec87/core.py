@@ -25,9 +25,7 @@ OLL = "http://127.0.0.1:11434"
 def log(msg):
     line = "%s %s" % (datetime.datetime.now().strftime("%m-%d %H:%M:%S"), msg)
     try:
-        with open(LOGF, "a", encoding="utf-8") as f:
-            f.write(line + "\n")
-            f.flush()
+        with open(LOGF, "a", encoding="utf-8") as f: f.write(line + "\n")
     except Exception: pass
     print(line)
 
@@ -49,9 +47,7 @@ def trace(what, verdict, ms=None, detail=None):
     if ms is not None: line += " (%dмс)" % ms
     if detail: line += " | %s" % str(detail)[:120]
     try:
-        with open(LOGF, "a", encoding="utf-8") as f:
-            f.write(line + "\n")
-            f.flush()
+        with open(LOGF, "a", encoding="utf-8") as f: f.write(line + "\n")
     except Exception: pass
 
 def boot_report():

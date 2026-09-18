@@ -4,7 +4,6 @@ import json, os, socket, threading, datetime, re, subprocess, sys
 from urllib.parse import urlparse, parse_qs
 from http.server import ThreadingHTTPServer, BaseHTTPRequestHandler
 import core
-print(core.LOGF)
 from core import log, trace
 import settings
 import pdf_tools
@@ -183,25 +182,25 @@ class Hd(BaseHTTPRequestHandler):
                     verdict, entry = None, {}
                     m = re.search(r"(.*?)\.(drw|asm|prt)(\.\\d+)?$", nm, re.I)
                     if m:
-                        core_name, ext, suffix = m.groups()
+                        core, ext, suffix = m.groups()
                         suffix = suffix or ""
                         if ext.lower() == "drw":
-                            stem = core_name
+                            stem = core
                             pdf = fs.get(stem + ".pdf")
                             verdict = "нет pdf" if not pdf else ("актуален" if pdf[1] >= mt else "УСТАРЕЛ")
                             entry = {"name": nm, "dir": d, "drw": path, "pdf": pdf[0] if pdf else "",
                                      "drw_mtime": mt, "pdf_mtime": pdf[1] if pdf else 0, "verdict": verdict}
                         else:
-                            drw = fs.get(core_name + ".drw" + suffix)
-                            pdf = fs.get(core_name + ".pdf")
+                            drw = fs.get(core + ".drw" + suffix)
+                            pdf = fs.get(core + ".pdf")
                             if drw:
                                 drw_p, drw_mt = drw
                                 if pdf:
                                     pdf_p, pdf_mt = pdf
                                     v = "актуален" if pdf_mt >= drw_mt else "устарел"
-                                    verdict = f"pdf через чертёж {core_name}.drw{suffix}: {v}"
+                                    verdict = f"pdf через чертёж {core}.drw{suffix}: {v}"
                                 else:
-                                    verdict = f"чертёж {core_name}.drw{suffix}: нет pdf"
+                                    verdict = f"чертёж {core}.drw{suffix}: нет pdf"
                                     pdf_p, pdf_mt = "", 0
                                 entry = {"name": nm, "dir": d, "drw": drw_p, "pdf": pdf_p,
                                          "drw_mtime": drw_mt, "pdf_mtime": pdf_mt, "verdict": verdict}
@@ -255,16 +254,21 @@ class Hd(BaseHTTPRequestHandler):
             self._j(d)
             return
         elif p == "/log":
-            try:
-                with open(core.LOGF, "r", encoding="utf-8", errors="replace") as f:
-                    lines = f.readlines()
-                    tail = "".join(lines[-100:])
-                self.send_response(200)
-                self.send_header("Content-Type", "text/plain; charset=utf-8")
-                self.end_headers()
-                self.wfile.write(tail.encode("utf-8"))
-            except Exception as e:
-                self._j({"error": str(e)}, 500)
+            _tk = users.token_info(self.headers.get("X-Token") or "")
+            if _tk and not users.is_admin(_tk["login"]):
+                c = core.db()
+                rows = c.execute("SELECT q,a,ts FROM history WHERE client=? ORDER BY id DESC LIMIT 40", (_tk["login"],)).fetchall()
+                c.close()
+                self._j({"log": "\n".join("%s · %s → %s" % (ts[:16], q, a[:80]) for q, a, ts in reversed(rows)) or "история пуста"})
+                return
+            else:
+                try:
+                    txt = core.LOGF.read_text(encoding="utf-8", errors="ignore").splitlines()
+                    self._j({"log": "\n".join(txt[-80:])})
+                    return
+                except Exception:
+                    self._j({"log": "лога нет"})
+                    return
         elif p == "/settings":
             self._j({"items": settings.list_ui()})
             return

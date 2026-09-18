@@ -121,7 +121,7 @@ else if(a=='w_audit'){document.getElementById('wiz').style.display='none';qinp.v
 else if(a=='w_usage'){document.getElementById('wiz').style.display='none';qinp.value='usage_build full=1';send()}
 else if(a=='w_night'){document.getElementById('wiz').style.display='none';qinp.value='nightly_run';send()}
 else if(a=='snap')J('/snap',{token:TK}).then(function(r){addMsg(esc(r.msg||'ок'))});
-else if(a=='showlog'){fetch('/log',{headers:{'X-Token':TK||''}}).then(r=>r.text()).then(t=>addMsg('<div class="log">'+esc(t)+'</div>')})};
+else if(a=='showlog')J('/log').then(function(r){addMsg('<div class="log">'+esc(r.log)+'</div>')});
 else if(a=='panel')panel.style.display=panel.style.display=='none'?'block':'none';
 else if(a=='logout'){localStorage.removeItem('tk');localStorage.removeItem('usr');TK='';showLogin()}
 else if(a=='showpro'){J('/profile',{token:TK}).then(function(u){document.getElementById('proinfo').textContent=(u.display_name||'')+' · '+(u.role||'')+' · '+u.login;document.getElementById('pname').value=u.display_name||'';document.getElementById('pro').style.display='flex';document.getElementById('adm_btn').style.display=u.can_manage?'block':'none'})}
@@ -141,7 +141,7 @@ else if(a=="appr"){var sp2=document.getElementById("spin");if(sp2)sp2.style.disp
 else if(a=='fb'){var okv=el.getAttribute('data-ok')=='1';var cm=okv?'':prompt('Короткий комментарий (почему не попал):','');if(!okv&&cm===null)return;var dd=el.closest('.msg');var rr=dd&&dd._r?dd._r:{};var tool='';if(rr.log&&rr.log.length){var mm=String(rr.log[rr.log.length-1]).match(new RegExp('^([A-Za-z0-9_]+)' + String.fromCharCode(40)));if(mm)tool=mm[1]}J('/feedback',{token:TK,query:dd&&dd._query?dd._query:'',think:rr.think||'',tool:tool,result:rr.answer||'',ok:okv?1:0,comment:cm||''}).then(function(fb){el.parentNode.innerHTML='<span style="color:#A6A8AB">оценка сохранена</span>'})} // 40 = left
 else if(a=='mode'){var mb=document.querySelector('[data-act="mode"]');var curText=mb.textContent;var isEng=curText.includes('Инженер');var nextMode=isEng?2:1;var nextText=(isEng?'💬 Собеседник':'🛠 Инженер');J('/setcfg',{method:'POST',headers:{'Content-Type':'application/json','X-Token':TK||''},body:JSON.stringify({key:'chat_mode',value:nextMode})}).then(function(){mb.textContent=nextText;qinp.placeholder='Задача для АГЕНТА... (Enter) | Ctrl+V — вставить скриншот | chat <вопрос> — разовый режим собеседника';});}
 else if(a=='setm')J('/setmodel',{token:TK,model:el.getAttribute('data-val')}).then(function(){init()});
-else if(a=='act'){var ep=el.getAttribute('data-val');if(ep=='/log'){fetch('/log',{headers:{'X-Token':TK||''}}).then(r=>r.text()).then(t=>addMsg('<div class="log">'+esc(t)+'</div>'))}else J(ep,{token:TK}).then(function(r){addMsg('<div class="log">'+esc(JSON.stringify(r).slice(0,800))+'</div>')})}
+else if(a=='act'){var ep=el.getAttribute('data-val');if(ep=='/log'){J('/log').then(function(r){addMsg('<div class="log">'+esc(r.log)+'</div>')})}else J(ep,{token:TK}).then(function(r){addMsg('<div class="log">'+esc(JSON.stringify(r).slice(0,800))+'</div>')})}
 else if(a=='chip'){qinp.value=el.getAttribute('data-val');send()}
 else if(a=='details-toggle'){var k=el.getAttribute('data-val');J('/ask',{token:TK,q:'guide topic='+k}).then(function(r){var d2=addMsg('');render(d2,r)})}
 else if(a=='pdfref'){qinp.value='pdf_refresh name='+el.getAttribute('data-val');send()}
