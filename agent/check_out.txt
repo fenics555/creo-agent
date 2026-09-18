@@ -1,0 +1,20 @@
+﻿��������� �������:
+- SKILL_crash_execution-loop.md: name mismatch (found execution-loop, expected crash_execution-loop)
+- SKILL_crash_execution-loop.md: missing ������ (grep field)
+- SKILL_crash_handling.md: missing executor field
+- SKILL_crash_handling.md: missing ������ (grep field)
+- SKILL_crash_reasoning-loop.md: name mismatch (found reasoning-loop, expected crash_reasoning-loop)
+- SKILL_crash_reasoning-loop.md: missing ������ (grep field)
+- SKILL_crash_regex_extraction_triple_quote_loop.md: name mismatch (found regex_extraction_triple_quote_loop, expected crash_regex_extraction_triple_quote_loop)
+- SKILL_editor_too_large.md: missing executor field
+- SKILL_editor_too_large.md: missing ������ (grep field)
+�����: SKILL_crash_execution-loop.md: missing ������ (grep field)
+�����: SKILL_crash_execution-loop.md: name mismatch (found execution-loop, expected crash_execution-loop)
+�����: SKILL_crash_handling.md: missing executor field
+�����: SKILL_crash_handling.md: missing ������ (grep field)
+�����: SKILL_crash_reasoning-loop.md: missing ������ (grep field)
+�����: SKILL_crash_reasoning-loop.md: name mismatch (found reasoning-loop, expected crash_reasoning-loop)
+�����: SKILL_crash_regex_extraction_triple_quote_loop.md: name mismatch (found regex_extraction_triple_quote_loop, expected crash_regex_extraction_triple_quote_loop)
+�����: SKILL_editor_too_large.md: missing executor field
+�����: SKILL_editor_too_large.md: missing ������ (grep field)
+�������: 1
