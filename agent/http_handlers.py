@@ -1,4 +1,4 @@
-import json
+﻿import json
 import re
 import os
 import socket
@@ -392,14 +392,14 @@ class Hd(BaseHTTPRequestHandler):
             if (b.get("key") or "") in settings.PERSONAL_KEYS:
                 settings.set_for(cl, b.get("key"), b.get("value")); self._j({"ok": True}); return
             if not users.is_admin(cl):
-                                self._j({"error": "настройки — только админ"}, 403); return
+                self._j({"error": "настройки — только админ"}, 403); return
             settings.set_val(b.get("key"), b.get("value")); _SYS_CACHE.clear(); self._j({"ok": True})
         elif p == "/snap":
             self._j({"msg": "скриншот принимается через Ctrl+V в поле ввода"})
         elif p == "/rescan":
-            self._j({"error": "скан ушёл в harvest.py, ещё не готов"}, 503)
+            self._j({"error": "скан ушёл в harvest.py, не готов"}, 503)
         elif p == "/scan":
-            self._j({"error": "скан ушёл в harvest.py, ещё не готов"}, 503)
+            self._j({"error": "скан ушёл в harvest.py, не готов"}, 503)
         elif p == "/profile":
             __prof = users.get_profile(cl)
             if __prof:
