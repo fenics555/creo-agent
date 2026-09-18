@@ -13,8 +13,8 @@ AG = Path(__file__).resolve().parent
 DATA = AG / "data"
 LOCK = DATA / "harvest.lock"
 DBF = DATA / "harvest.db"
-LOGF = DATA / "harvest.log"
-REPORT = DATA / "last_harvest.json"
+LOGF = Path(r"D:\AI\log\harvest\harvest.log")
+REPORT = Path(r"D:\AI\log\harvest\last_harvest.json")
 DEFAULT_ROOTS = AG / "kb_roots.txt"
 BATCH = 500
 
