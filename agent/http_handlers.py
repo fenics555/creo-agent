@@ -15,26 +15,24 @@ import tools_registry as TR
 import vision_tools as VI
 import panel
 import queue
-from loop import PENDING, LIVE, LAST_META, _wd_port, HOSTNAME, _SYS_CACHE
+from loop import PENDING, LIVE, LAST_META, _wd_port, HOSTNAME, _SYS_CACHE, ask, UI_FILE, _UI_CACHE, STUB_PAGE
 from loop import do_approve
 
-def do_approve(pid, okf):
-    pid = str(pid)
-    p = PENDING.pop(pid, None)
-    if not p: return {"res": "согласование устарело или уже выполнено, повтори команду"}
-    if not okf: return {"res": "отменено пользователем"}
-    t = TR.get(p["name"])
-    if msg := _role_check(p.get("client"), p["name"]):
-        return {"res": msg}
-    try: res = str(t["fn"](**p["args"]))
-    except Exception as e: return {"res": "ошибка исполнения: %s" % e}
-    msgs = p.get("messages")
-    if msgs:
-        msgs.append({"role": "assistant", "content": p.get("raw", "")})
-        msgs.append({"role": "user", "content": "[РЕЗУЛЬТАТ %s]: %s" % (p["name"], res[:4000])})
-        r = run_loop(msgs, p.get("client"), has_link=False)
-        return {"res": res, "answer": _clean(r["answer"]), "think": r.get("think", ""), "log": r.get("log", [])}
-    return {"res": res}
+def _serve_ui(handler):
+    try:
+        mt = int(os.path.getmtime(UI_FILE))
+        if _UI_CACHE[0] != mt:
+            _UI_CACHE[0] = mt
+            _UI_CACHE[1] = open(UI_FILE, "rb").read()
+        b = _UI_CACHE[1]
+    except Exception:
+        b = STUB_PAGE.encode("utf-8")
+    handler.send_response(200)
+    handler.send_header("Content-Type", "text/html; charset=utf-8")
+    handler.send_header("Cache-Control", "no-cache")
+    handler.send_header("Content-Length", str(len(b)))
+    handler.end_headers()
+    handler.wfile.write(b)
 
 class Hd(BaseHTTPRequestHandler):
     def log_message(self, *a): pass
@@ -394,16 +392,14 @@ class Hd(BaseHTTPRequestHandler):
             if (b.get("key") or "") in settings.PERSONAL_KEYS:
                 settings.set_for(cl, b.get("key"), b.get("value")); self._j({"ok": True}); return
             if not users.is_admin(cl):
-                self._j({"error": "настройки — только админ"}, 403); return
+                                self._j({"error": "настройки — только админ"}, 403); return
             settings.set_val(b.get("key"), b.get("value")); _SYS_CACHE.clear(); self._j({"ok": True})
         elif p == "/snap":
             self._j({"msg": "скриншот принимается через Ctrl+V в поле ввода"})
         elif p == "/rescan":
-            subprocess.Popen([sys.executable, "-c", "import scanner; scanner.index_all()"], cwd=r"D:\AI\tools\agent")
-            self._j({"msg": "переиндексация запущена"})
+            self._j({"error": "скан ушёл в harvest.py, ещё не готов"}, 503)
         elif p == "/scan":
-            subprocess.Popen([sys.executable, "-c", "import scanner; scanner.scan_models()"], cwd=r"D:\AI\tools\agent")
-            self._j({"msg": "скан моделей запущен"})
+            self._j({"error": "скан ушёл в harvest.py, ещё не готов"}, 503)
         elif p == "/profile":
             __prof = users.get_profile(cl)
             if __prof:

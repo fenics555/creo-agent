@@ -9,11 +9,17 @@ import datetime
 import time
 import urllib.request as _ur
 import core
+import os
+from core import log, trace
 import settings
 import users
 import tools_registry as TR
 import vision_tools as VI
 from urllib.parse import parse_qs
+
+UI_FILE = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'ui', 'index.html')
+_UI_CACHE = [0, b'']
+STUB_PAGE = "<html><head><meta charset='utf-8'><title>АГЕНТ v15</title></head><body style='background:#1B1C1E;color:#E8E8E8;font:14px Segoe UI,sans-serif;padding:40px'><h2>ВИТРИНА НЕ НАЙДЕНА</h2><p>Положи index.html в D:\\\\AI\\\\tools\\\\agent\\\\ui\\\\</p></body></html>"
 
 def _clean(txt):
     if not txt:
@@ -386,7 +392,117 @@ def do_approve(pid, okf):
         msgs.append({"role": "user", "content": "[РЕЗУЛЬТАТ %s]: %s" % (p["name"], res[:4000])})
         r = run_loop(msgs, p.get("client"), has_link=False)
         return {"res": res, "answer": _clean(r["answer"]), "think": r.get("think", ""), "log": r.get("log", [])}
-    return {"res": res}
+        return {"res": res}
+
+
+def ask(q, client, image=None, on_step=None, mode=None):
+    eff_mode = 1
+    if mode in (1, 2):
+        eff_mode = mode
+    elif q.strip().startswith("chat "):
+        eff_mode = 2
+        q = q.strip()[5:]
+    elif q.strip().startswith("agent "):
+        eff_mode = 1
+        q = q.strip()[6:]
+    else:
+        eff_mode = settings.get_for(client, "chat_mode", 1)
+        if not isinstance(eff_mode, int) or eff_mode not in (1, 2):
+            eff_mode = 1
+    doc_keywords = ["спека", "документ", "пиши полностью", "развёрнуто", "подробный отчёт"]
+    doc = any(kw in q.lower() for kw in doc_keywords)
+    name = q.strip()
+    t = TR.get(name)
+    if t and not image:
+        if msg := _role_check(client, name):
+            return {"answer": msg, "think": "", "steps": 1, "log": ["%s(прямой вызов) → ЗАПРЕТ РОЛИ" % name]}
+        if t.get("approval") and eff_mode != 2:
+            pid = datetime.datetime.now().strftime("%H%M%S%f")
+            PENDING[pid] = {"name": name, "args": {}, "client": client, "messages": [], "raw": ""}
+            return {"answer": "[СОГЛАСОВАНИЕ] операция %s ждёт подтверждения пользователя (id %s)" % (name, pid), "think": "", "steps": 1, "log": ["%s(прямой вызов)" % name]}
+        t0 = time.time()
+        try:
+            try: res = str(t["fn"]())
+            except TypeError: res = str(t["fn"]({k: "" for k in t.get("params", {})}))
+        except Exception as e: res = "ошибка исполнения %s: %s" % (name, e)
+        trace("AGENT %s" % name, "OK", int((time.time() - t0) * 1000))
+        c = core.db()
+        c.execute("INSERT INTO history(client,q,a,ts) VALUES(?,?,?,?)", (client, q, res[:2000], datetime.datetime.now().isoformat()))
+        c.commit(); c.close()
+        return {"answer": res, "think": "", "steps": 1, "log": ["%s(прямой вызов) → %s" % (name, _two(res))]}
+    if q.strip().lower().startswith("угол "):
+        import calc_tools
+        rest = q.strip()[5:].strip()
+        res = calc_tools.tool_angle(text=rest)
+        return {"answer": res, "think": "", "steps": 1, "log": ["fast_router(угол)"]}
+    if eff_mode == 2:
+        q2 = VI.attach(q, image, client)
+        messages = [{"role": "system", "content": build_system(mode=2)}] + hist_block(client) + [{"role": "user", "content": q2}]
+        opts, _ = beh()
+        if doc:
+            opts["num_predict"] = 4096
+            messages[0]["content"] += "\n=== ДОКУМЕНТ: краткость отменена. Пиши полный текст внутри [ANSWER], без обрыва."
+        r = core.post("/api/chat", {
+            "model": settings.model_for("chat"),
+            "stream": False,
+            "think": int(settings.get("think_mode") or 0) > 0,
+            "options": opts,
+            "messages": messages,
+        }, t=600)
+        return {
+            "answer": _clean(r.get("message", {}).get("content", "")),
+            "think": r.get("message", {}).get("thinking", ""),
+            "steps": 1,
+            "log": ["chat_mode"]
+        }
+    q2 = VI.attach(q, image, client)
+    LIVE[client] = []
+    m2 = re.match(r"^([A-Za-z0-9_]+)\s+([A-Za-z0-9_]+)=(\S+)$", q.strip())
+    if m2 and not image:
+        t2 = TR.get(m2.group(1))
+        if t2 and m2.group(2) in (t2.get("params") or {}):
+            if msg := _role_check(client, m2.group(1)):
+                return {"answer": msg, "think": "", "steps": 1, "log": [m2.group(1) + "(прямой вызов)"]}
+            if t2.get("approval"):
+                pid = datetime.datetime.now().strftime("%H%M%S%f")
+                PENDING[pid] = {"name": m2.group(1), "args": {m2.group(2): m2.group(3)},
+                                "client": client, "messages": [], "raw": ""}
+                return {"answer": "[СОГЛАСОВАНИЕ] операция %s ждёт подтверждения (id %s)" % (m2.group(1), pid),
+                        "think": "", "steps": 1, "log": [m2.group(1) + "(прямой вызов)"]}
+            try:
+                res = str(t2["fn"](**{m2.group(2): m2.group(3)}))
+            except Exception as e:
+                res = "ошибка исполнения %s: %s" % (m2.group(1), e)
+            return {"answer": res, "think": "", "steps": 1, "log": [m2.group(1) + "(прямой вызов) → " + _two(res)]}
+    q2 = q2 + "\n\n[СЛУЖЕБНОЕ: отвечай только по-русски. Один ход = один [TOOL] или один [ANSWER]. Никакого текста до и после блока.]"
+    messages = [{"role": "system", "content": build_system(mode=eff_mode)}] + hist_block(client) + [{"role": "user", "content": q2}]
+    _ta = time.time()
+    LIVE_TOK[client] = []
+    LIVE_THINK[client] = []
+
+    def _push(t): LIVE_TOK.setdefault(client, []).append(t)
+    threading.current_thread()._tokpush = _push
+    threading.current_thread()._tokclient = client
+    r = run_loop(messages, client, has_link=("http" in q), on_step=on_step)
+    try:
+        _tools_chain = []
+        for _ln in r.get("log", []):
+            _m = re.match(r"^([A-Za-z0-9_]+)\(", _ln)
+            if _m and _m.group(1) not in _tools_chain:
+                _tools_chain.append(_m.group(1))
+        _ok = (not _refusal(r.get("answer", ""))) and len(r.get("answer", "")) > 200
+        with open(core.DATA_DIR / "chains.jsonl", "a", encoding="utf-8") as _f:
+            _f.write(json.dumps({"ts": datetime.datetime.now().isoformat(), "client": client,
+                                 "q": q[:300], "tools": _tools_chain, "ok": bool(_ok)},
+                                ensure_ascii=False) + "\n")
+    except Exception:
+        pass
+    if int(settings.get("log_mode") or 1) >= 1:
+        r.setdefault("log", []).append("⏱ %dмс · 🔢 %d ток (промт %d + ответ %d) · шагов: %d" % (int((time.time() - _ta) * 1000), LAST_META["p"] + LAST_META["r"], LAST_META["p"], LAST_META["r"], r.get("steps", 1)))
+    c = core.db()
+    c.execute("INSERT INTO history(client,q,a,ts) VALUES(?,?,?,?)", (client, q, r["answer"][:2000], datetime.datetime.now().isoformat()))
+    c.commit(); c.close()
+    return r
 
 
 core.post = _stream_post
