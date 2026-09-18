@@ -8,6 +8,7 @@ import os
 import re
 import time
 from pathlib import Path
+from typing import Generator, List, Tuple, Optional, Dict, Any
 from typing import Generator, List, Tuple, Optional
 
 # Импорты из среды агента
@@ -26,6 +27,40 @@ except ImportError:
 class ScannerLibrary:
     def __init__(self):
         self.pats = self._get_pats()
+
+    def parse_model_header(self, path: str) -> Dict[str, Any]:
+        """
+        B0. ПАРСЕР .prt/.asm: parse_model_header(path) -> {instances, families}
+        Читает поток байтов/текста, ищет маркеры заголовков.
+        """
+        results = {"instances": [], "families": []}
+        p = Path(path)
+        if not p.exists():
+            return results
+
+        try:
+            # Для имитации работы с бинарными файлами Creo, читаем кусками
+            with open(path, 'rb') as f:
+                content = f.read(1024 * 64) # Читаем первые 64КБ
+                
+                # Ищем маркеры (имитация)
+                content_str = content.decode('utf-8', errors='ignore')
+                
+                # Ищем 'instances'
+                instances_match = re.findall(r'instances\s*[:=]\s*\[(.*?)\]', content_str, re.DOTALL)
+                if instances_match:
+                    results["instances"] = [i.strip() for i in instances_match[0].split(',')]
+                
+                # Ищем 'families'
+                families_match = re.findall(r'families\s*[:=]\s*\[(.*?)\]', content_str, re.DOTALL)
+                if families_match:
+                    results["families"] = [f.strip() for f in families_match[0].split(',')]
+                    
+        except Exception as e:
+            log(f"Error parsing model header {path}: {e}")
+            
+        return results
+
 
     def _get_pats(self) -> List[str]:
         pats = []

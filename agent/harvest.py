@@ -72,4 +72,21 @@ if __name__ == "__main__":
     shutil.rmtree(test_dir)
     os.remove("harvest.db")
     os.remove("harvest.log")
+
+    def run_embeddings(self):
+        print("Embeddings process (placeholder) completed.")
+
+    def run_text_mode(self):
+        print("Running text extraction mode (placeholder)...")
+
+if __name__ == "__main__":
+    manager = HarvestManager()
+    if "--text" in sys.argv:
+        manager.run_text_mode()
+    elif "--embeddings" in sys.argv:
+        manager.run_embeddings()
+    else:
+        manager.run_scan()
+    manager._release_lock()
+
     os.remove("last_harvest.json")
