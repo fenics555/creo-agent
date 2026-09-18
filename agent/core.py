@@ -61,12 +61,24 @@ def boot_report():
         lines.append("СТАРТ: Ollama=жива, моделей=%d" % len(j.get("models", [])))
     except Exception: lines.append("СТАРТ: Ollama=молчит")
     try:
-        r = urllib.request.Request("http://127.0.0.1:8080/creoson",
-            json.dumps({"command": "connection", "function": "is_creo_running", "data": {}}).encode(),
+        # 1. Check if CREOSON server is alive with a SAFE command
+        r_safe = urllib.request.Request("http://127.0.0.1:8080/creoson",
+            json.dumps({"command": "server", "function": "pwd", "data": {}}).encode(),
             {"Content-Type": "application/json"})
-        j = json.load(urllib.request.urlopen(r, timeout=3))
-        lines.append("СТАРТ: CREOSON=жив; Creo=%s" % ("запущен" if (j.get("data") or {}).get("running") else "НЕТ"))
-    except Exception: lines.append("СТАРТ: CREOSON=молчит")
+        urllib.request.urlopen(r_safe, timeout=3)
+        
+        # 2. If alive, try the "dangerous" command to check Creo, but handle crash
+        try:
+            r_creo = urllib.request.Request("http://127.0.0.1:8080/creoson",
+                json.dumps({"command": "connection", "function": "is_creo_running", "data": {}}).encode(),
+                {"Content-Type": "application/json"})
+            j_creo = json.load(urllib.request.urlopen(r_creo, timeout=3))
+            creo_status = "запущен" if (j_creo.get("data") or {}).get("running") else "НЕТ"
+            lines.append("СТАРТ: CREOSON=жив; Creo=%s" % creo_status)
+        except Exception:
+            lines.append("СТАРТ: CREOSON=жив; Creo=НЕТ (ошибка проверки)")
+    except Exception:
+        lines.append("СТАРТ: CREOSON=молчит")
     try:
         c = sqlite3.connect(DB, timeout=10)
         t = [r[0] for r in c.execute("SELECT name FROM sqlite_master WHERE type='table'").fetchall()]
