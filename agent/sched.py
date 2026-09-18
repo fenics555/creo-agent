@@ -1,15 +1,10 @@
 # -*- coding: utf-8 -*-
-"""АГЕНТ v15 — sched.py: ночной планировщик и сторож портов (спека 71 / Ф1).
-Чистый перенос из agent.py 17.09.2026, поведение без изменений."""
-import datetime
-import subprocess
-import sys
-import time
-
-from core import log
+"""АГЕНТ v15 — sched.py: ночной планировщик и сторож сервисов."""
+import sys, subprocess, time, datetime
+import core
+from core import log, trace
 import settings
 import scanner
-
 
 def _scheduler():
     last_day = ""
@@ -51,7 +46,6 @@ def _wd_port(port, host="127.0.0.1"):
         with _s.create_connection((host, port), timeout=2): return True
     except Exception: return False
 
-
 def _wd_spawn(cmd):
     if not cmd: return False
     try:
@@ -59,7 +53,6 @@ def _wd_spawn(cmd):
                          cwd=r"D:\AI\tools\agent", creationflags=getattr(subprocess, "CREATE_NO_WINDOW", 0))
         return True
     except Exception: return False
-
 
 def _watchdog():
     fails = {}
@@ -77,3 +70,4 @@ def _watchdog():
                     else: fails[name] = 0
         except Exception: pass
         time.sleep(int(settings.get("wd_interval") or 60))
+

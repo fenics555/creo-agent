@@ -1,25 +1,13 @@
-import socket
-HOSTNAME = socket.gethostname()
-_SYS_CACHE = {}
-
-import re
-import json
-import threading
-import datetime
-import time
-import urllib.request as _ur
+# -*- coding: utf-8 -*-
+"""АГЕНТ v15 — loop.py: очистка, стриминг, протокол, системный промт, ходовый цикл."""
+import json, re, os, socket, threading, time, datetime
+from concurrent.futures import ThreadPoolExecutor
 import core
-import os
 from core import log, trace
 import settings
-import users
 import tools_registry as TR
+import users
 import vision_tools as VI
-from urllib.parse import parse_qs
-
-UI_FILE = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'ui', 'index.html')
-_UI_CACHE = [0, b'']
-STUB_PAGE = "<html><head><meta charset='utf-8'><title>АГЕНТ v15</title></head><body style='background:#1B1C1E;color:#E8E8E8;font:14px Segoe UI,sans-serif;padding:40px'><h2>ВИТРИНА НЕ НАЙДЕНА</h2><p>Положи index.html в D:\\\\AI\\\\tools\\\\agent\\\\ui\\\\</p></body></html>"
 
 def _clean(txt):
     if not txt:
@@ -68,11 +56,13 @@ def _clean(txt):
     
     return txt.strip()
 
+
+# === v15: стриминг токенов ===
+import urllib.request as _ur
 LIVE_TOK = {}
-
 LIVE_THINK = {}
-
 _orig_core_post = core.post
+
 
 def _stream_post(path, payload, *ar, **kw):
     push = getattr(threading.current_thread(), "_tokpush", None)
@@ -119,6 +109,32 @@ def _stream_post(path, payload, *ar, **kw):
         if _kk in lastj: r[_kk] = lastj[_kk]
     return r
 
+
+core.post = _stream_post
+_post_before_think = core.post
+
+
+def _post_think_off(path, payload, *ar, **kw):
+    if path == "/api/chat" and isinstance(payload, dict):
+        payload = dict(payload)
+        if int(settings.get("think_mode") or 0) == 0:
+            payload["think"] = False
+    return _post_before_think(path, payload, *ar, **kw)
+
+
+core.post = _post_think_off
+# === конец стриминга ===
+
+
+import tools_registry as TR
+
+
+import users
+
+
+import vision_tools as VI
+
+
 def _role_check(client, tool):
     """Вердикт: None = роль разрешает, строка = сообщение о запрете."""
     if not client or not tool:
@@ -131,11 +147,17 @@ def _role_check(client, tool):
         return "🛔 роль «%s» не может выполнить «%s» (запрет администратора)" % (role, tool)
     return None
 
+
+HOSTNAME = socket.gethostname()
 PENDING = {}
-
 LIVE = {}
-
 LAST_META = {"p": 0, "r": 0}
+UI_FILE = os.path.join(os.path.dirname(os.path.abspath(__file__)), "ui", "index.html")
+_UI_CACHE = [0, b""]
+STUB_PAGE = ("<html><head><meta charset='utf-8'><title>АГЕНТ v15</title></head>"
+             "<body style='background:#1B1C1E;color:#E8E8E8;font:14px Segoe UI,sans-serif;padding:40px'>"
+             "<h2>ВИТРИНА НЕ НАЙДЕНА</h2><p>Положи index.html в D:\\AI\\tools\\agent\\data\\ui\\</p></body></html>")
+
 
 DEFAULT_PROTO = """# ПРОТОКОЛ ИНЖЕНЕРА-НАПАРНИКА
 РОЛЬ: ты — старший инженер-конструктор КБ, напарник пользователя; говори кратко, по делу, только проверенными фактами.
@@ -146,10 +168,12 @@ DEFAULT_PROTO = """# ПРОТОКОЛ ИНЖЕНЕРА-НАПАРНИКА
 ПРИМЕРЫ: «привет» → [ANSWER] Привет! С чем помочь? [/ANSWER]
 """
 
+
 def load_skill(name):
     p = core.REPO / name
     try: return p.read_text(encoding="utf-8") if p.exists() else ""
     except Exception: return ""
+
 
 _CORE = (
     "creo_get_active", "creo_status", "creo_session", "creo_list_files",
@@ -157,8 +181,8 @@ _CORE = (
     "search_kb", "read_file", "trail_predict", "trail_problems",
     "settings_show", "help", "tools_help",
 )
-
 _SYS_CACHE = {}
+
 
 def build_system(mode=1):
     if mode == 2:
@@ -166,8 +190,8 @@ def build_system(mode=1):
 В этом режиме нет доступа к Creo, файлам и базам: если вопрос требует живых данных, скажи «в режиме инженера я достану это из Creo или базы — переключи режим» и не выдумывай.
 Формат: свободный текст; код внутри блоков с языком; служебных тегов нет.
 Краткость ценится, но полнота решения важнее."""
-    if _SYS_CACHE.get(("v", mode)): return _SYS_CACHE[("v", mode)]
-    p = ((load_skill("MANIFEST.md") + "\n\n" + load_skill("SKILL_agent_protocol.md")) or DEFAULT_PROTO).strip() + "\n"
+    _SYS_CACHE.clear()  # надёжность: промпт всегда собирается свежим с диска
+    p = ((load_skill("MANIFEST.md") or "") + "\n\n" + (load_skill("SKILL_agent_protocol.md") or DEFAULT_PROTO)).strip() + "\n"
     core_lines, rest = [], []
     for t in TR.TOOLS:
         ps = ", ".join(t.get("params", {}).keys()) if t.get("params") else ""
@@ -188,6 +212,7 @@ def build_system(mode=1):
     _SYS_CACHE[("v", mode)] = p + "\n\n" + tail + "\n\n" + think_rule
     return _SYS_CACHE[("v", mode)]
 
+
 def beh():
     steps = int(settings.get("steps_max") or 6)
     if settings.get("auto_mode"):
@@ -197,6 +222,7 @@ def beh():
     return ({"temperature": (settings.get("creativity") or 30) / 100.0,
              "top_p": float(settings.get("top_p") or 0.9),
              "num_predict": int(settings.get("num_predict") or 1024), "num_ctx": int(settings.get("num_ctx") or 8192)}, steps)
+
 
 def parse_model(text):
     THINK_TAGS = [
@@ -246,16 +272,22 @@ def parse_model(text):
     if TR.get(ts): return "tool", ts, {}, think_text
     return "invalid", text.strip(), None, think_text
 
-_NUDGE = "[СЛУЖЕБНОЕ] Ответ не в формате. Дай ровно один блок: [TOOL: имя] {\"параметр\": \"значение\"} [/TOOL] или [ANSWER] краткий ответ по-русски [/ANSWER]. Слово «текст» само по себе — не ответ. Ничего до и после блока."
 
+_NUDGE = "[СЛУЖЕБНОЕ] Ответ не в формате. Дай ровно один блок: [TOOL: имя] {\"параметр\": \"значение\"} [/TOOL] или [ANSWER] краткий ответ по-русски [/ANSWER]. Слово «текст» само по себе — не ответ. Ничего до и после блока."
 _ACCESS_NUDGE = "[СЛУЖЕБНОЕ] Неверно. Доступ к базе, файлам и Creo у тебя ЕСТЬ через инструменты (список «ТВОИ ИНСТРУМЕНТЫ» выше). Никогда не отвечай «нет доступа». Повтори ровно один блок: [TOOL: имя] {\"параметр\": \"значение\"} [/TOOL] или [ANSWER] ответ [/ANSWER]."
+_REFUSAL = ("извините", "не могу", "не имею доступа", "нет доступа", "моя функциональность",
+            "виртуальной среде", "не понял", "уточните", "переформулируй", "как языковая модель",
+            "к сожалению, я", "буду отвечать", "какой у вас вопрос", "давайте начнём")
+
 
 def _refusal(text):
     lo = (text or "").lower()
     return any(w in lo for w in _REFUSAL)
 
+
 def _two(res):
     return " ".join(str(res).split()[:2]) or "пусто"
+
 
 def hist_block(client):
     c = core.db()
@@ -266,6 +298,7 @@ def hist_block(client):
         out.append({"role": "user", "content": q[:500]})
         out.append({"role": "assistant", "content": a[:800]})
     return out
+
 
 def run_loop(messages, client, has_link=False, on_step=None, opts_and_steps=None):
     if opts_and_steps:
@@ -376,26 +409,9 @@ def run_loop(messages, client, has_link=False, on_step=None, opts_and_steps=None
         messages.append({"role": "user", "content": "[РЕЗУЛЬТАТ %s]: %s" % (name, res[:4000])})
     return {"answer": last_res or "не уложился в шаги", "think": think, "steps": steps_max, "log": steps_log}
 
-def do_approve(pid, okf):
-    pid = str(pid)
-    p = PENDING.pop(pid, None)
-    if not p: return {"res": "согласование устарело или уже выполнено, повтори команду"}
-    if not okf: return {"res": "отменено пользователем"}
-    t = TR.get(p["name"])
-    if msg := _role_check(p.get("client"), p["name"]):
-        return {"res": msg}
-    try: res = str(t["fn"](**p["args"]))
-    except Exception as e: return {"res": "ошибка исполнения: %s" % e}
-    msgs = p.get("messages")
-    if msgs:
-        msgs.append({"role": "assistant", "content": p.get("raw", "")})
-        msgs.append({"role": "user", "content": "[РЕЗУЛЬТАТ %s]: %s" % (p["name"], res[:4000])})
-        r = run_loop(msgs, p.get("client"), has_link=False)
-        return {"res": res, "answer": _clean(r["answer"]), "think": r.get("think", ""), "log": r.get("log", [])}
-        return {"res": res}
-
 
 def ask(q, client, image=None, on_step=None, mode=None):
+    # 1. Determine mode
     eff_mode = 1
     if mode in (1, 2):
         eff_mode = mode
@@ -409,8 +425,13 @@ def ask(q, client, image=None, on_step=None, mode=None):
         eff_mode = settings.get_for(client, "chat_mode", 1)
         if not isinstance(eff_mode, int) or eff_mode not in (1, 2):
             eff_mode = 1
+
+    # Check for engineering mode (doc mode)
     doc_keywords = ["спека", "документ", "пиши полностью", "развёрнуто", "подробный отчёт"]
     doc = any(kw in q.lower() for kw in doc_keywords)
+
+
+    # 2. Check for direct tool call (works in both modes)
     name = q.strip()
     t = TR.get(name)
     if t and not image:
@@ -430,11 +451,15 @@ def ask(q, client, image=None, on_step=None, mode=None):
         c.execute("INSERT INTO history(client,q,a,ts) VALUES(?,?,?,?)", (client, q, res[:2000], datetime.datetime.now().isoformat()))
         c.commit(); c.close()
         return {"answer": res, "think": "", "steps": 1, "log": ["%s(прямой вызов) → %s" % (name, _two(res))]}
+
+    # 2.5 Fast router for special commands
     if q.strip().lower().startswith("угол "):
         import calc_tools
         rest = q.strip()[5:].strip()
         res = calc_tools.tool_angle(text=rest)
         return {"answer": res, "think": "", "steps": 1, "log": ["fast_router(угол)"]}
+
+    # 3. If mode 2, handle it immediately
     if eff_mode == 2:
         q2 = VI.attach(q, image, client)
         messages = [{"role": "system", "content": build_system(mode=2)}] + hist_block(client) + [{"role": "user", "content": q2}]
@@ -455,6 +480,8 @@ def ask(q, client, image=None, on_step=None, mode=None):
             "steps": 1,
             "log": ["chat_mode"]
         }
+
+    # 4. Else mode 1 (existing logic)
     q2 = VI.attach(q, image, client)
     LIVE[client] = []
     m2 = re.match(r"^([A-Za-z0-9_]+)\s+([A-Za-z0-9_]+)=(\S+)$", q.strip())
@@ -505,12 +532,21 @@ def ask(q, client, image=None, on_step=None, mode=None):
     return r
 
 
-core.post = _stream_post
+def do_approve(pid, okf):
+    pid = str(pid)
+    p = PENDING.pop(pid, None)
+    if not p: return {"res": "согласование устарело или уже выполнено, повтори команду"}
+    if not okf: return {"res": "отменено пользователем"}
+    t = TR.get(p["name"])
+    if msg := _role_check(p.get("client"), p["name"]):
+        return {"res": msg}
+    try: res = str(t["fn"](**p["args"]))
+    except Exception as e: return {"res": "ошибка исполнения: %s" % e}
+    msgs = p.get("messages")
+    if msgs:
+        msgs.append({"role": "assistant", "content": p.get("raw", "")})
+        msgs.append({"role": "user", "content": "[РЕЗУЛЬТАТ %s]: %s" % (p["name"], res[:4000])})
+        r = run_loop(msgs, p.get("client"), has_link=False)
+        return {"res": res, "answer": _clean(r["answer"]), "think": r.get("think", ""), "log": r.get("log", [])}
+    return {"res": res}
 
-def _wd_port(port, host="127.0.0.1"):
-    import socket as _s
-    try:
-        with _s.create_connection((host, port), timeout=1):
-            return port
-    except Exception:
-        return 0

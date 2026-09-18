@@ -1,22 +1,20 @@
-﻿import json
-import re
-import os
-import socket
-import threading
-import time
-import datetime
+# -*- coding: utf-8 -*-
+"""АГЕНТ v15 — http_handlers.py: HTTP-обработчики витрины (do_GET/do_POST)."""
+import json, os, socket, threading, datetime, re, subprocess, sys
 from urllib.parse import urlparse, parse_qs
-from http.server import BaseHTTPRequestHandler
+from http.server import ThreadingHTTPServer, BaseHTTPRequestHandler
 import core
+from core import log, trace
 import settings
-import users
 import pdf_tools
+import users
+import chat_tools
+import panel
 import tools_registry as TR
 import vision_tools as VI
-import panel
-import queue
-from loop import PENDING, LIVE, LAST_META, _wd_port, HOSTNAME, _SYS_CACHE, ask, UI_FILE, _UI_CACHE, STUB_PAGE
-from loop import do_approve
+from loop import (LIVE_TOK, LIVE_THINK, LIVE, PENDING, HOSTNAME, UI_FILE,
+                  _UI_CACHE, STUB_PAGE, _SYS_CACHE, ask, do_approve)
+from sched import _wd_port
 
 def _serve_ui(handler):
     try:
@@ -33,6 +31,7 @@ def _serve_ui(handler):
     handler.send_header("Content-Length", str(len(b)))
     handler.end_headers()
     handler.wfile.write(b)
+
 
 class Hd(BaseHTTPRequestHandler):
     def log_message(self, *a): pass
@@ -95,14 +94,9 @@ class Hd(BaseHTTPRequestHandler):
             if not name: return self._j({"error": "no name"})
             self._j(pdf_tools.pdf_pages(name))
             return
-        elif p == "/pdfimg":
-            if not users.token_info(self.headers.get("X-Token") or ""): return self._j({"error": "no token"})
-            qs = parse_qs(urlparse(self.path).query)
-            name = qs.get("name", [""])[0]
-            page = qs.get("page", ["1"])[0]
-            if not name: return self._j({"error": "no name"})
-            self._j(pdf_tools.pdf_img(name, page))
-            return
+        # /pdfimg обслуживается общим блоком /pdfthumb|/pdfimg ниже (PNG-байты
+        # для <img src> + токен из заголовка или query) — ранний JSON-вариант
+        # снят 66e/N10: витрина ждёт image/png, а не словарь pdf_img.
         elif p == "/pdfstatus":
             if not users.token_info(self.headers.get("X-Token") or ""): return self._j({"error": "no token"})
             qs = parse_qs(urlparse(self.path).query)
@@ -222,12 +216,14 @@ class Hd(BaseHTTPRequestHandler):
             pairs.sort(key=lambda r: (r["verdict"] != "УСТАРЕЛ", r["name"]))
             self._j({"pairs": pairs, "total": len(pairs)})
             return
-        elif p == "/pdfthumb":
-            _tk = users.token_info(self.headers.get("X-Token") or self.headers.get("query", {}).get("token", ""))
+        elif p in ("/pdfthumb", "/pdfimg"):
+            qs = parse_qs(urlparse(self.path).query)
+            _tk = users.token_info(self.headers.get("X-Token") or qs.get("token", [""])[0])
             if not _tk:
+                if p == "/pdfimg":
+                    self.send_response(401); self.end_headers(); return
                 self._j({"error": "token required"})
                 return
-            qs = parse_qs(urlparse(self.path).query)
             nm = qs.get("name", [None])[0]
             pg = qs.get("page", ["1"])[0]
             res = pdf_tools.pdf_img(nm, pg)
@@ -247,6 +243,9 @@ class Hd(BaseHTTPRequestHandler):
                 self._j({"error": f"failed to serve image: {e}"})
             return
 
+        elif p == "/panel":
+            if not users.token_info(self.headers.get("X-Token") or ""):
+                self.send_response(401); self.end_headers(); return
             d = panel.build()
             _ui = users.token_info(self.headers.get("X-Token") or "")
             if not (_ui and users.is_admin(_ui["login"])):
@@ -450,3 +449,4 @@ class Hd(BaseHTTPRequestHandler):
                 self._j({"error": "неизвестная op"}, 400)
         else:
             self._j({"error": "не знаю"}, 404)
+
