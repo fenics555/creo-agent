@@ -5,9 +5,11 @@ CLI: python harvest.py [--roots <файл>] [--text]; корни по умолч
 База data/harvest.db; лок data/harvest.lock; лог data/harvest.log;
 отчёт data/last_harvest.json. Парсер заголовков — scanner.ScannerLibrary.
 """
-import argparse, hashlib, json, os, sqlite3, sys, time
+import argparse, hashlib, json, os, re, sqlite3, sys, time
 from datetime import datetime
 from pathlib import Path
+
+RE_CREO = re.compile(r"\.(prt|asm|drw)(?:\.\d+)?$", re.I)
 
 AG = Path(__file__).resolve().parent
 DATA = AG / "data"
@@ -67,15 +69,18 @@ def release_lock():
     except Exception:
         pass
 
-def read_roots(path):
+def read_roots(path, allow_z=False):
     roots = []
     with open(path, encoding="utf-8") as f:
         for line in f:
             line = line.replace("\ufeff", "").strip()
             if line and not line.startswith("#"):
+                if not allow_z and line[:2].upper() == "Z:":
+                    log("Z запрещён словом: %s пропущен" % line)
+                    continue
                 roots.append(line)
     if not roots:
-        die(3, "корни не найдены в %s" % path)
+        raise ValueError("корни не найдены в %s" % path)
     return roots
 
 SQL = """
@@ -195,9 +200,11 @@ def scan_models(con, roots):
 
 def parse_instances(con, lib):
     n = 0
-    rows = con.execute("SELECT path FROM models_raw WHERE ext IN ('.prt','.asm')").fetchall()
+    rows = con.execute("SELECT path, name FROM models_raw").fetchall()
     con.execute("DELETE FROM instances")
-    for (p,) in rows:
+    for p, name in rows:
+        if not RE_CREO.search(name or ""):
+            continue
         try:
             res = lib.parse_model_header(p)
         except Exception as e:
@@ -219,9 +226,12 @@ def parse_instances(con, lib):
 def build_pairs(con):
     n = 0
     con.execute("DELETE FROM pairs")
-    rows = con.execute("SELECT path, name, mtime FROM models_raw WHERE ext IN ('.prt','.asm','.drw')").fetchall()
+    rows = con.execute("SELECT path, name, mtime FROM models_raw").fetchall()
     for p, name, mt in rows:
-        base = os.path.splitext(name)[0]
+        m = RE_CREO.search(name or "")
+        if not m:
+            continue
+        base = (name or "")[:m.start()]
         d = os.path.dirname(p)
         pdf_path, pdf_mt = "", 0
         try:
@@ -349,19 +359,20 @@ def write_report(con, roots, added, rewrote, deleted, per_root, vanished, second
     return rep
 
 
-def main():
-    ap = argparse.ArgumentParser()
-    ap.add_argument("--roots", default=str(DEFAULT_ROOTS))
-    ap.add_argument("--text", action="store_true")
-    ap.add_argument("--bench", action="store_true")
-    args = ap.parse_args()
+def run(roots_list=None, text=False, bench=False, allow_z=False, roots_file=None):
+    """Спека 98 Ф1: библиотечный вход. Возвращает dict отчёта (+ exit_code).
+    roots_list — корни напрямую (GUI после диалога); roots_file — файл (CLI/обёртки, Z-фильтр)."""
     acquire_lock()
     t0 = time.time()
-    log("harvest PID %d старт: roots=%s text=%s bench=%s" % (os.getpid(), args.roots, args.text, args.bench))
+    exit_code = 0
+    rep = None
     try:
         con, existed, reset = open_db()
-        roots = read_roots(args.roots)
-        if args.text:
+        if roots_list is None:
+            roots = read_roots(roots_file or str(DEFAULT_ROOTS), allow_z)
+        else:
+            roots = [r for r in roots_list if r]
+        if text:
             text_pass(con, roots)
         added, rewrote, deleted, per_root, vanished, seconds = scan_models(con, roots)
         from scanner import ScannerLibrary
@@ -370,7 +381,7 @@ def main():
         build_pairs(con)
         con.commit()
         rep = write_report(con, roots, added, rewrote, deleted, per_root, vanished, time.time() - t0)
-        if args.bench:
+        if bench:
             ni = con.execute("SELECT count(*) FROM instances WHERE inst_name<>''").fetchone()[0]
             nf = con.execute("SELECT count(*) FROM instances WHERE family<>''").fetchone()[0]
             log("BENCH: seconds=%.2f files=%d files/sec=%.1f instances=%d families=%d" %
@@ -378,12 +389,48 @@ def main():
                  rep["tables"]["models_raw"] / max(rep["seconds"], 0.01), ni, nf))
         con.close()
         if reset:
-            log("код выхода 3: пересборка выполнена")
-            print("пересборка выполнена")
-            sys.exit(3)
-        print("harvest ok: added=%d rewritten=%d deleted=%d" % (len(added), len(rewrote), len(deleted)))
+            exit_code = 3
     finally:
         release_lock()
+    if rep is None:
+        rep = {}
+    out = dict(rep)
+    out["exit_code"] = exit_code
+    return out
+
+
+def stop():
+    """Спека 98 Ф1: остановка прогона по PID лока (стандартная библиотека)."""
+    if not LOCK.exists():
+        return {"stopped": False, "reason": "лока нет — прогон не идёт"}
+    try:
+        pid = int(LOCK.read_text(encoding="ascii", errors="ignore").strip() or "0")
+    except Exception:
+        pid = 0
+    if not pid or not _pid_alive(pid):
+        return {"stopped": False, "reason": "stale-лок PID %s (владелец мёртв)" % pid}
+    import subprocess
+    r = subprocess.run(["taskkill", "/PID", str(pid), "/F"], capture_output=True, text=True)
+    good = r.returncode == 0
+    return {"stopped": good, "pid": pid,
+            "reason": "остановлен" if good else (r.stderr or r.stdout or "taskkill fail")}
+
+
+def main():
+    ap = argparse.ArgumentParser()
+    ap.add_argument("--roots", default=str(DEFAULT_ROOTS))
+    ap.add_argument("--text", action="store_true")
+    ap.add_argument("--bench", action="store_true")
+    ap.add_argument("--allow-z", action="store_true")
+    args = ap.parse_args()
+    try:
+        rep = run(roots_file=args.roots, text=args.text, bench=args.bench, allow_z=args.allow_z)
+    except ValueError as e:
+        die(3, str(e))
+    print("harvest ok: added=%s rewritten=%s deleted=%s exit=%s" % (
+        rep.get("added", "?"), rep.get("rewritten", "?"), rep.get("deleted", "?"), rep.get("exit_code")))
+    if rep.get("exit_code"):
+        sys.exit(rep["exit_code"])
 
 if __name__ == "__main__":
     main()
