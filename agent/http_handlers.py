@@ -423,6 +423,12 @@ class Hd(BaseHTTPRequestHandler):
             self._j(chat_tools.chat_send(cl, b.get("text")))
         elif p == "/chat/poll":
             self._j({"msgs": chat_tools.chat_poll(b.get("last") or 0)})
+        elif p == "/wiz_purge_preview":
+            import purge_tools as _pt
+            self._j(_pt.purge_preview(b.get("root"), b.get("keep")))
+        elif p == "/wiz_purge_execute":
+            import purge_tools as _pt
+            self._j(_pt.purge_execute(b.get("root"), b.get("keep")))
         elif p == "/admin/users":
             if not users.can_manage_users(cl):
                 self._j({"error": "нет прав"}, 403); return

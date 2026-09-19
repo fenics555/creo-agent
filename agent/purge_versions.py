@@ -1,4 +1,4 @@
-import os, sys, argparse, shutil, json, time, datetime, re, subprocess
+﻿import os, sys, argparse, shutil, json, time, datetime, re, subprocess
 from pathlib import Path
 
 EXTS = {'.prt', '.asm', '.drw', '.frm', '.lay', '.sec'}
@@ -48,12 +48,9 @@ def get_groups(root):
             else:
                 if base_name not in grps: grps[base_name] = [base_path]
                 grps[base_name].append(f)
-                print(f"DEBUG: grps inside loop: {grps}")
-                ass.add(f.name)
-                ass.add(base_name)
-
                 sings.append(f)
                 ass.add(f.name)
+                ass.add(base_name)
         else:
             if f.suffix.lower() in EXTS:
                 ass.add(f.name)
@@ -68,14 +65,10 @@ def main():
     p = argparse.ArgumentParser()
     p.add_argument("--root", required=True); p.add_argument("--keep", type=int, default=1)
     p.add_argument("--backup-dir"); p.add_argument("--execute", action="store_true")
-    p.add_argument("--creo-mode", action="store_true")
+    p.add_argument("--creo-mode", action="store_true"); p.add_argument("--preview", action="store_true")
     a = p.parse_args()
     root = Path(a.root).resolve()
-    print("Starting main...")
-    print(f"DEBUG: root={root}")
     grps, sings = get_groups(root)
-    print(f"DEBUG: grps={grps}")
-    print(f"DEBUG: sings={sings}")
     ld = Path(r"D:\AI\log\purge")
     ld.mkdir(parents=True, exist_ok=True)
     l = Lock(ld / "purge.lock")
@@ -85,51 +78,53 @@ def main():
         bd = Path(a.backup_dir or root / "_purge_backup" / datetime.datetime.now().strftime("%Y%m%d"))
         rep = {"root": str(root), "keep": a.keep, "было_версий": 0, "перенесено_парами": [], "пропущено_с_причиной": [], "освобождено_байт": 0, "seconds": 0}
         st = time.time()
-        if a.creo_mode:
-            if not a.execute:
+        
+        if not a.execute:
+            res = {"groups": [], "singles": []}
+            if a.creo_mode:
                 for b, m in grps.items():
                     if len(m) > 1:
                         lt = m[-1]
                         target_name = f"{lt.stem}.1"
-                        if lt.name == target_name:
-                            print(f"  KEEP: {lt.name} (already .1)")
-                            for x in m[:-1]: print(f"  MOVE: {x.name} -> backup")
-                        else:
-                            print(f"PREVIEW: {lt.name} -> {target_name} (New)")
-                            for x in m[:-1]: print(f"  MOVE: {x.name} -> backup")
-                return
+                        res["groups"].append({"base": str(b), "members": [x.name for x in m], "target": target_name})
+                    else:
+                        res["singles"].append(m[0].name)
+                res["singles"].extend([x.name for x in sings])
             else:
                 for b, m in grps.items():
-                    if len(m) > 1:
-                        lt = m[-1]
-                        target_name = f"{lt.stem}.1"
-                        target_path = b.parent / target_name
-                        if target_path.exists() and target_path not in m:
-                            rep["пропущено_с_причиной"].append(f"{b.name}: target {target_name} busy")
-                            continue
-                        try:
-                            for x in m[:-1]:
-                                sz = x.stat().st_size; dst = bd / x.name
-                                bd.mkdir(parents=True, exist_ok=True); shutil.move(str(x), str(dst))
-                                rep["перенесено_парами"].append(f"{x.name}->{dst.name}"); rep["освобождено_байт"] += sz
-                            if lt.name != target_name:
-                                shutil.move(str(lt), str(target_path))
-                                rep["перенесено_парами"].append(f"{lt.name}->{target_name}")
-                        except Exception as e: rep["пропущено_с_причиной"].append(f"{b.name}: {e}")
-                return
-        if not a.execute:
-            print("--- PURGE PREVIEW ---")
-            for b, m in grps.items(): print(f"Group {b.name}: {[x.name for x in m]}")
-            for s in sings: print(f"Single: {s.name}")
+                    res["groups"].append({"base": str(b), "members": [x.name for x in m]})
+                res["singles"] = [x.name for x in sings]
+            print(json.dumps(res, ensure_ascii=False))
             return
-        for b, m in grps.items():
-            rep["было_версий"] += len(m)
-            for x in m[:-a.keep]:
-                try:
-                    sz = x.stat().st_size; dst = bd / x.name
-                    bd.mkdir(parents=True, exist_ok=True); shutil.move(str(x), str(dst))
-                    rep["перенесено_парами"].append(f"{x.name}->{dst.name}"); rep["освобождено_байт"] += sz
-                except Exception as e: rep["пропущено_с_причиной"].append(f"{x.name}: {e}")
+
+        if a.creo_mode:
+            for b, m in grps.items():
+                if len(m) > 1:
+                    lt = m[-1]
+                    target_name = f"{lt.stem}.1"
+                    target_path = b.parent / target_name
+                    if target_path.exists() and target_path not in m:
+                        rep["пропущено_с_причиной"].append(f"{b.name}: target {target_name} busy")
+                        continue
+                    try:
+                        for x in m[:-1]:
+                            sz = x.stat().st_size; dst = bd / x.name
+                            bd.mkdir(parents=True, exist_ok=True); shutil.move(str(x), str(dst))
+                            rep["перенесено_парами"].append(f"{x.name}->{dst.name}"); rep["освобождено_байт"] += sz
+                        if lt.name != target_name:
+                            shutil.move(str(lt), str(target_path))
+                            rep["перенесено_парами"].append(f"{lt.name}->{target_name}")
+                    except Exception as e: rep["пропущено_с_причиной"].append(f"{b.name}: {e}")
+        else:
+            for b, m in grps.items():
+                rep["было_версий"] += len(m)
+                for x in m[:-a.keep]:
+                    try:
+                        sz = x.stat().st_size; dst = bd / x.name
+                        bd.mkdir(parents=True, exist_ok=True); shutil.move(str(x), str(dst))
+                        rep["перенесено_парами"].append(f"{x.name}->{dst.name}"); rep["освобождено_байт"] += sz
+                    except Exception as e: rep["пропущено_с_причиной"].append(f"{x.name}: {e}")
+        
         rep["seconds"] = time.time() - st
         with open(ld / "last_purge.json", "w", encoding="utf-8") as f: json.dump(rep, f, ensure_ascii=False, indent=2)
         print(f"Done. Report: {ld / 'last_purge.json'}")
