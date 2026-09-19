@@ -14,7 +14,7 @@ import tools_registry as TR
 import vision_tools as VI
 from loop import (LIVE_TOK, LIVE_THINK, LIVE, PENDING, HOSTNAME, UI_FILE,
                   _UI_CACHE, STUB_PAGE, _SYS_CACHE, ask, do_approve)
-from sched import _wd_port
+from agent_sched import _wd_port
 
 def _serve_ui(handler):
     try:
