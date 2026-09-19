@@ -132,3 +132,143 @@ def main():
 
 if __name__ == "__main__":
     main()
+
+def preview(root: Path, keep: int, creo_mode: bool) -> dict:
+    grps, sings = get_groups(root)
+    res = {"groups": [], "singles": []}
+    if creo_mode:
+        for b, m in grps.items():
+            if len(m) > 1:
+                lt = m[-1]
+                target_name = f"{lt.stem}.1"
+                res["groups"].append({"base": str(b), "members": [x.name for x in m], "target": target_name})
+            else:
+                res["singles"].append(m[0].name)
+        res["singles"].extend([x.name for x in sings])
+    else:
+        for b, m in grps.items():
+            res["groups"].append({"base": str(b), "members": [x.name for x in m]})
+        res["singles"] = [x.name for x in sings]
+    return res
+
+def execute(root: Path, keep: int, creo_mode: bool, backup_dir: Path) -> dict:
+    grps, sings = get_groups(root)
+    rep = {
+        "root": str(root), 
+        "keep": keep, 
+        "было_версий": 0, 
+        "перенесено_парами": [], 
+        "пропущено_с_причиной": [], 
+        "освобождено_байт": 0, 
+        "seconds": 0
+    }
+    st = time.time()
+    if creo_mode:
+        for b, m in grps.items():
+            if len(m) > 1:
+                lt = m[-1]
+                target_name = f"{lt.stem}.1"
+                target_path = b.parent / target_name
+                if target_path.exists() and target_path not in m:
+                    rep["пропущено_с_причиной"].append(f"{b.name}: target {target_name} busy")
+                    continue
+                try:
+                    for x in m[:-1]:
+                        sz = x.stat().st_size
+                        dst = backup_dir / x.name
+                        backup_dir.mkdir(parents=True, exist_ok=True)
+                        shutil.move(str(x), str(dst))
+                        rep["перенесено_парами"].append(f"{x.name}->{dst.name}")
+                        rep["освобождено_байт"] += sz
+                    if lt.name != target_name:
+                        shutil.move(str(lt), str(target_path))
+                        rep["перенесено_парами"].append(f"{lt.name}->{target_name}")
+                except Exception as e:
+                    rep["пропущено_с_причиной"].append(f"{b.name}: {e}")
+    else:
+        for b, m in grps.items():
+            rep["было_версий"] += len(m)
+            for x in m[:-keep]:
+                try:
+                    sz = x.stat().st_size
+                    dst = backup_dir / x.name
+                    backup_dir.mkdir(parents=True, exist_ok=True)
+                    shutil.move(str(x), str(dst))
+                    rep["перенесено_парами"].append(f"{x.name}->{dst.name}")
+                    rep["освобождено_байт"] += sz
+                except Exception as e:
+                    rep["пропущено_с_причиной"].append(f"{x.name}: {e}")
+    
+    rep["seconds"] = time.time() - st
+    return rep
+
+
+def preview(root: Path, keep: int, creo_mode: bool) -> dict:
+    grps, sings = get_groups(root)
+    res = {"groups": [], "singles": []}
+    if creo_mode:
+        for b, m in grps.items():
+            if len(m) > 1:
+                lt = m[-1]
+                target_name = f"{lt.stem}.1"
+                res["groups"].append({"base": str(b), "members": [x.name for x in m], "target": target_name})
+            else:
+                res["singles"].append(m[0].name)
+        res["singles"].extend([x.name for x in sings])
+    else:
+        for b, m in grps.items():
+            res["groups"].append({"base": str(b), "members": [x.name for x in m]})
+        res["singles"] = [x.name for x in sings]
+    return res
+
+def execute(root: Path, keep: int, creo_mode: bool, backup_dir: Path) -> dict:
+    grps, sings = get_groups(root)
+    rep = {
+        "root": str(root), 
+        "keep": keep, 
+        "было_версий": 0, 
+        "перенесено_парами": [], 
+        "пропущено_с_причиной": [], 
+        "освобождено_байт": 0, 
+        "seconds": 0
+    }
+    st = time.time()
+    if creo_mode:
+        for b, m in grps.items():
+            if len(m) > 1:
+                lt = m[-1]
+                target_name = f"{lt.stem}.1"
+                target_path = b.parent / target_name
+                if target_path.exists() and target_path not in m:
+                    rep["пропущено_с_причиной"].append(f"{b.name}: target {target_name} busy")
+                    continue
+                try:
+                    for x in m[:-1]:
+                        sz = x.stat().st_size
+                        dst = backup_dir / x.name
+                        backup_dir.mkdir(parents=True, exist_ok=True)
+                        shutil.move(str(x), str(dst))
+                        rep["перенесено_парами"].append(f"{x.name}->{dst.name}")
+                        rep["освобождено_байт"] += sz
+                    if lt.name != target_name:
+                        shutil.move(str(lt), str(target_path))
+                        rep["перенесено_парами"].append(f"{lt.name}->{target_name}")
+                except Exception as e:
+                    rep["пропущено_с_причиной"].append(f"{b.name}: {e}")
+    else:
+        for b, m in grps.items():
+            rep["было_версий"] += len(m)
+            for x in m[:-keep]:
+                try:
+                    sz = x.stat().st_size
+                    dst = backup_dir / x.name
+                    backup_dir.mkdir(parents=True, exist_ok=True)
+                    shutil.move(str(x), str(dst))
+                    rep["перенесено_парами"].append(f"{x.name}->{dst.name}")
+                    rep["освобождено_байт"] += sz
+                except Exception as e:
+                    rep["пропущено_с_причиной"].append(f"{x.name}: {e}")
+    
+    rep["seconds"] = time.time() - st
+    return rep
+

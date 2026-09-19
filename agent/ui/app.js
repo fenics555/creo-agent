@@ -55,6 +55,7 @@ h+='<div class="grp"><h4 data-act="fold">▸ 🧠 МОДЕЛЬ ИИ (клик �
 (p.models||[]).forEach(function(m){h+='<div class="tool" data-act="setm" data-val="'+att(m)+'">'+esc(m)+(m==CURM?' ←':'')+'</div>'});h+='</div></div>';
 h+='<div class="grp"><h4 data-act="fold">▸ ⚡ БЫСТРЫЕ ЗАДАЧИ</h4><div class="gbody" style="display:none">';
 (p.chips||[]).forEach(function(c){h+='<div class="tool" data-act="chip" data-val="'+att(c)+'">'+esc(c)+'</div>'});h+='</div></div>';
+h+='<div class="grp"><h4 data-act="fold">▸ 🧹 ОЧИСТКА</h4><div class="gbody" style="display:none"><div class="tool" data-act="open_purge"><b style="color:#4C8FD6">🧹 Мастер очистки</b></div></div></div>';
 h+='<div class="grp"><h4>📌 ЗАКРЕПЫ</h4>';['creo_get_active','models_find','search_kb','trail_problems','calc','creo_session'].forEach(function(n){h+='<span class="pin" data-act="chip" data-val="'+n+'">'+n+'</span>'});h+='</div>';
 var FOLD=JSON.parse(localStorage.getItem('panel_fold')||'{}');
 (p.groups||[]).forEach(function(g){var ti=g.title||'';var key=ti.replace(foldKey, "");
@@ -151,6 +152,10 @@ else if(a=='childname'){var row=el.closest('.msg').querySelector('.pdfrow');if(r
 else if(a=='lbx'){var lb=document.getElementById('lbx');lb.style.display='flex';lb.querySelector('img').src=el.getAttribute('src')}
 else if(a=='showchat'){var cb=document.getElementById('chatbox');if(cb.style.display=='flex'){cb.style.display='none';if(CTMR){clearInterval(CTMR);CTMR=null}}else{cb.style.display='flex';CLAST=0;document.getElementById('cmsg').innerHTML='';chatPoll();if(CTMR)clearInterval(CTMR);CTMR=setInterval(chatPoll,5000);NEWMSG=0;chatBadge()}}
 else if(a=='closechat'){document.getElementById('chatbox').style.display='none';if(CTMR){clearInterval(CTMR);CTMR=null}}
+else if(a=='open_purge'){document.getElementById('wiz_purge').style.display='flex'}
+else if(a=='close_purge'){document.getElementById('wiz_purge').style.display='none'}
+else if(a=='wiz_purge_preview'){var r=document.getElementById('wp_root').value,k=document.getElementById('wp_keep').value,o=document.getElementById('wp_out');if(!r){alert('укажи путь');return}o.innerHTML='<small style=\"color:#A6A8AB\">считаю план…</small>';J('/wiz_purge_preview',{token:TK,root:r,keep:k}).then(function(g){if(g.error){o.innerHTML='<span style=\"color:#C64E4E\">'+esc(g.error)+'</span>';return}o.innerHTML='<pre style=\"font-size:10px;white-space:pre-wrap\">'+esc(JSON.stringify(g,null,2))+'</pre>';}).catch(function(e){o.innerHTML='<span style=\"color:#C64E4E\">ошибка: '+esc(e)+'</span>'})}
+else if(a=='wiz_purge_execute'){var r=document.getElementById('wp_root').value,k=document.getElementById('wp_keep').value,o=document.getElementById('wp_out');if(!r){alert('укажи путь');return}o.innerHTML='<small style=\"color:#A6A8AB\">запуск...</small>';J('/wiz_purge_execute',{token:TK,root:r,keep:k}).then(function(g){o.innerHTML='<span style=\"color:#4C8FD6\">'+esc(g)+ '</span>';}).catch(function(e){o.innerHTML='<span style=\"color:#C64E4E\">ошибка: '+esc(e)+'</span>'})}
 else if(a=='chatsend'){var t=document.getElementById('cin').value;J('/chat/send',{token:TK,text:t}).then(function(r){if(r.ok)document.getElementById('cin').value='';chatPoll()})}});
 document.getElementById('lbx').addEventListener('click',function(){this.style.display='none'});
 var CLAST=0,CTMR=null;
