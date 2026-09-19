@@ -351,9 +351,13 @@ class Hd(BaseHTTPRequestHandler):
                 self.wfile.write(("data: %s\n\n" % json.dumps({"step": item}, ensure_ascii=False)).encode()); self.wfile.flush()
             self.wfile.write(("data: %s\n\n" % json.dumps({"done": holder.get("r", {})}, ensure_ascii=False)).encode()); self.wfile.flush()
             return
-        elif p == "/approve":
-            self._j(do_approve(b.get("pid"), b.get("ok")))
-        elif p == "/wiz_preview":
+        elif p == "/wiz_purge_preview":
+            import purge_tools as _pt
+            self._j(_pt.purge_preview(b.get("root"), b.get("keep")))
+        elif p == "/wiz_purge_execute":
+            import purge_tools as _pt
+            self._j(_pt.purge_execute(b.get("root"), b.get("keep")))
+
             import copy_tools as _cp37
             self._j(_cp37.preview(old=b.get("old") or "", new=b.get("new") or "", template=b.get("template") or "",
                                   family=b.get("family", 1), drawings=b.get("drawings", 0)))

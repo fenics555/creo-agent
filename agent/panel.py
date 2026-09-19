@@ -74,6 +74,7 @@ def build():
         ("👥 Команда и справка", "👥", ["chat_", "help_", "behavior_", "passport_", "role_", "users_"]),
         ("⚙ Настройки", "⚙", ["settings_"]),
         ("📝 Черновики скиллов", "📝", ["drafts_"]),
+        ("🛠 ЧИСТКА ВЕРСИЙ", "🛠", ["purge_"]),
     ]
     icon_map = {
         "creo_status": "🖥", "creo_session": "🪟", "creo_get_active": "🎯",
