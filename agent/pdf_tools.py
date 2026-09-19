@@ -12,6 +12,9 @@ import re
 
 import core
 import settings
+import harvest_reader
+import core
+import settings
 
 PDFCACHE = Path(r"D:\AI\tools\agent\data\pdfcache")
 PDFCACHE.mkdir(parents=True, exist_ok=True)
@@ -78,14 +81,13 @@ def pdf_img(name, page):
 
 
 def pdf_status(name):
-    res_pdf, res_drw, _ = _get_file_info(name)
-    if not res_pdf:
+    status = harvest_reader.get_verdict(name)
+    if status == "нет pdf":
+        _, res_drw, _ = _get_file_info(name)
+        if not res_drw:
+            return {"status": "нет чертежа"}
         return {"status": "нет pdf"}
-    if not res_drw:
-        return {"status": "нет чертежа"}
-    pdf_mtime = res_pdf[1]
-    drw_mtime = res_drw[1]
-    return {"status": "актуален"} if pdf_mtime >= drw_mtime else {"status": "УСТАРЕЛ"}
+    return {"status": status}
 
 
 def pdf_refresh(name, approval=True):

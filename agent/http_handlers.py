@@ -8,6 +8,7 @@ print(core.LOGF)
 from core import log, trace
 import settings
 import pdf_tools
+import harvest_reader
 import users
 import chat_tools
 import panel
@@ -163,59 +164,13 @@ class Hd(BaseHTTPRequestHandler):
             self.wfile.write(b)
             return
         elif p == "/pdfregistry":
-            if not users.token_info(self.headers.get("X-Token") or ""): return self._j({"error": "no token"})
-            try:
-                c = core.db()
-                rows = c.execute("SELECT path, mtime FROM files").fetchall()
-                c.close()
-            except Exception as e:
-                self._j({"error": str(e)}); return
-            bydir = {}
-            for path, mt in rows:
-                bydir.setdefault(os.path.dirname(path), {})[os.path.basename(path).lower()] = (path, mt)
-            pairs = []
-            for d, fs in bydir.items():
-                du = d.upper()
-                if "\\CREO12\\" in du or "\\DATA\\" in du:
-                    continue
-                for nm, (path, mt) in fs.items():
-                    if nm in seen_names: continue
-                    verdict, entry = None, {}
-                    m = re.search(r"(.*?)\.(drw|asm|prt)(\.\\d+)?$", nm, re.I)
-                    if m:
-                        core_name, ext, suffix = m.groups()
-                        suffix = suffix or ""
-                        if ext.lower() == "drw":
-                            stem = core_name
-                            pdf = fs.get(stem + ".pdf")
-                            verdict = "нет pdf" if not pdf else ("актуален" if pdf[1] >= mt else "УСТАРЕЛ")
-                            entry = {"name": nm, "dir": d, "drw": path, "pdf": pdf[0] if pdf else "",
-                                     "drw_mtime": mt, "pdf_mtime": pdf[1] if pdf else 0, "verdict": verdict}
-                        else:
-                            drw = fs.get(core_name + ".drw" + suffix)
-                            pdf = fs.get(core_name + ".pdf")
-                            if drw:
-                                drw_p, drw_mt = drw
-                                if pdf:
-                                    pdf_p, pdf_mt = pdf
-                                    v = "актуален" if pdf_mt >= drw_mt else "устарел"
-                                    verdict = f"pdf через чертёж {core_name}.drw{suffix}: {v}"
-                                else:
-                                    verdict = f"чертёж {core_name}.drw{suffix}: нет pdf"
-                                    pdf_p, pdf_mt = "", 0
-                                entry = {"name": nm, "dir": d, "drw": drw_p, "pdf": pdf_p,
-                                         "drw_mtime": drw_mt, "pdf_mtime": pdf_mt, "verdict": verdict}
-                            else:
-                                verdict = "чертежа нет"
-                                entry = {"name": nm, "dir": d, "drw": "", "pdf": "",
-                                         "drw_mtime": 0, "pdf_mtime": 0, "verdict": verdict}
-                    if verdict:
-                        pairs.append(entry)
-                        seen_names.add(nm)
-                        if len(pairs) >= 500: break
-                if len(pairs) >= 500: break
-            pairs.sort(key=lambda r: (r["verdict"] != "УСТАРЕЛ", r["name"]))
-            self._j({"pairs": pairs, "total": len(pairs)})
+            if not users.token_info(self.headers.get("X-Token") or ""):
+                return self._j({"error": "no token"}, 401)
+            from urllib.parse import parse_qs, urlparse
+            qs = parse_qs(urlparse(self.path).query)
+            root = qs.get("root", [None])[0]
+            entries = harvest_reader.get_registry_entries(root_filter=root)
+            self._j({"pairs": entries, "total": len(entries)})
             return
         elif p in ("/pdfthumb", "/pdfimg"):
             qs = parse_qs(urlparse(self.path).query)
