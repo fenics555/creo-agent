@@ -9,7 +9,7 @@ from core import log
 import settings
 import pdf_tools
 import loop
-import sched
+import agent_sched
 from http_handlers import Hd
 
 HOST, PORT = "0.0.0.0", 8765
@@ -39,8 +39,8 @@ if __name__ == "__main__":
     pidfile = core.BASE / "agent" / "agent.pid"
     pidfile.write_text(str(os.getpid()), encoding="ascii")
     atexit.register(lambda: pidfile.unlink(missing_ok=True))
-    threading.Thread(target=sched._scheduler, daemon=True).start()
-    threading.Thread(target=sched._watchdog, daemon=True).start()
+    threading.Thread(target=agent_sched._scheduler, daemon=True).start()
+    threading.Thread(target=agent_sched._watchdog, daemon=True).start()
     try:
         from http.server import ThreadingHTTPServer
         ThreadingHTTPServer((HOST, PORT), Hd).serve_forever()

@@ -16,7 +16,7 @@ import tools_registry as TR
 import vision_tools as VI
 from loop import (LIVE_TOK, LIVE_THINK, LIVE, PENDING, HOSTNAME, UI_FILE,
                   _UI_CACHE, STUB_PAGE, _SYS_CACHE, ask, do_approve)
-from sched import _wd_port
+from agent_sched import _wd_port
 
 def _serve_ui(handler):
     try:
@@ -62,360 +62,145 @@ class Hd(BaseHTTPRequestHandler):
         return u["login"] if u else None
 
     def do_GET(self):
-        p = urlparse(self.path).path
-        if p == "/status":
-            token = self.headers.get("X-Token") or ""
-            cl2 = users.token_info(token)
-            prof = users.get_profile(cl2["login"]) if cl2 else None
-            tail = ""
-            if cl2:
-                try:
-                    jf = core.REPO / "Трейлы" / "TRAIL_JOURNAL.md"
-                    if jf.exists():
-                        tail = "\n".join(jf.read_text(encoding="utf-8", errors="ignore").splitlines()[-8:])
-                except Exception:
-                    tail = ""
-            def _alive(p_):
-                try:
-                    s_ = socket.create_connection(("127.0.0.1", p_), timeout=1); s_.close(); return True
-                except Exception: return False
-            self._j({"host": HOSTNAME, "model": settings.get("llm_model"), "blocks": len(TR.BLOCKS),
-                     "tools": len(TR.TOOLS), "user": prof,
-                     "is_manager": users.can_manage_users(prof["login"]) if prof else False,
-                     "trails": tail, "mode": settings.get_for(cl2["login"], "chat_mode", 1) if cl2 else 1,
-                     "up_ollama": _alive(11434), "up_creoson": _alive(8080), "up_agent": True})
-            return
-        elif p == "/health":
-            if not users.token_info(self.headers.get("X-Token") or ""): return self._j({"error": "no token"})
-            self._j({"ollama": _wd_port(11434), "creoson": _wd_port(8080), "agent": True})
-            return
-        elif p == "/pdfpages":
-            if not users.token_info(self.headers.get("X-Token") or ""): return self._j({"error": "no token"})
-            qs = parse_qs(urlparse(self.path).query)
-            name = qs.get("name", [""])[0]
-            if not name: return self._j({"error": "no name"})
-            self._j(pdf_tools.pdf_pages(name))
-            return
-        # /pdfimg обслуживается общим блоком /pdfthumb|/pdfimg ниже (PNG-байты
-        # для <img src> + токен из заголовка или query) — ранний JSON-вариант
-        # снят 66e/N10: витрина ждёт image/png, а не словарь pdf_img.
-        elif p == "/pdfstatus":
-            if not users.token_info(self.headers.get("X-Token") or ""): return self._j({"error": "no token"})
-            qs = parse_qs(urlparse(self.path).query)
-            name = qs.get("name", [""])[0]
-            if not name: return self._j({"error": "no name"})
-            self._j(pdf_tools.pdf_status(name))
-            return
-        elif p == "/children":
-            if not users.token_info(self.headers.get("X-Token") or ""): return self._j({"error": "no token"})
-            qs = parse_qs(urlparse(self.path).query)
-            name = qs.get("name", [""])[0]
-            if not name: return self._j({"error": "no name"})
-            out = []
-            try:
-                c = core.db()
-                for sql in ("SELECT child FROM usage WHERE parent LIKE ?",
-                            "SELECT child FROM bom WHERE parent LIKE ?",
-                            "SELECT child FROM links WHERE parent LIKE ?"):
+        try:
+            p = urlparse(self.path).path
+            if p == "/status":
+                token = self.headers.get("X-Token") or ""
+                cl2 = users.token_info(token)
+                prof = users.get_profile(cl2["login"]) if cl2 else None
+                tail = ""
+                if cl2:
                     try:
-                        rows = c.execute(sql, ("%" + name + "%",)).fetchall()
-                        out = [r[0] for r in rows]
+                        jf = core.REPO / "Трейлы" / "TRAIL_JOURNAL.md"
+                        if jf.exists():
+                            tail = "\n".join(jf.read_text(encoding="utf-8", errors="ignore").splitlines()[-8:])
                     except Exception:
-                        continue
-                    if out: break
-                c.close()
-            except Exception as e:
-                self._j({"error": str(e)}); return
-            self._j({"name": name, "children": out[:200]})
-            return
-        elif p == "/graph/data":
-            if not users.token_info(self.headers.get("X-Token") or ""): return self._j({"error": "no token"})
-            qs = parse_qs(urlparse(self.path).query)
-            name = qs.get("name", [""])[0]
-            if not name: return self._j({"error": "no name"})
-            import graph_tools
-            self._j(graph_tools.build_graph(name))
-            return
-        elif p == "/graph":
-            if not users.token_info(self.headers.get("X-Token") or ""):
-                self.send_response(401); self.end_headers(); return
-            b = open(os.path.join(os.path.dirname(__file__), "ui", "graph.html"), "rb").read()
-            self.send_response(200)
-            self.send_header("Content-Type", "text/html; charset=utf-8")
-            self.send_header("Content-Length", str(len(b)))
-            self.end_headers()
-            self.wfile.write(b)
-            return
-        elif p == "/map/data":
-            if not users.token_info(self.headers.get("X-Token") or ""): return self._j({"error": "no token"})
-            qs = parse_qs(urlparse(self.path).query)
-            top = int(qs.get("top", ["100"])[0])
-            import map_tools
-            self._j(map_tools.build_map(top))
-            return
-        elif p == "/map":
-            if not users.token_info(self.headers.get("X-Token") or ""):
-                self.send_response(401); self.end_headers(); return
-            b = open(os.path.join(os.path.dirname(__file__), "ui", "map.html"), "rb").read()
-            self.send_response(200)
-            self.send_header("Content-Type", "text/html; charset=utf-8")
-            self.send_header("Content-Length", str(len(b)))
-            self.end_headers()
-            self.wfile.write(b)
-            return
-        elif p == "/pdfregistry":
-            if not users.token_info(self.headers.get("X-Token") or ""):
-                return self._j({"error": "no token"}, 401)
-            from urllib.parse import parse_qs, urlparse
-            qs = parse_qs(urlparse(self.path).query)
-            root = qs.get("root", [None])[0]
-            entries = harvest_reader.get_registry_entries(root_filter=root)
-            self._j({"pairs": entries, "total": len(entries)})
-            return
-        elif p in ("/pdfthumb", "/pdfimg"):
-            qs = parse_qs(urlparse(self.path).query)
-            _tk = users.token_info(self.headers.get("X-Token") or qs.get("token", [""])[0])
-            if not _tk:
-                if p == "/pdfimg":
+                        tail = ""
+                def _alive(p_):
+                    try:
+                        s_ = socket.create_connection(("127.0.0.1", p_), timeout=1); s_.close(); return True
+                    except Exception: return False
+                self._j({"host": HOSTNAME, "model": settings.get("llm_model"), "blocks": len(TR.BLOCKS),
+                         "tools": len(TR.TOOLS), "user": prof,
+                         "is_manager": users.can_manage_users(prof["login"]) if prof else False,
+                         "trails": tail, "mode": settings.get_for(cl2["login"], "chat_mode", 1) if cl2 else 1,
+                         "up_ollama": _alive(11434), "up_creoson": _alive(8080), "up_agent": True})
+                return
+            elif p == "/health":
+                if not users.token_info(self.headers.get("X-Token") or ""): return self._j({"error": "no token"}, 401)
+                self._j({"ollama": _wd_port(11434), "creoson": _wd_port(8080), "agent": True})
+                return
+            elif p == "/pdfpages":
+                if not users.token_info(self.headers.get("X-Token") or ""): return self._j({"error": "no token"}, 401)
+                qs = parse_qs(urlparse(self.path).query)
+                name = qs.get("name", [""])[0]
+                if not name: return self._j({"error": "no name"})
+                self._j(pdf_tools.pdf_pages(name))
+                return
+            elif p == "/pdfstatus":
+                if not users.token_info(self.headers.get("X-Token") or ""): return self._j({"error": "no token"}, 401)
+                qs = parse_qs(urlparse(self.path).query)
+                name = qs.get("name", [""])[0]
+                if not name: return self._j({"error": "no name"})
+                self._j(pdf_tools.pdf_status(name))
+                return
+            elif p == "/children":
+                if not users.token_info(self.headers.get("X-Token") or ""): return self._j({"error": "no token"}, 401)
+                qs = parse_qs(urlparse(self.path).query)
+                name = qs.get("name", [""])[0]
+                if not name: return self._j({"error": "no name"})
+                out = []
+                try:
+                    c = core.db()
+                    for sql in ("SELECT child FROM usage WHERE parent LIKE ?",
+                                "SELECT child FROM bom WHERE parent LIKE ?",
+                                "SELECT child FROM links WHERE parent LIKE ?"):
+                        try:
+                            rows = c.execute(sql, ("%" + name + "%",)).fetchall()
+                            out = [r[0] for r in rows]
+                        except Exception:
+                            continue
+                        if out: break
+                    c.close()
+                except Exception as e:
+                    self._j({"error": str(e)}); return
+                self._j({"name": name, "children": out[:200]})
+                return
+            elif p == "/graph/data":
+                if not users.token_info(self.headers.get("X-Token") or ""): return self._j({"error": "no token"}, 401)
+                qs = parse_qs(urlparse(self.path).query)
+                name = qs.get("name", [""])[0]
+                if not name: return self._j({"error": "no name"})
+                import graph_tools
+                self._j(graph_tools.build_graph(name))
+                return
+            elif p == "/graph":
+                if not users.token_info(self.headers.get("X-Token") or ""):
                     self.send_response(401); self.end_headers(); return
-                self._j({"error": "token required"})
-                return
-            nm = qs.get("name", [None])[0]
-            pg = qs.get("page", ["1"])[0]
-            res = pdf_tools.pdf_img(nm, pg)
-            if "error" in res:
-                self._j({"error": "миниатюры нет"})
-                return
-            img_path = res["image_path"]
-            try:
-                with open(img_path, "rb") as f:
-                    content = f.read()
+                b = open(os.path.join(os.path.dirname(__file__), "ui", "graph.html"), "rb").read()
                 self.send_response(200)
-                self.send_header("Content-Type", "image/png")
-                self.send_header("Content-Length", str(len(content)))
+                self.send_header("Content-Type", "text/html; charset=utf-8")
+                self.send_header("Content-Length", str(len(b)))
                 self.end_headers()
-                self.wfile.write(content)
-            except Exception as e:
-                self._j({"error": f"failed to serve image: {e}"})
-            return
-
-        elif p == "/panel":
-            if not users.token_info(self.headers.get("X-Token") or ""):
-                self.send_response(401); self.end_headers(); return
-            d = panel.build()
-            _ui = users.token_info(self.headers.get("X-Token") or "")
-            if not (_ui and users.is_admin(_ui["login"])):
-                d["groups"] = [g for g in d.get("groups", []) if "НАСТРОЙКИ" not in str(g.get("title", "")).upper()]
-                d.pop("settings", None)
-            self._j(d)
-            return
-        elif p == "/log":
-            try:
-                with open(core.LOGF, "r", encoding="utf-8", errors="replace") as f:
-                    lines = f.readlines()
-                    tail = "".join(lines[-100:])
+                self.wfile.write(b)
+                return
+            elif p == "/map/data":
+                if not users.token_info(self.headers.get("X-Token") or ""): return self._j({"error": "no token"}, 401)
+                qs = parse_qs(urlparse(self.path).query)
+                top = int(qs.get("top", ["100"])[0])
+                import map_tools
+                self._j(map_tools.build_map(top))
+                return
+            elif p == "/map":
+                if not users.token_info(self.headers.get("X-Token") or ""):
+                    self.send_response(401); self.end_headers(); return
+                b = open(os.path.join(os.path.dirname(__file__), "ui", "map.html"), "rb").read()
                 self.send_response(200)
-                self.send_header("Content-Type", "text/plain; charset=utf-8")
+                self.send_header("Content-Type", "text/html; charset=utf-8")
+                self.send_header("Content-Length", str(len(b)))
                 self.end_headers()
-                self.wfile.write(tail.encode("utf-8"))
-            except Exception as e:
-                self._j({"error": str(e)}, 500)
-        elif p == "/settings":
-            self._j({"items": settings.list_ui()})
-            return
-        elif p == "/livetoks":
-            _cl6 = users.token_info(self.headers.get("X-Token") or "")
-            qs = parse_qs(urlparse(self.path).query)
-            last = int((qs.get("last") or ["0"])[0])
-            toks = LIVE_TOK.get(_cl6["login"] if _cl6 else "", [])
-            self._j({"toks": toks[last:], "last": len(toks)})
-            return
-        elif p == "/livethink":
-            _cl7 = users.token_info(self.headers.get("X-Token") or "")
-            qs7 = parse_qs(urlparse(self.path).query)
-            last7 = int((qs7.get("last") or ["0"])[0])
-            ths = LIVE_THINK.get(_cl7["login"] if _cl7 else "", [])
-            self._j({"toks": ths[last7:], "last": len(ths)})
-            return
-        elif p == "/livesteps":
-            _cl4 = users.token_info(self.headers.get("X-Token") or "")
-            qs = parse_qs(urlparse(self.path).query)
-            last = int((qs.get("last") or ["0"])[0])
-            lines = LIVE.get(_cl4["login"] if _cl4 else "", [])
-            self._j({"lines": lines[last:], "last": len(lines)})
-            return
-        elif p == "/fleet/info":
-            if not users.token_info(self.headers.get("X-Token") or ""):
-                self._j({"error": "нужен вход"}, code=401)
+                self.wfile.write(b)
                 return
-            tail = ""
-            try:
-                jf = core.REPO / "Трейлы" / "TRAIL_JOURNAL.md"
-                if jf.exists():
-                    tail = "\n".join(jf.read_text(encoding="utf-8", errors="ignore").splitlines()[-10:])
-            except Exception: pass
-            self._j({"tail": tail})
-            return
-        elif p == "/ui/app.js":
-            try:
-                b = open(os.path.join(os.path.dirname(__file__), "ui", "app.js"), "rb").read()
-            except Exception:
-                self._j({"error": "app.js not found"})
+            elif p == "/pdfregistry":
+                if not users.token_info(self.headers.get("X-Token") or ""):
+                    return self._j({"error": "no token"}, 401)
+                from urllib.parse import parse_qs, urlparse
+                qs = parse_qs(urlparse(self.path).query)
+                root = qs.get("root", [None])[0]
+                entries = harvest_reader.get_registry_entries(root_filter=root)
+                self._j({"pairs": entries, "total": len(entries)})
                 return
-            self.send_response(200)
-            self.send_header("Content-Type", "text/javascript; charset=utf-8")
-            self.send_header("Content-Length", str(len(b)))
-            self.end_headers()
-            self.wfile.write(b)
-            return
-        else:
-            _serve_ui(self)
-
-    def do_POST(self):
-        p = urlparse(self.path).path
-        b = self._body()
-        if p == "/login":
-            r = users.check_login(b.get("login"), b.get("pw") or b.get("password"))
-            self._j(r or {"ok": False}); return
-        if p == "/register":
-            okf = users.add_user(b.get("login"), b.get("pw") or b.get("password"))
-            self._j({"msg": "пользователь создан" if okf else "логин занят или пустой"}); return
-        cl = self._client(b)
-        if not cl:
-            self._j({"error": "нужен вход"}, 401); return
-        if p == "/ask":
-            self._j(ask(b.get("q") or "", cl, b.get("image"), mode=b.get("mode")))
-        elif p == "/ask_stream":
-            import queue as _q
-            qq = _q.Queue(); holder = {}
-
-            def _cb(line): qq.put(line)
-
-            def _run():
-                try: holder["r"] = ask(b.get("q") or "", cl, b.get("image"), on_step=_cb, mode=b.get("mode"))
-                except Exception as e: holder["r"] = {"answer": "ошибка: %s" % e, "log": []}
-                finally: qq.put(None)
-            threading.Thread(target=_run, daemon=True).start()
-            self.send_response(200)
-            self.send_header("Content-Type", "text/event-stream; charset=utf-8")
-            self.send_header("Cache-Control", "no-store")
-            self.end_headers()
-            while True:
-                item = qq.get()
-                if item is None: break
-                self.wfile.write(("data: %s\n\n" % json.dumps({"step": item}, ensure_ascii=False)).encode()); self.wfile.flush()
-            self.wfile.write(("data: %s\n\n" % json.dumps({"done": holder.get("r", {})}, ensure_ascii=False)).encode()); self.wfile.flush()
-            return
-        elif p == "/wiz_purge_preview":
-            import purge_tools as _pt
-            self._j(_pt.purge_preview(b.get("root"), b.get("keep")))
-        elif p == "/wiz_purge_execute":
-            import purge_tools as _pt
-            self._j(_pt.purge_execute(b.get("root"), b.get("keep")))
-
-            import copy_tools as _cp37
-            self._j(_cp37.preview(old=b.get("old") or "", new=b.get("new") or "", template=b.get("template") or "",
-                                  family=b.get("family", 1), drawings=b.get("drawings", 0)))
-        elif p == "/wiz_rename_preview":
-            import rename_tools as _rn37
-            self._j(_rn37.build_plan(old=b.get("old") or "", new=b.get("new") or "",
-                                     drawings=b.get("drawings", 1)))
-        elif p == "/setmodel":
-            import panel as _pn
-            ok_names = _pn.models()
-            want = b.get("model") or ""
-            if want not in ok_names:
-                self._j({"ok": False, "error": "нет такой модели", "models": ok_names}, 400)
+            elif p in ("/pdfthumb", "/pdfimg"):
+                qs = parse_qs(urlparse(self.path).query)
+                _tk = users.token_info(self.headers.get("X-Token") or qs.get("token", [""])[0])
+                if not _tk:
+                    if p == "/pdfimg":
+                        self.send_response(401); self.end_headers(); return
+                    self._j({"error": "token required"})
+                    return
+                nm = qs.get("name", [None])[0]
+                pg = qs.get("page", ["1"])[0]
+                res = pdf_tools.pdf_img(nm, pg)
+                if "error" in res:
+                    self._j({"error": "ошибка рендеринга"})
+                    return
+                img_path = res["image_path"]
+                try:
+                    with open(img_path, "rb") as f:
+                        content = f.read()
+                    self.send_response(200)
+                    self.send_header("Content-Type", "image/png")
+                    self.send_header("Content-Length", str(len(content)))
+                    self.end_headers()
+                    self.wfile.write(content)
+                except Exception as e:
+                    self._j({"error": f"failed to serve image: {e}"})
                 return
-            settings.set_val("llm_model", want)
-            self._j({"ok": True})
-        elif p == "/setauto":
-            settings.set_val("auto_mode", 1 if b.get("on") else 0); self._j({"ok": True})
-        elif p == "/feedback":
-            try:
-                c = core.db()
-                c.execute("CREATE TABLE IF NOT EXISTS feedback(id INTEGER PRIMARY KEY AUTOINCREMENT, ts TEXT, client TEXT, query TEXT, think TEXT, tool TEXT, result TEXT, ok INTEGER, comment TEXT)")
-                c.execute("INSERT INTO feedback(ts,client,query,think,tool,result,ok,comment) VALUES(?,?,?,?,?,?,?,?)",
-                          (datetime.datetime.now().isoformat(), cl, (b.get("query") or "")[:2000], (b.get("think") or "")[:2000],
-                           (b.get("tool") or "")[:120], (b.get("result") or "")[:2000], 1 if b.get("ok") else 0, (b.get("comment") or "")[:500]))
-                c.commit(); c.close()
-            except Exception as e:
-                self._j({"ok": False, "msg": "оценка не сохранена: %s" % e}, 500); return
-            self._j({"ok": True, "msg": "оценка сохранена"})
-        elif p == "/setcfg":
-            if (b.get("key") or "") in settings.PERSONAL_KEYS:
-                settings.set_for(cl, b.get("key"), b.get("value")); self._j({"ok": True}); return
-            if not users.is_admin(cl):
-                self._j({"error": "настройки — только админ"}, 403); return
-            settings.set_val(b.get("key"), b.get("value")); _SYS_CACHE.clear(); self._j({"ok": True})
-        elif p == "/snap":
-            self._j({"msg": "скриншот принимается через Ctrl+V в поле ввода"})
-        elif p == "/rescan":
-            subprocess.Popen([sys.executable, "-u", r"D:\AI\tools\agent\harvest.py"],
-                             cwd=r"D:\AI\tools\agent")
-            self._j({"msg": "harvest запущен детачем, отчёт в data/last_harvest.json",
-                     "report": r"D:\AI\tools\agent\data\last_harvest.json",
-                     "z_filtered": True})
-        elif p == "/scan":
-            subprocess.Popen([sys.executable, "-u", r"D:\AI\tools\agent\harvest.py"],
-                             cwd=r"D:\AI\tools\agent")
-            self._j({"msg": "harvest запущен детачем, отчёт в data/last_harvest.json",
-                     "report": r"D:\AI\tools\agent\data\last_harvest.json",
-                     "z_filtered": True})
-        elif p == "/profile":
-            __prof = users.get_profile(cl)
-            if __prof:
-                __prof = dict(__prof)
-                __prof["can_manage"] = users.can_manage_users(cl)
-            self._j(__prof or {"error": "нет профиля"})
-        elif p == "/setname":
-            okf, msg = users.update_display_name(cl, b.get("name"))
-            self._j({"ok": okf, "msg": msg})
-        elif p == "/setpw":
-            okf, msg = users.change_password(cl, b.get("old") or "", b.get("new") or "")
-            self._j({"ok": okf, "msg": msg})
-        elif p == "/chat/send":
-            self._j(chat_tools.chat_send(cl, b.get("text")))
-        elif p == "/chat/poll":
-            self._j({"msgs": chat_tools.chat_poll(b.get("last") or 0)})
-        elif p == "/wiz_purge_preview":
-            import purge_tools as _pt
-            self._j(_pt.purge_preview(b.get("root"), b.get("keep")))
-        elif p == "/wiz_purge_execute":
-            import purge_tools as _pt
-            self._j(_pt.purge_execute(b.get("root"), b.get("keep")))
-        elif p == "/admin/users":
-            if not users.can_manage_users(cl):
-                self._j({"error": "нет прав"}, 403); return
-            op = b.get("op")
-            if op == "list":
-                self._j({"users": users.list_users(), "roles": users.ROLES})
-            elif op == "role":
-                okf, msg = users.admin_set_role(b.get("login") or "", b.get("role") or "")
-                self._j({"ok": okf, "msg": msg})
-            elif op == "add":
-                okf = users.add_user(b.get("login") or "", b.get("pw") or b.get("password") or "", b.get("role") or "Инженер")
-                self._j({"ok": okf, "msg": "создан" if okf else "логин занят или пустой"})
-            elif op == "delete":
-                lg = (b.get("login") or "").strip()
-                if not lg:
-                    self._j({"ok": False, "msg": "логин пустой"}, 400); return
-                if lg == cl:
-                    self._j({"ok": False, "msg": "нельзя удалить самого себя"}, 400); return
-                us = users.list_users()
-                tgt = [x for x in us if x.get("login") == lg]
-                if not tgt:
-                    self._j({"ok": False, "msg": "логин %s не найден" % lg}, 404); return
-                adm = [x for x in us if x.get("role") == "Администратор" and x.get("login") != lg]
-                if tgt[0].get("role") == "Администратор" and not adm:
-                    self._j({"ok": False, "msg": "нельзя удалить последнего администратора"}, 400); return
-                okf = users.admin_delete_user(lg)
-                self._j({"ok": okf, "msg": ("пользователь %s удалён" % lg) if okf else "ошибка удаления"})
-            elif op == "resetpw":
-                okf, msg = users.admin_reset_password(b.get("login") or "", b.get("pw") or b.get("password") or "")
-                self._j({"ok": okf, "msg": msg})
             else:
-                self._j({"error": "неизвестная op"}, 400)
-        else:
-            self._j({"error": "не знаю"}, 404)
+                self._j({"error": "не знаю"}, 404)
+        except Exception as e:
+            import traceback
+            err_msg = traceback.format_exc()
+            print(f"CRASH in do_GET: {err_msg}")
+            self._j({"error": str(e)}, 500)
 
