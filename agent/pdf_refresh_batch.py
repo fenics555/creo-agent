@@ -27,20 +27,19 @@ def log_message(msg):
 
 def run_batch(args):
     db_path = args.root if args.root else DEFAULT_DB_PATH
+    
+    # If provided path is a directory, assume it's a root containing 'data/harvest.db'
+    if os.path.isdir(db_path):
+        db_path = os.path.join(db_path, 'data', 'harvest.db')
+    
     if not os.path.exists(db_path):
-        # Try to see if it's a directory and look for harvest.db inside
-        if os.path.isdir(db_path):
-            db_path = os.path.join(db_path, 'data', 'harvest.db')
-        
-        if not os.path.exists(db_path):
-            print(f"Error: Database not found at {db_path}")
-            return
+        print(f"Error: Database not found at {db_path}")
+        return
 
     conn = sqlite3.connect(db_path)
     conn.row_factory = sqlite3.Row
     cur = conn.cursor()
     
-    # Query for "устарел"
     query = "SELECT model, pdf_path FROM pairs WHERE freshness = 'устарел'"
     
     try:
@@ -108,6 +107,7 @@ def run_batch(args):
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="PDF Batch Refresh Tool")
+    parser.add_argument("--dry-run", action="store_true", help="Dry run mode")
     parser.add_argument("--execute", action="store_true", help="Execute actual refresh")
     parser.add_argument("--root", type=str, help="Database path or root directory")
     parser.add_argument("--limit", type=int, help="Limit number of pairs")
@@ -115,15 +115,9 @@ if __name__ == "__main__":
 
     args = parser.parse_args()
     
-    # dry-run is default if --execute is not present
-    is_dry_run = not args.execute
+    if args.execute:
+        args.dry_run = False
+    elif not args.dry_run:
+        args.dry_run = True
     
-    class Args: pass
-    actual_args = Args()
-    actual_args.dry_run = is_dry_run
-    actual_args.execute = args.execute
-    actual_args.root = args.root
-    actual_args.limit = args.limit
-    actual_args.report = args.report
-    
-    run_batch(actual_args)
+    run_batch(args)
