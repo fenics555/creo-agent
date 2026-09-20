@@ -12,7 +12,7 @@ HARVEST = os.path.join(AG, "harvest.py")
 DATA = os.path.join(AG, "data")
 ROOTS_DEFAULT = os.path.join(AG, "kb_roots.txt")
 GUI_ROOTS = os.path.join(DATA, "harvest_gui_roots.txt")
-SETTINGS = os.path.join(DATA, "harvest_gui_settings.json")
+SETTINGS = os.path.join(DATA, "harvest_settings.json")
 REPORT = r"D:\AI\log\harvest\last_harvest.json"
 LOGF = r"D:\AI\log\harvest\harvest.log"
 LOCK = os.path.join(DATA, "harvest.lock")
@@ -78,6 +78,14 @@ class App:
         self.checked = set(self.sett.get("roots_checked", []))
         self.z_allowed = bool(self.sett.get("z_allowed", False))
         self.pid = None
+        
+        # New settings
+        self.var_exts = tk.StringVar(value=", ".join(self.sett.get("extensions", ["prt", "asm", "drw", "frm", "lay", "sec"])))
+        self.var_markers = tk.BooleanVar(value=self.sett.get("markers", True))
+        self.var_src_txt = tk.BooleanVar(value="txt" in self.sett.get("chunks_sources", ["txt", "md"]))
+        self.var_src_md = tk.BooleanVar(value="md" in self.sett.get("chunks_sources", ["txt", "md"]))
+        self.var_batch = tk.IntVar(value=self.sett.get("batch", 500))
+        
         self._build()
         self._refresh_loop()
 
@@ -90,6 +98,14 @@ class App:
                                highlightbackground=OK_BD, highlightthickness=1,
                                font=("Arial", 10, "bold"), padx=12, pady=4)
         self.status.pack(anchor="w", padx=14, pady=(8, 0))
+        self.badge_lbl = tk.Label(head, text="", bg=RUN_BG, fg="#8a5e00",
+                                 highlightbackground=RUN_BD, highlightthickness=1,
+                                 font=("Arial", 9, "bold"), padx=8, pady=2)
+        self.badge_lbl.pack(anchor="e", padx=14, pady=(0, 0))
+        self.badge_lbl = tk.Label(head, text="", bg=RUN_BG, fg="#8a5e00",
+                                 highlightbackground=RUN_BD, highlightthickness=1,
+                                 font=("Arial", 9, "bold"), padx=8, pady=2)
+        self.badge_lbl.pack(anchor="e", padx=14, pady=(0, 0))
 
         body = tk.Frame(self.root, bg=BG)
         body.pack(fill="both", expand=True, padx=16, pady=8)

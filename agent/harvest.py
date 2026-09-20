@@ -5,7 +5,8 @@ CLI: python harvest.py [--roots <файл>] [--text]; корни по умолч
 База data/harvest.db; лок data/harvest.lock; лог data/harvest.log;
 отчёт data/last_harvest.json. Парсер заголовков — scanner.ScannerLibrary.
 """
-import argparse, hashlib, json, os, re, sqlite3, sys, time
+import json
+
 from datetime import datetime
 from pathlib import Path
 
@@ -33,6 +34,14 @@ def die(code, msg):
     log("FATAL: " + msg)
     print(msg)
     sys.exit(code)
+
+def load_harvest_settings():
+    try:
+        with open(AG / "data" / "harvest_settings.json", "r", encoding="utf-8") as f:
+            return json.load(f)
+    except Exception:
+        return {}
+
 
 def _pid_alive(pid):
     import ctypes
@@ -153,7 +162,7 @@ def flush_batch(con, batch, old, added, rewrote):
     return a, r
 
 
-def scan_models(con, roots):
+def scan_models(con, roots, extensions=None, batch_size=500):
     old = {p: (mt, sz) for p, mt, sz in
            con.execute("SELECT path, mtime, size FROM models_raw")}
     from scanner import ScannerLibrary
@@ -176,9 +185,11 @@ def scan_models(con, roots):
         seen_here = set()
         batch, a, r = [], 0, 0
         for meta in lib.scan_files_generator(root):
+            if extensions and meta["ext"].lstrip('.') not in extensions:
+                continue
             seen_here.add(meta["path"])
             batch.append(meta)
-            if len(batch) >= BATCH:
+            if len(batch) >= batch_size:
                 a2, r2 = flush_batch(con, batch, old, added, rewrote)
                 a += a2; r += r2
                 log("  батч: прочитано %d, added=%d, rewrote=%d" % (len(seen_here), a, r))
@@ -198,12 +209,21 @@ def scan_models(con, roots):
     return added, rewrote, deleted, per_root, vanished, time.time() - t_all
 
 
-def parse_instances(con, lib):
+def parse_instances(con, lib, markers=True, extensions=None):
     n = 0
+    if not markers:
+        return 0
+    
+    if extensions:
+        ext_pattern = "|".join([re.escape(e) for e in extensions])
+        local_re_creo = re.compile(rf"\.({ext_pattern})(?:\.\d+)?$", re.I)
+    else:
+        local_re_creo = RE_CREO
+
     rows = con.execute("SELECT path, name FROM models_raw").fetchall()
     con.execute("DELETE FROM instances")
     for p, name in rows:
-        if not RE_CREO.search(name or ""):
+        if not local_re_creo.search(name or ""):
             continue
         try:
             res = lib.parse_model_header(p)
@@ -223,12 +243,19 @@ def parse_instances(con, lib):
     return n
 
 
-def build_pairs(con):
+def build_pairs(con, extensions=None):
     n = 0
     con.execute("DELETE FROM pairs")
     rows = con.execute("SELECT path, name, mtime FROM models_raw").fetchall()
+    
+    if extensions:
+        ext_pattern = "|".join([re.escape(e) for e in extensions])
+        local_re_creo = re.compile(rf"\.({ext_pattern})(?:\.\d+)?$", re.I)
+    else:
+        local_re_creo = RE_CREO
+
     for p, name, mt in rows:
-        m = RE_CREO.search(name or "")
+        m = local_re_creo.search(name or "")
         if not m:
             continue
         base = (name or "")[:m.start()]
@@ -288,20 +315,21 @@ def flush_text(con, buf):
     return n
 
 
-def text_pass(con, roots):
+def text_pass(con, roots, chunks_sources=["txt", "md"]):
     if not ollama_alive():
         log("text: ollama недоступна")
         print("ollama недоступна")
         sys.exit(4)
     con.execute("DELETE FROM chunks_fts")
     n, buf = 0, []
+    allowed = tuple(f".{s.lower()}" for s in chunks_sources)
     for root in roots:
         if not Path(root).exists():
             continue
         for dirpath, dirs, files in os.walk(root):
             dirs[:] = [d for d in dirs if not d.startswith(".")]
             for fn in files:
-                if not fn.lower().endswith((".md", ".txt")):
+                if not fn.lower().endswith(allowed):
                     continue
                 p = os.path.join(dirpath, fn)
                 try:
@@ -368,17 +396,25 @@ def run(roots_list=None, text=False, bench=False, allow_z=False, roots_file=None
     rep = None
     try:
         con, existed, reset = open_db()
+        
+        # Load settings
+        settings = load_harvest_settings()
+        extensions = [e.lstrip('.') for e in settings.get("extensions", ["prt", "asm", "drw", "frm", "lay", "sec"])]
+        markers = settings.get("markers", True)
+        chunks_sources = settings.get("chunks_sources", ["txt", "md"])
+        batch_size = settings.get("batch", 500)
+
         if roots_list is None:
             roots = read_roots(roots_file or str(DEFAULT_ROOTS), allow_z)
         else:
             roots = [r for r in roots_list if r]
         if text:
-            text_pass(con, roots)
-        added, rewrote, deleted, per_root, vanished, seconds = scan_models(con, roots)
+            text_pass(con, roots, chunks_sources)
+        added, rewrote, deleted, per_root, vanished, seconds = scan_models(con, roots, extensions, batch_size)
         from scanner import ScannerLibrary
         lib = ScannerLibrary()
-        parse_instances(con, lib)
-        build_pairs(con)
+        parse_instances(con, lib, markers, extensions)
+        build_pairs(con, extensions)
         con.commit()
         rep = write_report(con, roots, added, rewrote, deleted, per_root, vanished, time.time() - t0)
         if bench:
