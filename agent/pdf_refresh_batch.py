@@ -34,7 +34,7 @@ def run_batch(args):
     
     if not os.path.exists(db_path):
         print(f"Error: Database not found at {db_path}")
-        return
+        return False, {"error": f"Database not found at {db_path}"}
 
     conn = sqlite3.connect(db_path)
     conn.row_factory = sqlite3.Row
@@ -47,13 +47,13 @@ def run_batch(args):
         rows = cur.fetchall()
     except Exception as e:
         print(f"Database error: {e}")
-        return
+        return False, {"error": f"Database error: {e}"}
     finally:
         conn.close()
 
     if not rows:
         print("No outdated PDF pairs found.")
-        return
+        return True, {"preview": [], "message": "No outdated PDF pairs found."}
 
     if args.limit:
         rows = rows[:args.limit]
@@ -67,6 +67,8 @@ def run_batch(args):
         "errors": []
     }
 
+    preview_data = []
+
     for row in rows:
         model_path_str = row['model']
         pdf_path_str = row['pdf_path']
@@ -78,6 +80,12 @@ def run_batch(args):
         if args.dry_run:
             print(f"[DRY-RUN] Would refresh: {model_path.name} -> {pdf_path.name}")
             results["became_actual"] += 1
+            preview_data.append({
+                "name": model_path.name,
+                "was": pdf_path.name,
+                "will": pdf_path.name, # In dry run, nothing changes
+                "dir": str(dirname)
+            })
             continue
 
         if CT is None:
@@ -102,8 +110,13 @@ def run_batch(args):
         json.dump(results, f, indent=4, ensure_ascii=False)
     
     print(f"Batch finished. Report saved to {REPORT_FILE}")
-    if results["errors"]:
-        print(f"Completed with {len(results['errors'])} errors.")
+    
+    if args.dry_run:
+        return True, {"preview": preview_data}
+    else:
+        if results["errors"]:
+            print(f"Completed with {len(results['errors'])} errors.")
+        return True, results
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="PDF Batch Refresh Tool")

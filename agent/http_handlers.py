@@ -16,6 +16,8 @@ from loop import (LIVE_TOK, LIVE_THINK, LIVE, PENDING, HOSTNAME, UI_FILE,
                   _UI_CACHE, STUB_PAGE, _SYS_CACHE, ask, do_approve)
 from agent_sched import _wd_port
 
+import pdf_refresh_batch
+
 def _serve_ui(handler):
     try:
         mt = int(os.path.getmtime(UI_FILE))
@@ -413,6 +415,33 @@ class Hd(BaseHTTPRequestHandler):
                 __prof = dict(__prof)
                 __prof["can_manage"] = users.can_manage_users(cl)
             self._j(__prof or {"error": "нет профиля"})
+        elif p == "/wiz_pdfrefresh_preview":
+            import pdf_refresh_batch as pr
+            class MockArgs:
+                def __init__(self, root, limit):
+                    self.root = root
+                    self.limit = limit
+                    self.dry_run = True
+                    self.execute = False
+            ok, data = pr.run_batch(MockArgs(b.get("root"), int(b.get("limit") or 0)))
+            self._j(data if ok else data, 200 if ok else 400)
+        elif p == "/wiz_pdfrefresh_execute":
+            import pdf_refresh_batch as pr
+            pid = datetime.datetime.now().strftime("%H%M%S%f")
+            PENDING[pid] = {
+                "name": "pdf_refresh",
+                "args": {
+                    "root": b.get("root"),
+                    "limit": int(b.get("limit") or 0),
+                    "execute": True,
+                    "dry_run": False
+                },
+                "client": cl,
+                "messages": [],
+                "raw": ""
+            }
+            self._j(f"[СОГЛАСОВАНИЕ] запуск перепечатки PDF (id {pid})")
+
         elif p == "/setname":
             okf, msg = users.update_display_name(cl, b.get("name"))
             self._j({"ok": okf, "msg": msg})
