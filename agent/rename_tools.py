@@ -84,7 +84,10 @@ def _parents(wd, base):
     out = []
     for p in names:
         pb = _base(p)
-        if pb and pb.lower() != base.lower() and _latest(wd, pb, ".asm"):
+        # Имя сборки-владельца может СОВПАДАТЬ с именем детали (частый случай:
+        # 23-1017gri-01.asm содержит 23-1017gri-01.prt) — различает расширение,
+        # поэтому одинаковое базовое имя не отбрасываем (поле-тест Д4, 19.09.2026).
+        if pb and _latest(wd, pb, ".asm"):
             if pb not in out:
                 out.append(pb)
     return out
