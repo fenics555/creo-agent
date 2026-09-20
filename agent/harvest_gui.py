@@ -1,15 +1,12 @@
-# -*- coding: utf-8 -*-
+﻿# -*- coding: utf-8 -*-
 import tkinter as tk
 from tkinter import ttk, messagebox
 import json
 import os
-import subprocess
-import sys
-import time
 import ctypes
 from harvest_gui_panels import AppPanelsMixin
 
-# Constants
+# Constants (Davydovka Palette)
 BG = '#ffffff'
 CARD = '#f0f0f0'
 BORDER = '#cccccc'
@@ -33,13 +30,7 @@ def lock_alive():
             if not pid_str:
                 return None
             pid = int(pid_str)
-            # Check if process is running on Windows
-            import ctypes
-            kernel32 = ctypes.windll.kernel32
-            PROCESS_QUERY_INFORMATION = 0x0400
-            handle = kernel32.OpenProcess(PROCESS_QUERY_INFORMATION, False, pid)
-            if handle:
-                kernel32.CloseHandle(handle)
+            if pid and ctypes.windll.kernel32.OpenProcess(0x1000, False, pid):
                 return pid
     except Exception:
         pass
@@ -56,29 +47,20 @@ class HarvestGUI(AppPanelsMixin):
         self._refresh_loop()
 
     def _setup_controls(self):
-        ctrl_frame = tk.Frame(self.root, bg=BG)
-        ctrl_frame.pack(fill='x', padx=5, pady=5)
-        
-        self.stop_btn = tk.Button(ctrl_frame, text='STOP', command=self.on_stop, bg='#ff4444', fg='white')
+        ctrl = tk.Frame(self.root, bg=BG)
+        ctrl.pack(fill='x', padx=5, pady=5)
+        self.stop_btn = tk.Button(ctrl, text='STOP', command=self.on_stop, bg='#ff4444', fg='white')
         self.stop_btn.pack(side='right')
-
-        self.badge_lbl = tk.Label(ctrl_frame, text='', bg=CARD, relief='sunken')
+        self.badge_lbl = tk.Label(ctrl, text='', bg=CARD, relief='sunken')
         self.badge_lbl.pack(side='left', padx=5)
 
     def update_badge(self, text):
         self.badge_lbl.configure(text=text)
 
     def _refresh_loop(self):
-        # Call parent refresh
         super()._refresh_loop()
-        
-        # Update Badge
         pid = lock_alive()
-        if pid:
-            self.update_badge(f"ИДЁТ СБОР (PID {pid})")
-        else:
-            self.update_badge("READY")
-        
+        self.update_badge(f"ИДЁТ СБОР (PID {pid})" if pid else "READY")
         self.root.after(5000, self._refresh_loop)
 
 def main():

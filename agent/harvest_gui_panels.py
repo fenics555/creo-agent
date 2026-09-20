@@ -1,4 +1,4 @@
-# -*- coding: utf-8 -*-
+﻿# -*- coding: utf-8 -*-
 """
 harvest_gui_panels.py - Mixin for harvest_gui.py
 Contains UI panels (info, log, badge) and handlers.
@@ -51,7 +51,7 @@ class AppPanelsMixin:
             if res.get('stopped'):
                 self._set_status('stopped', 'ok')
             else:
-                self._set_status(f'STOP: {res.get(\'reason\')}', 'err')
+                self._set_status(f"STOP: {res.get('reason')}", 'err')
         except Exception as e:
             self._set_status(f'Stop error: {e}', 'err')
 
@@ -72,19 +72,19 @@ class AppPanelsMixin:
                 files = (d.get('tables') or {}).get('models_raw', '0')
                 ts = d.get('ts', '-')
                 sec = d.get('seconds', '0')
-                self.report_lbl.configure(text=f'ts: {ts} | sec: {sec} | files: {files} | added: {d.get(\'added\',0)}')
+                self.report_lbl.configure(text=f'ts: {ts} | sec: {sec} | files: {files} | added: {d.get("added", 0)}')
                 for i in self.tree.get_children(): self.tree.delete(i)
                 for r, p in (d.get('per_root') or {}).items():
                     self.tree.insert('', 'end', values=(r, p.get('added'), p.get('rewrote'), p.get('deleted'), p.get('seconds')))
         except Exception: pass
-
+        
         try:
             if os.path.exists(LOGF):
                 with open(LOGF, encoding='utf-8', errors='ignore') as f:
                     tail = f.read().splitlines()[-30:]
                 self.log_txt.configure(state='normal')
                 self.log_txt.delete('1.0', 'end')
-                self.log_txt.insert('1.0', '\\n'.join(tail))
+                self.log_txt.insert('1.0', '\n'.join(tail))
                 self.log_txt.see('end')
                 self.log_txt.configure(state='disabled')
         except Exception: pass
