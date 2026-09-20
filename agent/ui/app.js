@@ -122,7 +122,7 @@ else if(a=='w_audit'){document.getElementById('wiz').style.display='none';qinp.v
 else if(a=='w_usage'){document.getElementById('wiz').style.display='none';qinp.value='usage_build full=1';send()}
 else if(a=='w_night'){document.getElementById('wiz').style.display='none';qinp.value='nightly_run';send()}
 else if(a=='snap')J('/snap',{token:TK}).then(function(r){addMsg(esc(r.msg||'ок'))});
-else if(a=='showlog'){fetch('/log',{headers:{'X-Token':TK||''}}).then(r=>r.text()).then(t=>addMsg('<div class="log">'+esc(t)+'</div>'))};
+else if(a=='showlog'){fetch('/log',{headers:{'X-Token':TK||''}}).then(r=>r.text()).then(t=>addMsg('<div class="log">'+esc(t)+'</div>'))}
 else if(a=='panel')panel.style.display=panel.style.display=='none'?'block':'none';
 else if(a=='logout'){localStorage.removeItem('tk');localStorage.removeItem('usr');TK='';showLogin()}
 else if(a=='showpro'){J('/profile',{token:TK}).then(function(u){document.getElementById('proinfo').textContent=(u.display_name||'')+' · '+(u.role||'')+' · '+u.login;document.getElementById('pname').value=u.display_name||'';document.getElementById('pro').style.display='flex';document.getElementById('adm_btn').style.display=u.can_manage?'block':'none'})}

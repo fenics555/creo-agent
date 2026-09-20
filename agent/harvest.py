@@ -5,8 +5,7 @@ CLI: python harvest.py [--roots <файл>] [--text]; корни по умолч
 База data/harvest.db; лок data/harvest.lock; лог data/harvest.log;
 отчёт data/last_harvest.json. Парсер заголовков — scanner.ScannerLibrary.
 """
-import json
-
+import argparse, hashlib, json, os, re, sqlite3, sys, time
 from datetime import datetime
 from pathlib import Path
 
