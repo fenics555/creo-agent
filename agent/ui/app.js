@@ -153,7 +153,6 @@ else if(a=='childname'){var row=el.closest('.msg').querySelector('.pdfrow');if(r
 else if(a=='lbx'){var lb=document.getElementById('lbx');lb.style.display='flex';lb.querySelector('img').src=el.getAttribute('src')}
 else if(a=='showchat'){var cb=document.getElementById('chatbox');if(cb.style.display=='flex'){cb.style.display='none';if(CTMR){clearInterval(CTMR);CTMR=null}}else{cb.style.display='flex';CLAST=0;document.getElementById('cmsg').innerHTML='';chatPoll();if(CTMR)clearInterval(CTMR);CTMR=setInterval(chatPoll,5000);NEWMSG=0;chatBadge()}}
 else if(a=='closechat'){document.getElementById('chatbox').style.display='none';if(CTMR){clearInterval(CTMR);CTMR=null}}
-else if(a=='open_purge'){document.getElementById('wiz_purge').style.display='flex'}
 else if(a=='close_purge'){document.getElementById('wiz_purge').style.display='none'}
 else if(a=='open_pdf_wizard'){document.getElementById('wiz_pdf').style.display='flex'}
 else if(a=='close_pdf'){document.getElementById('wiz_pdf').style.display='none'}
