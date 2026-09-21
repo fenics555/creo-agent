@@ -1,4 +1,5 @@
-﻿import numpy as np
+﻿# -*- coding: utf-8 -*-
+import numpy as np
 import os
 from core import log, embed, db
 import scanner
@@ -25,7 +26,7 @@ def reload_model_matrix():
         ROWS = []
 
 try:
-    # scanner.init_tables() # Commented out to avoid error: module 'scanner' has no attribute 'init_tables'
+    scanner.init_db_schema()
     reload_model_matrix()
 except Exception as ex:
     log("similar init err: %s" % ex)
@@ -39,12 +40,10 @@ def find_similar(name="", q="", top=10):
     qv = None
     if name:
         c = db()
-        # 1. Try model_embs directly
         r_emb = c.execute("SELECT emb FROM model_embs WHERE name=?", (name,)).fetchone()
         if r_emb:
             qv = np.frombuffer(r_emb[0], np.float32)
         
-        # 2. Try chunks (if model in models)
         if qv is None:
             model = c.execute("SELECT path FROM models WHERE name=?", (name,)).fetchone()
             if model:
@@ -64,7 +63,6 @@ def find_similar(name="", q="", top=10):
                     embs = [np.frombuffer(row[0], np.float32) for row in rows]
                     qv = np.mean(embs, axis=0)
         
-        # 3. Fallback to embed(name)
         if qv is None:
             e = embed(name)
             if not e:
@@ -77,12 +75,11 @@ def find_similar(name="", q="", top=10):
         if not e: return [{"error": "embed fail"}]
         qv = np.array(e, np.float32)
     else:
-        return [{"error": "\u0443\u043a\u0430\u0436\u0438\u0442\u0435 name \u0438\u043b\u0438 q"}]
+        return [{"error": "укажите name или q"}]
 
     if MAT is None or len(MAT) == 0:
         return [{"error": "matrix empty"}]
 
-    # Cosine similarity
     norm_mat = np.linalg.norm(MAT, axis=1)
     norm_qv = np.linalg.norm(qv)
     sim = (MAT @ qv) / (norm_mat * norm_qv + 1e-9)
@@ -100,7 +97,7 @@ def find_similar(name="", q="", top=10):
 
 TOOLS = [{
     "name": "find_similar",
-    "desc": "\u041f\u043e\u0438\u0441\u043a \u043f\u043e\u0445\u043e\u0436\u0438\u0445 \u043c\u043e\u0434\u0435\u043b\u0435\u0439 \u043f\u043e \u044d\u043c\u0431\u0435\u0434\u0434\u0438\u043d\u0433\u0430\u043c",
-    "params": {"name": "\u0438\u043c\u044f", "q": "\u0437\u0430\u043f\u0440\u043e\u0441", "top": "\u0441\u043a\u043e\u043b\u044c"},
+    "desc": "Поиск похожих моделей по эмбеддингам",
+    "params": {"name": "имя", "q": "запрос", "top": "сколь"},
     "fn": find_similar
 }]
