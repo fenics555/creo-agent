@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 """АГЕНТ v15 — БАЗЫ ДАННЫХ (db_tools.py): полное состояние хранилищ + три индексации."""
-import os, sys, datetime, subprocess
+import os, sys, datetime, subprocess, json
 import core
 
 AGENT_DIR = os.path.dirname(os.path.abspath(__file__))
@@ -63,6 +63,25 @@ def db_state(verbose=0):
     out.append("6. Бэкапы sqlite: %d; pdf-кэш: %d → ОК" % (bak_n, pdf_n))
     bad = [l for l in out[1:] if not l.endswith("актуально")]
     out.append("Все базы актуальны." if not bad else "Требуют внимания: " + "; ".join(bad) + " — нажми кнопку индексации этого пункта.")
+    out.append("7. НОВАЯ ПАМЯТЬ (harvest.db):")
+    h_path = r"D:\AI\log\harvest\last_harvest.json"
+    if os.path.exists(h_path):
+        try:
+            with open(h_path, 'r', encoding='utf-8') as f:
+                h_data = json.load(f)
+            t = h_data.get("tables", {})
+            f_cnt = t.get("models_raw", 0)
+            p_cnt = t.get("pairs", 0)
+            ts_str = h_data.get("ts", "unknown")
+            sec = h_data.get("seconds", 0)
+            bench = h_data.get("bench_top", [])
+            bench_str = ", ".join([f"{b['name']}({b['score']})" for b in bench[:3]]) if bench else "нет"
+            out.append("   files: %d; pairs: %d; ts: %s; sec: %.1f; bench: %s" % (f_cnt, p_cnt, ts_str, sec, bench_str))
+        except Exception:
+            out.append("   харвест спит")
+    else:
+        out.append("   харвест спит")
+
     if verbose:
         out.append("")
         out.append("ПОЛНАЯ ВЫГРУЗКА:")
