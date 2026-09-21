@@ -154,6 +154,23 @@ else if(a=='showchat'){var cb=document.getElementById('chatbox');if(cb.style.dis
 else if(a=='closechat'){document.getElementById('chatbox').style.display='none';if(CTMR){clearInterval(CTMR);CTMR=null}}
 else if(a=='open_purge'){document.getElementById('wiz_purge').style.display='flex'}
 else if(a=='close_purge'){document.getElementById('wiz_purge').style.display='none'}
+else if(a=='open_pdf_wizard'){document.getElementById('wiz_pdf').style.display='flex'}
+else if(a=='close_pdf'){document.getElementById('wiz_pdf').style.display='none'}
+else if(a=='wiz_pdf_preview'){
+    var r=document.getElementById('wp_pdf_root').value;
+    var k=document.getElementById('wp_pdf_keep').value;
+    var o=document.getElementById('wp_pdf_out');
+    o.innerHTML='<small style=\"color:#A6A8AB\">запуск...</small>';
+    J('/wiz_pdf_preview',{token:TK,root:r,keep:k}).then(function(g){o.innerHTML='<span style=\"color:#4C8FD6\">'+esc(g)+'</span>';}).catch(function(e){o.innerHTML='<span style=\"color:#C64E4E\">ошибка: '+esc(e)+'</span>'})
+}
+else if(a=='wiz_pdf_execute'){
+    var r=document.getElementById('wp_pdf_root').value;
+    var k=document.getElementById('wp_pdf_keep').value;
+    var o=document.getElementById('wp_pdf_out');
+    o.innerHTML='<small style=\"color:#A6A8AB\">запуск...</small>';
+    J('/wiz_pdf_execute',{token:TK,root:r,keep:k}).then(function(g){o.innerHTML='<span style=\"color:#4C8FD6\">'+esc(g)+'</span>';}).catch(function(e){o.innerHTML='<span style=\"color:#C64E4E\">ошибка: '+esc(e)+'</span>'})
+}
+
 else if(a=='wiz_purge_preview'){var r=document.getElementById('wp_root').value,k=document.getElementById('wp_keep').value,o=document.getElementById('wp_out');if(!r){alert('укажи путь');return}o.innerHTML='<small style=\"color:#A6A8AB\">считаю план…</small>';J('/wiz_purge_preview',{token:TK,root:r,keep:k}).then(function(g){if(g.error){o.innerHTML='<span style=\"color:#C64E4E\">'+esc(g.error)+'</span>';return}o.innerHTML='<pre style=\"font-size:10px;white-space:pre-wrap\">'+esc(JSON.stringify(g,null,2))+'</pre>';}).catch(function(e){o.innerHTML='<span style=\"color:#C64E4E\">ошибка: '+esc(e)+'</span>'})}
 else if(a=='wiz_purge_execute'){var r=document.getElementById('wp_root').value,k=document.getElementById('wp_keep').value,o=document.getElementById('wp_out');if(!r){alert('укажи путь');return}o.innerHTML='<small style=\"color:#A6A8AB\">запуск...</small>';J('/wiz_purge_execute',{token:TK,root:r,keep:k}).then(function(g){o.innerHTML='<span style=\"color:#4C8FD6\">'+esc(g)+ '</span>';}).catch(function(e){o.innerHTML='<span style=\"color:#C64E4E\">ошибка: '+esc(e)+'</span>'})}
 else if(a=='chatsend'){var t=document.getElementById('cin').value;J('/chat/send',{token:TK,text:t}).then(function(r){if(r.ok)document.getElementById('cin').value='';chatPoll()})}});

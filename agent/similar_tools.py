@@ -1,6 +1,4 @@
-# -*- coding: utf-8 -*-
-"""SIMILAR: поиск похожих Creo-моделей по эмбеддингам (спека 30)."""
-import numpy as np
+﻿import numpy as np
 import os
 from core import log, embed, db
 import scanner
@@ -27,7 +25,7 @@ def reload_model_matrix():
         ROWS = []
 
 try:
-    scanner.init_tables()
+    # scanner.init_tables() # Commented out to avoid error: module 'scanner' has no attribute 'init_tables'
     reload_model_matrix()
 except Exception as ex:
     log("similar init err: %s" % ex)
