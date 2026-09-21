@@ -13,7 +13,7 @@ function J(u,b){return fetch(u,{method:b?'POST':'GET',headers:{'Content-Type':'a
 function esc(s){return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;')}
 function att(s){return esc(s).replace(new RegExp('"', 'g'),'&quot;')}
 
-function addMsg(html,me){var d=document.createElement('div');d.className='msg'+(me?' me':'');d.innerHTML=html;chat.appendChild(d);chat.scrollTop=chat.scrollHeight;return d}
+function addMsg(html,me){var d=document.createElement('div');d.className='msg'+(me?' me':'');var t=new Date().toLocaleTimeString([], {hour:'2-digit',minute:'2-digit',hour12:false});d.innerHTML='<small style="color:#A6A8AB;margin-right:5px;">'+t+'</small>'+html;chat.appendChild(d);chat.scrollTop=chat.scrollHeight;return d}
 function showLogin(){login.style.display='flex';hdr.textContent='';panel.innerHTML=''}
 function send(){var q=qinp.value;if(!q)return;qinp.value='';addMsg(esc(q),true);var d=addMsg('🤔 думаю...');var sp=document.getElementById('spin');if(sp)sp.style.display='inline-block';
 var TKI=0,ST2=setInterval(function(){J('/livetoks?last='+TKI).then(function(g){(g.toks||[]).forEach(function(t){TKI++;var s=d.querySelector('.stream')||(function(){var e=document.createElement('div');e.className='stream';d.appendChild(e);return e})();s.textContent+=t;chat.scrollTop=chat.scrollHeight;});});},120);

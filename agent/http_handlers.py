@@ -400,15 +400,15 @@ class Hd(BaseHTTPRequestHandler):
         elif p == "/rescan":
             subprocess.Popen([sys.executable, "-u", r"D:\AI\tools\agent\harvest.py"],
                              cwd=r"D:\AI\tools\agent")
-            self._j({"msg": "harvest запущен детачем, отчёт в data/last_harvest.json",
-                     "report": r"D:\AI\tools\agent\data\last_harvest.json",
-                     "warning": "идёт по kb_roots.txt (Z: включён в корнях)"})
+            self._j({"msg": "harvest запущен детачем, отчёт в D:\\AI\\log\\harvest\\last_harvest.json",
+                     "report": r"D:\AI\log\harvest\last_harvest.json",
+                     "z_status": "Z запрещён словом, пропущен"})
         elif p == "/scan":
             subprocess.Popen([sys.executable, "-u", r"D:\AI\tools\agent\harvest.py"],
                              cwd=r"D:\AI\tools\agent")
-            self._j({"msg": "harvest запущен детачем, отчёт в data/last_harvest.json",
-                     "report": r"D:\AI\tools\agent\data\last_harvest.json",
-                     "warning": "идёт по kb_roots.txt (Z: включён в корнях)"})
+            self._j({"msg": "harvest запущен детачем, отчёт в D:\\AI\\log\\harvest\\last_harvest.json",
+                     "report": r"D:\AI\log\harvest\last_harvest.json",
+                     "z_status": "Z запрещён словом, пропущен"})
         elif p == "/profile":
             __prof = users.get_profile(cl)
             if __prof:
