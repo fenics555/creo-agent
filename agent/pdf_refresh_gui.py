@@ -114,7 +114,7 @@ class PDFRefreshGUI:
                 elif st == "устарел": tags = ("working",)
                 iid = self.tree.insert("", tk.END, values=("☐", r['model'], r['pdf_path'], st, os.path.dirname(r['model'])), tags=tags)
                 if self.settings["auto_select_outdated"] and st == "устарел":
-                    self.selected_items.append(iid); self.tree.item(iid, values=(("☑",) + r['model'], r['pdf_path'], st, os.path.dirname(r['model'])))
+                    self.selected_items.append(iid); self.tree.item(iid, values=("\u2611", r['model'], r['pdf_path'], st, os.path.dirname(r['model'])))
             self.tree.tag_configure("working", background=STATUS_WORKING_BG)
             self.tree.tag_configure("done", background=STATUS_DONE_BG)
             self._update_buttons()

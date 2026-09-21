@@ -10,6 +10,9 @@ from pathlib import Path
 
 LOCK = Path(r'D:\AI\tools\agent\data\pdf_refresh.lock')
 
+# Приборные сигналы для окна (нога 2): общий словарь, живёт в памяти процесса.
+PROGRESS = {"phase": "ожидание", "i": 0, "N": 0, "current": "", "stop": False}
+
 def _pid_alive(pid):
     k = ctypes.windll.kernel32
     h = k.OpenProcess(0x1000, False, int(pid))
@@ -80,6 +83,7 @@ def log_message(msg):
 
 def run_batch(args):
     acquire_lock()
+    PROGRESS.update({"phase": "чтение пар", "i": 0, "N": 0, "current": "", "stop": False})
     db_path = DEFAULT_DB_PATH
     root_filter = (args.root or '').strip()
 
@@ -126,7 +130,13 @@ def run_batch(args):
 
     preview_data = []
 
-    for row in rows:
+    for idx, row in enumerate(rows, 1):
+        if PROGRESS.get("stop"):
+            print("остановлено по запросу (кооперативный стоп)")
+            results["errors"].append({"file": "", "error": "остановлено пользователем"})
+            break
+        PROGRESS.update({"phase": "работа", "i": idx, "N": len(rows),
+                         "current": os.path.basename(row['pdf_path'])})
         model_path_str = row['model']
         pdf_path_str = row['pdf_path']
         
@@ -181,6 +191,7 @@ def run_batch(args):
         json.dump(results, f, indent=4, ensure_ascii=False)
     
     print(f"Batch finished. Report saved to {REPORT_FILE}")
+    PROGRESS.update({"phase": "готово", "current": "", "i": PROGRESS["N"]})
     release_lock()
     
     if args.dry_run:
