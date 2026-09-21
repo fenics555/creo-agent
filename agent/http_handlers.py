@@ -63,6 +63,7 @@ class Hd(BaseHTTPRequestHandler):
 
     def do_GET(self):
         p = urlparse(self.path).path
+        print(f"DEBUG: p={p}")
         if p == "/status":
             token = self.headers.get("X-Token") or ""
             cl2 = users.token_info(token)
@@ -468,6 +469,34 @@ class Hd(BaseHTTPRequestHandler):
                 "raw": ""
             }
             self._j(f"[СОГЛАСОВАНИЕ] запуск перепечатки PDF (id {pid})")
+        elif p == "/wiz_purge_preview":
+            import purge_versions
+            from pathlib import Path
+            root = b.get("root")
+            keep = int(b.get("keep") or 1)
+            creo_mode = b.get("creo_mode") == "true"
+            res = purge_versions.preview(Path(root), keep, creo_mode)
+            rows = []
+            total = 0
+            for g in res["groups"]:
+                old = g["base"]
+                new = g["target"]
+                versions = len(g["members"])
+                rows.append({"old": old, "new": new, "versions": versions})
+                total += 1
+            for s in res["singles"]:
+                rows.append({"old": s, "new": s, "versions": 1})
+                total += 1
+            self._j({"rows": rows, "total": total, "error": None})
+        elif p == "/wiz_purge_execute":
+            import purge_versions
+            from pathlib import Path
+            root = Path(b.get("root"))
+            keep = int(b.get("keep") or 1)
+            creo_mode = b.get("creo_mode") == "true"
+            backup_dir = root / "_purge_backup" / datetime.datetime.now().strftime("%Y%m%d")
+            res = purge_versions.execute(root, keep, creo_mode, backup_dir)
+            self._j(res)
 
         elif p == "/setname":
             okf, msg = users.update_display_name(cl, b.get("name"))
