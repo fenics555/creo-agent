@@ -70,7 +70,7 @@ def _session():
 
 
 def _parents(wd, base):
-    """Родительские сборки модели по базе usage (child -> parent)."""
+    """Родительские сборки модели: база usage + поиск по .asm рабочей папки."""
     names = []
     try:
         c = core.db()
@@ -81,12 +81,23 @@ def _parents(wd, base):
         names = [r[0] for r in rows if r and r[0]]
     except Exception:
         names = []
+    # Поле-тест Д4 (19.09.2026): база usage знает не все папки, поэтому ищем родителей
+    # локально — имя детали внутри свежих *.asm рабочей папки (тот же приём, что
+    # в usage_tools: бинарный поиск имени по файлу сборки). Работаем только с wd.
+    needle = base.encode("ascii", "ignore").lower()
+    if needle:
+        for asm in Path(wd).glob("*.asm.*"):
+            try:
+                if needle in asm.read_bytes().lower():
+                    names.append(asm.name.rsplit(".", 1)[0])
+            except Exception:
+                continue
     out = []
     for p in names:
         pb = _base(p)
         # Имя сборки-владельца может СОВПАДАТЬ с именем детали (частый случай:
         # 23-1017gri-01.asm содержит 23-1017gri-01.prt) — различает расширение,
-        # поэтому одинаковое базовое имя не отбрасываем (поле-тест Д4, 19.09.2026).
+        # поэтому одинаковое базовое имя не отбрасываем.
         if pb and _latest(wd, pb, ".asm"):
             if pb not in out:
                 out.append(pb)
