@@ -3,8 +3,61 @@ import sqlite3
 import json
 import os
 import sys
+import subprocess
+import ctypes
 import datetime
 from pathlib import Path
+
+LOCK = Path(r'D:\AI\tools\agent\data\pdf_refresh.lock')
+
+def _pid_alive(pid):
+    k = ctypes.windll.kernel32
+    h = k.OpenProcess(0x1000, False, int(pid))
+    if h:
+        k.CloseHandle(h)
+        return True
+    return False
+
+def acquire_lock():
+    if LOCK.exists():
+        try:
+            old = LOCK.read_text(encoding='ascii', errors='ignore').strip()
+        except Exception:
+            old = ''
+        if old.isdigit() and _pid_alive(old):
+            print('уже идёт (PID %s)' % old)
+            sys.exit(2)
+        print('stale-лок PID %s снят' % old)
+    LOCK.write_text(str(os.getpid()), encoding='ascii')
+
+def release_lock():
+    try:
+        LOCK.unlink(missing_ok=True)
+    except Exception:
+        pass
+
+def stop():
+    """Остановка прогона по PID лока (руки 2/3 зовут это же)."""
+    if not LOCK.exists():
+        return {'stopped': False, 'reason': 'лока нет — прогон не идёт'}
+    try:
+        pid = int(LOCK.read_text(encoding='ascii', errors='ignore').strip() or '0')
+    except Exception:
+        pid = 0
+    if not pid or not _pid_alive(pid):
+        return {'stopped': False, 'reason': 'stale-лок PID %s (владелец мёртв)' % pid}
+    r = subprocess.run(['taskkill', '/PID', str(pid), '/F'], capture_output=True, text=True)
+    return {'stopped': r.returncode == 0, 'pid': pid, 'reason': r.stdout or r.stderr}
+
+def mark_fresh(pdf_path):
+    """После экспорта: пары этого pdf становятся «актуален» (mtime — единственный источник)."""
+    try:
+        c = sqlite3.connect(DEFAULT_DB_PATH)
+        c.execute("UPDATE pairs SET freshness='актуален' WHERE pdf_path=?", (str(pdf_path),))
+        c.commit(); c.close()
+    except Exception as e:
+        print('mark_fresh err:', e)
+
 
 # Import from agent environment
 sys.path.append(r'D:\AI\tools\agent')
@@ -26,14 +79,13 @@ def log_message(msg):
     print(msg)
 
 def run_batch(args):
-    db_path = args.root if args.root else DEFAULT_DB_PATH
-    
-    # If provided path is a directory, assume it's a root containing 'data/harvest.db'
-    if os.path.isdir(db_path):
-        db_path = os.path.join(db_path, 'data', 'harvest.db')
-    
+    acquire_lock()
+    db_path = DEFAULT_DB_PATH
+    root_filter = (args.root or '').strip()
+
     if not os.path.exists(db_path):
         print(f"Error: Database not found at {db_path}")
+        release_lock()
         return False, {"error": f"Database not found at {db_path}"}
 
     conn = sqlite3.connect(db_path)
@@ -47,9 +99,14 @@ def run_batch(args):
         rows = cur.fetchall()
     except Exception as e:
         print(f"Database error: {e}")
+        release_lock()
         return False, {"error": f"Database error: {e}"}
     finally:
         conn.close()
+
+    if root_filter:
+        rows = [r for r in rows if root_filter.lower() in r['pdf_path'].lower()]
+        print(f"фильтр root={root_filter!r}: осталось {len(rows)} пар")
 
     if not rows:
         print("No outdated PDF pairs found.")
@@ -95,10 +152,24 @@ def run_batch(args):
             continue
 
         print(f"Refreshing: {model_path.name}...")
+        try:
+            pw = CT.creo_call("creo", "pwd", {}, 10)
+            dd = pw.get("data") or {}
+            cur_dir = (dd.get("dirname") if isinstance(dd, dict) else (dd or "")).replace("/", "\\")
+            want = str(dirname).replace("/", "\\")
+            if cur_dir.rstrip("\\").lower() != want.rstrip("\\").lower():
+                ccd = CT.creo_call("creo", "cd", {"dirname": str(dirname)}, 15)
+                if not CT.ok(ccd):
+                    print(f"pwd/cd не сверился: {CT.errmsg(ccd)}")
+                    results["errors"].append({"file": model_path.name, "error": "pwd не сверился"})
+                    continue
+        except Exception as e:
+            print(f"pwd-сверка err: {e}")
         res = CT.tool_print_pdf(name=str(model_path), dirname=str(dirname))
-        
+
         if "PDF сохранён" in res:
             results["became_actual"] += 1
+            mark_fresh(pdf_path)
             log_message(f"SUCCESS: {model_path.name} -> {res}")
         else:
             err_msg = res if res else "Unknown error"
@@ -110,6 +181,7 @@ def run_batch(args):
         json.dump(results, f, indent=4, ensure_ascii=False)
     
     print(f"Batch finished. Report saved to {REPORT_FILE}")
+    release_lock()
     
     if args.dry_run:
         return True, {"preview": preview_data}
