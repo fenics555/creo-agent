@@ -10,11 +10,18 @@ ROOTS = [r"D:\AI\repo", r"D:\AI\repo\Prog"]
 PTR = "\u044d\u0442\u043e\u0442 \u0444\u0430\u0439\u043b \u2014 \u0443\u043a\u0430\u0437\u0430\u0442\u0435\u043b\u044c"
 ERRF = "\u041e\u0428\u0418\u0411\u041a\u0410"
 NAMERX = re.compile(r"^\s*#?\s*name:\s*([\w\-]+)", re.M)
+
+
+def canon(s):
+    # canon: дефис и подчёркивание в именах эквивалентны; переименование файла ради
+    # прохождения проверки = нарушение, цитаты дома старше проверки (решение 22.09)
+    return s.replace("-", "_")
 ERRRX = re.compile(r"^\s*" + ERRF + r"\s*[(:]", re.M)
 
 
 def read(p):
-    with open(p, "r", encoding="utf-8", errors="replace") as f:
+    # utf-8-sig: BOM в начале файла не должен прятать шапку name: (находка ноги 3)
+    with open(p, "r", encoding="utf-8-sig", errors="replace") as f:
         return f.read()
 
 
@@ -35,7 +42,7 @@ if os.path.isdir(CRASH):
         m = NAMERX.search(t)
         if not m:
             violations.append("%s: missing name field" % fn)
-        elif m.group(1) != exp:
+        elif canon(m.group(1)) != canon(exp):
             violations.append("%s: name mismatch (found %s, expected %s)" % (fn, m.group(1), exp))
         if fn == "SKILL_crash_constitution.md":
             continue
@@ -58,11 +65,13 @@ for root in ROOTS:
         m = NAMERX.search(t)
         if not m:
             notes.append("%s/%s: text passport, no name header (observation only)" % (label, fn))
-        elif m.group(1) != exp:
+        elif canon(m.group(1)) != canon(exp):
             violations.append("%s/%s: name mismatch (found %s, expected %s)" % (label, fn, m.group(1), exp))
 
 lines = []
 lines.append("skills_check report  " + "date: see file mtime")
+lines.append("canon: дефис и подчёркивание в именах эквивалентны; переименование файла ради прохождения проверки = нарушение, цитаты дома старше проверки (решение 22.09)")
+lines.append("грабли: после правки .py обязателен ПРОГОН (не только py_compile); вывод читать процессом без переадресации «>» (PowerShell отдаёт пустой файл); кириллический путь в git-командах передавать питоном")
 lines.append("")
 lines.append("violations: %d" % len(violations))
 for v in violations:
