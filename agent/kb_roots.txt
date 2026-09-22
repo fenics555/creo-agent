@@ -1,9 +1,9 @@
 # одна папка в строке
-D:\PTC\CREO12\Creo 12.4.2.0\creo_help_pma\russian
+<CREO_HELP>\russian
 D:\AI\repo
-Z:\PTC\Work
+<WORK_ROOT>
 D:\AI\ИЗУЧИТЬ
 D:\AI\PROBA
-Z:\PTC\CREO-START
+<CREO_START>
 D:\AI\ПРОБА
 

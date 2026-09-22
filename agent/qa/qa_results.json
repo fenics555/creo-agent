@@ -178,7 +178,7 @@
     "traceback_new": 0,
     "feedback_ok": true,
     "status": {
-      "host": "frezer-4",
+      "host": "workstation-1",
       "model": "gemma4:26b",
       "blocks": 30,
       "tools": 113,

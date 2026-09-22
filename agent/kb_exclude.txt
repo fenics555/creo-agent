@@ -13,8 +13,6 @@ tmp\
 cache\
 .idea\
 .vscode\
-Z:\PTC\Work\000_03 401-LIT Литейное производство\000_5 401-LIT-MO Модельная оснастка для литья\000_10 СТОРОННИЕ РАЗРАБОТКИ\
-Z:\PTC\Work\УЧЕБА\
 # Файлы
 Thumbs.db
 desktop.ini
