@@ -33,7 +33,7 @@
 | **dup_scan** (двойники) | Р | `dup_scan.bat` | `python dup_scan.py <папка> [--apply]` | `D:\AI\log\dup_scan\` | работает, приёмка PASSED |
 | **creo_export** | Ж (JLINK) | `creo_export.bat` | `creo_export.bat pdf/neutral/...` | логи `D:\AI\log\creo_export\`; выгрузки — в `creo_export\out\` | работает |
 | **harvest** | Р | `harvest_gui.py` | `python harvest.py [--roots ...] [--text]` | `D:\AI\log\harvest\`, `data\harvest.db` | работает |
-| **purge_versions** | Р | `purge_gui` | план версий Creo → перенос в backup | — | есть, в очереди на паспорт |
+| **purge_versions** (ЧИСТИЛЬЩИК версий) | Р | `purge_gui.bat` (окно настроек) | `purge_versions.bat -r <папка> -k 2` (движок `purge_versions\engine.py`) | `D:\AI\log\purge_versions\`; настройки — `gui_settings.json` рядом | работает; приёмка 23.09: план + перенос в бэкап; шим `agent\purge_versions.py` для агента |
 | **pdf_refresh** | Р | — | пары перепечати PDF | `D:\AI\log\pdf_refresh\` | есть |
 | **log_clean** | Р | — | уборка по retention | `D:\AI\log\log_clean\` | есть |
 | **skills_check** | Р | — | `python dev\skills_check.py` | `D:\AI\log\skills_check\` | работает |

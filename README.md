@@ -23,7 +23,7 @@
 | **config_audit** (аудит config.pro) | `agent\config_audit` | Python; проверяет **каждый путь** config.pro на диске | `config_audit.bat [путь\config.pro]` | ✅ |
 | **orphan_scan** (чертежи-сироты) | `agent\orphan_scan` | Python; нужны базы дома `data\agent.sqlite`, `data\harvest.db` и `Z:\PTC\Work\search.pro` | `orphan_scan.bat "<папка>"` (без аргумента — по `search.pro`) | ✅ |
 | **log_clean** (уборка логов) | `agent\log_clean.py` | читает `D:\AI\log\retention.json`, чистка по срокам | `python log_clean.py` | — |
-| **purge_versions** (версии Creo-файлов) | `agent\purge_versions.py` | файловые версии `.prt/.asm/.drw/.frm/.lay/.sec`, замок от двойного запуска | `python purge_versions.py <папка>` | — |
+| **purge_versions** (ЧИСТИЛЬЩИК версий) | `agent\purge_versions` | переносит лишние версии Creo в бэкап (**ничего не удаляет**); **окно с настройками** | `purge_gui.bat` (окно) / `purge_versions.bat -r <папка> -k 2` | ✅ |
 | **copy_server** | `agent\copy\copy_server.py` | HTTP-приём/отдача файлов, порт **8000** | `python copy_server.py` | — |
 | **skills_check** | `agent\dev\skills_check.py` | шапки скиллов + baseline `data\skills_check_baseline.txt` | `python dev\skills_check.py` | — |
 | **excel** (export/import) | `agent\excel` | XLSX **без внешних библиотек** (модули для спецы) | импортируется кодом | — |
