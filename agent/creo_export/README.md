@@ -20,7 +20,7 @@ creo_export.bat vrml  amf75838.asm
 cmd /c call "D:\AI\tools\agent\creo_export\creo_export.bat" step pin_splitk.prt
 ```
 Пакетная приёмка всех форматов: `cmd /c "D:\AI\tools\agent\creo_export\_test_all.bat"`
-(пишет `t_step.txt`, `t_iges.txt`, `t_vrml.txt`, `t_pdf.txt`, `t_neutral.txt`, `t_done.txt`).
+(пишет логи в `D:\AI\log\creo_export\`: `t_step.txt`, `t_iges.txt`, `t_vrml.txt`, `t_pdf.txt`, `t_neutral.txt`, `t_done.txt`).
 - Требование: **Creo запущен** (иначе `AsyncConnection_Connect` не найдёт сессию).
   Подъём Creo: `CREO-START.bat` или `python D:\AI\tools\agent\ctl.py up`.
 - Папка вывода по умолчанию — `creo_export\out`.

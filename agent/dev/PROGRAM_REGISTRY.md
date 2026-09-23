@@ -22,14 +22,14 @@
 
 | Программа | Класс | Вход (ОКНО) | Движок (ДВИЖОК) | Логи | Состояние |
 |---|---|---|---|---|---|
-| **creo_pdf** | Ж (JLINK) | `creo_pdf_gui.bat` | `creo_pdf.bat scan/export/pdf/config-*` | пока `creo_pdf\logs\`, `last_run_log.txt` → **переехать в `D:\AI\log\creo_pdf\`** | работает, приёмка пройдена |
-| **creo_pdf_misplaced** | Р | — | `python creo_pdf_misplaced.py <папка> [--apply]` | рядом с программой → **переехать** | работает |
-| **creo_pdf_orphans** | Р | — | `python creo_pdf_orphans.py <папка>` | рядом → **переехать** | работает |
+| **creo_pdf** | Ж (JLINK) | `creo_pdf_gui.bat` | `creo_pdf.bat scan/export/pdf/config-*` | `D:\AI\log\creo_pdf\` (`last_run_log.txt` + `runs\`) | работает, приёмка пройдена |
+| **creo_pdf_misplaced** | Р | — | `python creo_pdf_misplaced.py <папка> [--apply]` | файлов не пишет (stdout ловит окно `creo_pdf`) | работает |
+| **creo_pdf_orphans** | Р | — | `python creo_pdf_orphans.py <папка>` | файлов не пишет (stdout ловит окно `creo_pdf`) | работает |
 | **orphan_scan** (чертежи-сироты) | Р | `orphan_scan.bat "<папка>"` (без аргументов — по `search.pro`) | `python orphan_scan.py [папка...]` | `D:\AI\log\orphan_scan\` | работает; приёмка первой ноги 23.09: ПРИНЯТО С ЗАМЕЧАНИЯМИ → замечания исправлены |
 | **cmnm_scan** (внутренние имена Creo) | Р | — | `python cmnm_scan.py <папка>` | `D:\AI\log\cmnm_scan\` | работает (разбор поля `#- CMNM`) |
 | **creo_comb** (чесалка) | Ж (JLINK) | `creo_comb.bat` | `tpl-plan / refs / dump / scan / scan-here / probe-open[-f]` | `D:\AI\log\creo_comb\` | чтение готово, запись (`add`) — в работе |
 | **dup_scan** (двойники) | Р | `dup_scan.bat` | `python dup_scan.py <папка> [--apply]` | `D:\AI\log\dup_scan\` | работает, приёмка PASSED |
-| **creo_export** | Ж (JLINK) | `creo_export.bat` | `creo_export.bat pdf/neutral/...` | сейчас `creo_export\log_*.txt`, `out\` → **переехать в `D:\AI\log\creo_export\`** | работает |
+| **creo_export** | Ж (JLINK) | `creo_export.bat` | `creo_export.bat pdf/neutral/...` | логи `D:\AI\log\creo_export\`; выгрузки — в `creo_export\out\` | работает |
 | **harvest** | Р | `harvest_gui.py` | `python harvest.py [--roots ...] [--text]` | `D:\AI\log\harvest\`, `data\harvest.db` | работает |
 | **purge_versions** | Р | `purge_gui` | план версий Creo → перенос в backup | — | есть, в очереди на паспорт |
 | **pdf_refresh** | Р | — | пары перепечати PDF | `D:\AI\log\pdf_refresh\` | есть |

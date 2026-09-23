@@ -162,15 +162,16 @@ class Win:
 
     def _dump_log(self):
         text = "\n".join(self.lines) + "\n"
+        # ЗАКОН ДОМА: логи программ живут в D:\AI\log\<имя>\ (мигрировано 23.09.2026)
+        LOG_DIR = r"D:\AI\log\creo_pdf"
         try:
-            with open(os.path.join(HERE, "last_run_log.txt"), "w", encoding="utf-8") as f:
+            os.makedirs(os.path.join(LOG_DIR, "runs"), exist_ok=True)
+            with open(os.path.join(LOG_DIR, "last_run_log.txt"), "w", encoding="utf-8") as f:
                 f.write(text)
-            d = os.path.join(HERE, "logs")
-            os.makedirs(d, exist_ok=True)
             name = "run_" + datetime.datetime.now().strftime("%Y-%m-%d_%H%M") + ".txt"
-            with open(os.path.join(d, name), "w", encoding="utf-8") as f:
+            with open(os.path.join(LOG_DIR, "runs", name), "w", encoding="utf-8") as f:
                 f.write(text)
-            self.status.config(text="готов · отчёт: logs\\" + name)
+            self.status.config(text="готов · отчёт: " + os.path.join(LOG_DIR, "runs", name))
         except Exception:
             pass
 
