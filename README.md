@@ -25,7 +25,8 @@
 | **log_clean** (УБОРКА ЛОГОВ) | `agent\log_clean` | убирает логи старше срока (**по умолчанию — в корзину**, не навсегда); **окно с настройками**, срок по каждому каталогу | `log_clean_gui.bat` (окно) / `log_clean.bat --apply` | ✅ |
 | **purge_versions** (ЧИСТИЛЬЩИК версий) | `agent\purge_versions` | переносит лишние версии Creo в бэкап (**ничего не удаляет**); **окно с настройками** | `purge_gui.bat` (окно) / `purge_versions.bat -r <папка> -k 2` | ✅ |
 | **copy_server** | `agent\copy` | служба копирования/переименования для веб-страниц дома, порт **8000**; **окно управления** (порт, старт/стоп, страница, лог) | `copy_gui.bat` (окно) / `python copy_server.py --port N` | ✅ |
-| **skills_check** | `agent\dev\skills_check.py` | шапки скиллов + baseline `data\skills_check_baseline.txt` | `python dev\skills_check.py` | — |
+| **excel** (спецификации XLSX) | `agent\excel` | **модули** сборки/чтения XLSX без внешних библиотек + **окно просмотра** спецификации | `excel_gui.bat` (окно) | ✅ |
+| **skills_check** (проверка скиллов) | `agent\dev` | шапки скиллов, дубли, «краши» + эталон; **окно** с живым выводом | `dev\skills_check_gui.bat` / `python dev\skills_check.py` | ✅ |
 | **excel** (export/import) | `agent\excel` | XLSX **без внешних библиотек** (модули для спецы) | импортируется кодом | — |
 
 ## B. Автономные, нужен ЖИВОЙ Creo (JLINK, без CREOSON)
