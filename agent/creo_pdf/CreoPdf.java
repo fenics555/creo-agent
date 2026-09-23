@@ -6,6 +6,7 @@ import com.ptc.pfc.pfcAsyncConnection.*;
 import java.io.*;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.*;
+import java.nio.file.attribute.BasicFileAttributes;
 import java.util.*;
 
 /**
@@ -30,6 +31,7 @@ public class CreoPdf {
 
   public static void main(String[] a) {
     try {
+      for (int i = 0; i < a.length; i++) a[i] = a[i].replace("\"", "").trim();   // терпим кавычки в путях
       String mode = a.length > 0 ? a[0].toLowerCase() : "help";
       if (mode.equals("scan")) { scan(a.length > 1 ? a[1] : ".", false, Integer.MAX_VALUE); return; }
       if (mode.equals("help")) { usage(); return; }
@@ -40,7 +42,19 @@ public class CreoPdf {
       String cwd0 = s.GetCurrentDirectory();
       System.out.println("cwd=" + cwd0);
 
-      if (mode.equals("config-read")) {
+      if (mode.equals("config-find")) {
+        // Где Creo мог взять config.pro: рабочая папка сессии (там и стартовал), профиль, loadpoint Creo.
+        java.util.List<String> cand = new java.util.ArrayList<>();
+        String cwd = s.GetCurrentDirectory().replace('/', File.separatorChar);
+        cand.add(cwd + "config.pro");
+        cand.add(System.getProperty("user.home") + File.separator + "config.pro");
+        for (String lp : loadPoints()) cand.add(lp + File.separator + "text" + File.separator + "config.pro");
+        System.out.println("cwd сессии: " + cwd);
+        for (String p : cand) {
+          File f = new File(p);
+          System.out.println("  " + (f.exists() ? ("ЕСТЬ  " + f.length() + " б   ") : "нет           ") + p);
+        }
+      } else if (mode.equals("config-read")) {
         Map<String, String> f = a.length > 1 ? parseConfig(a[1]) : null;
         for (String k : KEYS)
           System.out.println("  " + k + " = " + ((f != null) ? f.get(k) : readOpt(s, k)));
@@ -80,11 +94,25 @@ public class CreoPdf {
 
   static void usage() {
     System.out.println("creo_pdf scan <папка> | export <папка> [лимит] | pdf <папка> <имя> [out] |\n" +
-                       "         config-read [config.pro] | config-load <config.pro>");
+                       "         config-find | config-read [config.pro] | config-load <config.pro>");
   }
 
   static String readOpt(Session s, String k) {
     try { return String.valueOf(s.GetConfigOption(k)); } catch (Throwable t) { return "(нет)"; }
+  }
+
+  /** Каталоги Creo (loadpoint): выводим из x86e_win64 внутри java.library.path. */
+  static java.util.List<String> loadPoints() {
+    java.util.LinkedHashSet<String> out = new java.util.LinkedHashSet<>();
+    String p = System.getProperty("java.library.path", "");
+    for (String part : p.split(";")) {
+      File f = new File(part);
+      if (!f.getName().equalsIgnoreCase("x86e_win64")) continue;
+      File arch = f, common = arch.getParentFile(), lp = (common == null ? null : common.getParentFile());
+      if (lp != null) out.add(lp.getPath());
+    }
+    if (out.isEmpty()) out.add("D:\\PTC\\CREO12\\Creo 12.4.2.0");
+    return new java.util.ArrayList<>(out);
   }
 
   /** Разбор config.pro: строки "ключ значение"; строки с ! и # — комментарии. */
@@ -111,6 +139,7 @@ public class CreoPdf {
     File f = new File(path);
     System.out.println("  PDF " + (f.exists() && f.length() > 0
         ? ("OK " + f.length() + " б  " + f.getName()) : ("НЕ СОЗДАН " + f.getName())));
+    System.out.flush();
   }
 
   /** Обход папки: чертежи <имя>.drw[.N], PDF <имя>.pdf; устарел, если PDF старше чертежа. */
@@ -120,16 +149,24 @@ public class CreoPdf {
     if (!Files.isDirectory(start)) { System.out.println("нет папки: " + root); return need; }
     final Map<String, File> drw = new HashMap<>(), pdf = new HashMap<>();
     try {
-      Files.walk(start).filter(Files::isRegularFile).forEach(p -> {
-        String n = p.getFileName().toString().toLowerCase();
-        String dir = p.getParent().toString();
-        if (n.matches(".*\\.drw(\\.\\d+)?$")) {
-          String base = n.replaceAll("\\.drw(\\.\\d+)?$", "");
-          File cur = drw.get(dir + "|" + base);
-          if (cur == null || p.toFile().lastModified() > cur.lastModified())
-            drw.put(dir + "|" + base, p.toFile());
-        } else if (n.endsWith(".pdf")) {
-          pdf.put(dir + "|" + n.substring(0, n.length() - 4), p.toFile());
+      // Рекурсивный обход ВСЕХ подпапок; папки без прав доступа пропускаем, а не падаем.
+      Files.walkFileTree(start, new SimpleFileVisitor<Path>() {
+        @Override public FileVisitResult visitFile(Path p, BasicFileAttributes at) {
+          String n = p.getFileName().toString().toLowerCase();
+          String dir = p.getParent().toString();
+          if (n.matches(".*\\.drw(\\.\\d+)?$")) {
+            String base = n.replaceAll("\\.drw(\\.\\d+)?$", "");
+            File cur = drw.get(dir + "|" + base);
+            if (cur == null || p.toFile().lastModified() > cur.lastModified())
+              drw.put(dir + "|" + base, p.toFile());
+          } else if (n.endsWith(".pdf")) {
+            pdf.put(dir + "|" + n.substring(0, n.length() - 4), p.toFile());
+          }
+          return FileVisitResult.CONTINUE;
+        }
+        @Override public FileVisitResult visitFileFailed(Path p, IOException e) {
+          System.out.println("  нет доступа: " + p); System.out.flush();
+          return FileVisitResult.CONTINUE;
         }
       });
     } catch (IOException e) { System.out.println("обход: " + e); }
@@ -141,12 +178,12 @@ public class CreoPdf {
       String base = d.getName().replaceAll("\\.drw(\\.\\d+)?$", "");
       if (p == null) {
         miss++;
-        if (!quiet) System.out.println("  НЕТ PDF    " + dir + File.separator + base + ".pdf");
+        if (!quiet) { System.out.println("  НЕТ PDF    " + dir + File.separator + base + ".pdf"); System.out.flush(); }
         need.add(dir + File.separator + base);
       } else if (p.lastModified() < d.lastModified()) {
         stale++;
         System.out.println("  УСТАРЕЛ    " + dir + File.separator + base + ".pdf (pdf " + p.lastModified() +
-                           " < drw " + d.lastModified() + ")");
+                           " < drw " + d.lastModified() + ")"); System.out.flush();
         need.add(dir + File.separator + base);
       } else ok++;
       if (need.size() >= limit) break;
