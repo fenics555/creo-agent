@@ -37,6 +37,8 @@ public class CreoComb {
       Session s = connect().GetSession();
       System.out.println("cwd сессии = " + s.GetCurrentDirectory());
       if (mode.equals("refs")) { refs(s, a.length > 1 ? a[1] : CFG_DEFAULT); return; }
+      if (mode.equals("probe-open")) { probeOpen(s, a.length > 1 ? a[1] : "", a.length > 2 ? a[2] : ""); return; }
+      if (mode.equals("probe-open-f")) { probeOpenFile(s, a.length > 1 ? a[1] : ""); return; }
       if (mode.equals("dump")) { dump(s, a.length > 1 ? a[1] : "", a.length > 2 ? a[2] : ""); return; }
       if (mode.equals("scan")) { scan(s, a.length > 1 ? a[1] : "", a.length > 2 ? a[2] : CFG_DEFAULT); return; }
       if (mode.equals("scan-here")) { scan(s, s.GetCurrentDirectory(), a.length > 1 ? a[1] : CFG_DEFAULT); return; }
@@ -77,6 +79,65 @@ public class CreoComb {
       System.out.println("(активной сессии нет: " + t + ")");
     }
     return pfcAsyncConnection.AsyncConnection_Connect(null, null, null, 60);
+  }
+
+  /** ТОЧНАЯ ПРОБА ОТКРЫТИЯ: почему Creo не берёт чертёж (перебор всех способов). */
+  static String seq2str(com.ptc.cipjava.stringseq q) {
+    if (q == null) return "[]";
+    StringBuilder b = new StringBuilder("[");
+    try {
+      for (int i = 0; i < q.getarraysize(); i++) b.append(i > 0 ? ", " : "").append(q.get(i));
+    } catch (Throwable t) { b.append("err:").append(t); }
+    return b.append("]").toString();
+  }
+
+  static void probeOpen(Session s, String dir, String name) throws Exception {
+    System.out.println("ПРОБА ОТКРЫТИЯ: " + dir + " | " + name);
+    try { System.out.println("  Creo видит .drw в папке: " + seq2str(s.ListFiles(dir, com.ptc.pfc.pfcSession.FileListOpt.FILE_LIST_LATEST, "drw"))); }
+    catch (Throwable t) { System.out.println("  ListFiles(drw) err: " + t); }
+    try { System.out.println("  Creo видит .prt в папке: " + seq2str(s.ListFiles(dir, com.ptc.pfc.pfcSession.FileListOpt.FILE_LIST_LATEST, "prt"))); }
+    catch (Throwable t) { System.out.println("  ListFiles(prt) err: " + t); }
+    try { System.out.println("  Creo видит .asm в папке: " + seq2str(s.ListFiles(dir, com.ptc.pfc.pfcSession.FileListOpt.FILE_LIST_LATEST, "asm"))); }
+    catch (Throwable t) { System.out.println("  ListFiles(asm) err: " + t); }
+
+    File f = new File(dir);
+    File ver = newest(f, name, "drw");
+    System.out.println("  файл на диске: " + (ver == null ? "НЕТ (!)" : ver.getPath() + " (" + ver.length() + " б)"));
+    System.out.println("  модель рядом: prt=" + (newest(f, name, "prt") != null) + ", asm=" + (newest(f, name, "asm") != null));
+
+    String[] how = {"по имени модели", "по файлу без версии", "по файлу с версией", "OpenFile по файлу"};
+    s.ChangeDirectory(dir);
+    for (int k = 0; k < 4; k++) {
+      Model m = null;
+      try {
+        if (k == 0) m = s.RetrieveModel(pfcModel.ModelDescriptor_Create(ModelType.MDL_DRAWING, name, null));
+        else if (k == 1) m = s.RetrieveModel(pfcModel.ModelDescriptor_CreateFromFileName(new File(dir, name + ".drw").getPath()));
+        else if (k == 2 && ver != null) m = s.RetrieveModel(pfcModel.ModelDescriptor_CreateFromFileName(ver.getPath()));
+        else if (k == 3) { s.OpenFile(pfcModel.ModelDescriptor_CreateFromFileName(new File(dir, name + ".drw").getPath())); }
+        if (k == 3) System.out.println("  4) OpenFile по файлу: ОК (окно открыто)");
+        else {
+          System.out.println("  " + (k + 1) + ") " + how[k] + ": ОК → file=" + m.GetFileName() +
+                             " common=" + m.GetCommonName() + " full=" + m.GetFullName());
+          m.Erase();
+        }
+      } catch (Throwable t) {
+        System.out.println("  " + (k + 1) + ") " + how[k] + ": " + t);
+      }
+    }
+  }
+
+  /** Проба по СПИСКУ из файла (UTF-8): строки «<папка>|<имя>», '#' — комментарий.
+   *  Так пути с кириллицей не проходят через cmd и не ломаются кавычками. */
+  static void probeOpenFile(Session s, String listFile) throws Exception {
+    java.util.List<String> ls = Files.readAllLines(Paths.get(listFile), StandardCharsets.UTF_8);
+    for (String ln : ls) {
+      ln = ln.trim();
+      if (ln.isEmpty() || ln.startsWith("#")) continue;
+      int bar = ln.lastIndexOf('|');
+      if (bar < 0) continue;
+      probeOpen(s, ln.substring(0, bar).trim(), ln.substring(bar + 1).trim());
+      System.out.println();
+    }
   }
 
   static void usage() {
