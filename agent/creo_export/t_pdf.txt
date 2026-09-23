@@ -1,0 +1,9 @@
+WARNING: A restricted method in java.lang.System has been called
+WARNING: java.lang.System::loadLibrary has been called by CreoExport in an unnamed module (file:/D:/AI/tools/agent/creo_export/)
+WARNING: Use --enable-native-access=ALL-UNNAMED to avoid a warning for callers in this module
+WARNING: Restricted methods will be blocked in a future release unless native access is enabled
+
+cwd=D:\AI\PROBA\famcopy2\
+model=pin_splitk.prt fullname=PIN_SPLITK
+format=pdf out=D:\AI\tools\agent\creo_export\out\
+ERR: com.ptc.pfc.Implementation.pfcExceptions$XToolkitInvalidType
