@@ -23567,20 +23567,3 @@ cwd=Z:\PTC\CREO-START\START-STD\
   НЕТ PDF    Z:\PTC\Work\чертежи и эскизы\кронштейн под вал\vtulka_2_.pdf
 чертежей: 11901 | PDF в порядке: 11013 | нет PDF: 555 | устарели: 333
 готово, код 0
---------------------------------------------------------------------------------------------------------------
-СОЗДАТЬ / ОБНОВИТЬ ПДФ: creo_pdf export Z:/PTC/Work 5000
-WARNING: A restricted method in java.lang.System has been called
-WARNING: java.lang.System::loadLibrary has been called by CreoPdf in an unnamed module (file:/D:/AI/tools/agent/creo_pdf/)
-WARNING: Use --enable-native-access=ALL-UNNAMED to avoid a warning for callers in this module
-WARNING: Restricted methods will be blocked in a future release unless native access is enabled
-
-ERR: com.ptc.pfc.Implementation.pfcExceptions$XToolkitNotFound
-готово, код 0
---------------------------------------------------------------------------------------------------------------
-ШТАТНЫЙ ЗАПУСК CREO: creo_pdf creo-start Z:\PTC\CREO-START\START-STD\config.pro
-config.pro     : ЕСТЬ 17125 б  Z:\PTC\CREO-START\START-STD\config.pro
-рабочая папка  : Z:\PTC\CREO-START\START-STD
-parametric.exe : D:\PTC\CREO12\Creo 12.4.2.0\Parametric\bin\parametric.exe
-Creo запущен штатно: рабочая папка = Z:\PTC\CREO-START\START-STD → config.pro подхватится оттуда
-через 1-2 минуты нажми «Из сессии» — проверить сессию и домашний конфиг.
-готово, код 0
