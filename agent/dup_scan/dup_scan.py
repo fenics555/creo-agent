@@ -12,6 +12,13 @@ import re
 import sys
 import time
 
+# Вывод в консоль делаем кодировко-устойчивым: в cp1251/cp866 нет стрелки «→», и print падал
+# в самом конце режима --apply (перенос уже сделан, а программа завершалась ошибкой). Живая находка 23.09.2026.
+try:
+    sys.stdout.reconfigure(encoding="utf-8", errors="replace")
+except Exception:
+    pass
+
 LOG_DIR = r"D:\AI\log\dup_scan"
 SKIP_DIRS = {"_trash", "_trash_dup", ".git", "__pycache__", "node_modules", "backup", "backups"}
 CREO_EXT = ("prt", "asm", "drw", "frm", "sec", "lay", "mfg", "xpr", "xas", "cgr", "neu", "stp")
@@ -66,6 +73,65 @@ def walk(roots, exts, min_bytes):
     return out
 
 
+def find_dups(roots, exts=None, min_bytes=0, progress=None):
+    """Ищет двойников и ВОЗВРАЩАЕТ результат структурой (ничего не печатает и не двигает) —
+    это точка входа для окна программы.
+    {'files': N, 'size_groups': K, 'groups': [{'size': b, 'keep': (путь, mtime), 'extra': [...]}],
+     'waste': байт, 'errors': [...]}"""
+    exts = {x.lower().lstrip(".") for x in exts} if exts else set()
+
+    def say(s):
+        if progress:
+            progress(s)
+
+    files = walk(roots, exts, int(min_bytes))
+    say("файлов к проверке: %d" % len(files))
+    by_size = {}
+    for p, sz, mt in files:
+        by_size.setdefault(sz, []).append((p, mt))
+    cand = [v for v in by_size.values() if len(v) > 1]
+    say("групп одинакового размера: %d (в них файлов %d)" % (len(cand), sum(len(v) for v in cand)))
+    groups, errors = {}, []
+    for grp in cand:
+        for p, mt in grp:
+            try:
+                groups.setdefault(sha1(p), []).append((p, mt))
+            except OSError as e:
+                errors.append("не прочитать: %s (%s)" % (p, e))
+    res = {"files": len(files), "size_groups": len(cand), "groups": [], "waste": 0, "errors": errors}
+    for _h, items in groups.items():
+        if len(items) < 2:
+            continue
+        items.sort(key=lambda x: -x[1])          # образец — самый свежий
+        keep, extra = items[0], items[1:]
+        size = os.path.getsize(keep[0])
+        res["groups"].append({"size": size, "keep": keep, "extra": extra})
+        res["waste"] += size * len(extra)
+    res["groups"].sort(key=lambda g: -g["size"])
+    return res
+
+
+def move_extras(items):
+    """Переносит файлы-двойники в `_trash_dup` рядом с ними (ничего не удаляет).
+    Возвращает (сколько перенесено, [(путь, причина), ...])."""
+    moved, errs = 0, []
+    for p, _mt in items:
+        trash = os.path.join(os.path.dirname(p), "_trash_dup")
+        try:
+            os.makedirs(trash, exist_ok=True)
+            dst = os.path.join(trash, os.path.basename(p))
+            n = 1
+            while os.path.exists(dst):
+                dst = os.path.join(trash, "%s_%d%s" % (os.path.splitext(os.path.basename(p))[0], n,
+                                                       os.path.splitext(p)[1]))
+                n += 1
+            os.replace(p, dst)
+            moved += 1
+        except OSError as e:
+            errs.append((p, str(e)))
+    return moved, errs
+
+
 def main(argv):
     if not argv or argv[0] in ("-h", "--help"):
         print(__doc__)
@@ -101,55 +167,30 @@ def main(argv):
     out("фильтр: %s | от %.1f МБ | режим: %s" % (", ".join(sorted(exts)) or "все файлы", min_mb,
                                                 "ПЕРЕНОС В _trash_dup" if apply_ else "только отчёт"))
     t0 = time.time()
-    files = walk(roots, exts, int(min_mb * 1024 * 1024))
-    out("файлов к проверке: %d (%.1f с)" % (len(files), time.time() - t0))
+    res = find_dups(roots, exts, int(min_mb * 1024 * 1024),
+                    progress=lambda s: out("%s (%.1f с)" % (s, time.time() - t0)))
+    for e in res["errors"]:
+        out("  " + e)
+    out("\nГРУПП ДВОЙНИКОВ: %d" % len(res["groups"]))
 
-    by_size = {}
-    for p, sz, mt in files:
-        by_size.setdefault(sz, []).append((p, mt))
-    cand = [v for v in by_size.values() if len(v) > 1]
-    out("групп одинакового размера: %d (в них файлов %d)" % (len(cand), sum(len(v) for v in cand)))
-
-    groups = {}
-    for grp in cand:
-        for p, mt in grp:
-            try:
-                groups.setdefault(sha1(p), []).append((p, mt))
-            except OSError as e:
-                out("  не прочитать: %s (%s)" % (p, e))
-    dups = {h: v for h, v in groups.items() if len(v) > 1}
-    out("\nГРУПП ДВОЙНИКОВ: %d" % len(dups))
-
-    waste = 0
     moved = 0
-    for h, items in sorted(dups.items(), key=lambda kv: -os.path.getsize(kv[1][0][0])):
-        size = os.path.getsize(items[0][0])
-        # оставляем самый свежий файл, остальные — двойники
-        items.sort(key=lambda x: -x[1])
-        keep, extra = items[0], items[1:]
-        waste += size * len(extra)
-        out("\n  ОБРАЗЕЦ: %s  (%.1f МБ, %s)" % (keep[0], size / 1048576.0,
+    for g in res["groups"]:
+        keep, extra = g["keep"], g["extra"]
+        out("\n  ОБРАЗЕЦ: %s  (%.1f МБ, %s)" % (keep[0], g["size"] / 1048576.0,
                                                time.strftime("%d.%m.%Y %H:%M", time.localtime(keep[1]))))
-        for p, mt in extra:
+        for p, _mt in extra:
             out("    двойник: %s" % p)
-            if apply_:
-                trash = os.path.join(os.path.dirname(p), "_trash_dup")
-                os.makedirs(trash, exist_ok=True)
-                dst = os.path.join(trash, os.path.basename(p))
-                n = 1
-                while os.path.exists(dst):
-                    dst = os.path.join(trash, "%s_%d%s" % (os.path.splitext(os.path.basename(p))[0], n,
-                                                           os.path.splitext(p)[1]))
-                    n += 1
-                try:
-                    os.replace(p, dst)
-                    out("      → перенесён в _trash_dup: %s" % os.path.basename(dst))
+        if apply_:
+            for one in extra:
+                _n, errs = move_extras([one])
+                if errs:
+                    out("      НЕ перенесён: %s" % errs[0][1])
+                else:
+                    out("      → перенесён в _trash_dup: %s" % os.path.basename(one[0]))
                     moved += 1
-                except OSError as e:
-                    out("      НЕ перенесён: %s" % e)
 
     out("\nИТОГ: двойников %d, лишнего объёма %.2f ГБ, перенесено %d" %
-        (sum(len(v) - 1 for v in dups.values()), waste / 1073741824.0, moved))
+        (sum(len(g["extra"]) for g in res["groups"]), res["waste"] / 1073741824.0, moved))
     out("отчёт: %s" % logp)
     f.close()
     return 0

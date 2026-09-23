@@ -30,7 +30,7 @@
 | **orphan_scan** (чертежи-сироты) | Р | `orphan_scan.bat "<папка>"` (без аргументов — по `search.pro`) | `python orphan_scan.py [папка...]` | `D:\AI\log\orphan_scan\` | работает; приёмка первой ноги 23.09: ПРИНЯТО С ЗАМЕЧАНИЯМИ → замечания исправлены |
 | **cmnm_scan** (внутренние имена Creo) | Р | — | `python cmnm_scan.py <папка>` | `D:\AI\log\cmnm_scan\` | работает (разбор поля `#- CMNM`) |
 | **creo_comb** (чесалка) | Ж (JLINK) | `creo_comb.bat` | `tpl-plan / refs / dump / scan / scan-here / probe-open[-f]` | `D:\AI\log\creo_comb\` | чтение готово, запись (`add`) — в работе |
-| **dup_scan** (двойники) | Р | `dup_scan.bat` | `python dup_scan.py <папка> [--apply]` | `D:\AI\log\dup_scan\` | работает, приёмка PASSED |
+| **dup_scan** (двойники) | Р | `dup_scan_gui.bat` (окно настроек) | `dup_scan.bat <папки> [--apply]` (движок `dup_scan.py`) | `D:\AI\log\dup_scan\`; настройки — `gui_settings.json` рядом | работает; приёмка 23.09 (поиск + перенос в `_trash_dup`); живая находка: `--apply` падал на стрелке «→» в cp1251 — вывод сделан кодировко-устойчивым |
 | **creo_export** | Ж (JLINK) | `creo_export.bat` | `creo_export.bat pdf/neutral/...` | логи `D:\AI\log\creo_export\`; выгрузки — в `creo_export\out\` | работает |
 | **harvest** | Р | `harvest_gui.py` | `python harvest.py [--roots ...] [--text]` | `D:\AI\log\harvest\`, `data\harvest.db` | работает |
 | **purge_versions** (ЧИСТИЛЬЩИК версий) | Р | `purge_gui.bat` (окно настроек) | `purge_versions.bat -r <папка> -k 2` (движок `purge_versions\engine.py`) | `D:\AI\log\purge_versions\`; настройки — `gui_settings.json` рядом | работает; приёмка 23.09: план + перенос в бэкап; шим `agent\purge_versions.py` для агента |

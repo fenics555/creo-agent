@@ -17,7 +17,7 @@
 ## A. Автономные, живой Creo НЕ нужен
 | Программа | Папка / файл | Чем живёт | Запуск | README |
 |---|---|---|---|---|
-| **dup_scan** (двойники) | `agent\dup_scan` | Python; sha1 по содержимому; `--apply` → `_trash_dup` | `dup_scan.bat <папка> [--apply]` | ✅ |
+| **dup_scan** (двойники) | `agent\dup_scan` | sha1 по содержимому; `--apply` → `_trash_dup`; **окно с настройками** | `dup_scan_gui.bat` (окно) / `dup_scan.bat <папка> [--apply]` | ✅ |
 | **cmnm_scan** (внутренние имена) | `agent\cmnm_scan` | Python; поле `#- CMNM` против имени файла (модель не откроется, если расходятся) | `python cmnm_scan.py <папка>` | ✅ |
 | **make_lst** (ограничения параметров) | `agent\make_lst` | Python; собирает `list.lst` (cp1251) + бэкап прежнего | `make_lst.bat [--dry] [--from refs.txt]` | ✅ |
 | **config_audit** (аудит config.pro) | `agent\config_audit` | Python; проверяет **каждый путь** config.pro на диске | `config_audit.bat [путь\config.pro]` | ✅ |
