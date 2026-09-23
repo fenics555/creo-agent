@@ -172,6 +172,19 @@ def flush_batch(con, batch, old, added, rewrote):
     return a, r
 
 
+def _logical_ext(ext, name):
+    """Логическое расширение Creo-файла.
+    ЖИВАЯ НАХОДКА 23.09.2026: в индексе у `деталь.prt.1` лежит `ext = .1`, а фильтр прогона ждёт `prt` —
+    из-за этого harvest отсекал ВСЕ Creo-модели (added=0 при 93 000 строк в базе). Чиним здесь."""
+    e = (ext or "").lstrip(".").lower()
+    if e.isdigit():
+        m = re.match(r"^(.*)\.(\d+)$", str(name or ""))
+        if m:
+            e2 = os.path.splitext(m.group(1))[1].lstrip(".").lower()
+            return e2 or e
+    return e
+
+
 def scan_models(con, roots, extensions=None, batch_size=500):
     old = {p: (mt, sz) for p, mt, sz in
            con.execute("SELECT path, mtime, size FROM models_raw")}
@@ -195,7 +208,7 @@ def scan_models(con, roots, extensions=None, batch_size=500):
         seen_here = set()
         batch, a, r = [], 0, 0
         for meta in lib.scan_files_generator(root):
-            if extensions and meta["ext"].lstrip('.') not in extensions:
+            if extensions and _logical_ext(meta["ext"], meta["name"]) not in extensions:
                 continue
             seen_here.add(meta["path"])
             batch.append(meta)
