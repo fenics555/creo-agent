@@ -142,3 +142,100 @@ def init_db_schema():
         c.commit()
     finally:
         c.close()
+
+
+# ─────────────────────── ИНДЕКС ЗНАНИЙ (FTS5, без эмбеддингов) ───────────────────────
+# Решение дома 23.09.2026: тяжёлая векторная база отменена. 1 330 971 чанк и 3,81 ГБ
+# эмбеддингов давали агенту 13 ГБ commit, при этом 84 % чанков были короче 50 символов,
+# а 1,27 млн — нарезкой бинарных чертежей (.drw). Знание дома — это ТЕКСТОВЫЕ файлы
+# (скиллы, карты, ГОСТы, отчёты): их ищем через FTS5 — без Ollama, без эмбеддингов,
+# без памяти в процессе агента. Бинарники Creo не читаются вовсе.
+TEXT_EXT = {".md", ".txt", ".html", ".htm", ".csv", ".json", ".yaml", ".yml", ".rst", ".py"}
+KB_FRAGMENT = 2000      # символов на фрагмент индекса
+
+
+def _kb_roots(roots=None) -> List[str]:
+    """Корни индекса знаний: по умолчанию настройка scan_roots (список или JSON-строка)."""
+    import json as _json
+    if roots is None:
+        roots = settings_get("scan_roots") or []
+    if isinstance(roots, str):
+        try:
+            roots = _json.loads(roots)
+        except Exception:
+            roots = [x.strip() for x in roots.split(",") if x.strip()]
+    return [str(x).strip() for x in roots if str(x).strip()]
+
+
+def index_all(roots=None, quiet=False) -> Dict[str, int]:
+    """Пересобрать индекс знаний (таблица fts_index). Только текстовые файлы.
+    Возвращает {'files': файлов, 'fragments': фрагментов}. Бинарники Creo пропускаются."""
+    lib = ScannerLibrary()
+    c = db()
+    files = frags = 0
+    try:
+        c.execute("CREATE VIRTUAL TABLE IF NOT EXISTS fts_index USING fts5(path UNINDEXED, content)")
+        c.execute("DELETE FROM fts_index")
+        for root in _kb_roots(roots):
+            if not os.path.isdir(root):
+                continue
+            for dirpath, dirnames, filenames in os.walk(root):
+                dirnames[:] = [d for d in dirnames if not is_excluded(os.path.join(dirpath, d), lib.pats)]
+                for fn in filenames:
+                    if os.path.splitext(fn)[1].lower() not in TEXT_EXT:
+                        continue
+                    full = os.path.join(dirpath, fn)
+                    if is_excluded(full, lib.pats):
+                        continue
+                    try:
+                        txt = Path(full).read_text(encoding="utf-8", errors="ignore")
+                    except Exception:
+                        continue
+                    if not txt.strip():
+                        continue
+                    for i in range(0, len(txt), KB_FRAGMENT):
+                        c.execute("INSERT INTO fts_index(path, content) VALUES(?,?)",
+                                  (full, txt[i:i + KB_FRAGMENT]))
+                        frags += 1
+                    files += 1
+        c.commit()
+    finally:
+        c.close()
+    if not quiet:
+        log("индекс знаний FTS5: файлов %d, фрагментов %d" % (files, frags))
+    return {"files": files, "fragments": frags}
+
+
+def kb_search(query: str, limit: int = 4, chars: int = 900) -> List[Tuple[str, str]]:
+    """Поиск по индексу знаний: FTS5-MATCH по словам, при неудаче — LIKE.
+    Возвращает [(путь, фрагмент), ...]."""
+    q = (query or "").strip()
+    if not q:
+        return []
+    c = db()
+    try:
+        try:
+            words = [w for w in re.split(r"[^\w\.\-]+", q, flags=re.UNICODE) if len(w) > 2]
+            match = " OR ".join('"%s"' % w for w in words) or '"%s"' % q.replace('"', " ")
+            rows = c.execute("SELECT path, content FROM fts_index WHERE fts_index MATCH ? "
+                             "ORDER BY rank LIMIT ?", (match, int(limit))).fetchall()
+        except Exception:
+            rows = c.execute("SELECT path, content FROM fts_index WHERE content LIKE ? LIMIT ?",
+                             ("%" + q + "%", int(limit))).fetchall()
+        return [(r[0], (r[1] or "")[:chars]) for r in rows]
+    finally:
+        c.close()
+
+
+def kb_state() -> Dict[str, int]:
+    """Сколько сейчас в индексе знаний."""
+    c = db()
+    try:
+        n = c.execute("SELECT COUNT(*) FROM fts_index").fetchone()[0]
+        p = c.execute("SELECT COUNT(DISTINCT path) FROM fts_index").fetchone()[0]
+        return {"fragments": n, "files": p}
+    except Exception:
+        return {"fragments": 0, "files": 0}
+    finally:
+        c.close()
+

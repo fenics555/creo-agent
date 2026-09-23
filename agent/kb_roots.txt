@@ -1,5 +1,4 @@
 # одна папка в строке
-<CREO_HELP>\russian
 D:\AI\repo
 <WORK_ROOT>
 D:\AI\ИЗУЧИТЬ

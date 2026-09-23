@@ -39,7 +39,36 @@ def creo_raw(cmd, fn, data=None, t=15):
         j = _post(body, t)
     return j
 
+def _ensure_creoson(t_wait=40):
+    """Поднять CREOSON ПО ТРЕБОВАНИЮ. Решение дома 23.09.2026: CREOSON больше не в
+    автозапуске (он нужен только блокам на creo_call), поднимается при первом обращении."""
+    import socket as _s
+    try:
+        with _s.create_connection(("127.0.0.1", 8080), timeout=1):
+            return True
+    except Exception:
+        pass
+    try:
+        import ctl
+        ctl.start_creoson()
+    except Exception as e:
+        log("creoson raise err: %s" % e)
+        return False
+    t = 0
+    while t < t_wait:
+        try:
+            with _s.create_connection(("127.0.0.1", 8080), timeout=1):
+                log("CREOSON поднят по требованию (%d с)" % t)
+                return True
+        except Exception:
+            time.sleep(2)
+            t += 2
+    log("CREOSON не поднялся за %d с — проверь creoson_run.bat" % t_wait)
+    return False
+
+
 def creo_call(cmd, fn, data=None, t=15):
+    _ensure_creoson()
     try:
         return creo_raw(cmd, fn, data, t)
     except Exception as e:

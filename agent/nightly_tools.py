@@ -3,9 +3,14 @@ import threading
 import scanner
 import usage_tools as UT
 def _work():
-    for fn in (scanner.scan_models, scanner.index_all, lambda: UT.build_usage(True)):
-        try: fn()
-        except Exception: pass
+    """Ночной прогон: индекс знаний (FTS5 по текстовым файлам) + пересбор связей.
+    Скан моделей ведёт harvest.py (отдельная программа класса Р), не агент."""
+    for name, fn in (("индекс знаний", lambda: scanner.index_all()),
+                     ("связи", lambda: UT.build_usage(True))):
+        try:
+            fn()
+        except Exception:
+            pass
     # Помечаем старые факты как устаревшие
     try:
         from core import mark_facts_stale

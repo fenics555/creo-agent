@@ -22,7 +22,7 @@ def _scheduler():
                             if t == "scan":
                                 log("night %s: пропущено по пункту 19 (harvest.py вне процесса агента)" % t)
                             elif t == "index":
-                                log("night %s: пропущено по пункту 19 (harvest.py вне процесса агента)" % t)
+                                log("night index: %s" % scanner.index_all())
                             elif t == "usage":
                                 import usage_tools; usage_tools.build_usage(True)
                             elif t == "backup":
@@ -61,8 +61,7 @@ def _watchdog():
     while True:
         try:
             if int(settings.get("wd_enable") or 1):
-                for name, port, key, dflt in (("ollama", 11434, "wd_ollama_cmd", "ollama serve"),
-                                              ("creoson", 8080, "wd_creoson_cmd", "")):
+                for name, port, key, dflt in (("ollama", 11434, "wd_ollama_cmd", "ollama serve"),):
                     if not _wd_port(port):
                         n = fails.get(name, 0) + 1; fails[name] = n
                         if n <= 3:

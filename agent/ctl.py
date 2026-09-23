@@ -94,10 +94,10 @@ def up(browser=False, hidden=False):
     else:
         log("поднимаю Ollama..."); start_ollama()
         log("Ollama на 11434" if wait_port(11434, 60) else "ВНИМАНИЕ: Ollama не поднялась за 60 сек")
-    if alive(8080): log("CREOSON уже на 8080")
-    else:
-        log("поднимаю CREOSON..."); start_creoson()
-        log("CREOSON на 8080" if wait_port(8080, 60) else "ВНИМАНИЕ: CREOSON не поднялся за 60 сек")
+    # CREOSON убран из автозапуска 23.09.2026: он нужен только блокам на creo_call,
+    # и поднимается по требованию (_ensure_creoson в creo_tools).
+    if alive(8080):
+        log("CREOSON уже на 8080")
     if alive(8000): log("copy-server уже на 8000")
     else:
         log("поднимаю copy-server..."); start_copyserver()
@@ -145,9 +145,9 @@ def watch():
     log("== ctl watch старт ==")
     while True:
         try:
-            if not (alive(11434) and alive(8080) and alive(8765)):
+            if not (alive(11434) and alive(8765)):   # CREOSON не обязателен: он поднимается по требованию
                 time.sleep(8)  # Q2 дебаунс: не махать up в окно ручного рестарта
-                if not (alive(11434) and alive(8080) and alive(8765)):
+                if not (alive(11434) and alive(8765)):
                     up(browser=False, hidden=True)
             if alive(8765):
                 _kill_stray_agents()  # Q3 дедуп: всё, что не в agent.pid
@@ -159,6 +159,9 @@ def watch():
 if __name__ == "__main__":
     a = sys.argv[1:]
     if "--watch" in a: watch()
+    elif "creoson" in a:
+        log("поднимаю CREOSON по команде..."); start_creoson()
+        log("CREOSON на 8080" if wait_port(8080, 60) else "ВНИМАНИЕ: CREOSON не поднялся за 60 сек")
     elif "up" in a: up("--browser" in a, "--hidden" in a)
     elif "down" in a: down()
     elif "restart" in a: down(); up("--browser" in a, "--hidden" in a)

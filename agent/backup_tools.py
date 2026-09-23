@@ -34,6 +34,14 @@ def tool_housekeeping():
     rep.append("sqlite vacuum done")
     return "\n".join(rep) or "housekeeping: чисто"
 
+def _has_fts(c):
+    """Есть ли таблица индекса знаний (FTS5)."""
+    try:
+        return bool(c.execute("SELECT COUNT(*) FROM sqlite_master WHERE name='fts_index'").fetchone()[0])
+    except Exception:
+        return False
+
+
 def tool_drift_check():
     import os
     rep = []
@@ -41,7 +49,7 @@ def tool_drift_check():
     exts = (".prt", ".asm", ".drw", ".pdf")
     pats = ["%" + e for e in exts]
     db_n = c.execute("SELECT COUNT(*) FROM files WHERE " + " OR ".join(["lower(path) LIKE ?"] * len(exts)), pats).fetchone()[0]
-    ch_n = c.execute("SELECT COUNT(*) FROM chunks").fetchone()[0]
+    ch_n = c.execute("SELECT COUNT(*) FROM fts_index").fetchone()[0] if _has_fts(c) else 0
     c.close()
     disk_n = 0
     _rr = settings.get("scan_roots") or []
@@ -55,7 +63,7 @@ def tool_drift_check():
                 if f.lower().endswith(exts):
                     disk_n += 1
     if disk_n == 0:
-        rep.append("ROOTS ALARM: scan_roots пусты или недоступны, проверь настройку")
+        rep.append("ROOTS: моделей под scan_roots нет (инвентарь моделей ведёт harvest.db) — сверка файлов пропущена")
     drift = abs(disk_n - db_n) * 100 // max(disk_n, 1)
     rep.append("files: db %d, disk %d, drift %d%%" % (db_n, disk_n, drift))
     if drift > 5:

@@ -31,7 +31,7 @@ def _count_dir(path):
 def db_state(verbose=0):
     c = core.db()
     f = (_q(c, "SELECT COUNT(*), MAX(mtime) FROM files") or [(0, None)])[0]
-    chunks_n = (_q(c, "SELECT COUNT(*) FROM chunks") or _q(c, "SELECT COUNT(*) FROM fragments") or [(0,)])[0][0]
+    chunks_n = (_q(c, "SELECT COUNT(*) FROM fts_index") or [(0,)])[0][0]
     links_n = (_q(c, "SELECT COUNT(*) FROM usage") or _q(c, "SELECT COUNT(*) FROM bom") or [(0,)])[0][0]
     names_n = (_q(c, "SELECT COUNT(DISTINCT parent) FROM usage") or [(0,)])[0][0]
     roots_n = (_q(c, "SELECT COUNT(*) FROM usage WHERE parent NOT IN (SELECT child FROM usage)") or [(0,)])[0][0]
