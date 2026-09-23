@@ -18,5 +18,8 @@ cd /d "%~dp0"
 if not exist "pfcasync.jar" copy /Y "%CREO%\text\java\pfcasync.jar" "pfcasync.jar" >nul
 "%JBIN%\javac.exe" -encoding UTF-8 -cp "pfcasync.jar" CreoPdf.java
 if errorlevel 1 ( echo COMPILE FAILED & exit /b 1 )
+rem  Индекс имён моделей дома (для распознавания чертежей-сирот). Обновляем перед прогонами экспорта.
+if /I "%1"=="export" ( python "%~dp0creo_pdf_names.py" --quiet )
+if /I "%1"=="pdf"    ( python "%~dp0creo_pdf_names.py" --quiet )
 "%JBIN%\java.exe" "-Djava.library.path=%ARCH%\lib;%ARCH%\obj" -Dstdout.encoding=UTF-8 -Dstderr.encoding=UTF-8 -cp ".;pfcasync.jar" CreoPdf %*
 exit /b %ERRORLEVEL%

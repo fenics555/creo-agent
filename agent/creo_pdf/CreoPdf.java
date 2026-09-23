@@ -86,17 +86,36 @@ public class CreoPdf {
         int limit = a.length > 2 ? Integer.parseInt(a[2]) : 100;
         if (limit <= 0) limit = Integer.MAX_VALUE;      // 0 = без ограничения
         for (int i = 3; i < a.length; i++) if (a[i].equalsIgnoreCase("open")) OPEN_PDF = true;
+        loadNames();
         System.out.println("режим: " + (OPEN_PDF ? "PDF открывать и оставлять" : "PDF не открывать") +
                            " | после экспорта чертёж убирается из сессии Creo");
         List<String> need = scan(dir, false, limit);
         System.out.println("к обработке: " + need.size());
-        int ok = 0, bad = 0;
+        int ok = 0, bad = 0, orphans = 0;
+        boolean lost = false;
         for (String base : need) {
           File f = new File(base);
+          if (isOrphan(f.getParentFile(), f.getName())) {
+            orphans++;
+            System.out.println("  СИРОТА (нет модели): " + f.getPath());
+            System.out.flush();
+            continue;
+          }
           try { doPdf(s, f.getParent(), f.getName(), f.getParent()); ok++; }
-          catch (Throwable t) { System.out.println("  ОШИБКА " + f.getName() + ": " + t); bad++; }
+          catch (Throwable t) {
+            String msg = String.valueOf(t);
+            if (msg.contains("XToolkitCommError")) {
+              System.out.println("  СВЯЗЬ С CREO ПОТЕРЯНА на «" + f.getName() + "»: " + msg);
+              System.out.println("  Прогон остановлен: перезапусти Creo и повтори — свежие PDF пропустятся сами.");
+              lost = true;
+              break;
+            }
+            System.out.println("  ОШИБКА " + f.getName() + ": " + t);
+            bad++;
+          }
         }
-        System.out.println("ИТОГО: сделано " + ok + ", ошибок " + bad);
+        System.out.println("ИТОГО: сделано " + ok + ", сирот (нет модели) " + orphans +
+                           (lost ? ", ПРЕРВАНО (связь с Creo потеряна)" : ", прочих ошибок " + bad));
       } else usage();
       try { s.ChangeDirectory(cwd0); System.out.println("cwd восстановлена: " + cwd0); } catch (Throwable t) {}
       c.Disconnect(10);
@@ -239,6 +258,31 @@ public class CreoPdf {
     return m;
   }
 
+  static java.util.Set<String> NAMES = null;   // базовые имена моделей дома (индекс, если есть)
+
+  /** Индекс имён моделей дома (пишет creo_pdf_names.py). Без него сироты не распознаются. */
+  static void loadNames() {
+    File f = new File("D:\\AI\\log\\creo_pdf\\model_names.txt");
+    if (!f.isFile()) { NAMES = null; System.out.println("индекс имён моделей: нет (сироты не распознаются)"); return; }
+    try {
+      java.util.Set<String> s = new java.util.HashSet<>();
+      for (String ln : Files.readAllLines(f.toPath(), StandardCharsets.UTF_8)) {
+        ln = ln.trim();
+        if (!ln.isEmpty()) s.add(ln.toLowerCase());
+      }
+      NAMES = s;
+      System.out.println("индекс имён моделей: " + s.size() + " (сироты распознаются)");
+    } catch (Throwable t) { NAMES = null; System.out.println("индекс имён не прочитан: " + t); }
+  }
+
+  /** Чертёж-сирота: рядом нет X.prt/X.asm И имени X нет в индексе моделей дома.
+   *  Creo такой чертёж НЕ откроет (проверено пробой 23.09.2026) — PDF сделать нельзя. */
+  static boolean isOrphan(File dir, String base) {
+    if (newestByExt(dir, base, "prt") != null || newestByExt(dir, base, "asm") != null) return false;
+    if (NAMES == null || NAMES.isEmpty()) return false;   // без индекса не гадаем
+    return !NAMES.contains(base.toLowerCase());
+  }
+
   /** Экспорт PDF одного чертежа: cd в папку -> retrieve -> Display -> Export -> уборка.
    *  Если по имени не нашлось — пробуем по ИМЕНИ ФАЙЛА (внутреннее имя модели могло разойтись с файлом). */
   static void doPdf(Session s, String dir, String name, String out) throws Exception {
@@ -265,7 +309,7 @@ public class CreoPdf {
       }
       // 1..4) варианты по имени файла
       if (mm == null) {
-        String[] variants = {name + ".drw", new File(dir, name + ".drw").getPath(), name, src.getPath()};
+        String[] variants = {name + ".drw", new File(dir, name + ".drw").getPath(), name};
         for (String v : variants) {
           try {
             System.out.println("  по имени не нашлось — пробую открыть как «" + v + "»"); System.out.flush();
