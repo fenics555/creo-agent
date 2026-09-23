@@ -12,16 +12,6 @@ import os, re, sqlite3, sys, time
 MODEL_EXT = ("drw", "prt", "asm", "frm")
 DB_AGENT = r"D:\AI\tools\agent\data\agent.sqlite"
 DB_HARVEST = r"D:\AI\tools\agent\data\harvest.db"
-HERE = os.path.dirname(os.path.abspath(__file__))
-
-
-def _short(s, w):
-    s = os.path.basename(os.path.normpath(s)) or s
-    return s if len(s) <= w else s[:w - 1] + "…"
-
-
-def _kb(n):
-    return ("%.0f КБ" % (n / 1024)) if n < 1048576 else ("%.1f МБ" % (n / 1048576))
 
 
 def find_model_near(folder, base):
@@ -73,19 +63,17 @@ def db_lookup(names):
     return found
 
 
-def scan(root, limit=200, quiet=False, apply_trash=False):
+def scan(root, limit=200, quiet=False):
     t0 = time.time()
     pdfs, checked = [], 0
-    t_last = time.time()
     for dirpath, dirnames, filenames in os.walk(root):
         for n in filenames:
             if n.lower().endswith(".pdf"):
                 pdfs.append((dirpath, n))
             checked += 1
-        if checked % 2000 == 0 and not quiet and time.time() - t_last > 5:
-            t_last = time.time()
-            print("  ...просмотрено файлов: %d, PDF найдено: %d" % (checked, len(pdfs)))
-            sys.stdout.flush()
+            if checked % 2000 == 0 and not quiet:
+                print("  ...просмотрено файлов: %d, PDF найдено: %d" % (checked, len(pdfs)))
+                sys.stdout.flush()
     print("просмотрено файлов: %d | PDF всего: %d | время обхода: %.1f с" % (checked, len(pdfs), time.time() - t0))
 
     near, orphan = 0, []
@@ -101,58 +89,26 @@ def scan(root, limit=200, quiet=False, apply_trash=False):
     if not orphan:
         return
     keys = {b.lower() for _, _, b in orphan}
-    print("справка по домашнему индексу для %d имён..." % len(keys))
-    sys.stdout.flush()
+    print("ищу %d имён в домашнем индексе..." % len(keys))
     db = db_lookup(keys)
-
-    trash = None
-    if apply_trash:
-        import datetime as _dt
-        trash = os.path.join(HERE, "_trash", _dt.datetime.now().strftime("%Y-%m-%d_%H%M") + "_nomodel")
-        os.makedirs(trash, exist_ok=True)
-        print("убираю PDF без модели в: %s" % trash)
-
-    print("=" * 118)
-    print("  %-10s %-26s %-32s %s" % ("ТИП", "ПДФ", "ПАПКА", "ГДЕ МОДЕЛЬ (если нашлась)"))
-    print("-" * 118)
-    moved = 0
-    for i, (dirpath, n, base) in enumerate(orphan):
+    print("-" * 100)
+    shown = 0
+    for dirpath, n, base in orphan:
         rows = db.get(base.lower())
         if rows:
-            typ = "МОДЕЛЬ НЕ ТУТ"
-            where = "; ".join(sorted({os.path.dirname(p) for p in rows})[:2])
+            where = "; ".join(sorted({os.path.dirname(p) for p in rows})[:3])
+            state = "МОДЕЛЬ В ДРУГОЙ ПАПКЕ: " + where
         else:
-            typ = "ДОКУМЕНТАЦИЯ"
-            where = "модели нет ни рядом, ни в индексе (каталог/руководство/скан)"
-        print("  %-10s %-26s %-32s %s" % (typ, _short(n, 26), _short(dirpath, 32), where[:60]))
-        if apply_trash and not rows:
-            # перемещаем только НАСТОЯЩИХ сирот (документация);
-            # PDF, чья модель есть в другой папке, не трогаем — сначала перевыпустить рядом
-            try:
-                import shutil
-                src = os.path.join(dirpath, n)
-                dst = os.path.join(trash, n)
-                k = 1
-                while os.path.exists(dst):
-                    dst = os.path.join(trash, "%s_%d%s" % (os.path.splitext(n)[0], k, os.path.splitext(n)[1])); k += 1
-                shutil.move(src, dst)
-                moved += 1
-            except Exception as e:
-                print("        ! не удалось переместить: %s" % e)
-        elif apply_trash and rows:
-            print("        (не трогаю: модель есть в другой папке — сначала «СОЗДАТЬ/ОБНОВИТЬ ПДФ»)" if i == 0 else "")
-        if i + 1 >= limit:
-            print("  ...обрезано по лимиту %d из %d" % (limit, len(orphan)))
+            state = "модели нет и в индексе (PDF-сирота: каталог/скан/чужой файл)"
+        print("НЕ РЯДОМ  %s" % os.path.join(dirpath, n))
+        print("          %s" % state)
+        shown += 1
+        if shown >= limit:
+            print("  ... (обрезано по лимиту %d из %d)" % (limit, len(orphan)))
             break
-    print("-" * 118)
-    inidx = sum(1 for _, _, b in orphan if db.get(b.lower()))
-    print("  МОДЕЛЬ НЕ ТУТ — модель есть, но в другой папке (перевыпустить рядом)")
-    print("  ДОКУМЕНТАЦИЯ  — это каталоги/руководства, для дома НОРМА (галочка удаления уберёт и их!)")
-    if moved:
-        print("=" * 118)
-        print("УБРАНО в %s — %d файл(ов)" % (trash, moved))
-    print("ИТОГО без модели рядом: %d (модель в другой папке: %d, документация: %d)"
-          % (len(orphan), inidx, len(orphan) - inidx))
+    print("-" * 100)
+    print("ИТОГО без модели рядом: %d (в индексе нашлись: %d, сироты: %d)"
+          % (len(orphan), sum(1 for _, _, b in orphan if db.get(b.lower())), sum(1 for _, _, b in orphan if not db.get(b.lower()))))
 
 
 if __name__ == "__main__":
@@ -166,4 +122,4 @@ if __name__ == "__main__":
     lim = 200
     if "--limit" in sys.argv:
         lim = int(sys.argv[sys.argv.index("--limit") + 1])
-    scan(sys.argv[1], lim, "--quiet" in sys.argv, "--apply" in sys.argv)
+    scan(sys.argv[1], lim, "--quiet" in sys.argv)

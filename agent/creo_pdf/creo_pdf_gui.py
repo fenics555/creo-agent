@@ -1,12 +1,15 @@
 # -*- coding: utf-8 -*-
-"""CREO PDF — окно: скан и обновление PDF рядом с чертежами.
-Движок: D:\\AI\\tools\\agent\\creo_pdf\\creo_pdf.bat (прямой JLINK, без CREOSON).
-Рутина дома: рядом с <имя>.drw[.N] должен лежать <имя>.pdf и быть не старше чертежа.
-Обход — по ВСЕМ подпапкам выбранной папки.
-Запуск: python creo_pdf_gui.py                      (окно)
-        python creo_pdf_gui.py --selftest "<папка>"  (проверка движка без окна)
+r"""CREO PDF — окно «ДИЗАЙН 2»: PDF чертежей (скан/обновление) + дубли + PDF без модели.
+Движок: creo_pdf.bat (прямой JLINK, без CREOSON) и питоновские помощники.
+Первый дизайн сохранён в design1\ (откат — скопировать обратно).
+
+Раскладка:
+  НАСТРОЙКИ   — пути (config.pro, папка), обзор, «Из сессии», «Применить», найти/запустить Creo, README, логи
+  ИСПОЛНИТЕЛИ — СКАН ПДФ · СОЗДАТЬ/ОБНОВИТЬ ПДФ · СТОП (лимит, «открывать PDF»)
+                Искать дубли ПДФ (+ «перемещать в корзину инструмента») · Искать ПДФ без модели (+ то же)
+  ОТЧЁТ       — живой лог/таблица, копирование и сохранение
 """
-import json, os, queue, subprocess, sys, threading
+import datetime, json, os, queue, subprocess, sys, threading
 import tkinter as tk
 from tkinter import ttk, filedialog, messagebox
 
@@ -22,75 +25,96 @@ class Win:
         self.root = root
         self.proc = None
         self.q = queue.Queue()
-        self.lines = []                     # весь лог — ещё и в файл, чтобы не терялся
+        self.lines = []
         self.s = self._load()
-        root.title("CREO PDF — скан и обновление PDF чертежей")
-        root.geometry("980x620")
-        root.minsize(760, 460)
 
-        frm = ttk.Frame(root, padding=8)
-        frm.pack(fill="x")
+        root.title("CREO PDF — чертежи, дубли, PDF без модели  ·  дизайн 2")
+        root.geometry("1180x740")
+        root.minsize(900, 560)
+        self._style()
 
-        ttk.Label(frm, text="Путь к config.pro:").grid(row=0, column=0, sticky="w", pady=2)
+        # ===================== НАСТРОЙКИ =====================
+        g1 = ttk.LabelFrame(root, text=" НАСТРОЙКИ ", padding=10)
+        g1.pack(fill="x", padx=10, pady=(10, 6))
+
+        ttk.Label(g1, text="config.pro:").grid(row=0, column=0, sticky="w")
         self.cfg_var = tk.StringVar(value=self.s.get("config", DEFAULT_CFG))
-        ttk.Entry(frm, textvariable=self.cfg_var).grid(row=0, column=1, sticky="ew", padx=4)
-        ttk.Button(frm, text="Обзор…", width=10, command=self.pick_cfg).grid(row=0, column=2, padx=2)
-        ttk.Button(frm, text="Из сессии", width=12, command=self.from_session).grid(row=0, column=3, padx=2)
-        ttk.Button(frm, text="Применить к Creo", width=17, command=self.apply_cfg).grid(row=0, column=4, padx=2)
+        ttk.Entry(g1, textvariable=self.cfg_var).grid(row=0, column=1, columnspan=2, sticky="ew", padx=6)
+        ttk.Button(g1, text="Обзор…", width=10, command=self.pick_cfg).grid(row=0, column=3, padx=2)
+        ttk.Button(g1, text="Из сессии", width=12, command=self.from_session).grid(row=0, column=4, padx=2)
+        ttk.Button(g1, text="Применить к Creo", width=17, command=self.apply_cfg).grid(row=0, column=5, padx=2)
 
-        ttk.Label(frm, text="Папка проверки:").grid(row=1, column=0, sticky="w", pady=2)
+        ttk.Label(g1, text="Папка проверки:").grid(row=1, column=0, sticky="w", pady=(6, 0))
         self.dir_var = tk.StringVar(value=self.s.get("folder", DEFAULT_DIR))
-        ttk.Entry(frm, textvariable=self.dir_var).grid(row=1, column=1, sticky="ew", padx=4)
-        ttk.Button(frm, text="Обзор…", width=10, command=self.pick_dir).grid(row=1, column=2, padx=2)
-        frm.columnconfigure(1, weight=1)
+        ttk.Entry(g1, textvariable=self.dir_var).grid(row=1, column=1, columnspan=2, sticky="ew", padx=6, pady=(6, 0))
+        ttk.Button(g1, text="Обзор…", width=10, command=self.pick_dir).grid(row=1, column=3, padx=2, pady=(6, 0))
+        ttk.Button(g1, text="Где config.pro", width=15, command=self.scan_cfg).grid(row=1, column=4, padx=2, pady=(6, 0))
+        ttk.Button(g1, text="Найти Creo", width=12, command=self.creo_find).grid(row=1, column=5, padx=2, pady=(6, 0))
 
-        bar = ttk.Frame(root, padding=(8, 0))
-        bar.pack(fill="x")
-        self.b_scan = ttk.Button(bar, text="СКАН (отчёт)", command=lambda: self.run("scan"))
+        g1b = ttk.Frame(g1)
+        g1b.grid(row=2, column=0, columnspan=6, sticky="ew", pady=(8, 0))
+        ttk.Button(g1b, text="Запустить Creo", command=self.start_creo).pack(side="left")
+        ttk.Button(g1b, text="README", command=self.show_readme).pack(side="left", padx=6)
+        ttk.Separator(g1b, orient="vertical").pack(side="left", fill="y", padx=8)
+        ttk.Label(g1b, text="отчёт:").pack(side="left")
+        ttk.Button(g1b, text="Копировать", command=self.copy_log).pack(side="left", padx=4)
+        ttk.Button(g1b, text="Сохранить…", command=self.save_log).pack(side="left", padx=2)
+        ttk.Button(g1b, text="Очистить", command=self.clear).pack(side="left", padx=2)
+        ttk.Label(g1b, text="(правый клик по отчёту — то же меню)", foreground="#8a8a8a").pack(side="left", padx=10)
+        g1.columnconfigure(1, weight=1)
+
+        # ===================== ИСПОЛНИТЕЛИ =====================
+        g2 = ttk.LabelFrame(root, text=" ИСПОЛНИТЕЛИ ", padding=10)
+        g2.pack(fill="x", padx=10, pady=6)
+
+        r1 = ttk.Frame(g2)
+        r1.pack(fill="x")
+        self.b_scan = ttk.Button(r1, text="СКАН ПДФ (отчёт)", width=20, command=lambda: self.run("scan"))
         self.b_scan.pack(side="left")
-        ttk.Label(bar, text="   лимит (0 = без ограничения):").pack(side="left")
-        self.limit = tk.StringVar(value=str(self.s.get("limit", 50)))
-        ttk.Entry(bar, width=6, textvariable=self.limit).pack(side="left")
-        self.open_pdf = tk.BooleanVar(value=bool(self.s.get("open_pdf", False)))
-        ttk.Checkbutton(bar, text="открывать PDF", variable=self.open_pdf).pack(side="left", padx=4)
-        self.b_exp = ttk.Button(bar, text="СОЗДАТЬ / ОБНОВИТЬ PDF", command=lambda: self.run("export"))
+        self.b_exp = ttk.Button(r1, text="СОЗДАТЬ / ОБНОВИТЬ ПДФ", width=26, command=lambda: self.run("export"))
         self.b_exp.pack(side="left", padx=6)
-        self.b_stop = ttk.Button(bar, text="СТОП", command=self.stop, state="disabled")
+        self.b_stop = ttk.Button(r1, text="СТОП", width=10, command=self.stop, state="disabled")
         self.b_stop.pack(side="left")
-        ttk.Button(bar, text="Копировать лог", command=self.copy_log).pack(side="left", padx=(6, 2))
-        ttk.Button(bar, text="Сохранить…", command=self.save_log).pack(side="left", padx=2)
-        ttk.Button(bar, text="Очистить", command=self.clear).pack(side="left", padx=2)
-        self.status = ttk.Label(bar, text="готов")
-        self.status.pack(side="right")
+        ttk.Label(r1, text="   лимит:").pack(side="left")
+        self.limit = tk.StringVar(value=str(self.s.get("limit", 50)))
+        ttk.Entry(r1, width=6, textvariable=self.limit).pack(side="left")
+        ttk.Label(r1, text="(0 = без ограничения)", foreground="#8a8a8a").pack(side="left", padx=4)
+        self.open_pdf = tk.BooleanVar(value=bool(self.s.get("open_pdf", False)))
+        ttk.Checkbutton(r1, text="открывать PDF", variable=self.open_pdf).pack(side="left", padx=10)
 
-        bar2 = ttk.Frame(root, padding=(8, 4))
-        bar2.pack(fill="x")
-        ttk.Button(bar2, text="README", width=12, command=self.show_readme).pack(side="left")
-        ttk.Button(bar2, text="Где config.pro (без сессии)", width=26, command=self.scan_cfg).pack(side="left", padx=4)
-        ttk.Button(bar2, text="Найти Creo (реестр)", width=19, command=self.creo_find).pack(side="left", padx=4)
-        ttk.Button(bar2, text="Запустить Creo (штатно)", width=22, command=self.start_creo).pack(side="left", padx=4)
-        ttk.Button(bar2, text="PDF без модели рядом", width=22, command=self.orphans).pack(side="left", padx=4)
-        ttk.Button(bar2, text="PDF не в своей папке", width=21, command=self.misplaced).pack(side="left", padx=4)
-        ttk.Button(bar2, text="Удалить смещённые PDF", width=23, command=self.misplaced_delete).pack(side="left", padx=4)
-        ttk.Label(bar2, text="PDF делает только ЖИВАЯ сессия Creo", foreground="#7a7a7a").pack(side="left", padx=8)
+        r2 = ttk.Frame(g2)
+        r2.pack(fill="x", pady=(10, 0))
+        self.del_dups = tk.BooleanVar(value=bool(self.s.get("del_dups", False)))
+        ttk.Button(r2, text="Искать дубли ПДФ и не рядом", width=30, command=self.run_dups).pack(side="left")
+        ttk.Checkbutton(r2, text="перемещать в корзину инструмента",
+                        variable=self.del_dups).pack(side="left", padx=6)
+        ttk.Separator(r2, orient="vertical").pack(side="left", fill="y", padx=12)
+        self.del_nomodel = tk.BooleanVar(value=bool(self.s.get("del_nomodel", False)))
+        ttk.Button(r2, text=" Искать ПДФ без модели ", width=26, command=self.run_nomodel).pack(side="left")
+        ttk.Checkbutton(r2, text="перемещать в корзину инструмента",
+                        variable=self.del_nomodel).pack(side="left", padx=6)
 
-        box = ttk.Frame(root, padding=8)
-        box.pack(fill="both", expand=True)
-        self.txt = tk.Text(box, wrap="none", font=("Consolas", 9), bg="#1B1C1E", fg="#E8E8E8")
-        ys = ttk.Scrollbar(box, orient="vertical", command=self.txt.yview)
-        xs = ttk.Scrollbar(box, orient="horizontal", command=self.txt.xview)
+        # ===================== ОТЧЁТ =====================
+        g3 = ttk.LabelFrame(root, text=" ОТЧЁТ ", padding=6)
+        g3.pack(fill="both", expand=True, padx=10, pady=(6, 4))
+        self.txt = tk.Text(g3, wrap="none", font=("Consolas", 9), bg="#15171A", fg="#E6E6E6",
+                           insertbackground="#E6E6E6", selectbackground="#3A5A8A", padx=6, pady=4)
+        ys = ttk.Scrollbar(g3, orient="vertical", command=self.txt.yview)
+        xs = ttk.Scrollbar(g3, orient="horizontal", command=self.txt.xview)
         self.txt.configure(yscrollcommand=ys.set, xscrollcommand=xs.set)
         self.txt.grid(row=0, column=0, sticky="nsew")
         ys.grid(row=0, column=1, sticky="ns")
         xs.grid(row=1, column=0, sticky="ew")
-        box.rowconfigure(0, weight=1)
-        box.columnconfigure(0, weight=1)
+        g3.rowconfigure(0, weight=1)
+        g3.columnconfigure(0, weight=1)
 
-        # --- лог: выделение, копирование, сохранение, правый клик ---
+        self.status = ttk.Label(root, text="готов", anchor="w", padding=(12, 3))
+        self.status.pack(fill="x", side="bottom")
+
         self.menu = tk.Menu(root, tearoff=0)
         self.menu.add_command(label="Копировать выделенное", command=lambda: self.txt.event_generate("<<Copy>>"))
-        self.menu.add_command(label="Копировать ВЕСЬ лог", command=self.copy_log)
-        self.menu.add_command(label="Сохранить лог в файл…", command=self.save_log)
+        self.menu.add_command(label="Копировать ВЕСЬ отчёт", command=self.copy_log)
+        self.menu.add_command(label="Сохранить отчёт в файл…", command=self.save_log)
         self.menu.add_command(label="Показать, что в буфере", command=self.show_clip)
         self.menu.add_separator()
         self.menu.add_command(label="Выделить всё (Ctrl+A)", command=self.sel_all)
@@ -100,11 +124,23 @@ class Win:
         self.txt.bind("<Control-A>", self.sel_all)
         self.txt.bind("<Control-c>", lambda e: self.txt.event_generate("<<Copy>>"))
 
-        root.after(100, self.pump)
-        self.log("Готов. Порядок: «СКАН (отчёт)» → «СОЗДАТЬ / ОБНОВИТЬ PDF» (нужен запущенный Creo).")
+        root.after(120, self.pump)
+        self.log("Готово. Порядок: «СКАН ПДФ (отчёт)» → «СОЗДАТЬ / ОБНОВИТЬ ПДФ» → «Искать дубли ПДФ и не рядом».")
+        self.log("Дубли убираются в корзину инструмента creo_pdf\\_trash (галочка «удалять дубли»).")
         self.log("Движок: " + BAT)
 
-    # ---------- служебное ----------
+    def _style(self):
+        try:
+            st = ttk.Style()
+            if "vista" in st.theme_names():
+                st.theme_use("vista")
+            st.configure("TButton", padding=(8, 4))
+            st.configure("LabelFrame", padding=8)
+            st.configure("TLabelframe.Label", font=("Segoe UI", 9, "bold"))
+        except Exception:
+            pass
+
+    # =============== служебное ===============
     def _load(self):
         try:
             return json.loads(open(CFG, encoding="utf-8").read())
@@ -114,9 +150,9 @@ class Win:
     def _save(self):
         try:
             open(CFG, "w", encoding="utf-8").write(json.dumps(
-                {"config": self.cfg_var.get(), "folder": self.dir_var.get(),
-                 "limit": self.limit.get(), "open_pdf": bool(self.open_pdf.get())},
-                ensure_ascii=False, indent=1))
+                {"config": self.cfg_var.get(), "folder": self.dir_var.get(), "limit": self.limit.get(),
+                 "open_pdf": bool(self.open_pdf.get()), "del_dups": bool(self.del_dups.get()),
+                 "del_nomodel": bool(self.del_nomodel.get())}, ensure_ascii=False, indent=1))
         except Exception:
             pass
 
@@ -125,8 +161,6 @@ class Win:
         self.q.put(line)
 
     def _dump_log(self):
-        """Автосохранение лога рядом с программой: last_run_log.txt + logs\\run_<дата>.txt."""
-        import datetime
         text = "\n".join(self.lines) + "\n"
         try:
             with open(os.path.join(HERE, "last_run_log.txt"), "w", encoding="utf-8") as f:
@@ -136,7 +170,7 @@ class Win:
             name = "run_" + datetime.datetime.now().strftime("%Y-%m-%d_%H%M") + ".txt"
             with open(os.path.join(d, name), "w", encoding="utf-8") as f:
                 f.write(text)
-            self.status.config(text="готов · лог: logs\\" + name)
+            self.status.config(text="готов · отчёт: logs\\" + name)
         except Exception:
             pass
 
@@ -146,15 +180,15 @@ class Win:
                 line = self.q.get_nowait()
                 if line == "__done__":
                     self.proc = None
-                    self.b_scan.config(state="normal"); self.b_exp.config(state="normal")
+                    for b in (self.b_scan, self.b_exp):
+                        b.config(state="normal")
                     self.b_stop.config(state="disabled")
                     self._dump_log()
-                    self.status.config(text="готов · лог: last_run_log.txt")
                     continue
                 self.txt.insert("end", line + "\n")
                 self.txt.see("end")
-                if line.startswith("чертежей:"):
-                    self.status.config(text=line.strip())
+                if line.startswith("ИТОГО") or line.startswith("чертежей:"):
+                    self.status.config(text=line.strip()[:160])
         except queue.Empty:
             pass
         self.root.after(120, self.pump)
@@ -174,21 +208,20 @@ class Win:
         try:
             self.root.clipboard_clear()
             self.root.clipboard_append(t)
-            self.root.update()                                  # чтобы буфер закрепился сразу
-            ok = (self.root.clipboard_get() == t)               # и сразу проверили чтением
+            self.root.update()
+            ok = (self.root.clipboard_get() == t)
         except Exception as e:
             self.log("tk-буфер не сработал (%s) — пробую через PowerShell" % e)
         if not ok:
             ok = self._clip_via_powershell(t)
         if ok:
-            self.status.config(text="лог скопирован: %d строк" % n)
+            self.status.config(text="отчёт скопирован: %d строк" % n)
             self.log("— скопировано в буфер: %d строк (%d символов) —" % (n, len(t)))
         else:
             self.status.config(text="копирование не удалось")
-            self.log("— КОПИРОВАНИЕ НЕ УДАЛОСЬ. Нажми «Сохранить…» — файл лога пишется всегда. —")
+            self.log("— КОПИРОВАНИЕ НЕ УДАЛОСЬ. Нажми «Сохранить…» — файл пишется всегда. —")
 
     def _clip_via_powershell(self, text):
-        """Резервный путь: буфер через PowerShell (файл в UTF-16 — кириллица цела)."""
         tmp = os.path.join(HERE, "_clip_tmp.txt")
         try:
             with open(tmp, "w", encoding="utf-16") as f:
@@ -205,24 +238,21 @@ class Win:
             t = self.root.clipboard_get()
         except Exception:
             t = ""
-        if not t:
-            self.log("— в буфере пусто (или недоступно) —")
-        else:
-            self.log("— в буфере %d символов, начало: %r —" % (len(t), t[:200]))
+        self.log("— в буфере пусто —" if not t else "— в буфере %d символов, начало: %r —" % (len(t), t[:200]))
 
     def save_log(self):
-        p = filedialog.asksaveasfilename(title="Сохранить лог", defaultextension=".txt",
-                                         initialfile="creo_pdf_log.txt",
+        p = filedialog.asksaveasfilename(title="Сохранить отчёт", defaultextension=".txt",
+                                         initialfile="creo_pdf_report.txt",
                                          filetypes=[("текст", "*.txt"), ("все файлы", "*.*")])
         if not p:
             return
         try:
             with open(p, "w", encoding="utf-8") as f:
                 f.write(self.txt.get("1.0", "end-1c"))
-            self.status.config(text="лог сохранён")
-            self.log("— лог сохранён: %s —" % p)
+            self.status.config(text="отчёт сохранён")
+            self.log("— отчёт сохранён: %s —" % p)
         except Exception as e:
-            self.log("не удалось сохранить лог: %s" % e)
+            self.log("не удалось сохранить отчёт: %s" % e)
 
     def pick_cfg(self):
         p = filedialog.askopenfilename(title="Выбрать config.pro", initialdir=os.path.dirname(DEFAULT_CFG),
@@ -235,31 +265,33 @@ class Win:
         if p:
             self.dir_var.set(p)
 
-    # ---------- движок ----------
-    def _spawn(self, args, title):
+    # =============== движок ===============
+    def _busy(self):
         if self.proc:
             messagebox.showinfo("Занято", "Сначала дождись окончания или нажми СТОП")
-            return
+            return True
+        return False
+
+    def _begin(self, title):
         self._save()
-        self.log("-" * 90)
-        self.log("%s: creo_pdf %s" % (title, " ".join(args)))
+        self.log("-" * 110)
+        self.log(title)
         self.status.config(text="работаю…")
-        self.b_scan.config(state="disabled"); self.b_exp.config(state="disabled")
+        self.b_scan.config(state="disabled")
+        self.b_exp.config(state="disabled")
         self.b_stop.config(state="normal")
+
+    def _spawn(self, args, title):
+        if self._busy():
+            return
+        self._begin(title + ": creo_pdf " + " ".join(args))
         cmd = ["cmd", "/c", "call", BAT] + list(args)
         threading.Thread(target=self._worker, args=(cmd,), daemon=True).start()
 
     def _spawn_py(self, script, args, title):
-        """Запуск питоновского помощника (например, поиск PDF без модели рядом)."""
-        if self.proc:
-            messagebox.showinfo("Занято", "Сначала дождись окончания или нажми СТОП")
+        if self._busy():
             return
-        self._save()
-        self.log("-" * 90)
-        self.log("%s: python %s %s" % (title, script, " ".join(args)))
-        self.status.config(text="работаю…")
-        self.b_scan.config(state="disabled"); self.b_exp.config(state="disabled")
-        self.b_stop.config(state="normal")
+        self._begin(title + ": python " + script + " " + " ".join(args))
         cmd = [sys.executable, "-X", "utf8", os.path.join(HERE, script)] + list(args)
         threading.Thread(target=self._worker, args=(cmd,), daemon=True).start()
 
@@ -269,8 +301,7 @@ class Win:
                                          text=True, encoding="utf-8", errors="replace", bufsize=1)
             for line in self.proc.stdout:
                 self.log(line.rstrip())
-            code = self.proc.wait()
-            self.log("движок завершён, код %s" % code)
+            self.log("готово, код %s" % self.proc.wait())
         except Exception as e:
             self.log("ОШИБКА запуска: %s" % e)
         finally:
@@ -284,86 +315,69 @@ class Win:
             except Exception as e:
                 self.log("стоп: %s" % e)
 
-    def run(self, mode):
+    def _folder(self):
         d = self.dir_var.get().strip()
         if not d or not os.path.isdir(d):
             messagebox.showwarning("Папка", "Выбери существующую папку проверки")
+            return None
+        return d
+
+    # ---------------- рутины ----------------
+    def run(self, mode):
+        d = self._folder()
+        if not d:
             return
         if mode == "scan":
-            self._spawn(["scan", d], "СКАН")
+            self._spawn(["scan", d], "СКАН ПДФ (отчёт)")
         else:
             args = ["export", d, self.limit.get().strip() or "50"]
             if self.open_pdf.get():
                 args.append("open")
-            self._spawn(args, "ЭКСПОРТ PDF" + (" (с открытием)" if self.open_pdf.get() else " (не открывать)"))
+            self._spawn(args, "СОЗДАТЬ / ОБНОВИТЬ ПДФ" + (" (с открытием)" if self.open_pdf.get() else ""))
 
+    def run_dups(self):
+        """ОДНА кнопка: дубли PDF + PDF не рядом со своим чертежом. Галочка = ещё и убрать лишние."""
+        d = self._folder()
+        if not d:
+            return
+        args, title = [d, "--limit", "300"], "ДУБЛИ ПДФ И НЕ РЯДОМ (отчёт)"
+        if self.del_dups.get():
+            if not messagebox.askyesno("Переместить дубли в корзину инструмента",
+                                       "Найду дубли и PDF, лежащие НЕ рядом со своим чертёжем,\n"
+                                       "и ПЕРЕМЕЩУ лишние копии в корзину инструмента:\n"
+                                       "creo_pdf\\_trash\\<дата>  (вернуть — руками, ничего не пропадёт).\n\n"
+                                       "• единственная копия без пары рядом НЕ трогается;\n"
+                                       "• документация (PDF без чертежа) НЕ трогается.\n\n"
+                                       "Папка: " + d):
+                return
+            args, title = [d, "--apply", "--limit", "1000"], "ДУБЛИ ПДФ: УБОРКА ЛИШНИХ КОПИЙ"
+        self._spawn_py("creo_pdf_misplaced.py", args, title)
+
+    def run_nomodel(self):
+        """PDF без модели рядом (документация/каталоги). Галочка = ещё и убрать (в _trash)."""
+        d = self._folder()
+        if not d:
+            return
+        args, title = [d, "--limit", "300"], "ПДФ БЕЗ МОДЕЛИ РЯДОМ (отчёт)"
+        if self.del_nomodel.get():
+            if not messagebox.askyesno("Переместить PDF без модели в корзину инструмента",
+                                       "Будут перемещены PDF, у которых нет одноимённой модели рядом\n"
+                                       "(каталоги, руководства, сканы документов):\n"
+                                       "creo_pdf\\_trash\\<дата>_nomodel — вернуть можно руками.\n\n"
+                                       "Папка: " + d + "\n\nПродолжить?"):
+                return
+            args, title = [d, "--apply", "--limit", "1000"], "ПДФ БЕЗ МОДЕЛИ: УБОРКА"
+        self._spawn_py("creo_pdf_orphans.py", args, title)
+
+    # ---------------- конфиг и Creo ----------------
     def from_session(self):
-        self._spawn(["config-find"], "ПОИСК КОНФИГА (папка старта Creo и config.pro)")
+        self._spawn(["config-find"], "ГДЕ CREO ВЗЯЛ КОНФИГ (папка старта и config.pro)")
 
     def scan_cfg(self):
-        self._spawn(["config-scan"], "ПОИСК config.pro БЕЗ СЕССИИ CREO")
-
-    def orphans(self):
-        d = self.dir_var.get().strip()
-        if not d or not os.path.isdir(d):
-            messagebox.showwarning("Папка", "Выбери существующую папку проверки")
-            return
-        self._spawn_py("creo_pdf_orphans.py", [d, "--limit", "300"], "PDF БЕЗ МОДЕЛИ РЯДОМ")
-
-    def misplaced(self):
-        """Отчёт: PDF, лежащие НЕ рядом со своим чертежом (ошибка вывода). Документация — отдельно."""
-        d = self.dir_var.get().strip()
-        if not d or not os.path.isdir(d):
-            messagebox.showwarning("Папка", "Выбери существующую папку проверки")
-            return
-        self._spawn_py("creo_pdf_misplaced.py", [d, "--limit", "300"], "PDF НЕ В СВОЕЙ ПАПКЕ (отчёт)")
-
-    def misplaced_delete(self):
-        """Уборка: найденные смещённые PDF убираются в корзину инструмента (creo_pdf\\_trash)."""
-        d = self.dir_var.get().strip()
-        if not d or not os.path.isdir(d):
-            messagebox.showwarning("Папка", "Выбери существующую папку проверки")
-            return
-        if not messagebox.askyesno("Убрать смещённые PDF",
-                                   "Повторно найду PDF, лежащие НЕ рядом со своим чертежом, и УБЕРУ их.\n"
-                                   "Файлы уходят в корзину инструмента: creo_pdf\\_trash\\<дата>\n"
-                                   "(не в никуда — при ошибке вернёшь руками).\n\n"
-                                   "Папка: " + d + "\n\nПродолжить?"):
-            return
-        self._spawn_py("creo_pdf_misplaced.py", [d, "--apply", "--limit", "1000"],
-                       "УБОРКА СМЕЩЁННЫХ PDF (в _trash)")
-
-    def show_readme(self):
-        p = os.path.join(HERE, "README.md")
-        try:
-            text = open(p, encoding="utf-8").read()
-        except Exception as e:
-            self.log("README не прочитан: %s" % e)
-            return
-        self.log("=" * 92)
-        self.log("README: " + p)
-        self.log("=" * 92)
-        for line in text.splitlines():
-            self.log(line)
-        self.log("=" * 92)
-        self.log("конец README")
+        self._spawn(["config-scan"], "ПОИСК config.pro БЕЗ СЕССИИ")
 
     def creo_find(self):
         self._spawn(["creo-find"], "ПОИСК УСТАНОВКИ CREO (реестр Windows)")
-
-    def start_creo(self):
-        cfg = self.cfg_var.get().strip() or DEFAULT_CFG
-        if not os.path.isfile(cfg):
-            messagebox.showwarning("config.pro",
-                                   "Сначала выбери существующий config.pro —\nего папка станет рабочей папкой Creo")
-            return
-        d = os.path.dirname(cfg)
-        if not messagebox.askyesno("Штатный запуск Creo",
-                                   "Запустить Creo штатно?\n\nparametric.exe с рабочей папкой:\n" + d +
-                                   "\n\nCreo читает config.pro из рабочей папки — оттуда придут форматки,"
-                                   " MY_ESKD.dtl и table.pnt.\n(домашний CREO-START.bat не используется)"):
-            return
-        self._spawn(["creo-start", cfg], "ШТАТНЫЙ ЗАПУСК CREO")
 
     def apply_cfg(self):
         c = self.cfg_var.get().strip()
@@ -372,15 +386,42 @@ class Win:
             return
         self._spawn(["config-load", c], "ПРИМЕНЕНИЕ КОНФИГА К Creo")
 
+    def show_readme(self):
+        p = os.path.join(HERE, "README.md")
+        try:
+            text = open(p, encoding="utf-8").read()
+        except Exception as e:
+            self.log("README не прочитан: %s" % e)
+            return
+        self.log("=" * 110)
+        self.log("README: " + p)
+        self.log("=" * 110)
+        for line in text.splitlines():
+            self.log(line)
+        self.log("=" * 110)
+        self.log("конец README")
+
+    def start_creo(self):
+        cfg = self.cfg_var.get().strip() or DEFAULT_CFG
+        if not os.path.isfile(cfg):
+            messagebox.showwarning("config.pro",
+                                   "Сначала выбери существующий config.pro —\nего папка станет рабочей папкой Creo")
+            return
+        if not messagebox.askyesno("Штатный запуск Creo",
+                                   "Запустить Creo штатно?\n\nparametric.exe с рабочей папкой:\n" +
+                                   os.path.dirname(cfg) +
+                                   "\n\nCreo читает config.pro из рабочей папки — оттуда придут форматки,"
+                                   " MY_ESKD.dtl и table.pnt.\n(домашний CREO-START.bat не используется)"):
+            return
+        self._spawn(["creo-start", cfg], "ШТАТНЫЙ ЗАПУСК CREO")
+
 
 def selftest(folder):
-    """Проверка движка без окна: скан папки и признак работы (для приёмки)."""
-    print("движок:", BAT)
+    """Проверка движка без окна (для приёмки)."""
     p = subprocess.run(["cmd", "/c", "call", BAT, "scan", folder], cwd=HERE,
                        capture_output=True, text=True, encoding="utf-8", errors="replace")
     out = (p.stdout or "") + (p.stderr or "")
     print(out)
-    print("код:", p.returncode)
     return "чертежей:" in out
 
 

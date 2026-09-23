@@ -17,10 +17,8 @@ HERE = os.path.dirname(os.path.abspath(__file__))
 
 
 def walk_tree(root, quiet=False):
-    """Возвращает (pdfs, models, files): base_lower -> список (папка, имя[, тип]).
-    Прогресс печатается не чаще раза в 5 секунд — чтобы не засорять отчёт."""
+    """Возвращает (pdfs, models, files): base_lower -> список (папка, имя[, тип])"""
     pdfs, models, files = {}, {}, 0
-    t_last = time.time()
     for dirpath, dirnames, filenames in os.walk(root):
         for n in filenames:
             files += 1
@@ -31,8 +29,7 @@ def walk_tree(root, quiet=False):
                 m = MODEL_RX.search(n)
                 if m:
                     models.setdefault(n[:m.start()].lower(), []).append((dirpath, n, m.group(1).lower()))
-        if not quiet and files and files % 2000 == 0 and time.time() - t_last > 5:
-            t_last = time.time()
+        if not quiet and files and files % 2000 == 0:
             print("  ...файлов: %d, PDF: %d" % (files, sum(len(v) for v in pdfs.values())))
             sys.stdout.flush()
     return pdfs, models, files
@@ -118,16 +115,6 @@ def _info(p):
         return 0, "?", 0
 
 
-def _short(s, w):
-    """Короткая подпись для таблицы: последний элемент пути, не длиннее w."""
-    s = os.path.basename(os.path.normpath(s)) or s
-    return s if len(s) <= w else s[:w - 1] + "…"
-
-
-def _kb(n):
-    return ("%.0f КБ" % (n / 1024)) if n < 1048576 else ("%.1f МБ" % (n / 1048576))
-
-
 def main(root, limit, show_doc, apply_trash):
     t0 = time.time()
     pdfs, models, files = walk_tree(root)
@@ -155,20 +142,19 @@ def main(root, limit, show_doc, apply_trash):
     if apply_trash and no_near:
         print("! у %d групп НЕТ копии рядом с чертежом — не трогаю их: сначала «СОЗДАТЬ/ОБНОВИТЬ PDF», потом уборка" % len(no_near))
 
-    # ------------------------- ТАБЛИЦА -------------------------
-    print("=" * 118)
-    print("  %-8s %-26s %-34s %-6s %s" % ("ТИП", "ИМЯ", "ЧЕРТЁЖ (папка)", "КОПИЙ", "ЛИШНИЕ КОПИИ (папка · дата · размер)"))
-    print("-" * 118)
-    moved = []
+    print("-" * 110)
     for base, drw_dirs, near, away, src in groups[:limit]:
-        typ = "ДУБЛЬ" if near else "НЕТ РЯДОМ"
-        drw = _short(drw_dirs[0], 34) + ("*" if src.startswith("чертёж найден") else "")
+        print("%s  %s   [%s; копий: %d]" % ("НЕТ РЯДОМ" if not near else "ДУБЛЬ    ",
+                                            base, src, len(near) + len(away)))
+        print("        чертёж: %s" % drw_dirs[0])
+        for d, n in near:
+            sz, dt, _ = _info(os.path.join(d, n))
+            print("        РЯДОМ    (%9d б, %s)  %s" % (sz, dt, n))
         near_max = max([_info(os.path.join(d, n))[2] for d, n in near], default=0)
-        parts = []
         for d, n in away:
             p = os.path.join(d, n); sz, dt, mt = _info(p)
-            warn = " (!)" if (near and mt > near_max) else ""
-            parts.append("%s · %s · %s%s" % (_short(d, 40), dt.split()[0], _kb(sz), warn))
+            mark = "  <-- ВНИМАНИЕ: копия СВЕЖЕЕ той, что рядом" if (near and mt > near_max) else ""
+            print("        НЕ РЯДОМ (%9d б, %s)  %s%s" % (sz, dt, p, mark))
             if apply_trash and near:
                 try:
                     dst = os.path.join(trash, n)
@@ -176,21 +162,11 @@ def main(root, limit, show_doc, apply_trash):
                     while os.path.exists(dst):
                         dst = os.path.join(trash, "%s_%d%s" % (os.path.splitext(n)[0], k, os.path.splitext(n)[1])); k += 1
                     shutil.move(p, dst)
-                    moved.append(p)
+                    print("                 -> убран в корзину инструмента")
                 except Exception as e:
-                    print("   ! не удалось убрать %s: %s" % (p, e))
-        shown = len(parts)
-        line = " | ".join(parts[:2]) + ("" if shown <= 2 else "  … ещё %d" % (shown - 2))
-        print("  %-8s %-26s %-34s %-6d %s" % (typ, _short(base, 26), drw, len(near) + len(away), line))
+                    print("                 ! не удалось убрать: %s" % e)
     if len(groups) > limit:
         print("  ...обрезано по лимиту %d из %d" % (limit, len(groups)))
-    print("-" * 118)
-    print("  (*) чертёж найден по индексу дома   (!) копия СВЕЖЕЕ той, что рядом — возможно, правильная именно она")
-    if moved:
-        print("=" * 118)
-        print("УБРАНО в %s — %d файл(ов):" % (trash, len(moved)))
-        for m in moved:
-            print("   %s" % m)
     if info:
         print("-" * 110)
         print("PDF ОТ МОДЕЛИ (не чертёж; модель лежит в другой папке):")
