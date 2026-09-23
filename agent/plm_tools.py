@@ -1,24 +1,58 @@
 # -*- coding: utf-8 -*-
-r"""ПЛМ: реестр изделий + BOM + ревизии + ИИ (ГОСТ 2.503)."""
+r"""ПЛМ: реестр изделий + BOM + ревизии + ИИ (ГОСТ 2.503).
+
+ЗАКОН ДОМА (23.09.2026): таблицы с префиксом `plm_` — НАШИ; всё остальное в базе — только чтение.
+ЖИВАЯ НАХОДКА 23.09.2026 (до правки): модуль держал свои таблицы БЕЗ префикса и в `plm_mine` делал
+`DELETE FROM bom` — а `bom` в базе дома ЧУЖАЯ таблица (36 811 строк, схема `parent, child, qty`
+без колонки `source`). То есть первый же запуск `plm_mine` стёр бы чужой состав и упал на вставке.
+Исправлено: свои таблицы `plm_items / plm_bom / plm_revisions / plm_changes`, перевод старых (пустых)
+в них — через `_migrate()`, чужая `bom` не читается и не пишется вообще.
+"""
 import os, re, time, datetime
 import core
+
+OURS = {
+    # старое имя -> (новое имя, ожидаемые колонки; сверяется с PRAGMA table_info)
+    "items": ("plm_items", ["designation", "name", "type", "material", "format", "mass",
+                            "lifecycle", "rev", "source", "updated"]),
+    "revisions": ("plm_revisions", ["id", "item", "rev", "status", "author", "comment", "ts"]),
+    "changes": ("plm_changes", ["id", "item", "rev", "kind", "descr", "who", "reason", "ts"]),
+}
+
+
+def _cols(c, table):
+    try:
+        return [r[1] for r in c.execute("PRAGMA table_info(\"%s\")" % table)]
+    except Exception:
+        return []
+
+
+def _migrate(c):
+    """Перевести старые таблицы модуля в `plm_*` — ТОЛЬКО если колонки совпали один-в-один
+    (значит таблица наша и пустая/безопасная). Чужое (например `bom`) не трогаем никогда."""
+    have = {r[0] for r in c.execute("SELECT name FROM sqlite_master WHERE type='table'")}
+    for old, (new, cols) in OURS.items():
+        if old in have and new not in have and _cols(c, old) == cols:
+            c.execute("ALTER TABLE \"%s\" RENAME TO \"%s\"" % (old, new))
+
+
 def _db():
     c = core.db()
-    c.execute("CREATE TABLE IF NOT EXISTS usage(child TEXT, parent TEXT, parent_path TEXT)")
-    c.execute("CREATE TABLE IF NOT EXISTS items(designation TEXT PRIMARY KEY, name TEXT, type TEXT, material TEXT, format TEXT, mass REAL, lifecycle TEXT, rev TEXT, source TEXT, updated TEXT)")
-    c.execute("CREATE TABLE IF NOT EXISTS bom(parent TEXT, child TEXT, qty REAL, source TEXT, PRIMARY KEY(parent, child))")
-    c.execute("CREATE TABLE IF NOT EXISTS revisions(id INTEGER PRIMARY KEY AUTOINCREMENT, item TEXT, rev TEXT, status TEXT, author TEXT, comment TEXT, ts TEXT)")
-    c.execute("CREATE TABLE IF NOT EXISTS changes(id INTEGER PRIMARY KEY AUTOINCREMENT, item TEXT, rev TEXT, kind TEXT, descr TEXT, who TEXT, reason TEXT, ts TEXT)")
+    _migrate(c)
+    c.execute("CREATE TABLE IF NOT EXISTS plm_items(designation TEXT PRIMARY KEY, name TEXT, type TEXT, material TEXT, format TEXT, mass REAL, lifecycle TEXT, rev TEXT, source TEXT, updated TEXT)")
+    c.execute("CREATE TABLE IF NOT EXISTS plm_bom(parent TEXT, child TEXT, qty REAL, source TEXT, PRIMARY KEY(parent, child))")
+    c.execute("CREATE TABLE IF NOT EXISTS plm_revisions(id INTEGER PRIMARY KEY AUTOINCREMENT, item TEXT, rev TEXT, status TEXT, author TEXT, comment TEXT, ts TEXT)")
+    c.execute("CREATE TABLE IF NOT EXISTS plm_changes(id INTEGER PRIMARY KEY AUTOINCREMENT, item TEXT, rev TEXT, kind TEXT, descr TEXT, who TEXT, reason TEXT, ts TEXT)")
     return c
 def _base(n): return re.sub(r"\\.(prt|asm|drw)(\\.\\d+)?$", "", n, flags=re.I)
 def tool_plm_mine(xml_dir="", **kw):
     c = _db(); n_items = 0
     for (n, e) in c.execute("SELECT name, ext FROM models WHERE LOWER(ext) IN ('prt','asm')"):
         d = _base(n); t = "Сборка" if e.lower() == "asm" else "Деталь"
-        c.execute("INSERT OR IGNORE INTO items(designation,name,type,lifecycle,source,updated) VALUES(?,?,?,?,?,?)", (d.lower(), d, t, "Разработка", "models", time.strftime("%d.%m %H:%M")))
+        c.execute("INSERT OR IGNORE INTO plm_items(designation,name,type,lifecycle,source,updated) VALUES(?,?,?,?,?,?)", (d.lower(), d, t, "Разработка", "models", time.strftime("%d.%m %H:%M")))
         n_items += 1
-    c.execute("DELETE FROM bom")
-    c.execute("INSERT OR IGNORE INTO bom(parent,child,qty,source) SELECT LOWER(parent), LOWER(child), 1, 'usage' FROM usage")
+    c.execute("DELETE FROM plm_bom")  # ТОЛЬКО своя таблица; чужая bom (36811 строк) не трогается
+    c.execute("INSERT OR IGNORE INTO plm_bom(parent,child,qty,source) SELECT LOWER(parent), LOWER(child), 1, 'usage' FROM usage")
     n_xml = 0
     if xml_dir and os.path.isdir(xml_dir):
         import xml.etree.ElementTree as ET
@@ -32,18 +66,18 @@ def tool_plm_mine(xml_dir="", **kw):
                 name = " ".join(x for x in (P.get("НАИМЕНОВАНИЕ"), P.get("НАИМЕНОВАНИЕ1"), P.get("НАИМЕНОВАНИЕ2")) if x)
                 try: mass = float(P.get("MASS") or 0)
                 except Exception: mass = 0.0
-                c.execute("INSERT INTO items(designation,name,type,material,format,mass,source,updated) VALUES(?,?,?,?,?,?,?,?) "
+                c.execute("INSERT INTO plm_items(designation,name,type,material,format,mass,source,updated) VALUES(?,?,?,?,?,?,?,?) "
                           "ON CONFLICT(designation) DO UPDATE SET name=excluded.name,type=excluded.type,material=excluded.material,format=excluded.format,mass=excluded.mass,source='xml',updated=excluded.updated",
                           (d, name or d, P.get("ТИП") or "", P.get("PTC_MASTER_MATERIAL") or "", P.get("ФОРМАТ") or "", mass, time.strftime("%d.%m %H:%M")))
                 n_xml += 1
             except Exception: pass
     c.commit()
-    tot = c.execute("SELECT COUNT(*) FROM items").fetchone()[0]; bb = c.execute("SELECT COUNT(*) FROM bom").fetchone()[0]
+    tot = c.execute("SELECT COUNT(*) FROM plm_items").fetchone()[0]; bb = c.execute("SELECT COUNT(*) FROM plm_bom").fetchone()[0]
     c.close()
     return "ПЛМ: изделий %d (models %d, XML %d), связей BOM %d" % (tot, n_items, n_xml, bb)
 def tool_plm_item(q="", **kw):
     if not q: return "укажи обозначение"
-    c = _db(); r = c.execute("SELECT * FROM items WHERE designation LIKE ?", ("%" + q.lower() + "%",)).fetchone()
+    c = _db(); r = c.execute("SELECT * FROM plm_items WHERE designation LIKE ?", ("%" + q.lower() + "%",)).fetchone()
     if not r: c.close(); return "не найдено: %s" % q
     cols = [d[0] for d in c.description]; c.close()
     return "; ".join("%s=%s" % (k, v) for k, v in zip(cols, r) if v not in (None, ""))
@@ -53,31 +87,31 @@ def tool_plm_bom(q="", depth=3, **kw):
     def walk(node, lvl):
         if lvl > int(depth) or node in seen: return
         seen.add(node)
-        for (ch,) in c.execute("SELECT child FROM bom WHERE parent=?", (node,)):
+        for (ch,) in c.execute("SELECT child FROM plm_bom WHERE parent=?", (node,)):
             out.append("  " * lvl + "- %s" % ch); walk(ch, lvl + 1)
     walk(q, 0); c.close()
     return "Состав %s:\n%s" % (q, "\n".join(out) or "(пусто)")
 def tool_plm_where(q="", **kw):
     if not q: return "укажи обозначение детали"
-    c = _db(); rows = c.execute("SELECT parent FROM bom WHERE child LIKE ?", ("%" + q.lower() + "%",)).fetchall()
+    c = _db(); rows = c.execute("SELECT parent FROM plm_bom WHERE child LIKE ?", ("%" + q.lower() + "%",)).fetchall()
     c.close()
     return "%s входит в: %s" % (q, ", ".join(r[0] for r in rows) or "(никуда)")
 def tool_lifecycle_set(q="", status="", **kw):
     if not (q and status): return "укажи обозначение и статус"
-    c = _db(); c.execute("UPDATE items SET lifecycle=? WHERE designation LIKE ?", (status, "%" + q.lower() + "%"))
+    c = _db(); c.execute("UPDATE plm_items SET lifecycle=? WHERE designation LIKE ?", (status, "%" + q.lower() + "%"))
     n = c.total_changes; c.commit(); c.close()
     return "статус '%s' применён к %d" % (status, n)
 def tool_generate_ii(q="", reason="", who="", **kw):
     if not q: return "укажи обозначение"
     c = _db()
-    row = c.execute("SELECT designation, rev, lifecycle FROM items WHERE designation LIKE ?", ("%" + q.lower() + "%",)).fetchone()
+    row = c.execute("SELECT designation, rev, lifecycle FROM plm_items WHERE designation LIKE ?", ("%" + q.lower() + "%",)).fetchone()
     if not row: c.close(); return "не найдено: %s" % q
     des, rev, lc = row
     newrev = chr(ord(rev) + 1) if rev and rev < "Я" else "А"
     ts = datetime.datetime.now().strftime("%y%m%d_%H%M")
-    c.execute("INSERT INTO changes(item,rev,kind,descr,who,reason,ts) VALUES(?,?,?,?,?,?,?)", (des, newrev, "модификация", "статус %s->Утверждено" % lc, who or "агент", reason, ts))
-    c.execute("INSERT INTO revisions(item,rev,status,author,comment,ts) VALUES(?,?,?,?,?,?)", (des, newrev, "Утверждено", who or "агент", reason, ts))
-    c.execute("UPDATE items SET rev=?, lifecycle='Утверждено', updated=? WHERE designation=?", (newrev, time.strftime("%d.%m %H:%M"), des))
+    c.execute("INSERT INTO plm_changes(item,rev,kind,descr,who,reason,ts) VALUES(?,?,?,?,?,?,?)", (des, newrev, "модификация", "статус %s->Утверждено" % lc, who or "агент", reason, ts))
+    c.execute("INSERT INTO plm_revisions(item,rev,status,author,comment,ts) VALUES(?,?,?,?,?,?)", (des, newrev, "Утверждено", who or "агент", reason, ts))
+    c.execute("UPDATE plm_items SET rev=?, lifecycle='Утверждено', updated=? WHERE designation=?", (newrev, time.strftime("%d.%m %H:%M"), des))
     c.commit(); c.close()
     d = core.REPO / "Изменения"; d.mkdir(parents=True, exist_ok=True)
     p = d / ("ИИ_%s_%s.md" % (ts, des))
@@ -85,10 +119,10 @@ def tool_generate_ii(q="", reason="", who="", **kw):
     return "ИИ %s: %s (%s->%s)" % (p.name, des, rev or "—", newrev)
 def tool_param_audit(**kw):
     c = _db()
-    tot = c.execute("SELECT COUNT(*) FROM items").fetchone()[0]
-    nomat = c.execute("SELECT COUNT(*) FROM items WHERE type='Деталь' AND (material IS NULL OR material='')").fetchone()[0]
-    nofmt = c.execute("SELECT COUNT(*) FROM items WHERE (format IS NULL OR format='')").fetchone()[0]
-    dup = c.execute("SELECT name, COUNT(*) n FROM items GROUP BY name HAVING n>1 LIMIT 10").fetchall()
+    tot = c.execute("SELECT COUNT(*) FROM plm_items").fetchone()[0]
+    nomat = c.execute("SELECT COUNT(*) FROM plm_items WHERE type='Деталь' AND (material IS NULL OR material='')").fetchone()[0]
+    nofmt = c.execute("SELECT COUNT(*) FROM plm_items WHERE (format IS NULL OR format='')").fetchone()[0]
+    dup = c.execute("SELECT name, COUNT(*) n FROM plm_items GROUP BY name HAVING n>1 LIMIT 10").fetchall()
     c.close()
     return "АУДИТ ПЛМ: изделий %d; без материала %d; без формата %d; дубли: %s" % (tot, nomat, nofmt, ", ".join("%s×%d" % (n, k) for n, k in dup) or "нет")
 TOOLS = [

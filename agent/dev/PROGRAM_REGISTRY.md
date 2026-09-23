@@ -25,6 +25,8 @@
 | **creo_pdf** | Ж (JLINK) | `creo_pdf_gui.bat` | `creo_pdf.bat scan/export/pdf/config-*` | `D:\AI\log\creo_pdf\` (`last_run_log.txt` + `runs\`) | работает, приёмка пройдена |
 | **creo_pdf_misplaced** | Р | — | `python creo_pdf_misplaced.py <папка> [--apply]` | файлов не пишет (stdout ловит окно `creo_pdf`) | работает |
 | **creo_pdf_orphans** | Р | — | `python creo_pdf_orphans.py <папка>` | файлов не пишет (stdout ловит окно `creo_pdf`) | работает |
+| **make_lst** (ограничения параметров) | Р | `make_lst.bat` | `python make_lst.py [--dry] [--from refs.txt]` | `D:\AI\log\make_lst\`; бэкап прежнего — рядом в `_pre\` | работает, приёмка 23.09: Creo принимает файл, ограничения живут |
+| **config_audit** (аудит конфига) | Р | — | `python config_audit.py [путь\config.pro]` | печать в stdout, файлов не пишет | работает; 23.09: 56 путей, 54 есть, 2 битых |
 | **orphan_scan** (чертежи-сироты) | Р | `orphan_scan.bat "<папка>"` (без аргументов — по `search.pro`) | `python orphan_scan.py [папка...]` | `D:\AI\log\orphan_scan\` | работает; приёмка первой ноги 23.09: ПРИНЯТО С ЗАМЕЧАНИЯМИ → замечания исправлены |
 | **cmnm_scan** (внутренние имена Creo) | Р | — | `python cmnm_scan.py <папка>` | `D:\AI\log\cmnm_scan\` | работает (разбор поля `#- CMNM`) |
 | **creo_comb** (чесалка) | Ж (JLINK) | `creo_comb.bat` | `tpl-plan / refs / dump / scan / scan-here / probe-open[-f]` | `D:\AI\log\creo_comb\` | чтение готово, запись (`add`) — в работе |
