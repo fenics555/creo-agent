@@ -176,7 +176,7 @@ public class CreoComb {
     if (!dir.isDirectory()) { System.out.println("нет папки: " + root); return; }
     List<File> models = collectModels(dir);
     System.out.println("моделей к проверке: " + models.size() + " (лимит " + LIMIT + ")");
-    int bad = 0, n = 0, noTyp = 0;
+    int bad = 0, n = 0, noTyp = 0, prod = 0;
     String cwd0 = null; try { cwd0 = s.GetCurrentDirectory(); } catch (Throwable t) { }
     for (File f : models) {
       if (n >= LIMIT) { System.out.println("…лимит достигнут"); break; }
@@ -186,8 +186,15 @@ public class CreoComb {
       try {
         m = openAny(s, f);
         n++;
-        String have = paramsRaw(m).get("ТИП");
-        if (have == null) {
+        Map<String, String> pp = paramsRaw(m);
+        String have = pp.get("ТИП");
+        boolean isProd = (have != null && have.trim().equalsIgnoreCase("Производство")) || pp.containsKey("ПАРТИЯ");
+        if (isProd) {
+          prod++;
+          if (have == null || !have.trim().equalsIgnoreCase("Производство"))
+            System.out.println("  " + f.getName() + ": производственная (есть ПАРТИЯ), ТИП = «" +
+                               (have == null ? "нет" : have.trim()) + "» — проверить руками");
+        } else if (have == null) {
           noTyp++;
           System.out.println("  " + f.getName() + ": ТИП отсутствует (надо «" + want + "»)");
         } else if (!want.equalsIgnoreCase(have.trim())) {
@@ -201,7 +208,8 @@ public class CreoComb {
       }
     }
     try { if (cwd0 != null) s.ChangeDirectory(cwd0); } catch (Throwable t) { }
-    System.out.println("\nИТОГО: проверено " + n + ", неверный ТИП " + bad + ", ТИП отсутствует " + noTyp);
+    System.out.println("\nИТОГО: проверено " + n + ", неверный ТИП " + bad + ", ТИП отсутствует " + noTyp +
+                       ", производственных (не трогаем) " + prod);
   }
 
   /** ПРОБА: поставить значение существующему параметру (метки вместо кириллицы). */
@@ -274,24 +282,32 @@ public class CreoComb {
         List<String> addRel = missing(ref.rel, rel), addPost = missing(ref.post, post);
         Map<String, String> addPar = new LinkedHashMap<>();
         List<String> skipped = new ArrayList<>();
+        // Производственные модели (мануфакчуринг, оснастка) ВЫГЛЯДЯТ как сборки, но ТИП у них
+        // «Производство» — это правильно (слово хозяина 23.09.2026). Признаки: ТИП=Производство
+        // или параметр ПАРТИЯ (размер партии). Такие модели ТИП-ом не «лечим».
+        String haveTyp0 = par.get("ТИП");
+        boolean prod = (haveTyp0 != null && haveTyp0.trim().equalsIgnoreCase("Производство")) || par.containsKey("ПАРТИЯ");
         for (Map.Entry<String, String> e : ref.par.entrySet()) {
           if (par.containsKey(e.getKey())) continue;
+          if (e.getKey().trim().equalsIgnoreCase("ТИП")) continue;   // ТИП обрабатываем ниже
           String v = valueFor(e.getKey(), e.getValue(), isAsm, ref.enumVals.get(e.getKey()), emptyFirst);
           if (v == null) skipped.add(e.getKey());
           else addPar.put(e.getKey(), v);
         }
-        // ТИП — всегда по типу модели: у детали «Деталь», у сборки «Сборка» (ограниченный параметр).
-        // Если он есть, но стоит неверно — ИСПРАВЛЯЕМ (решение хозяина 23.09.2026).
-        String wantTyp = isAsm ? "Сборка" : "Деталь";
+        // ТИП — по природе модели: деталь → Деталь, обычная сборка → Сборка,
+        // производственная (мануфакчуринг/оснастка) → Производство.
+        String wantTyp = prod ? "Производство" : (isAsm ? "Сборка" : "Деталь");
         String haveTyp = par.get("ТИП");
         boolean fixTyp = (haveTyp != null) && !wantTyp.equalsIgnoreCase(haveTyp.trim());
+        if (haveTyp == null) addPar.put("ТИП", wantTyp);      // создать с нужным значением
         if (addRel.isEmpty() && addPost.isEmpty() && addPar.isEmpty() && skipped.isEmpty() && !fixTyp) continue;
         planned++;
         System.out.println("  " + f.getName() + ": +параметров " + addPar.size() + ", +уравнений " + addRel.size() +
                            ", +постреген. " + addPost.size() + (fixTyp ? ", ТИП исправить" : ""));
         if (!addPar.isEmpty()) System.out.println("      параметры:  " + addPar.keySet());
         if (fixTyp) System.out.println("      ТИП: «" + haveTyp.trim() + "» → «" + wantTyp +
-                                       "» (по типу модели; параметр ограниченный)");
+                                       "» (по природе модели; параметр ограниченный)");
+        if (prod) System.out.println("      ПРОИЗВОДСТВЕННАЯ (ТИП=Производство / есть ПАРТИЯ) — ТИП ставим «Производство»");
         if (!skipped.isEmpty())
           System.out.println("      ПРОПУЩЕНЫ (ограничены, пустое значение Creo через API не даёт — ставь руками " +
                              "в диалоге «Параметры» или запусти с --empty-first): " + skipped);
@@ -332,6 +348,17 @@ public class CreoComb {
         } catch (Throwable t) { System.out.println("      регенерация: " + t); }
         m.Save();
         changed++;
+        // контроль: новая версия должна появиться ИМЕННО в этой папке (Creo мог взять модель из сессии)
+        String fn = f.getName().toLowerCase();
+        String bext = fn.contains(".asm") ? "asm" : "prt";
+        String bbase = fn.replaceAll("\\.(prt|asm)(\\.\\d+)?$", "");
+        File nv = newest(f.getParentFile(), bbase, bext);
+        long age = nv == null ? -1 : (System.currentTimeMillis() - nv.lastModified()) / 1000;
+        if (age < 0 || age > 180)
+          System.out.println("      ВНИМАНИЕ: новой версии в этой папке не видно — возможно, Creo правил модель " +
+                             "из другой папки (имя уже было в сессии). Проверь!");
+        else
+          System.out.println("      новая версия: " + nv.getName());
         System.out.println("      ИСПРАВЛЕНО: параметров +" + okp + ", уравнений +" + addRel.size() +
                            ", постреген. +" + addPost.size() + ", сохранено");
       } catch (Throwable t) {
@@ -549,7 +576,7 @@ public class CreoComb {
   static Model openModel(Session s, String dir, String name) throws Exception {
     if (name == null || name.isEmpty()) {
       File any = new File(dir);
-      if (any.isFile()) return s.RetrieveModel(pfcModel.ModelDescriptor_CreateFromFileName(any.getPath()));
+      if (any.isFile()) return openAny(s, any);   // версия в имени (.asm.1) открывается через openAny
       throw new Exception("укажите папку и имя модели, или путь к файлу");
     }
     s.ChangeDirectory(dir);
@@ -611,7 +638,7 @@ public class CreoComb {
 
   static void dump(Session s, String dir, String name) throws Exception {
     Model m = openModel(s, dir, name);
-    System.out.println("модель: " + m.GetFileName() + "   тип: " + m.GetType());
+    System.out.println("модель: " + m.GetFileName() + "   тип: " + m.GetType() + " (код " + m.GetType().getValue() + ")");
     List<String> rel = relations(m, false), post = relations(m, true);
     System.out.println("\nУРАВНЕНИЯ (" + rel.size() + "):");
     for (int i = 0; i < rel.size(); i++) System.out.println("  " + (i + 1) + ") " + rel.get(i));
