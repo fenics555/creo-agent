@@ -35,6 +35,11 @@ class App:
         self.zoom = 1.0
         self.img = None
         self.build()
+        # агент может передать запрос через nav_show: окно сразу ищет и показывает результат
+        start_q = os.environ.get("NAV_START_QUERY", "").strip()
+        if start_q:
+            self.var_q.set(start_q)
+            self.root.after(200, self.search)
 
     # ---------- интерфейс ----------
     def build(self):
