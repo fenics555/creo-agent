@@ -1,64 +1,38 @@
-import os, json, time, datetime
-from pathlib import Path
+# -*- coding: utf-8 -*-
+"""ШИМ к автономной программе `agent\\log_clean\\` (уборка логов по срокам хранения).
 
-RETENTION_FILE = Path(r"D:\AI\log\retention.json")
-CLEAN_LOG = Path(r"D:\AI\log\cleaner\clean.log")
+Движок и окно настроек переехали в свою папку:
+    agent\\log_clean\\engine.py   — движок (scan / clean / retention)
+    agent\\log_clean\\gui.py      — окно (log_clean_gui.bat)
+Этот файл оставлен, чтобы старые вызовы из кода дома продолжали работать.
 
-def get_retention():
-    try:
-        with open(RETENTION_FILE, "r", encoding="utf-8") as f:
-            return json.load(f)
-    except Exception:
-        return {}
+ВАЖНО про совместимость: прежний `log_clean.clean()` УДАЛЯЛ старые файлы навсегда, поэтому здесь
+умолчание то же (`mode="delete"`). Безопасный режим (сначала в корзину) — в окне программы
+или явным вызовом `clean(mode="trash")`.
+"""
+import importlib.util as _u
+from pathlib import Path as _P
 
-def is_file_open(filepath):
-    try:
-        # On Windows, we can try to open in exclusive mode to see if it's locked
-        with open(filepath, 'a') as f:
-            return False
-    except OSError:
-        return True
+_SRC = _P(__file__).resolve().parent / "log_clean" / "engine.py"
+_spec = _u.spec_from_file_location("log_clean_engine", _SRC)
+_eng = _u.module_from_spec(_spec)
+_spec.loader.exec_module(_eng)
 
-def clean():
-    retention = get_retention()
-    log_entries = []
-    root_log = Path(r"D:\AI\log")
-    
-    if not root_log.exists():
-        return
+LOG_ROOT = _eng.LOG_ROOT
+RETENTION_FILE = _eng.RETENTION_FILE
+DEFAULT_DAYS = _eng.DEFAULT_DAYS
+get_retention = _eng.get_retention
+save_retention = _eng.save_retention
+is_locked = _eng.is_locked
+scan = _eng.scan
+trash_cleanup = _eng.trash_cleanup
 
-    for subdir in root_log.iterdir():
-        if subdir.is_dir():
-            # Get retention for this subdir name
-            days = retention.get(subdir.name, 30)
-            now = time.time()
-            
-            for file in subdir.glob("*"):
-                if file.is_file():
-                    if file == RETENTION_FILE or file == CLEAN_LOG:
-                        continue
-                    
-                    # Check if file is open
-                    if is_file_open(file):
-                        log_entries.append(f"{datetime.datetime.now().isoformat()} | SKIPPED: {file.name} (file is open)")
-                        continue
-                    
-                    # Check mtime
-                    file_mtime = file.stat().st_mtime
-                    age_days = (now - file_mtime) / (24 * 3600)
-                    
-                    if age_days > days:
-                        try:
-                            file.unlink()
-                            log_entries.append(f"{datetime.datetime.now().isoformat()} | DELETED: {file.name}")
-                        except Exception as e:
-                            log_entries.append(f"{datetime.datetime.now().isoformat()} | ERROR: {file.name} ({e})")
 
-    if log_entries:
-        with open(CLEAN_LOG, "a", encoding="utf-8") as f:
-            for entry in log_entries:
-                f.write(entry + "\n")
+def clean(root=None, mode="delete", days_default=DEFAULT_DAYS, report=True):
+    """Совместимый вход: `clean()` — как раньше (удаление). Корзина — `clean(mode='trash')`."""
+    return _eng.clean(root, mode, days_default, report)
+
 
 if __name__ == "__main__":
-    clean()
-    print("clean finished")
+    import runpy
+    runpy.run_path(str(_SRC), run_name="__main__")
