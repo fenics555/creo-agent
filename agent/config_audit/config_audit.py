@@ -45,17 +45,16 @@ def exists_creo(p: str):
             pass
     return None
 
-def main():
-    print("АУДИТ CONFIG.PRO: %s" % CONFIG)
-    print("=" * 78)
-    lines = open(CONFIG, encoding="utf-8-sig", errors="replace").read().splitlines()
-    ok = miss = 0
+def audit(config_path):
+    """Проверка ВСЕХ путей config.pro на диске. Возвращает структуру (для окна и для CLI):
+    {'total': N, 'missing': M, 'problems': [ {'line': n, 'opt': ..., 'value': ..., 'path': ...} ]}"""
+    lines = open(config_path, encoding="utf-8-sig", errors="replace").read().splitlines()
+    ok = 0
     problems = []
     for n, raw in enumerate(lines, 1):
         line = raw.strip()
         if not line or line.startswith("!"):
             continue
-        # отрезаем хвостовой комментарий вида `   ! текст`
         body = re.split(r"\s+!(?!=)", line, maxsplit=1)[0].strip()
         parts = body.split(None, 1)
         if len(parts) != 2:
@@ -64,18 +63,23 @@ def main():
         if not PATHY.search(val):
             continue
         p = norm(val)
-        st = exists_creo(p)
-        if st:
+        if exists_creo(p):
             ok += 1
         else:
-            miss += 1
-            problems.append((n, opt, val, p))
-    print("путей проверено: %d | НЕТ на диске: %d" % (ok + miss, miss))
+            problems.append({"line": n, "opt": opt, "value": val, "path": p})
+    return {"total": ok + len(problems), "missing": len(problems), "problems": problems}
+
+
+def main():
+    print("АУДИТ CONFIG.PRO: %s" % CONFIG)
+    print("=" * 78)
+    res = audit(CONFIG)
+    print("путей проверено: %d | НЕТ на диске: %d" % (res["total"], res["missing"]))
     print("-" * 78)
-    for n, opt, val, p in problems:
-        print("строка %d: %s" % (n, opt))
-        print("   в конфиге: %s" % val)
-        print("   на диске : %s   <- НЕТ" % p)
+    for pr in res["problems"]:
+        print("строка %d: %s" % (pr["line"], pr["opt"]))
+        print("   в конфиге: %s" % pr["value"])
+        print("   на диске : %s   <- НЕТ" % pr["path"])
     print("=" * 78)
     print("ЧТО ДЕЛАТЬ: файла нет -> или положить файл(ы) по этому пути, или закомментировать")
     print("настройку (`!`), и записать причину рядом — как сделано с template_* 23.09.2026.")

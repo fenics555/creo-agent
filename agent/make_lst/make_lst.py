@@ -83,6 +83,27 @@ def check_against_refs(refs_path, log):
             log("   %-24s ок (шаблон '%s' есть в списке)" % (name, v))
 
 
+def write_file(target, text, log=print):
+    """Записать файл: бэкап прежнего (в `_pre` рядом), запись в cp1251, проверка чтением.
+    Вынесено из main(), чтобы этим пользовалось и окно программы."""
+    os.makedirs(os.path.dirname(target), exist_ok=True)
+    if os.path.exists(target):
+        bak = os.path.join(os.path.dirname(target), "_pre",
+                           datetime.datetime.now().strftime("%Y-%m-%d_%H%M") + "_list.lst")
+        os.makedirs(os.path.dirname(bak), exist_ok=True)
+        shutil.copy2(target, bak)
+        log("бэкап прежнего файла: %s" % bak)
+    with open(target, "wb") as f:
+        f.write(text.encode("cp1251"))
+    log("записан: %s (%d байт, cp1251)" % (target, os.path.getsize(target)))
+    got = open(target, "rb").read().decode("cp1251")
+    for name, _, _ in DEFS:
+        if ("Name = %s" % name) not in got:
+            log("   ПРОВЕРКА: имя %s в файле НЕ найдено!" % name)
+    log("проверка чтением: ок (cp1251, %d записей)" % len(DEFS))
+    return True
+
+
 def main():
     args = sys.argv[1:]
     target = TARGET
@@ -122,21 +143,7 @@ def main():
         log("--- содержимое, которое было бы записано ---")
         log(text)
     else:
-        os.makedirs(os.path.dirname(target), exist_ok=True)
-        if os.path.exists(target):
-            bak = os.path.join(os.path.dirname(target), "_pre",
-                               datetime.datetime.now().strftime("%Y-%m-%d_%H%M") + "_list.lst")
-            os.makedirs(os.path.dirname(bak), exist_ok=True)
-            shutil.copy2(target, bak)
-            log("бэкап прежнего файла: %s" % bak)
-        with open(target, "wb") as f:
-            f.write(text.encode("cp1251"))
-        log("записан: %s (%d байт, cp1251)" % (target, os.path.getsize(target)))
-        got = open(target, "rb").read().decode("cp1251")
-        for name, _, _ in DEFS:
-            if ("Name = %s" % name) not in got:
-                log("   ПРОВЕРКА: имя %s в файле НЕ найдено!" % name)
-        log("проверка чтением: ок (cp1251, %d записей)" % len(DEFS))
+        write_file(target, text, log)
 
     with open(logpath, "w", encoding="utf-8") as f:
         f.write("\n".join(lines) + "\n")
