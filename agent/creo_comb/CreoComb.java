@@ -39,7 +39,8 @@ public class CreoComb {
       if (mode.equals("refs")) { refs(s, a.length > 1 ? a[1] : CFG_DEFAULT); return; }
       if (mode.equals("probe-open")) { probeOpen(s, a.length > 1 ? a[1] : "", a.length > 2 ? a[2] : ""); return; }
       if (mode.equals("probe-open-f")) { probeOpenFile(s, a.length > 1 ? a[1] : ""); return; }
-      if (mode.equals("add")) { comb(s, a.length > 1 ? a[1] : "", a.length > 2 && !a[2].startsWith("--") ? a[2] : CFG_DEFAULT, hasFlag(a, "--apply")); return; }
+      if (mode.equals("add")) { comb(s, a.length > 1 ? a[1] : "", a.length > 2 && !a[2].startsWith("--") ? a[2] : CFG_DEFAULT, hasFlag(a, "--apply"), hasFlag(a, "--empty-first")); return; }
+      if (mode.equals("mkparam")) { mkParam(s, a.length > 1 ? a[1] : "", a.length > 2 ? a[2] : "", a.length > 3 ? a[3] : ""); return; }
       if (mode.equals("dump")) { dump(s, a.length > 1 ? a[1] : "", a.length > 2 ? a[2] : ""); return; }
       if (mode.equals("scan")) { scan(s, a.length > 1 ? a[1] : "", a.length > 2 ? a[2] : CFG_DEFAULT); return; }
       if (mode.equals("scan-here")) { scan(s, s.GetCurrentDirectory(), a.length > 1 ? a[1] : CFG_DEFAULT); return; }
@@ -141,6 +142,30 @@ public class CreoComb {
     }
   }
 
+  /** ПРОБА: создать параметр в модели (без сохранения) — разбор отказов Creo.
+   *  Значение `SPACE` означает один пробел (иначе cmd съедает его). */
+  static void mkParam(Session s, String file, String pname, String pval) throws Exception {
+    // метки вместо кириллицы в аргументах (cmd их портит)
+    if (pname.equals("T1")) pname = "РОЛЬ_В_ЛИТЕЙНОЙ_СИСТЕМЕ";
+    if (pname.equals("T2")) pname = "РОЛЬ_ТЕСТ";
+    if (pval.equals("SPACE")) pval = " ";
+    if (pval.equals("EMPTY")) pval = "";
+    if (pval.equals("V1")) pval = "Литниковая_система";
+    Model m = null;
+    try {
+      m = openAny(s, new File(file));
+      System.out.println("модель: " + m.GetFileName());
+      System.out.println("имя параметра: «" + pname + "» (длина " + pname.length() + "), значение: '" + pval + "'");
+      try {
+        Parameter p = m.CreateParam(pname, toParamValue(pval));
+        System.out.println("СОЗДАН: " + p.GetName() + " = '" + paramValue(p) + "'");
+      } catch (Throwable t) {
+        System.out.println("ОТКАЗ: " + t);
+      }
+      try { m.Erase(); System.out.println("(модель убрана БЕЗ сохранения)"); } catch (Throwable t) { }
+    } catch (Throwable t) { System.out.println("не открылась: " + t); }
+  }
+
   static boolean hasFlag(String[] a, String f) {
     for (String x : a) if (x.equalsIgnoreCase(f)) return true;
     return false;
@@ -148,7 +173,7 @@ public class CreoComb {
 
   /** ЧЕСАЛКА: добавить недостающие параметры и уравнения по ЭТАЛОНУ.
    *  Без --apply — только ПЛАН (ничего не пишет). С --apply: копия pre_, правка, регенерация, сохранение. */
-  static void comb(Session s, String root, String cfgPath, boolean apply) throws Exception {
+  static void comb(Session s, String root, String cfgPath, boolean apply, boolean emptyFirst) throws Exception {
     File dir = new File(root);
     if (!dir.isDirectory()) { System.out.println("нет папки: " + root); return; }
     Map<String, String> cfg = parseConfig(cfgPath);
@@ -166,6 +191,9 @@ public class CreoComb {
                        ", уравнений " + (refAsm == null ? 0 : refAsm.rel.size()) +
                        ", постреген. " + (refAsm == null ? 0 : refAsm.post.size()));
     System.out.println("режим: " + (apply ? "ПРИМЕНЕНИЕ (правка и сохранение)" : "ПЛАН (только чтение)"));
+    System.out.println("вариантов (ограничений) в эталонах: деталь " +
+                       (refPart == null ? 0 : refPart.enumVals.size()) + ", сборка " +
+                       (refAsm == null ? 0 : refAsm.enumVals.size()));
     restrictions(s, tplPart, "деталь");
     restrictions(s, tplAsm, "сборка");
     List<File> models = collectModels(dir);
@@ -187,13 +215,21 @@ public class CreoComb {
         Map<String, String> par = paramsRaw(m);
         List<String> addRel = missing(ref.rel, rel), addPost = missing(ref.post, post);
         Map<String, String> addPar = new LinkedHashMap<>();
-        for (Map.Entry<String, String> e : ref.par.entrySet())
-          if (!par.containsKey(e.getKey())) addPar.put(e.getKey(), valueFor(e.getKey(), e.getValue(), isAsm));
-        if (addRel.isEmpty() && addPost.isEmpty() && addPar.isEmpty()) continue;
+        List<String> skipped = new ArrayList<>();
+        for (Map.Entry<String, String> e : ref.par.entrySet()) {
+          if (par.containsKey(e.getKey())) continue;
+          String v = valueFor(e.getKey(), e.getValue(), isAsm, ref.enumVals.get(e.getKey()), emptyFirst);
+          if (v == null) skipped.add(e.getKey());
+          else addPar.put(e.getKey(), v);
+        }
+        if (addRel.isEmpty() && addPost.isEmpty() && addPar.isEmpty() && skipped.isEmpty()) continue;
         planned++;
         System.out.println("  " + f.getName() + ": +параметров " + addPar.size() + ", +уравнений " + addRel.size() +
                            ", +постреген. " + addPost.size());
         if (!addPar.isEmpty()) System.out.println("      параметры:  " + addPar.keySet());
+        if (!skipped.isEmpty())
+          System.out.println("      ПРОПУЩЕНЫ (ограничены, пустое значение Creo через API не даёт — ставь руками " +
+                             "в диалоге «Параметры» или запусти с --empty-first): " + skipped);
         if (!addRel.isEmpty()) System.out.println("      уравнения:  " + addRel);
         if (!addPost.isEmpty()) System.out.println("      постреген.: " + addPost);
         System.out.flush();
@@ -202,7 +238,10 @@ public class CreoComb {
         int okp = 0;
         for (Map.Entry<String, String> e : addPar.entrySet()) {
           try { m.CreateParam(e.getKey(), toParamValue(e.getValue())); okp++; }
-          catch (Throwable t) { System.out.println("      параметр «" + e.getKey() + "» не создан: " + t); }
+          catch (Throwable t) {
+            System.out.println("      параметр «" + e.getKey() + "» не создан (значение '" + e.getValue() +
+                               "', разрешено " + ref.enumVals.get(e.getKey()) + "): " + t);
+          }
         }
         if (!addRel.isEmpty()) {
           com.ptc.cipjava.stringseq seq = com.ptc.cipjava.stringseq.create();
@@ -270,13 +309,38 @@ public class CreoComb {
     return out;
   }
 
-  /** Значение нового параметра: из эталона; ТИП — по типу модели (Деталь/Сборка). */
-  static String valueFor(String name, String refVal, boolean isAsm) {
+  /** Перечислимые значения параметра (если есть ограничение) — из ЭТАЛОНА. */
+  static List<String> enumOf(Parameter p) {
+    try {
+      com.ptc.pfc.pfcModelItem.ParameterRestriction r = p.GetRestriction();
+      if (r instanceof com.ptc.pfc.pfcModelItem.ParameterEnumeration) {
+        ParamValues vals = ((com.ptc.pfc.pfcModelItem.ParameterEnumeration) r).GetPermittedValues();
+        List<String> vs = new ArrayList<>();
+        for (int k = 0; k < vals.getarraysize(); k++) vs.add(vals.get(k).GetStringValue());
+        return vs;
+      }
+    } catch (Throwable t) { }
+    return null;
+  }
+
+  /** Значение нового параметра: из эталона; ТИП — по типу модели (Деталь/Сборка).
+   *  Для ОГРАНИЧЕННОГО параметра: значение вне списка заменить на разрешённое;
+   *  ПУСТОЕ значение Creo через API не принимает (пробы 23.09.2026) → вернём null = пропустить. */
+  static String valueFor(String name, String refVal, boolean isAsm, List<String> allowed, boolean emptyFirst) {
     if (name != null && name.trim().equalsIgnoreCase("ТИП")) return isAsm ? "Сборка" : "Деталь";
     String v = refVal == null ? "" : refVal.trim();
     if (v.endsWith("(из уравнения)")) v = v.substring(0, v.lastIndexOf("(из уравнения)")).trim();
     if (v.equals("?")) v = "";
-    return v;
+    if (allowed == null || allowed.isEmpty()) return v;
+    if (!v.isEmpty()) {
+      if (allowed.contains(v)) return v;
+      return allowed.contains(" ") ? " " : allowed.get(0);
+    }
+    // пустое значение у ограниченного параметра
+    if (emptyFirst) {
+      for (String a : allowed) if (!a.trim().isEmpty()) return a;
+    }
+    return null;   // пропустить: Creo не даст создать
   }
 
   /** Строка → ParamValue: число, если похоже на число, иначе строка. */
@@ -345,8 +409,9 @@ public class CreoComb {
     System.out.println("  creo_comb.bat dump <папка|файл> [имя]     - уравнения+параметры модели (нужен Creo)");
     System.out.println("  creo_comb.bat scan <папка> [config.pro]   - чего не хватает против шаблонов (только чтение)");
     System.out.println("  creo_comb.bat scan-here [config.pro]      - то же, но по ТЕКУЩЕЙ папке сессии (пути без кириллицы в аргументах)");
-    System.out.println("  creo_comb.bat add <папка> [config.pro] [--apply] - добавить недостающие параметры/уравнения");
-    System.out.println("                                              (без --apply — только ПЛАН; с --apply — правка, копия pre_, сохранение)");
+    System.out.println("  creo_comb.bat add <папка> [config.pro] [--apply] [--empty-first] - добавить недостающие параметры/уравнения");
+    System.out.println("       (без --apply — только ПЛАН; с --apply — правка, копия pre_, сохранение;");
+    System.out.println("        --empty-first — ограниченным параметрам ставить первое значение из списка, а не пропускать)");
   }
 
   static Map<String, String> parseConfig(String path) throws IOException {
@@ -485,6 +550,28 @@ public class CreoComb {
     System.out.println("\nПАРАМЕТРЫ (" + p.size() + "):");
     for (Map.Entry<String, String> e : p.entrySet())
       System.out.println("  " + e.getKey() + " = " + e.getValue());
+    System.out.println("\nОГРАНИЧЕНИЯ в модели:");
+    try {
+      Parameters ps = m.ListParams();
+      int nres = 0;
+      for (int i = 0; i < ps.getarraysize(); i++) {
+        Parameter pr = ps.get(i);
+        try {
+          com.ptc.pfc.pfcModelItem.ParameterRestriction r = pr.GetRestriction();
+          if (r == null) continue;
+          nres++;
+          if (r instanceof com.ptc.pfc.pfcModelItem.ParameterEnumeration) {
+            ParamValues vals = ((com.ptc.pfc.pfcModelItem.ParameterEnumeration) r).GetPermittedValues();
+            List<String> vs = new ArrayList<>();
+            for (int k = 0; k < vals.getarraysize(); k++) vs.add(vals.get(k).GetStringValue());
+            System.out.println("  " + pr.GetName() + " → " + vs);
+          } else {
+            System.out.println("  " + pr.GetName() + " → " + r.GetType());
+          }
+        } catch (Throwable t) { }
+      }
+      if (nres == 0) System.out.println("  (нет)");
+    } catch (Throwable t) { System.out.println("  (не прочитались: " + t + ")"); }
   }
 
   /** Показать ЭТАЛОНЫ: уравнения и параметры шаблонов из config.pro (без аргументов-путей). */
@@ -598,6 +685,7 @@ public class CreoComb {
   static class Ref {
     List<String> rel = new ArrayList<>(), post = new ArrayList<>();
     Map<String, String> par = new LinkedHashMap<>();
+    Map<String, List<String>> enumVals = new LinkedHashMap<>();   // ограничения (варианты) из эталона
   }
 
   static Ref readRef(Session s, File f) {
@@ -610,6 +698,14 @@ public class CreoComb {
       r.rel = relations(m, false);
       r.post = relations(m, true);
       r.par = paramsRaw(m);
+      try {
+        Parameters ps = m.ListParams();
+        for (int i = 0; i < ps.getarraysize(); i++) {
+          Parameter p = ps.get(i);
+          List<String> vals = enumOf(p);
+          if (vals != null) r.enumVals.put(p.GetName(), vals);
+        }
+      } catch (Throwable t) { }
     } catch (Throwable t) {
       System.out.println("  эталон не открылся: " + f.getName() + " — " + t);
     } finally {
