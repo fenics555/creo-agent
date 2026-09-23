@@ -185,6 +185,7 @@ public class CreoComb {
    *  с ролями ЗАГОТОВКА (0), ссылочная модель (1), оснастка (2) — это и есть «кто есть кто».
    *  Нужен, чтобы не «лечить» производственные сборки как обычные. */
   static boolean prodByFacts(Model m) {
+    try { if (m instanceof com.ptc.pfc.pfcMFG.MFG) return true; } catch (Throwable t) { }
     try { if (m.GetType().getValue() == ModelType._MDL_MFG) return true; } catch (Throwable t) { }
     try {
       if (m.GetFileName().toLowerCase().endsWith(".mfg")) return true;
@@ -223,9 +224,28 @@ public class CreoComb {
         n++;
         boolean mfg = false;
         try { mfg = (m.GetType().getValue() == ModelType._MDL_MFG); } catch (Throwable t) { }
-        System.out.println("  " + f.getName() + " — " + m.GetType() + (mfg ? "  [ПРОИЗВОДСТВЕННАЯ MDL_MFG]" : ""));
+        boolean mfgObj = false;
+        try { mfgObj = (m instanceof com.ptc.pfc.pfcMFG.MFG); } catch (Throwable t) { }
+        System.out.println("  " + f.getName() + " — " + m.GetType() +
+                           (mfg || mfgObj ? "  [ПРОИЗВОДСТВЕННАЯ: " + (mfgObj ? "объект pfcMFG" : "тип MDL_MFG") + "]" : ""));
+        // Для .mfg идём через solid внутри обработки (у самой модели ListItems бросает XUnimplemented)
+        com.ptc.pfc.pfcSolid.Solid host = null;
+        try {
+          if (mfgObj) host = ((com.ptc.pfc.pfcMFG.MFG) m).GetSolid();
+          else if (m instanceof com.ptc.pfc.pfcSolid.Solid) host = (com.ptc.pfc.pfcSolid.Solid) m;
+        } catch (Throwable t) { System.out.println("      (solid обработки не получен: " + t + ")"); }
+        if (host != null) {
+          // оснастка — признаки наладки (FEATTYPE_FIXTURE_SETUP)
+          try {
+            com.ptc.pfc.pfcFeature.Features fx =
+                host.ListFeaturesByType(Boolean.TRUE, com.ptc.pfc.pfcFeature.FeatureType.FEATTYPE_FIXTURE_SETUP);
+            if (fx != null && fx.getarraysize() > 0)
+              System.out.println("      признаков наладки (FIXTURE_SETUP): " + fx.getarraysize());
+          } catch (Throwable t) { }
+        }
+        Model src = host != null ? host : m;
         com.ptc.pfc.pfcModelItem.ModelItems items =
-            m.ListItems(com.ptc.pfc.pfcModelItem.ModelItemType.ITEM_FEATURE);
+            src.ListItems(com.ptc.pfc.pfcModelItem.ModelItemType.ITEM_FEATURE);
         for (int i = 0; i < items.getarraysize(); i++) {
           com.ptc.pfc.pfcModelItem.ModelItem it = items.get(i);
           if (!(it instanceof com.ptc.pfc.pfcComponentFeat.ComponentFeat)) continue;
