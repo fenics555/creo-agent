@@ -39,6 +39,7 @@ public class CreoComb {
       if (mode.equals("refs")) { refs(s, a.length > 1 ? a[1] : CFG_DEFAULT); return; }
       if (mode.equals("probe-open")) { probeOpen(s, a.length > 1 ? a[1] : "", a.length > 2 ? a[2] : ""); return; }
       if (mode.equals("probe-open-f")) { probeOpenFile(s, a.length > 1 ? a[1] : ""); return; }
+      if (mode.equals("add")) { comb(s, a.length > 1 ? a[1] : "", a.length > 2 && !a[2].startsWith("--") ? a[2] : CFG_DEFAULT, hasFlag(a, "--apply")); return; }
       if (mode.equals("dump")) { dump(s, a.length > 1 ? a[1] : "", a.length > 2 ? a[2] : ""); return; }
       if (mode.equals("scan")) { scan(s, a.length > 1 ? a[1] : "", a.length > 2 ? a[2] : CFG_DEFAULT); return; }
       if (mode.equals("scan-here")) { scan(s, s.GetCurrentDirectory(), a.length > 1 ? a[1] : CFG_DEFAULT); return; }
@@ -140,6 +141,195 @@ public class CreoComb {
     }
   }
 
+  static boolean hasFlag(String[] a, String f) {
+    for (String x : a) if (x.equalsIgnoreCase(f)) return true;
+    return false;
+  }
+
+  /** ЧЕСАЛКА: добавить недостающие параметры и уравнения по ЭТАЛОНУ.
+   *  Без --apply — только ПЛАН (ничего не пишет). С --apply: копия pre_, правка, регенерация, сохранение. */
+  static void comb(Session s, String root, String cfgPath, boolean apply) throws Exception {
+    File dir = new File(root);
+    if (!dir.isDirectory()) { System.out.println("нет папки: " + root); return; }
+    Map<String, String> cfg = parseConfig(cfgPath);
+    File tplPart = resolveTpl(cfg.get("template_solidpart"));
+    File tplAsm = resolveTpl(cfg.get("template_designasm"));
+    Ref refPart = tplPart == null ? null : readRef(s, tplPart);
+    Ref refAsm = tplAsm == null ? null : readRef(s, tplAsm);
+    System.out.println("ЭТАЛОН детали: " + (tplPart == null ? "нет" : tplPart.getPath()));
+    System.out.println("ЭТАЛОН сборки: " + (tplAsm == null ? "нет" : tplAsm.getPath()));
+    if (refPart == null && refAsm == null) { System.out.println("нет эталонов — нечего делать"); return; }
+    System.out.println("режим: " + (apply ? "ПРИМЕНЕНИЕ (правка и сохранение)" : "ПЛАН (только чтение)"));
+    restrictions(s, tplPart, "деталь");
+    restrictions(s, tplAsm, "сборка");
+    List<File> models = collectModels(dir);
+    System.out.println("моделей к проверке: " + models.size() + " (лимит " + LIMIT + ")\n");
+    int planned = 0, changed = 0, errs = 0, checked = 0;
+    String cwd0 = null; try { cwd0 = s.GetCurrentDirectory(); } catch (Throwable t) { }
+    for (File f : models) {
+      if (checked >= LIMIT) { System.out.println("…лимит достигнут"); break; }
+      boolean isAsm = f.getName().toLowerCase().matches(".*\\.asm(\\.\\d+)?$");
+      Ref ref = isAsm ? refAsm : refPart;
+      if (ref == null) continue;
+      if (tplPart != null && f.equals(tplPart)) continue;
+      if (tplAsm != null && f.equals(tplAsm)) continue;
+      Model m = null;
+      try {
+        m = openAny(s, f);
+        checked++;
+        List<String> rel = relations(m, false), post = relations(m, true);
+        Map<String, String> par = paramsRaw(m);
+        List<String> addRel = missing(ref.rel, rel), addPost = missing(ref.post, post);
+        Map<String, String> addPar = new LinkedHashMap<>();
+        for (Map.Entry<String, String> e : ref.par.entrySet())
+          if (!par.containsKey(e.getKey())) addPar.put(e.getKey(), valueFor(e.getKey(), e.getValue(), isAsm));
+        if (addRel.isEmpty() && addPost.isEmpty() && addPar.isEmpty()) continue;
+        planned++;
+        System.out.println("  " + f.getName() + ": +параметров " + addPar.size() + ", +уравнений " + addRel.size() +
+                           ", +постреген. " + addPost.size());
+        if (!addPar.isEmpty()) System.out.println("      параметры:  " + addPar.keySet());
+        if (!addRel.isEmpty()) System.out.println("      уравнения:  " + addRel);
+        if (!addPost.isEmpty()) System.out.println("      постреген.: " + addPost);
+        System.out.flush();
+        if (!apply) continue;
+        backupPre(f);
+        int okp = 0;
+        for (Map.Entry<String, String> e : addPar.entrySet()) {
+          try { m.CreateParam(e.getKey(), toParamValue(e.getValue())); okp++; }
+          catch (Throwable t) { System.out.println("      параметр «" + e.getKey() + "» не создан: " + t); }
+        }
+        if (!addRel.isEmpty()) {
+          com.ptc.cipjava.stringseq seq = com.ptc.cipjava.stringseq.create();
+          for (String x : rel) seq.append(x);
+          for (String x : addRel) seq.append(x);
+          m.SetRelations(seq);
+        }
+        if (!addPost.isEmpty()) {
+          com.ptc.cipjava.stringseq seq = com.ptc.cipjava.stringseq.create();
+          for (String x : post) seq.append(x);
+          for (String x : addPost) seq.append(x);
+          m.SetPostRegenerationRelations(seq);
+        }
+        try {
+          if (m instanceof com.ptc.pfc.pfcSolid.Solid)
+            ((com.ptc.pfc.pfcSolid.Solid) m).Regenerate(
+                com.ptc.pfc.pfcSolid.pfcSolid.RegenInstructions_Create(Boolean.FALSE, Boolean.TRUE, null));
+        } catch (Throwable t) { System.out.println("      регенерация: " + t); }
+        m.Save();
+        changed++;
+        System.out.println("      ИСПРАВЛЕНО: параметров +" + okp + ", уравнений +" + addRel.size() +
+                           ", постреген. +" + addPost.size() + ", сохранено");
+      } catch (Throwable t) {
+        System.out.println("  ОШИБКА " + f.getName() + ": " + t);
+        errs++;
+      } finally {
+        if (m != null) { try { m.Erase(); } catch (Throwable t) { } }
+      }
+    }
+    try { if (cwd0 != null) s.ChangeDirectory(cwd0); } catch (Throwable t) { }
+    System.out.println("\nИТОГО: проверено " + checked + ", к правке " + planned +
+                       (apply ? (", исправлено " + changed) : " (план, ничего не менялось)") + ", ошибок " + errs);
+  }
+
+  /** Новейшие .prt/.asm папки (рекурсивно, глубина 6), кроме служебных копий pre_. */
+  static List<File> collectModels(File dir) {
+    List<File> out = new ArrayList<>();
+    try {
+      Files.walk(dir.toPath(), 6).forEach(p -> {
+        String n = p.getFileName().toString().toLowerCase();
+        if (n.startsWith("pre_")) return;
+        if (!n.matches(".*\\.(prt|asm)(\\.\\d+)?$")) return;
+        String base = n.replaceAll("\\.(prt|asm)(\\.\\d+)?$", "");
+        File f = p.getParent().toFile();
+        File best = newest(f, base, n.contains(".asm") ? "asm" : "prt");
+        if (best != null && best.equals(p.toFile()) && !out.contains(best)) out.add(best);
+      });
+    } catch (Exception e) { System.out.println("обход: " + e); }
+    Collections.sort(out);
+    return out;
+  }
+
+  /** Значения параметров как есть (без пометки «из уравнения»). */
+  static Map<String, String> paramsRaw(Model m) {
+    Map<String, String> out = new LinkedHashMap<>();
+    try {
+      Parameters ps = m.ListParams();
+      for (int i = 0; i < ps.getarraysize(); i++) {
+        Parameter p = ps.get(i);
+        out.put(p.GetName(), paramValue(p));
+      }
+    } catch (Throwable t) { }
+    return out;
+  }
+
+  /** Значение нового параметра: из эталона; ТИП — по типу модели (Деталь/Сборка). */
+  static String valueFor(String name, String refVal, boolean isAsm) {
+    if (name != null && name.trim().equalsIgnoreCase("ТИП")) return isAsm ? "Сборка" : "Деталь";
+    String v = refVal == null ? "" : refVal.trim();
+    if (v.endsWith("(из уравнения)")) v = v.substring(0, v.lastIndexOf("(из уравнения)")).trim();
+    if (v.equals("?")) v = "";
+    return v;
+  }
+
+  /** Строка → ParamValue: число, если похоже на число, иначе строка. */
+  static ParamValue toParamValue(String v) throws Exception {
+    String s = v == null ? "" : v.trim();
+    try {
+      if (s.matches("[-+]?\\d+"))
+        return com.ptc.pfc.pfcModelItem.pfcModelItem.CreateIntParamValue(Integer.parseInt(s));
+      if (s.matches("[-+]?\\d*[.,]\\d+"))
+        return com.ptc.pfc.pfcModelItem.pfcModelItem.CreateDoubleParamValue(Double.parseDouble(s.replace(",", ".")));
+    } catch (Throwable t) { }
+    return com.ptc.pfc.pfcModelItem.pfcModelItem.CreateStringParamValue(s);
+  }
+
+  /** Копия файла перед правкой: <папка>\_pre\<дата_время>_<имя файла>. */
+  static void backupPre(File f) {
+    try {
+      File d = new File(f.getParentFile(), "_pre");
+      d.mkdirs();
+      String stamp = new java.text.SimpleDateFormat("yyyyMMdd_HHmmss").format(new java.util.Date());
+      File dst = new File(d, stamp + "_" + f.getName());
+      Files.copy(f.toPath(), dst.toPath(), java.nio.file.StandardCopyOption.COPY_ATTRIBUTES);
+      System.out.println("      копия перед правкой: " + dst.getPath());
+    } catch (Throwable t) { System.out.println("      КОПИЯ НЕ СДЕЛАНА: " + t); }
+  }
+
+  /** ОГРАНИЧЕНИЯ параметров эталона (то, что нужно для файла .lst дома). */
+  static void restrictions(Session s, File tpl, String label) {
+    if (tpl == null) return;
+    Model m = null;
+    String cwd0 = null;
+    try { cwd0 = s.GetCurrentDirectory(); } catch (Throwable t) { }
+    try {
+      m = openAny(s, tpl);
+      Parameters ps = m.ListParams();
+      List<String> lines = new ArrayList<>();
+      for (int i = 0; i < ps.getarraysize(); i++) {
+        Parameter p = ps.get(i);
+        try {
+          com.ptc.pfc.pfcModelItem.ParameterRestriction r = p.GetRestriction();
+          if (r == null) continue;
+          if (r instanceof com.ptc.pfc.pfcModelItem.ParameterEnumeration) {
+            ParamValues vals = ((com.ptc.pfc.pfcModelItem.ParameterEnumeration) r).GetPermittedValues();
+            List<String> vs = new ArrayList<>();
+            for (int k = 0; k < vals.getarraysize(); k++) vs.add(vals.get(k).GetStringValue());
+            lines.add("  " + p.GetName() + " → " + vs);
+          } else {
+            lines.add("  " + p.GetName() + " → " + r.GetType());
+          }
+        } catch (Throwable t) { }
+      }
+      System.out.println("ОГРАНИЧЕНИЯ эталона (" + label + ", " + lines.size() + "):");
+      for (String l : lines) System.out.println(l);
+    } catch (Throwable t) {
+      System.out.println("ограничения (" + label + ") не прочитаны: " + t);
+    } finally {
+      if (m != null) { try { m.Erase(); } catch (Throwable t) { } }
+      try { if (cwd0 != null) s.ChangeDirectory(cwd0); } catch (Throwable t) { }
+    }
+  }
+
   static void usage() {
     System.out.println("ЧЕСАЛКА (JLINK, без CREOSON):");
     System.out.println("  creo_comb.bat tpl-plan [config.pro]       - шаблоны из конфига: путь, файл, версия");
@@ -147,6 +337,8 @@ public class CreoComb {
     System.out.println("  creo_comb.bat dump <папка|файл> [имя]     - уравнения+параметры модели (нужен Creo)");
     System.out.println("  creo_comb.bat scan <папка> [config.pro]   - чего не хватает против шаблонов (только чтение)");
     System.out.println("  creo_comb.bat scan-here [config.pro]      - то же, но по ТЕКУЩЕЙ папке сессии (пути без кириллицы в аргументах)");
+    System.out.println("  creo_comb.bat add <папка> [config.pro] [--apply] - добавить недостающие параметры/уравнения");
+    System.out.println("                                              (без --apply — только ПЛАН; с --apply — правка, копия pre_, сохранение)");
   }
 
   static Map<String, String> parseConfig(String path) throws IOException {
@@ -409,7 +601,7 @@ public class CreoComb {
       m = openAny(s, f);
       r.rel = relations(m, false);
       r.post = relations(m, true);
-      r.par = params(m);
+      r.par = paramsRaw(m);
     } catch (Throwable t) {
       System.out.println("  эталон не открылся: " + f.getName() + " — " + t);
     } finally {
