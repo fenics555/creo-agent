@@ -21,7 +21,7 @@
 | **cmnm_scan** (внутренние имена) | `agent\cmnm_scan` | поле `#- CMNM` против имени файла (модель не откроется, если расходятся); **окно с настройками**, экспорт CSV | `cmnm_scan_gui.bat` (окно) / `cmnm_scan.bat <папка>` | ✅ |
 | **make_lst** (ограничения параметров) | `agent\make_lst` | Python; собирает `list.lst` (cp1251) + бэкап прежнего | `make_lst.bat [--dry] [--from refs.txt]` | ✅ |
 | **config_audit** (аудит config.pro) | `agent\config_audit` | Python; проверяет **каждый путь** config.pro на диске | `config_audit.bat [путь\config.pro]` | ✅ |
-| **orphan_scan** (чертежи-сироты) | `agent\orphan_scan` | Python; нужны базы дома `data\agent.sqlite`, `data\harvest.db` и `Z:\PTC\Work\search.pro` | `orphan_scan.bat "<папка>"` (без аргумента — по `search.pro`) | ✅ |
+| **orphan_scan** (чертежи-сироты) | `agent\orphan_scan` | нужны базы дома `data\agent.sqlite`, `data\harvest.db` и `Z:\PTC\Work\search.pro`; **окно с настройками**, CSV | `orphan_scan_gui.bat` (окно) / `orphan_scan.bat "<папка>"` | ✅ |
 | **log_clean** (УБОРКА ЛОГОВ) | `agent\log_clean` | убирает логи старше срока (**по умолчанию — в корзину**, не навсегда); **окно с настройками**, срок по каждому каталогу | `log_clean_gui.bat` (окно) / `log_clean.bat --apply` | ✅ |
 | **purge_versions** (ЧИСТИЛЬЩИК версий) | `agent\purge_versions` | переносит лишние версии Creo в бэкап (**ничего не удаляет**); **окно с настройками** | `purge_gui.bat` (окно) / `purge_versions.bat -r <папка> -k 2` | ✅ |
 | **copy_server** | `agent\copy\copy_server.py` | HTTP-приём/отдача файлов, порт **8000** | `python copy_server.py` | — |

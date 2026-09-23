@@ -38,17 +38,30 @@ class OrphanScanner:
         self.conn_harvest = None
         self.inventory = None      # множество БАЗОВЫХ имён моделей (ленивая загрузка)
 
+    def _say(self, s):
+        """Печать, безопасная для окна: в pythonw `sys.stdout` = None, и обычный print падает."""
+        try:
+            if sys.stdout:
+                print(s)
+        except Exception:
+            pass
+        if getattr(self, "progress", None):
+            try:
+                self.progress(s)
+            except Exception:
+                pass
+
     def _connect_db(self):
         if self.conn_agent is None:
             try:
                 self.conn_agent = sqlite3.connect(DB_AGENT)
             except Exception as e:
-                print(f"Error connecting to agent.sqlite: {e}")
+                self._say("Error connecting to agent.sqlite: %s" % e)
         if self.conn_harvest is None:
             try:
                 self.conn_harvest = sqlite3.connect(DB_HARVEST)
             except Exception as e:
-                print(f"Error connecting to harvest.db: {e}")
+                self._say("Error connecting to harvest.db: %s" % e)
 
     def _load_inventory(self):
         """Собирает БАЗОВЫЕ имена моделей из обеих баз (один раз).
@@ -71,7 +84,7 @@ class OrphanScanner:
                     if re.search(r"\.(prt|asm)(\.\d+)?$", low):
                         self.inventory.add(BASE_OF(low))
             except Exception as e:
-                print("inventory %s: %s" % (table, e))
+                self._say("inventory %s: %s" % (table, e))
 
     def _name_in_inventory(self, name):
         """Есть ли базовое имя модели в инвентаре (agent.sqlite или harvest.db)."""
@@ -127,14 +140,20 @@ class OrphanScanner:
         self.roots = self._collapse(self.roots)
         return self.roots
 
-    def scan(self, argv=None):
-        self.roots = self.get_roots(argv)
+    def scan(self, argv=None, roots=None, progress=None):
+        """Обход и классификация чертежей. `roots` — явный список папок (для окна),
+        `progress` — функция-приёмник строк (для окна). Без аргументов — как раньше: по argv/search.pro."""
+        self.progress = progress
+        self.roots = list(roots) if roots else self.get_roots(argv)
         if not self.roots:
-            print("No roots to scan.")
+            self._say("No roots to scan.")
             return
+        self._say("инвентарь моделей: подключаю базы (agent.sqlite + harvest.db)")
+        self._load_inventory()
+        self._say("моделей в инвентаре: %d" % len(self.inventory or ()))
 
         for root in self.roots:
-            print(f"Scanning: {root}")
+            self._say("Scanning: %s" % root)
             for dirpath, _, filenames in os.walk(root):
                 for fn in filenames:
                     match = CREO_EXT_PATTERN.search(fn)
@@ -165,9 +184,14 @@ class OrphanScanner:
                         self.orphans.append(full_path)
                         
                         # Распределение по верхним папкам (000_...)
-                        rel_path = os.path.relpath(full_path, "Z:\\PTC\\Work")
-                        parts = rel_path.split(os.sep)
-                        top_folder = parts[0] if parts else "Unknown"
+                        # Распределение по верхним папкам (000_...). Живая находка 23.09.2026: relpath падает,
+                        # если папка не на диске Z: (ValueError «path is on mount 'D:', start on mount 'Z:'»),
+                        # а окно программы умеет проверять ЛЮБУЮ папку — поэтому считаем безопасно.
+                        try:
+                            rel_path = os.path.relpath(full_path, r"Z:\PTC\Work")
+                            top_folder = rel_path.split(os.sep)[0] or "Unknown"
+                        except ValueError:
+                            top_folder = "вне Z:\\PTC\\Work"
                         self.distribution[top_folder] = self.distribution.get(top_folder, 0) + 1
 
     def run_report(self):
