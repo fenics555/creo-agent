@@ -53,6 +53,7 @@ class App:
         tk.Button(top, text="НАЙТИ", width=12, command=self.search).pack(side="left")
         self.var_asm = tk.BooleanVar(value=False)
         tk.Checkbutton(top, text="только сборки", variable=self.var_asm).pack(side="left", padx=8)
+        tk.Label(top, text="(можно писать словами: «turn блок»)", fg="#555").pack(side="left")
         self.lab = tk.Label(top, text="", anchor="w", bg="#fff1c7", padx=8)
         self.lab.pack(side="left", fill="x", expand=True, padx=6)
 
@@ -101,6 +102,7 @@ class App:
         tk.Button(bar, text="Открыть PDF в Acrobat", command=self.open_pdf).pack(side="left", padx=4)
         tk.Button(bar, text="Открыть папку позиции", command=self.open_position_folder).pack(side="left", padx=4)
         tk.Button(bar, text="Сохранить картинку…", command=self.save_png).pack(side="left", padx=4)
+        tk.Button(bar, text="Состав из живой сессии (Creo)", command=self.live_bom).pack(side="left", padx=4)
         tk.Button(bar, text="Показать полную деталировку (глубже)", command=self.deep_bom).pack(side="left", padx=4)
         self.lab_pdf = tk.Label(bar, text="PDF не выбран", anchor="w", fg="#444")
         self.lab_pdf.pack(side="left", padx=10)
@@ -140,7 +142,7 @@ class App:
 
         def work():
             try:
-                res = eng.find(q, limit=400, only_asm=only)
+                res = eng.find_words(q, limit=400, only_asm=only)
             except Exception as e:
                 self.root.after(0, lambda: self.say("ошибка поиска: %s" % e))
                 return
@@ -150,7 +152,8 @@ class App:
     def show_results(self, res):
         self.results = res
         for r in res:
-            self.tree.insert("", "end", values=(r["kind"], r["name"], r["folder"]))
+            hit = ("  (слов %d/%d)" % (r["words_hit"], r["words_all"])) if r.get("words_all") else ""
+            self.tree.insert("", "end", values=(r["kind"], r["name"] + hit, r["folder"]))
         self.say("найдено: %d (двойной щелчок — открыть папку, выбор — деталировка)" % len(res))
 
     def picked_model(self):
@@ -191,6 +194,40 @@ class App:
         i = self.tree.index(sel[0])
         if 0 <= i < len(self.results):
             self.show_bom(self.results[i]["name"], depth=9)
+
+    def live_bom(self):
+        """Состав ИЗ ЖИВОЙ СЕССИИ Creo (CREOSON): окно само откроет модель, прочитает состав и уберёт её.
+        Живой факт 23.09.2026: CREOSON требует имя без версии (`d25.asm`) и открытую модель."""
+        sel = self.tree.selection()
+        if not sel:
+            return self.say("сначала найди и выбери сборку")
+        i = self.tree.index(sel[0])
+        if not (0 <= i < len(self.results)):
+            return
+        rec = self.results[i]
+        self.lab_pdf.config(text="читаю состав из сессии Creo: %s …" % rec["name"])
+
+        def work():
+            rows, err = eng.bom_live(rec["name"], path=rec.get("path"))
+            self.root.after(0, lambda: self.show_live(rows, err, rec["name"]))
+        threading.Thread(target=work, daemon=True).start()
+
+    def show_live(self, rows, err, model):
+        if err:
+            self.lab_pdf.config(text="живая сессия: %s" % err)
+            return
+        self.tree_bom.delete(*self.tree_bom.get_children())
+        self.bom_rows = []
+        for r in rows:
+            r["pdf"] = eng.pdf_for(r["name"])
+            r["has_pdf"] = bool(r["pdf"])
+            r["path"] = r["path"] or eng.path_of(r["name"])
+            self.bom_rows.append(r)
+        for n, r in enumerate(self.bom_rows, 1):
+            self.tree_bom.insert("", "end", values=("%d.%d" % (r["level"], n), r["kind"], r["name"],
+                                                    r["qty"], "да" if r["has_pdf"] else "—",
+                                                    r["path"] or "(в сессии)"))
+        self.lab_pdf.config(text="СОСТАВ ИЗ СЕССИИ %s: позиций %d (модель убрана из сессии)" % (model, len(rows)))
 
     # ---------- PDF с «рыбьим глазом» ----------
     def picked_position(self):

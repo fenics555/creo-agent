@@ -85,6 +85,116 @@ def find(query, limit=300, only_asm=False):
     return res[:limit]
 
 
+def find_words(query, limit=300, only_asm=False):
+    """Поиск «по словам», как человек пишет: «найди сборки турноверов» — слова разбиваются,
+    каждое ищется со своими вариантами написания, результат — те, где совпало больше слов.
+    Это то, чего не хватало простому поиску по подстроке."""
+    words = [w for w in re.split(r"[\s,;.]+", (query or "").strip().lower()) if len(w) >= 2]
+    if not words:
+        return []
+    score = {}
+    info = {}
+    for w in words:
+        for r in find(w, limit=limit, only_asm=only_asm):
+            key = (r["name"].lower(), (r["path"] or "").lower())
+            score[key] = score.get(key, 0) + 1
+            info.setdefault(key, r)
+    if not score:
+        return []
+    need = len(words)
+    ranked = sorted(info.items(), key=lambda kv: (-score[kv[0]], kv[1]["name"].lower()))
+    out = []
+    for key, r in ranked:
+        hit = score[key]
+        r = dict(r)
+        r["words_hit"] = hit
+        r["words_all"] = need
+        out.append(r)
+    return out[:limit]
+
+
+def bom_live(model, path=None, open_if_needed=True, cleanup=True, timeout=30):
+    """Состав сборки ИЗ ЖИВОЙ СЕССИИ Creo (через CREOSON дома: `bom get_paths`).
+    Возвращает (rows, ошибка): rows в том же виде, что и `bom()`, но без PDF.
+    Если Creo/CREOSON недоступны — вернёт (None, «почему»)."""
+    try:
+        sys_path = r"D:\AI\tools\agent"
+        if sys_path not in __import__("sys").path:
+            __import__("sys").path.insert(0, sys_path)
+        import creo_tools as CT          # живёт в папке агента
+    except Exception as e:
+        return None, "нет доступа к живой сессии (не найден creo_tools): %s" % e
+
+    name = os.path.basename(str(model))
+    # ЖИВОЙ ФАКТ 23.09.2026: CREOSON у `bom get_paths` НЕ принимает версию Creo в имени —
+    # `d25.asm.1` даёт «Unknown Model Extension» (расширением он видит `.1`). Нужно `d25.asm`.
+    name = re.sub(r"\.\d+$", "", name)
+    if not re.search(r"\.(prt|asm)$", name, re.I):
+        name = name + ".asm"
+
+    # ЖИВОЙ ФАКТ 23.09.2026: CREOSON отдаёт состав только для ОТКРЫТОЙ модели («File ... was not open»),
+    # поэтому сначала открываем её без показа (как делает дом в creo_tools: file open display=False),
+    # а в конце — убираем из сессии, чтобы не копить модели.
+    opened = False
+    if open_if_needed:
+        try:
+            d = os.path.dirname(str(path)) if path else ""
+            CT.creo_call("file", "open", {"file": name, "dir": d, "display": False}, timeout)
+            opened = True
+        except Exception as e:
+            return None, "не открыть модель для состава: %s" % e
+    try:
+        j = CT.creo_call("bom", "get_paths",
+                         {"file": name, "paths": False, "top_level": False, "exclude_inactive": True},
+                         timeout)
+        if not isinstance(j, dict) or (j.get("status") or {}).get("error"):
+            return None, "ответ сессии: %s" % ((j or {}).get("status") or j)
+        root = j.get("data") or {}
+        rows, seen = [], set()
+
+        def kids(n):
+            """Ключи дерева состава — как в доме (creo_tools._kids): проверены живой сессией."""
+            if not isinstance(n, dict):
+                return []
+            c = n.get("children")
+            if isinstance(c, dict):
+                c = c.get("children") or []
+            return c or n.get("components") or n.get("models") or n.get("paths") or n.get("submodels") or []
+
+        def walk(node, level=1):
+            if level > 9 or len(rows) > 5000:
+                return
+            if isinstance(node, list):
+                for x in node:
+                    walk(x, level)
+                return
+            if not isinstance(node, dict):
+                return
+            f = node.get("file") or ""
+            if f:
+                key = (f.lower(), level)
+                if key not in seen:
+                    seen.add(key)
+                    rows.append({"level": level, "name": f, "base": base_of(f),
+                                 "qty": node.get("quantity", 1), "path": None, "kind": kind_of(f),
+                                 "has_pdf": False, "pdf": None, "live": True})
+            for ch in kids(node):
+                walk(ch, level + 1)
+
+        walk(root, 1)
+    except Exception as e:
+        return None, "состав из сессии не получен: %s" % e
+    finally:
+        if opened and cleanup:
+            try:
+                CT.creo_call("file", "erase", {"file": name}, 15)
+            except Exception:
+                pass
+    if not rows:
+        return None, "сессия не вернула позиций (пустая сборка или другое имя)"
+    return rows, None
+
+
 def bom(model, depth=2, limit=2000):
     """Деталировка: состав сборки из индекса дома (таблица `bom`, ТОЛЬКО ЧТЕНИЕ).
     Возвращает список {level, name, base, qty, path, kind, has_pdf, pdf}. Пусто — состава в индексе нет."""
@@ -115,6 +225,11 @@ def bom(model, depth=2, limit=2000):
     children(root, 1)
     c.close()
     return out
+
+
+def path_of(name):
+    """Публичная обёртка: где лежит файл с таким именем (по индексу дома). Нужна окну."""
+    return _path_of(None, name)
 
 
 def _path_of(c, name):
