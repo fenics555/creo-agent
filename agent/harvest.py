@@ -78,15 +78,26 @@ def release_lock():
         pass
 
 def read_roots(path, allow_z=False):
+    """Корни сканирования из файла. Живая находка 23.09.2026: файл корней дома может быть в cp1251
+    (PowerShell `Set-Content` по умолчанию), и жёсткое чтение в utf-8 падало FATAL ('utf-8' codec can't
+    decode byte 0xcf). Теперь: utf-8-sig, а при явной ошибке кодировки — честный откат на cp1251."""
+    text = None
+    for enc in ("utf-8-sig", "cp1251"):
+        try:
+            text = Path(path).read_text(encoding=enc)
+            break
+        except UnicodeDecodeError:
+            continue
+    if text is None:
+        text = Path(path).read_text(encoding="utf-8", errors="replace")
     roots = []
-    with open(path, encoding="utf-8") as f:
-        for line in f:
-            line = line.replace("\ufeff", "").strip()
-            if line and not line.startswith("#"):
-                if not allow_z and line[:2].upper() == "Z:":
-                    log("Z запрещён словом: %s пропущен" % line)
-                    continue
-                roots.append(line)
+    for line in (text or "").splitlines():
+        line = line.replace("\ufeff", "").strip()
+        if line and not line.startswith("#"):
+            if not allow_z and line[:2].upper() == "Z:":
+                log("Z запрещён словом: %s пропущен" % line)
+                continue
+            roots.append(line)
     if not roots:
         raise ValueError("корни не найдены в %s" % path)
     return roots
