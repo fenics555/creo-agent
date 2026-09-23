@@ -159,6 +159,12 @@ public class CreoComb {
     System.out.println("ЭТАЛОН детали: " + (tplPart == null ? "нет" : tplPart.getPath()));
     System.out.println("ЭТАЛОН сборки: " + (tplAsm == null ? "нет" : tplAsm.getPath()));
     if (refPart == null && refAsm == null) { System.out.println("нет эталонов — нечего делать"); return; }
+    System.out.println("в эталоне детали: параметров " + (refPart == null ? 0 : refPart.par.size()) +
+                       ", уравнений " + (refPart == null ? 0 : refPart.rel.size()) +
+                       ", постреген. " + (refPart == null ? 0 : refPart.post.size()));
+    System.out.println("в эталоне сборки: параметров " + (refAsm == null ? 0 : refAsm.par.size()) +
+                       ", уравнений " + (refAsm == null ? 0 : refAsm.rel.size()) +
+                       ", постреген. " + (refAsm == null ? 0 : refAsm.post.size()));
     System.out.println("режим: " + (apply ? "ПРИМЕНЕНИЕ (правка и сохранение)" : "ПЛАН (только чтение)"));
     restrictions(s, tplPart, "деталь");
     restrictions(s, tplAsm, "сборка");
@@ -237,7 +243,9 @@ public class CreoComb {
     try {
       Files.walk(dir.toPath(), 6).forEach(p -> {
         String n = p.getFileName().toString().toLowerCase();
-        if (n.startsWith("pre_")) return;
+        String parent = p.getParent() == null ? "" : p.getParent().toString().toLowerCase();
+        if (parent.endsWith("\\_pre") || parent.endsWith("/_pre")) return;   // наши копии — не модели
+        if (n.startsWith("pre_") || n.matches("\\d{8}_\\d{6}_.*")) return;   // копии pre_ и с меткой времени
         if (!n.matches(".*\\.(prt|asm)(\\.\\d+)?$")) return;
         String base = n.replaceAll("\\.(prt|asm)(\\.\\d+)?$", "");
         File f = p.getParent().toFile();
