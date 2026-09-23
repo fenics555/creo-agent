@@ -42,6 +42,7 @@ public class CreoComb {
       if (mode.equals("add")) { comb(s, a.length > 1 ? a[1] : "", a.length > 2 && !a[2].startsWith("--") ? a[2] : CFG_DEFAULT, hasFlag(a, "--apply"), hasFlag(a, "--empty-first")); return; }
       if (mode.equals("mkparam")) { mkParam(s, a.length > 1 ? a[1] : "", a.length > 2 ? a[2] : "", a.length > 3 ? a[3] : ""); return; }
       if (mode.equals("typcheck")) { typCheck(s, a.length > 1 ? a[1] : ""); return; }
+      if (mode.equals("mfgcheck")) { mfgCheck(s, a.length > 1 ? a[1] : ""); return; }
       if (mode.equals("typcheck-here")) { typCheck(s, s.GetCurrentDirectory()); return; }
       if (mode.equals("setparam")) { setParam(s, a.length > 1 ? a[1] : "", a.length > 2 ? a[2] : "", a.length > 3 ? a[3] : "", hasFlag(a, "--save")); return; }
       if (mode.equals("dump")) { dump(s, a.length > 1 ? a[1] : "", a.length > 2 ? a[2] : ""); return; }
@@ -169,12 +170,47 @@ public class CreoComb {
     } catch (Throwable t) { System.out.println("не открылась: " + t); }
   }
 
+  /** ПРОБА: производственная модель или нет — по НЕОСПОРИМЫМ фактам (расширение `.mfg`,
+   *  объект `pfcMFG.MFG`), а НЕ по параметрам. Печатает сравнение с писаными ТИП/ПАРТИЯ. */
+  static void mfgCheck(Session s, String root) throws Exception {
+    File dir = new File(root);
+    if (!dir.isDirectory()) { System.out.println("нет папки: " + root); return; }
+    List<File> files = new ArrayList<>();
+    Files.walk(dir.toPath(), 6).forEach(p -> {
+      String n = p.getFileName().toString().toLowerCase();
+      if (n.matches(".*\\.(prt|asm|mfg)(\\.\\d+)?$") && !n.matches("\\d{8}_\\d{6}_.*")) files.add(p.toFile());
+    });
+    System.out.println("файл | тип(код) | объект MFG | .mfg | ТИП (писаный) | ПАРТИЯ (писаный)");
+    int n = 0;
+    for (File f : files) {
+      if (n >= LIMIT) break;
+      String fn = f.getName().toLowerCase();
+      boolean mfgFile = fn.matches(".*\\.mfg(\\.\\d+)?$");
+      Model m = null;
+      try {
+        m = openAny(s, f);
+        n++;
+        boolean mfgObj = (m instanceof com.ptc.pfc.pfcMFG.MFG);
+        Map<String, String> par = paramsRaw(m);
+        String tip = par.get("ТИП");
+        System.out.println("  " + f.getName() + " | " + m.GetType().getValue() + " | " + mfgObj + " | " + mfgFile +
+                           " | «" + (tip == null ? "-" : tip.trim()) + "» | " +
+                           (par.containsKey("ПАРТИЯ") ? par.get("ПАРТИЯ") : "-"));
+      } catch (Throwable t) {
+        System.out.println("  " + f.getName() + " | не открылась: " + t);
+      } finally {
+        if (m != null) { try { m.Erase(); } catch (Throwable t) { } }
+      }
+    }
+    System.out.println("ИТОГО просмотрено: " + n);
+  }
+
   /** ПРОВЕРКА ТИП: у детали «Деталь», у сборки «Сборка» — только чтение, быстрый отчёт.
    *  Нужна для аудита дома: где ТИП стоит неверно или отсутствует. */
   static void typCheck(Session s, String root) throws Exception {
     File dir = new File(root);
     if (!dir.isDirectory()) { System.out.println("нет папки: " + root); return; }
-    List<File> models = collectModels(dir);
+    List<File> models = collectModels(dir, true);   // в аудите смотрим и .mfg (производственные модели)
     System.out.println("моделей к проверке: " + models.size() + " (лимит " + LIMIT + ")");
     int bad = 0, n = 0, noTyp = 0, prod = 0;
     String cwd0 = null; try { cwd0 = s.GetCurrentDirectory(); } catch (Throwable t) { }
@@ -188,12 +224,13 @@ public class CreoComb {
         n++;
         Map<String, String> pp = paramsRaw(m);
         String have = pp.get("ТИП");
-        boolean isProd = (have != null && have.trim().equalsIgnoreCase("Производство")) || pp.containsKey("ПАРТИЯ");
+        boolean mfgFile = f.getName().toLowerCase().matches(".*\\.mfg(\\.\\d+)?$");
+        boolean isProd = mfgFile || (have != null && have.trim().equalsIgnoreCase("Производство")) || pp.containsKey("ПАРТИЯ");
         if (isProd) {
           prod++;
-          if (have == null || !have.trim().equalsIgnoreCase("Производство"))
-            System.out.println("  " + f.getName() + ": производственная (есть ПАРТИЯ), ТИП = «" +
-                               (have == null ? "нет" : have.trim()) + "» — проверить руками");
+          String kind = mfgFile ? "модель .mfg" : "оснастка (маркеры дома)";
+          System.out.println("  " + f.getName() + ": " + kind + ", ТИП = «" + (have == null ? "нет" : have.trim()) +
+                             "» — не трогаем");
         } else if (have == null) {
           noTyp++;
           System.out.println("  " + f.getName() + ": ТИП отсутствует (надо «" + want + "»)");
@@ -282,11 +319,13 @@ public class CreoComb {
         List<String> addRel = missing(ref.rel, rel), addPost = missing(ref.post, post);
         Map<String, String> addPar = new LinkedHashMap<>();
         List<String> skipped = new ArrayList<>();
-        // Производственные модели (мануфакчуринг, оснастка) ВЫГЛЯДЯТ как сборки, но ТИП у них
-        // «Производство» — это правильно (слово хозяина 23.09.2026). Признаки: ТИП=Производство
-        // или параметр ПАРТИЯ (размер партии). Такие модели ТИП-ом не «лечим».
+        // ПРОИЗВОДСТВО. Неоспоримый признак — РАСШИРЕНИЕ `.mfg` (Creo: ProMdlSubtypeGet / PROMDLSTYPE_MFG_*).
+        // Маркеры дома (`ТИП=Производство`, `ПАРТИЯ`) — только подсказка: природу по ним не доказать,
+        // поэтому ТИП у такой оснастки НЕ трогаем (слово хозяина 23.09.2026: в производство пока не лезем).
+        String fnl = f.getName().toLowerCase();
+        boolean mfgFile = fnl.matches(".*\\.mfg(\\.\\d+)?$");
         String haveTyp0 = par.get("ТИП");
-        boolean prod = (haveTyp0 != null && haveTyp0.trim().equalsIgnoreCase("Производство")) || par.containsKey("ПАРТИЯ");
+        boolean houseProd = (haveTyp0 != null && haveTyp0.trim().equalsIgnoreCase("Производство")) || par.containsKey("ПАРТИЯ");
         for (Map.Entry<String, String> e : ref.par.entrySet()) {
           if (par.containsKey(e.getKey())) continue;
           if (e.getKey().trim().equalsIgnoreCase("ТИП")) continue;   // ТИП обрабатываем ниже
@@ -294,12 +333,11 @@ public class CreoComb {
           if (v == null) skipped.add(e.getKey());
           else addPar.put(e.getKey(), v);
         }
-        // ТИП — по природе модели: деталь → Деталь, обычная сборка → Сборка,
-        // производственная (мануфакчуринг/оснастка) → Производство.
-        String wantTyp = prod ? "Производство" : (isAsm ? "Сборка" : "Деталь");
+        // ТИП: у детали «Деталь», у обычной сборки «Сборка», у производственной модели (.mfg) «Производство».
+        String wantTyp = mfgFile ? "Производство" : (isAsm ? "Сборка" : "Деталь");
         String haveTyp = par.get("ТИП");
-        boolean fixTyp = (haveTyp != null) && !wantTyp.equalsIgnoreCase(haveTyp.trim());
-        if (haveTyp == null) addPar.put("ТИП", wantTyp);      // создать с нужным значением
+        boolean fixTyp = !houseProd && !mfgFile && (haveTyp != null) && !wantTyp.equalsIgnoreCase(haveTyp.trim());
+        if (haveTyp == null && !houseProd && !mfgFile) addPar.put("ТИП", wantTyp);   // создать с нужным значением
         if (addRel.isEmpty() && addPost.isEmpty() && addPar.isEmpty() && skipped.isEmpty() && !fixTyp) continue;
         planned++;
         System.out.println("  " + f.getName() + ": +параметров " + addPar.size() + ", +уравнений " + addRel.size() +
@@ -307,7 +345,8 @@ public class CreoComb {
         if (!addPar.isEmpty()) System.out.println("      параметры:  " + addPar.keySet());
         if (fixTyp) System.out.println("      ТИП: «" + haveTyp.trim() + "» → «" + wantTyp +
                                        "» (по природе модели; параметр ограниченный)");
-        if (prod) System.out.println("      ПРОИЗВОДСТВЕННАЯ (ТИП=Производство / есть ПАРТИЯ) — ТИП ставим «Производство»");
+        if (houseProd) System.out.println("      ПРОИЗВОДСТВЕННАЯ ОСНАСТКА (маркеры дома: ТИП/ПАРТИЯ) — ТИП НЕ трогаем");
+        if (mfgFile) System.out.println("      .mfg — производственная модель (ТИП = Производство)");
         if (!skipped.isEmpty())
           System.out.println("      ПРОПУЩЕНЫ (ограничены, пустое значение Creo через API не даёт — ставь руками " +
                              "в диалоге «Параметры» или запусти с --empty-first): " + skipped);
@@ -374,8 +413,10 @@ public class CreoComb {
                        (typFixed > 0 ? ", ТИП исправлен: " + typFixed : "") + ", ошибок " + errs);
   }
 
-  /** Новейшие .prt/.asm папки (рекурсивно, глубина 6), кроме служебных копий pre_. */
-  static List<File> collectModels(File dir) {
+  static List<File> collectModels(File dir) { return collectModels(dir, false); }
+
+  /** Новейшие .prt/.asm (и .mfg, если withMfg) папки, глубина 6, кроме наших копий pre_. */
+  static List<File> collectModels(File dir, boolean withMfg) {
     List<File> out = new ArrayList<>();
     try {
       Files.walk(dir.toPath(), 6).forEach(p -> {
@@ -383,10 +424,11 @@ public class CreoComb {
         String parent = p.getParent() == null ? "" : p.getParent().toString().toLowerCase();
         if (parent.endsWith("\\_pre") || parent.endsWith("/_pre")) return;   // наши копии — не модели
         if (n.startsWith("pre_") || n.matches("\\d{8}_\\d{6}_.*")) return;   // копии pre_ и с меткой времени
-        if (!n.matches(".*\\.(prt|asm)(\\.\\d+)?$")) return;
-        String base = n.replaceAll("\\.(prt|asm)(\\.\\d+)?$", "");
+        if (!n.matches(withMfg ? ".*\\.(prt|asm|mfg)(\\.\\d+)?$" : ".*\\.(prt|asm)(\\.\\d+)?$")) return;
+        String base = n.replaceAll("\\.(prt|asm|mfg)(\\.\\d+)?$", "");
         File f = p.getParent().toFile();
-        File best = newest(f, base, n.contains(".asm") ? "asm" : "prt");
+        String ext = n.contains(".asm") ? "asm" : (n.contains(".mfg") ? "mfg" : "prt");
+        File best = newest(f, base, ext);
         if (best != null && best.equals(p.toFile()) && !out.contains(best)) out.add(best);
       });
     } catch (Exception e) { System.out.println("обход: " + e); }
