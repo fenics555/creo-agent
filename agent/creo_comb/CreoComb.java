@@ -42,6 +42,7 @@ public class CreoComb {
       if (mode.equals("add")) { comb(s, a.length > 1 ? a[1] : "", a.length > 2 && !a[2].startsWith("--") ? a[2] : CFG_DEFAULT, hasFlag(a, "--apply"), hasFlag(a, "--empty-first")); return; }
       if (mode.equals("mkparam")) { mkParam(s, a.length > 1 ? a[1] : "", a.length > 2 ? a[2] : "", a.length > 3 ? a[3] : ""); return; }
       if (mode.equals("typcheck")) { typCheck(s, a.length > 1 ? a[1] : ""); return; }
+      if (mode.equals("roles")) { roles(s, a.length > 1 ? a[1] : ""); return; }
       if (mode.equals("mfgcheck")) { mfgCheck(s, a.length > 1 ? a[1] : ""); return; }
       if (mode.equals("typcheck-here")) { typCheck(s, s.GetCurrentDirectory()); return; }
       if (mode.equals("setparam")) { setParam(s, a.length > 1 ? a[1] : "", a.length > 2 ? a[2] : "", a.length > 3 ? a[3] : "", hasFlag(a, "--save")); return; }
@@ -55,20 +56,30 @@ public class CreoComb {
     }
   }
 
-  /** Открыть модель по ФАЙЛУ (имя может быть с версией .N): три попытки, как делает дом.
-   *  1) по имени модели (Creo сам возьмёт новейшую версию), 2) по файлу без версии, 3) как есть. */
+  /** Открыть модель по ФАЙЛУ (имя может быть с версией .N): тип берём из РАСШИРЕНИЯ,
+   *  чтобы не схватить одноимённую модель другого типа (d25.mfg ≠ d25.prt). */
   static Model openAny(Session s, File f) throws Exception {
     String n = f.getName();
     String low = n.toLowerCase();
-    boolean asm = low.matches(".*\\.asm(\\.\\d+)?$");
-    String base = n.replaceAll("\\.(prt|asm|drw|frm|sec|lay)(\\.\\d+)?$", "");
+    String ext = low.matches(".*\\.asm(\\.\\d+)?$") ? "asm"
+               : low.matches(".*\\.mfg(\\.\\d+)?$") ? "mfg"
+               : low.matches(".*\\.drw(\\.\\d+)?$") ? "drw"
+               : low.matches(".*\\.frm(\\.\\d+)?$") ? "frm"
+               : low.matches(".*\\.sec(\\.\\d+)?$") ? "sec"
+               : low.matches(".*\\.lay(\\.\\d+)?$") ? "lay" : "prt";
+    ModelType mt = ext.equals("asm") ? ModelType.MDL_ASSEMBLY
+                : ext.equals("mfg") ? ModelType.MDL_MFG
+                : ext.equals("drw") ? ModelType.MDL_DRAWING
+                : ext.equals("lay") ? ModelType.MDL_LAYOUT
+                : ext.equals("sec") ? ModelType.MDL_2D_SECTION : ModelType.MDL_PART;
+    String base = n.replaceAll("\\.(prt|asm|mfg|drw|frm|sec|lay)(\\.\\d+)?$", "");
     s.ChangeDirectory(f.getParent());
     Throwable last = null;
-    try { return s.RetrieveModel(pfcModel.ModelDescriptor_Create(
-            asm ? ModelType.MDL_ASSEMBLY : ModelType.MDL_PART, base, null)); }
-    catch (Throwable t) { last = t; }
+    // 1) для .mfg сначала пробуем по имени файла без версии — иначе Creo может взять одноимённую .prt
     try { return s.RetrieveModel(pfcModel.ModelDescriptor_CreateFromFileName(
-            new File(f.getParent(), base + (asm ? ".asm" : ".prt")).getPath())); }
+            new File(f.getParent(), base + "." + ext).getPath())); }
+    catch (Throwable t) { last = t; }
+    try { return s.RetrieveModel(pfcModel.ModelDescriptor_Create(mt, base, null)); }
     catch (Throwable t) { last = t; }
     try { return s.RetrieveModel(pfcModel.ModelDescriptor_CreateFromFileName(f.getPath())); }
     catch (Throwable t) { last = t; }
@@ -170,6 +181,78 @@ public class CreoComb {
     } catch (Throwable t) { System.out.println("не открылась: " + t); }
   }
 
+  /** ПРОИЗВОДСТВО ПО ФАКТАМ Creo: модель .mfg / тип MDL_MFG, либо в составе есть компоненты
+   *  с ролями ЗАГОТОВКА (0), ссылочная модель (1), оснастка (2) — это и есть «кто есть кто».
+   *  Нужен, чтобы не «лечить» производственные сборки как обычные. */
+  static boolean prodByFacts(Model m) {
+    try { if (m.GetType().getValue() == ModelType._MDL_MFG) return true; } catch (Throwable t) { }
+    try {
+      if (m.GetFileName().toLowerCase().endsWith(".mfg")) return true;
+    } catch (Throwable t) { }
+    try {
+      com.ptc.pfc.pfcModelItem.ModelItems items =
+          m.ListItems(com.ptc.pfc.pfcModelItem.ModelItemType.ITEM_FEATURE);
+      for (int i = 0; i < items.getarraysize(); i++) {
+        com.ptc.pfc.pfcModelItem.ModelItem it = items.get(i);
+        if (!(it instanceof com.ptc.pfc.pfcComponentFeat.ComponentFeat)) continue;
+        try {
+          int ct = ((com.ptc.pfc.pfcComponentFeat.ComponentFeat) it).GetCompType().getValue();
+          if (ct == 0 || ct == 1 || ct == 2) return true;   // заготовка / ссылочная модель / оснастка
+        } catch (Throwable t) { }
+      }
+    } catch (Throwable t) { }
+    return false;
+  }
+
+  /** «КТО ЕСТЬ КТО» (только чтение): по каждой сборке/обработке — состав с РОЛЯМИ компонентов
+   *  из Creo: заготовка (COMPONENT_WORKPIECE=0), ссылочная модель (REF_MODEL=1), оснастка (FIXTURE=2),
+   *  формообразующие/стержни/литьё (3..11) — подсказка Давыдовки, проверено в нашем API. */
+  static void roles(Session s, String root) throws Exception {
+    File dir = new File(root);
+    if (!dir.isDirectory()) { System.out.println("нет папки: " + root); return; }
+    List<File> models = collectModels(dir, true);
+    System.out.println("моделей к разбору: " + models.size() + " (лимит " + LIMIT + ")");
+    String cwd0 = null; try { cwd0 = s.GetCurrentDirectory(); } catch (Throwable t) { }
+    int n = 0;
+    for (File f : models) {
+      if (n >= LIMIT) break;
+      if (!f.getName().toLowerCase().matches(".*\\.(asm|mfg)(\\.\\d+)?$")) continue;
+      Model m = null;
+      try {
+        m = openAny(s, f);
+        n++;
+        boolean mfg = false;
+        try { mfg = (m.GetType().getValue() == ModelType._MDL_MFG); } catch (Throwable t) { }
+        System.out.println("  " + f.getName() + " — " + m.GetType() + (mfg ? "  [ПРОИЗВОДСТВЕННАЯ MDL_MFG]" : ""));
+        com.ptc.pfc.pfcModelItem.ModelItems items =
+            m.ListItems(com.ptc.pfc.pfcModelItem.ModelItemType.ITEM_FEATURE);
+        for (int i = 0; i < items.getarraysize(); i++) {
+          com.ptc.pfc.pfcModelItem.ModelItem it = items.get(i);
+          if (!(it instanceof com.ptc.pfc.pfcComponentFeat.ComponentFeat)) continue;
+          com.ptc.pfc.pfcComponentFeat.ComponentFeat cf = (com.ptc.pfc.pfcComponentFeat.ComponentFeat) it;
+          String nm = "?";
+          try { nm = cf.GetModelDescr().GetFileName(); } catch (Throwable t) { }
+          String role = "?";
+          try {
+            int ct = cf.GetCompType().getValue();
+            role = ct == 0 ? "ЗАГОТОВКА" : ct == 1 ? "ссылочная модель" : ct == 2 ? "ОСНАСТКА (приспособление)"
+                 : ct == 3 ? "плита формы" : ct == 4 ? "формообразующая" : ct == 5 ? "сборка формы"
+                 : ct == 6 ? "сборочная единица" : ct == 7 ? "сборка отливки" : ct == 8 ? "блок штампа"
+                 : ct == 9 ? "деталь штампа" : ct == 10 ? "СТЕРЖЕНЬ" : ct == 11 ? "результат литья"
+                 : ct == 12 ? "из движения" : ct == 13 ? "без опр. допущений" : "нет роли (" + ct + ")";
+          } catch (Throwable t) { }
+          System.out.println("      " + nm + "  —  " + role);
+        }
+      } catch (Throwable t) {
+        System.out.println("  " + f.getName() + ": не открылась (" + t + ")");
+      } finally {
+        if (m != null) { try { m.Erase(); } catch (Throwable t) { } }
+      }
+    }
+    try { if (cwd0 != null) s.ChangeDirectory(cwd0); } catch (Throwable t) { }
+    System.out.println("ИТОГО разобрано сборок: " + n);
+  }
+
   /** ПРОБА: производственная модель или нет — по НЕОСПОРИМЫМ фактам (расширение `.mfg`,
    *  объект `pfcMFG.MFG`), а НЕ по параметрам. Печатает сравнение с писаными ТИП/ПАРТИЯ. */
   static void mfgCheck(Session s, String root) throws Exception {
@@ -225,10 +308,11 @@ public class CreoComb {
         Map<String, String> pp = paramsRaw(m);
         String have = pp.get("ТИП");
         boolean mfgFile = f.getName().toLowerCase().matches(".*\\.mfg(\\.\\d+)?$");
-        boolean isProd = mfgFile || (have != null && have.trim().equalsIgnoreCase("Производство")) || pp.containsKey("ПАРТИЯ");
+        boolean isProd = mfgFile || prodByFacts(m) || (have != null && have.trim().equalsIgnoreCase("Производство"))
+                         || pp.containsKey("ПАРТИЯ");
         if (isProd) {
           prod++;
-          String kind = mfgFile ? "модель .mfg" : "оснастка (маркеры дома)";
+          String kind = mfgFile || prodByFacts(m) ? "производственная (факты Creo)" : "оснастка (маркеры дома)";
           System.out.println("  " + f.getName() + ": " + kind + ", ТИП = «" + (have == null ? "нет" : have.trim()) +
                              "» — не трогаем");
         } else if (have == null) {
@@ -325,7 +409,9 @@ public class CreoComb {
         String fnl = f.getName().toLowerCase();
         boolean mfgFile = fnl.matches(".*\\.mfg(\\.\\d+)?$");
         String haveTyp0 = par.get("ТИП");
-        boolean houseProd = (haveTyp0 != null && haveTyp0.trim().equalsIgnoreCase("Производство")) || par.containsKey("ПАРТИЯ");
+        boolean prodFacts = mfgFile || prodByFacts(m);
+        boolean houseProd = prodFacts || (haveTyp0 != null && haveTyp0.trim().equalsIgnoreCase("Производство"))
+                            || par.containsKey("ПАРТИЯ");
         for (Map.Entry<String, String> e : ref.par.entrySet()) {
           if (par.containsKey(e.getKey())) continue;
           if (e.getKey().trim().equalsIgnoreCase("ТИП")) continue;   // ТИП обрабатываем ниже
@@ -345,7 +431,8 @@ public class CreoComb {
         if (!addPar.isEmpty()) System.out.println("      параметры:  " + addPar.keySet());
         if (fixTyp) System.out.println("      ТИП: «" + haveTyp.trim() + "» → «" + wantTyp +
                                        "» (по природе модели; параметр ограниченный)");
-        if (houseProd) System.out.println("      ПРОИЗВОДСТВЕННАЯ ОСНАСТКА (маркеры дома: ТИП/ПАРТИЯ) — ТИП НЕ трогаем");
+        if (houseProd) System.out.println("      ПРОИЗВОДСТВЕННАЯ " + (prodFacts ? "(факты Creo)" : "(маркеры дома)") +
+                                          " — ТИП НЕ трогаем");
         if (mfgFile) System.out.println("      .mfg — производственная модель (ТИП = Производство)");
         if (!skipped.isEmpty())
           System.out.println("      ПРОПУЩЕНЫ (ограничены, пустое значение Creo через API не даёт — ставь руками " +
