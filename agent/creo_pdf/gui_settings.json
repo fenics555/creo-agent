@@ -1,6 +1,8 @@
 {
  "config": "Z:\\PTC\\CREO-START\\START-STD\\config.pro",
  "folder": "Z:/PTC/Work",
- "limit": "5",
- "open_pdf": true
+ "limit": "50",
+ "open_pdf": true,
+ "del_dups": false,
+ "del_nomodel": false
 }
