@@ -18,7 +18,9 @@ class H(BaseHTTPRequestHandler):
         self._send(200, html, "text/html")
     def do_GET(self):
         p = self.path.split("?")[0]
-        if p in ("/", "/copy"):
+        # Живая находка 23.09.2026: страница отдавалась только по "/" и "/copy", а по прямому адресу
+        # "/copy.html" приходил 404 (хотя файл на месте) — теперь принимаем все три вида.
+        if p in ("/", "/copy", "/copy.html"):
             f = WEB / "copy.html"
             return self._send(200, f.read_bytes(), "text/html") if f.exists() else self._send(404, "copy.html not found", "text/plain")
         for n in ("creojs.js", "page.js", "copy.css"):
@@ -95,4 +97,17 @@ class H(BaseHTTPRequestHandler):
             f.write_text(v.get("graph") or "{}", encoding="utf-8"); return {"ok": True, "path": str(f)}
         return {"ok": True, "found": f.exists(), "graph": (json.loads(f.read_text(encoding="utf-8")) if f.exists() else None)}
 if __name__ == "__main__":
-    ThreadingHTTPServer(("127.0.0.1", PORT), H).serve_forever()
+    import argparse
+
+    ap = argparse.ArgumentParser(description="copy_server — служба копирования/переименования для веб-страниц дома")
+    ap.add_argument("--port", type=int, default=PORT, help="порт (по умолчанию %d)" % PORT)
+    ap.add_argument("--bind", default="127.0.0.1", help="адрес привязки (по умолчанию только своя машина)")
+    ap.add_argument("--quiet", action="store_true", help="не печатать строку запуска")
+    a = ap.parse_args()
+    srv = ThreadingHTTPServer((a.bind, a.port), H)
+    if not a.quiet:
+        print("copy_server: http://%s:%d/  (страница: /copy.html)" % (a.bind, a.port), flush=True)
+    try:
+        srv.serve_forever()
+    except KeyboardInterrupt:
+        srv.shutdown()

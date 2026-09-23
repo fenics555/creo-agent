@@ -36,6 +36,7 @@
 | **purge_versions** (ЧИСТИЛЬЩИК версий) | Р | `purge_gui.bat` (окно настроек) | `purge_versions.bat -r <папка> -k 2` (движок `purge_versions\engine.py`) | `D:\AI\log\purge_versions\`; настройки — `gui_settings.json` рядом | работает; приёмка 23.09: план + перенос в бэкап; шим `agent\purge_versions.py` для агента |
 | **pdf_refresh** | Р | — | пары перепечати PDF | `D:\AI\log\pdf_refresh\` | есть |
 | **log_clean** (УБОРКА ЛОГОВ) | Р | `log_clean_gui.bat` (окно настроек) | `log_clean.bat [--apply] [--delete]` (движок `log_clean\engine.py`) | `D:\AI\log\log_clean\`; настройки — `gui_settings.json` рядом; сроки — `D:\AI\log\retention.json` | работает; приёмка 23.09: план по срокам + уборка в корзину; шим `agent\log_clean.py` (прежнее умолчание — удаление) |
+| **copy_server** (служба копирования) | Р | `copy_gui.bat` (окно службы) | `python copy_server.py [--port N] [--bind addr]` (по умолчанию 8000) | печать в консоль; настройки — `gui_settings.json` рядом | работает; живая находка 23.09: адрес `/copy.html` отдавал 404 (было только `/` и `/copy`) — исправлено; окно добавлено |
 | **skills_check** | Р | — | `python dev\skills_check.py` | `D:\AI\log\skills_check\` | работает |
 
 ## Агент (тело и диалог) — остаётся агентом, не программа класса Р
