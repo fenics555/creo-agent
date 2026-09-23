@@ -70,6 +70,8 @@ class Win:
         ttk.Button(bar2, text="Найти Creo (реестр)", width=19, command=self.creo_find).pack(side="left", padx=4)
         ttk.Button(bar2, text="Запустить Creo (штатно)", width=22, command=self.start_creo).pack(side="left", padx=4)
         ttk.Button(bar2, text="PDF без модели рядом", width=22, command=self.orphans).pack(side="left", padx=4)
+        ttk.Button(bar2, text="PDF не в своей папке", width=21, command=self.misplaced).pack(side="left", padx=4)
+        ttk.Button(bar2, text="Удалить смещённые PDF", width=23, command=self.misplaced_delete).pack(side="left", padx=4)
         ttk.Label(bar2, text="PDF делает только ЖИВАЯ сессия Creo", foreground="#7a7a7a").pack(side="left", padx=8)
 
         box = ttk.Frame(root, padding=8)
@@ -307,6 +309,29 @@ class Win:
             messagebox.showwarning("Папка", "Выбери существующую папку проверки")
             return
         self._spawn_py("creo_pdf_orphans.py", [d, "--limit", "300"], "PDF БЕЗ МОДЕЛИ РЯДОМ")
+
+    def misplaced(self):
+        """Отчёт: PDF, лежащие НЕ рядом со своим чертежом (ошибка вывода). Документация — отдельно."""
+        d = self.dir_var.get().strip()
+        if not d or not os.path.isdir(d):
+            messagebox.showwarning("Папка", "Выбери существующую папку проверки")
+            return
+        self._spawn_py("creo_pdf_misplaced.py", [d, "--limit", "300"], "PDF НЕ В СВОЕЙ ПАПКЕ (отчёт)")
+
+    def misplaced_delete(self):
+        """Уборка: найденные смещённые PDF убираются в корзину инструмента (creo_pdf\\_trash)."""
+        d = self.dir_var.get().strip()
+        if not d or not os.path.isdir(d):
+            messagebox.showwarning("Папка", "Выбери существующую папку проверки")
+            return
+        if not messagebox.askyesno("Убрать смещённые PDF",
+                                   "Повторно найду PDF, лежащие НЕ рядом со своим чертежом, и УБЕРУ их.\n"
+                                   "Файлы уходят в корзину инструмента: creo_pdf\\_trash\\<дата>\n"
+                                   "(не в никуда — при ошибке вернёшь руками).\n\n"
+                                   "Папка: " + d + "\n\nПродолжить?"):
+            return
+        self._spawn_py("creo_pdf_misplaced.py", [d, "--apply", "--limit", "1000"],
+                       "УБОРКА СМЕЩЁННЫХ PDF (в _trash)")
 
     def show_readme(self):
         p = os.path.join(HERE, "README.md")
