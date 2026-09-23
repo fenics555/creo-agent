@@ -69,6 +69,7 @@ class Win:
         ttk.Button(bar2, text="Где config.pro (без сессии)", width=26, command=self.scan_cfg).pack(side="left", padx=4)
         ttk.Button(bar2, text="Найти Creo (реестр)", width=19, command=self.creo_find).pack(side="left", padx=4)
         ttk.Button(bar2, text="Запустить Creo (штатно)", width=22, command=self.start_creo).pack(side="left", padx=4)
+        ttk.Button(bar2, text="PDF без модели рядом", width=22, command=self.orphans).pack(side="left", padx=4)
         ttk.Label(bar2, text="PDF делает только ЖИВАЯ сессия Creo", foreground="#7a7a7a").pack(side="left", padx=8)
 
         box = ttk.Frame(root, padding=8)
@@ -243,12 +244,26 @@ class Win:
         self.status.config(text="работаю…")
         self.b_scan.config(state="disabled"); self.b_exp.config(state="disabled")
         self.b_stop.config(state="normal")
-        threading.Thread(target=self._worker, args=(args,), daemon=True).start()
+        cmd = ["cmd", "/c", "call", BAT] + list(args)
+        threading.Thread(target=self._worker, args=(cmd,), daemon=True).start()
 
-    def _worker(self, args):
+    def _spawn_py(self, script, args, title):
+        """Запуск питоновского помощника (например, поиск PDF без модели рядом)."""
+        if self.proc:
+            messagebox.showinfo("Занято", "Сначала дождись окончания или нажми СТОП")
+            return
+        self._save()
+        self.log("-" * 90)
+        self.log("%s: python %s %s" % (title, script, " ".join(args)))
+        self.status.config(text="работаю…")
+        self.b_scan.config(state="disabled"); self.b_exp.config(state="disabled")
+        self.b_stop.config(state="normal")
+        cmd = [sys.executable, "-X", "utf8", os.path.join(HERE, script)] + list(args)
+        threading.Thread(target=self._worker, args=(cmd,), daemon=True).start()
+
+    def _worker(self, cmd):
         try:
-            self.proc = subprocess.Popen(["cmd", "/c", "call", BAT] + list(args), cwd=HERE,
-                                         stdout=subprocess.PIPE, stderr=subprocess.STDOUT,
+            self.proc = subprocess.Popen(cmd, cwd=HERE, stdout=subprocess.PIPE, stderr=subprocess.STDOUT,
                                          text=True, encoding="utf-8", errors="replace", bufsize=1)
             for line in self.proc.stdout:
                 self.log(line.rstrip())
@@ -285,6 +300,13 @@ class Win:
 
     def scan_cfg(self):
         self._spawn(["config-scan"], "ПОИСК config.pro БЕЗ СЕССИИ CREO")
+
+    def orphans(self):
+        d = self.dir_var.get().strip()
+        if not d or not os.path.isdir(d):
+            messagebox.showwarning("Папка", "Выбери существующую папку проверки")
+            return
+        self._spawn_py("creo_pdf_orphans.py", [d, "--limit", "300"], "PDF БЕЗ МОДЕЛИ РЯДОМ")
 
     def show_readme(self):
         p = os.path.join(HERE, "README.md")
