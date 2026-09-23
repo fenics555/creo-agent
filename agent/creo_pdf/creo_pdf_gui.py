@@ -22,6 +22,7 @@ class Win:
         self.root = root
         self.proc = None
         self.q = queue.Queue()
+        self.lines = []                     # весь лог — ещё и в файл, чтобы не терялся
         self.s = self._load()
         root.title("CREO PDF — скан и обновление PDF чертежей")
         root.geometry("980x620")
@@ -54,17 +55,19 @@ class Win:
         self.b_exp.pack(side="left", padx=6)
         self.b_stop = ttk.Button(bar, text="СТОП", command=self.stop, state="disabled")
         self.b_stop.pack(side="left")
-        ttk.Button(bar, text="Очистить лог", command=self.clear).pack(side="left", padx=6)
+        ttk.Button(bar, text="Копировать лог", command=self.copy_log).pack(side="left", padx=(6, 2))
+        ttk.Button(bar, text="Сохранить…", command=self.save_log).pack(side="left", padx=2)
+        ttk.Button(bar, text="Очистить", command=self.clear).pack(side="left", padx=2)
         self.status = ttk.Label(bar, text="готов")
         self.status.pack(side="right")
 
         bar2 = ttk.Frame(root, padding=(8, 4))
         bar2.pack(fill="x")
         ttk.Button(bar2, text="README", width=12, command=self.show_readme).pack(side="left")
-        ttk.Button(bar2, text="Где Creo (без сессии)", width=21, command=self.scan_cfg).pack(side="left", padx=4)
-        ttk.Button(bar2, text="Запустить Creo", width=16, command=self.start_creo).pack(side="left", padx=4)
-        ttk.Label(bar2, text="PDF делает только ЖИВАЯ сессия Creo (инженер открыл её сам или кнопкой «Запустить Creo»)",
-                  foreground="#7a7a7a").pack(side="left", padx=10)
+        ttk.Button(bar2, text="Где config.pro (без сессии)", width=26, command=self.scan_cfg).pack(side="left", padx=4)
+        ttk.Button(bar2, text="Найти Creo (реестр)", width=19, command=self.creo_find).pack(side="left", padx=4)
+        ttk.Button(bar2, text="Запустить Creo (штатно)", width=22, command=self.start_creo).pack(side="left", padx=4)
+        ttk.Label(bar2, text="PDF делает только ЖИВАЯ сессия Creo", foreground="#7a7a7a").pack(side="left", padx=8)
 
         box = ttk.Frame(root, padding=8)
         box.pack(fill="both", expand=True)
@@ -77,6 +80,20 @@ class Win:
         xs.grid(row=1, column=0, sticky="ew")
         box.rowconfigure(0, weight=1)
         box.columnconfigure(0, weight=1)
+
+        # --- лог: выделение, копирование, сохранение, правый клик ---
+        self.menu = tk.Menu(root, tearoff=0)
+        self.menu.add_command(label="Копировать выделенное", command=lambda: self.txt.event_generate("<<Copy>>"))
+        self.menu.add_command(label="Копировать ВЕСЬ лог", command=self.copy_log)
+        self.menu.add_command(label="Сохранить лог в файл…", command=self.save_log)
+        self.menu.add_command(label="Показать, что в буфере", command=self.show_clip)
+        self.menu.add_separator()
+        self.menu.add_command(label="Выделить всё (Ctrl+A)", command=self.sel_all)
+        self.menu.add_command(label="Очистить", command=self.clear)
+        self.txt.bind("<Button-3>", lambda e: self.menu.tk_popup(e.x_root, e.y_root))
+        self.txt.bind("<Control-a>", self.sel_all)
+        self.txt.bind("<Control-A>", self.sel_all)
+        self.txt.bind("<Control-c>", lambda e: self.txt.event_generate("<<Copy>>"))
 
         root.after(100, self.pump)
         self.log("Готов. Порядок: «СКАН (отчёт)» → «СОЗДАТЬ / ОБНОВИТЬ PDF» (нужен запущенный Creo).")
@@ -98,7 +115,18 @@ class Win:
             pass
 
     def log(self, line):
+        self.lines.append(line)
         self.q.put(line)
+
+    def _dump_log(self):
+        """Автосохранение полного лога в файл рядом с программой."""
+        p = os.path.join(HERE, "last_run_log.txt")
+        try:
+            with open(p, "w", encoding="utf-8") as f:
+                f.write("\n".join(self.lines) + "\n")
+            self.status.config(text="готов · лог: last_run_log.txt")
+        except Exception:
+            pass
 
     def pump(self):
         try:
@@ -108,7 +136,8 @@ class Win:
                     self.proc = None
                     self.b_scan.config(state="normal"); self.b_exp.config(state="normal")
                     self.b_stop.config(state="disabled")
-                    self.status.config(text="готов")
+                    self._dump_log()
+                    self.status.config(text="готов · лог: last_run_log.txt")
                     continue
                 self.txt.insert("end", line + "\n")
                 self.txt.see("end")
@@ -120,6 +149,68 @@ class Win:
 
     def clear(self):
         self.txt.delete("1.0", "end")
+
+    def sel_all(self, e=None):
+        self.txt.tag_add("sel", "1.0", "end")
+        self.txt.mark_set("insert", "1.0")
+        return "break"
+
+    def copy_log(self):
+        t = self.txt.get("1.0", "end-1c")
+        n = len(t.splitlines())
+        ok = False
+        try:
+            self.root.clipboard_clear()
+            self.root.clipboard_append(t)
+            self.root.update()                                  # чтобы буфер закрепился сразу
+            ok = (self.root.clipboard_get() == t)               # и сразу проверили чтением
+        except Exception as e:
+            self.log("tk-буфер не сработал (%s) — пробую через PowerShell" % e)
+        if not ok:
+            ok = self._clip_via_powershell(t)
+        if ok:
+            self.status.config(text="лог скопирован: %d строк" % n)
+            self.log("— скопировано в буфер: %d строк (%d символов) —" % (n, len(t)))
+        else:
+            self.status.config(text="копирование не удалось")
+            self.log("— КОПИРОВАНИЕ НЕ УДАЛОСЬ. Нажми «Сохранить…» — файл лога пишется всегда. —")
+
+    def _clip_via_powershell(self, text):
+        """Резервный путь: буфер через PowerShell (файл в UTF-16 — кириллица цела)."""
+        tmp = os.path.join(HERE, "_clip_tmp.txt")
+        try:
+            with open(tmp, "w", encoding="utf-16") as f:
+                f.write(text)
+            subprocess.run(["powershell", "-NoProfile", "-Command", "Set-Clipboard -Path '%s'" % tmp],
+                           capture_output=True, timeout=90)
+            return True
+        except Exception as e:
+            self.log("PowerShell-буфер тоже не сработал: %s" % e)
+            return False
+
+    def show_clip(self):
+        try:
+            t = self.root.clipboard_get()
+        except Exception:
+            t = ""
+        if not t:
+            self.log("— в буфере пусто (или недоступно) —")
+        else:
+            self.log("— в буфере %d символов, начало: %r —" % (len(t), t[:200]))
+
+    def save_log(self):
+        p = filedialog.asksaveasfilename(title="Сохранить лог", defaultextension=".txt",
+                                         initialfile="creo_pdf_log.txt",
+                                         filetypes=[("текст", "*.txt"), ("все файлы", "*.*")])
+        if not p:
+            return
+        try:
+            with open(p, "w", encoding="utf-8") as f:
+                f.write(self.txt.get("1.0", "end-1c"))
+            self.status.config(text="лог сохранён")
+            self.log("— лог сохранён: %s —" % p)
+        except Exception as e:
+            self.log("не удалось сохранить лог: %s" % e)
 
     def pick_cfg(self):
         p = filedialog.askopenfilename(title="Выбрать config.pro", initialdir=os.path.dirname(DEFAULT_CFG),
@@ -198,21 +289,22 @@ class Win:
         self.log("=" * 92)
         self.log("конец README")
 
+    def creo_find(self):
+        self._spawn(["creo-find"], "ПОИСК УСТАНОВКИ CREO (реестр Windows)")
+
     def start_creo(self):
-        bat = r"Z:\PTC\CREO-START\START-STD\CREO-START.bat"
-        if not os.path.isfile(bat):
-            messagebox.showwarning("Creo", "Нет стартового скрипта:\n" + bat)
+        cfg = self.cfg_var.get().strip() or DEFAULT_CFG
+        if not os.path.isfile(cfg):
+            messagebox.showwarning("config.pro",
+                                   "Сначала выбери существующий config.pro —\nего папка станет рабочей папкой Creo")
             return
-        if not messagebox.askyesno("Запуск Creo",
-                                   "Запустить Creo домашним стартом?\n\n" + bat +
-                                   "\n\n(скрипт поднимет Creo с рабочей папкой START-STD, где лежит боевой config.pro)"):
+        d = os.path.dirname(cfg)
+        if not messagebox.askyesno("Штатный запуск Creo",
+                                   "Запустить Creo штатно?\n\nparametric.exe с рабочей папкой:\n" + d +
+                                   "\n\nCreo читает config.pro из рабочей папки — оттуда придут форматки,"
+                                   " MY_ESKD.dtl и table.pnt.\n(домашний CREO-START.bat не используется)"):
             return
-        try:
-            subprocess.Popen(["cmd", "/c", "start", "", bat, "silent"], cwd=os.path.dirname(bat))
-            self.log("запущен старт Creo: %s silent" % bat)
-            self.log("через 1–2 минуты нажми «Из сессии» — проверить, что сессия поднялась и конфиг домашний.")
-        except Exception as e:
-            self.log("не удалось запустить Creo: %s" % e)
+        self._spawn(["creo-start", cfg], "ШТАТНЫЙ ЗАПУСК CREO")
 
     def apply_cfg(self):
         c = self.cfg_var.get().strip()

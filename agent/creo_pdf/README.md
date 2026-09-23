@@ -18,9 +18,18 @@ creo_pdf_gui.bat            (или: python creo_pdf_gui.py)
 | **СОЗДАТЬ / ОБНОВИТЬ PDF** | создаёт недостающие/устаревшие PDF (нужен **запущенный Creo**) |
 | **СТОП** | снимает процесс движка (taskkill /T /F) |
 | **README** | печатает этот файл прямо в окно |
-| **Где Creo (без сессии)** | ищет `config.pro` по известным местам дома БЕЗ Creo: какой боевой, какой без домашних путей |
-| **Запустить Creo** | запускает домашний старт `Z:\PTC\CREO-START\START-STD\CREO-START.bat silent` (Creo с рабочей папкой START-STD, где боевой `config.pro`) |
+| **Где config.pro (без сессии)** | ищет `config.pro` по известным местам дома **без Creo**: какой боевой, какой без домашних путей |
+| **Найти Creo (реестр)** | путь установки из реестра Windows (`HKLM\SOFTWARE\PTC\PTC Creo Parametric\<версия>\InstallDir`) |
+| **Запустить Creo (штатно)** | запускает `parametric.exe` с рабочей папкой = папка выбранного `config.pro` (**без домашнего CREO-START.bat**) |
 | Лог | живой поток строк + итог `чертежей: N | PDF в порядке: X | нет PDF: Y | устарели: Z` |
+| **Копировать лог** | весь лог в буфер (с проверкой чтением; если Tk-буфер недоступен — резервно через PowerShell) |
+| **Сохранить…** | сохранить лог в файл (UTF-8) — работает всегда, от буфера не зависит |
+| **Очистить** | очистить окно лога |
+| правый клик по логу | Копировать выделенное · Копировать ВЕСЬ лог · Сохранить в файл… · Показать, что в буфере · Выделить всё (Ctrl+A) · Очистить |
+| автофайл лога | после каждого прогона полный лог пишется в `creo_pdf\last_run_log.txt` (ничего не теряется) |
+
+⚠️ Буфер обмена доступен только в обычном пользовательском сеансе. Если «Копировать лог» не сработает,
+лог всё равно уже лежит в `last_run_log.txt`, а кнопка «Сохранить…» пишет файл напрямую.
 Выбранные пути запоминаются в `gui_settings.json`.
 
 ## ДВИЖОК (для ИИ и скриптов)
@@ -32,6 +41,24 @@ creo_pdf.bat config-scan                 # поиск config.pro БЕЗ Creo: к
 creo_pdf.bat config-find                 # где Creo взял конфиг (cwd сессии + профиль + loadpoint)
 creo_pdf.bat config-read [config.pro]    # ключевые опции: из живой сессии или из файла
 creo_pdf.bat config-load <config.pro>    # применить опции дома к живой сессии
+creo_pdf.bat creo-find                   # путь установки Creo из РЕЕСТРА Windows
+creo_pdf.bat creo-start [config.pro] [--dry]   # ШТАТНЫЙ запуск Creo (без домашнего бата)
+```
+**ШТАТНЫЙ ЗАПУСК CREO (без CREO-START.bat).** Домашний бат делает ровно две вещи: `cd /d START-STD` и
+`start parametric.exe` — **без ключей**. Значит штатный запуск = задать процессу `parametric.exe`
+**рабочую папку с боевым `config.pro`**: Creo читает `config.pro` из рабочей папки, а оттуда приходят
+форматки (`pro_format_dir`), `MY_ESKD.dtl` и `table.pnt`. Путь установки берётся из реестра Windows:
+```
+HKLM\SOFTWARE\PTC\PTC Creo Parametric\12.4.2.0
+    InstallDir          REG_SZ  D:\PTC\CREO12\Creo 12.4.2.0\Parametric
+    CommonFilesLocation REG_SZ  D:\PTC\CREO12\Creo 12.4.2.0\Common Files
+```
+Проверка 23.09.2026 (`creo-start … --dry`):
+```
+config.pro     : ЕСТЬ 17125 б  Z:\PTC\CREO-START\START-STD\config.pro
+рабочая папка  : Z:\PTC\CREO-START\START-STD
+parametric.exe : D:\PTC\CREO12\Creo 12.4.2.0\Parametric\bin\parametric.exe
+[dry] было бы: "…\parametric.exe"  cwd=Z:\PTC\CREO-START\START-STD
 ```
 **ЧТО ТАКОЕ «ЛИМИТ»:** это потолок числа чертежей, которые движок возьмёт в работу за один прогон
 (и в отчёте `scan`, и в `export`). Нужен, чтобы прогон по огромной ветке не длился часами: поставил 50 —

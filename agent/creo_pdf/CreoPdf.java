@@ -35,6 +35,11 @@ public class CreoPdf {
       String mode = a.length > 0 ? a[0].toLowerCase() : "help";
       if (mode.equals("scan")) { scan(a.length > 1 ? a[1] : ".", false, Integer.MAX_VALUE); return; }
       if (mode.equals("config-scan")) { configScan(); return; }
+      if (mode.equals("creo-find")) { creoFind(); return; }
+      if (mode.equals("creo-start")) {
+        creoStart(a.length > 1 ? a[1] : "", a.length > 2 && a[2].equalsIgnoreCase("--dry"));
+        return;
+      }
       if (mode.equals("help")) { usage(); return; }
 
       System.loadLibrary("pfcasyncmt");
@@ -96,11 +101,80 @@ public class CreoPdf {
 
   static void usage() {
     System.out.println("creo_pdf scan <папка> | export <папка> [лимит, 0=без ограничения] | pdf <папка> <имя> [out] |\n" +
-                       "         config-scan | config-find | config-read [config.pro] | config-load <config.pro>");
+                       "         config-scan | config-find | config-read [config.pro] | config-load <config.pro> |\n" +
+                       "         creo-find | creo-start [config.pro] [--dry]");
   }
 
   static String readOpt(Session s, String k) {
     try { return String.valueOf(s.GetConfigOption(k)); } catch (Throwable t) { return "(нет)"; }
+  }
+
+  /** Путь установки Creo: реестр Windows (InstallDir), иначе скан папок установки. */
+  static String findParametric() {
+    try {
+      Process p = new ProcessBuilder("reg", "query", "HKLM\\SOFTWARE\\PTC\\PTC Creo Parametric", "/s")
+          .redirectErrorStream(true).start();
+      try (BufferedReader r = new BufferedReader(new InputStreamReader(p.getInputStream(), StandardCharsets.UTF_8))) {
+        String ln;
+        while ((ln = r.readLine()) != null) {
+          if (ln.contains("InstallDir") && ln.contains("REG_SZ")) {
+            String dir = ln.substring(ln.indexOf("REG_SZ") + 6).trim();
+            File exe = new File(dir, "bin" + File.separator + "parametric.exe");
+            if (exe.isFile()) return exe.getPath();
+          }
+        }
+      }
+      p.waitFor();
+    } catch (Exception e) { }
+    for (String root : new String[]{"D:\\PTC\\CREO12", "C:\\Program Files\\PTC", "E:\\PTC"}) {
+      File r = new File(root);
+      File[] vers = r.listFiles(File::isDirectory);
+      if (vers == null) continue;
+      for (File v : vers) {
+        File exe = new File(v, "Parametric" + File.separator + "bin" + File.separator + "parametric.exe");
+        if (exe.isFile()) return exe.getPath();
+      }
+    }
+    return null;
+  }
+
+  static void creoFind() {
+    String exe = findParametric();
+    System.out.println("установка Creo:");
+    System.out.println("  parametric.exe : " + (exe == null ? "НЕ НАЙДЕН (реестр и скан пусты)" : exe));
+    try {
+      Process p = new ProcessBuilder("reg", "query", "HKLM\\SOFTWARE\\PTC\\PTC Creo Parametric\\12.4.2.0")
+          .redirectErrorStream(true).start();
+      try (BufferedReader r = new BufferedReader(new InputStreamReader(p.getInputStream(), StandardCharsets.UTF_8))) {
+        String ln;
+        while ((ln = r.readLine()) != null)
+          if (ln.contains("REG_SZ") && (ln.contains("InstallDir") || ln.contains("CommonFilesLocation")))
+            System.out.println("  " + ln.trim());
+      }
+      p.waitFor();
+    } catch (Exception e) { }
+  }
+
+  /** Штатный запуск Creo: parametric.exe с рабочей папкой = папка боевого config.pro
+   *  (Creo читает config.pro из рабочей папки — так же, как это делает домашний бат, но без бата). */
+  static void creoStart(String cfgPath, boolean dry) {
+    if (cfgPath == null || cfgPath.isEmpty()) cfgPath = "Z:\\PTC\\CREO-START\\START-STD\\config.pro";
+    File cfg = new File(cfgPath);
+    String startDir = cfg.getParent();
+    String exe = findParametric();
+    System.out.println("config.pro     : " + (cfg.isFile() ? ("ЕСТЬ " + cfg.length() + " б  ") : "НЕТ  ") + cfgPath);
+    System.out.println("рабочая папка  : " + startDir);
+    System.out.println("parametric.exe : " + (exe == null ? "НЕ НАЙДЕН" : exe));
+    if (exe == null || startDir == null || !new File(startDir).isDirectory()) {
+      System.out.println("запуск невозможен: нет exe или рабочей папки");
+      return;
+    }
+    if (dry) { System.out.println("[dry] было бы: \"" + exe + "\"  cwd=" + startDir); return; }
+    try {
+      new ProcessBuilder(exe).directory(new File(startDir)).start();
+      System.out.println("Creo запущен штатно: рабочая папка = " + startDir + " → config.pro подхватится оттуда");
+      System.out.println("через 1-2 минуты нажми «Из сессии» — проверить сессию и домашний конфиг.");
+    } catch (Exception e) { System.out.println("не удалось запустить: " + e); }
   }
 
   /** Поиск config.pro БЕЗ сессии Creo: известные места дома + профиль + loadpoint Creo. */
