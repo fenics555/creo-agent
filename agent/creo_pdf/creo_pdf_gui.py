@@ -51,6 +51,8 @@ class Win:
         ttk.Label(bar, text="   лимит (0 = без ограничения):").pack(side="left")
         self.limit = tk.StringVar(value=str(self.s.get("limit", 50)))
         ttk.Entry(bar, width=6, textvariable=self.limit).pack(side="left")
+        self.open_pdf = tk.BooleanVar(value=bool(self.s.get("open_pdf", False)))
+        ttk.Checkbutton(bar, text="открывать PDF", variable=self.open_pdf).pack(side="left", padx=4)
         self.b_exp = ttk.Button(bar, text="СОЗДАТЬ / ОБНОВИТЬ PDF", command=lambda: self.run("export"))
         self.b_exp.pack(side="left", padx=6)
         self.b_stop = ttk.Button(bar, text="СТОП", command=self.stop, state="disabled")
@@ -109,7 +111,8 @@ class Win:
     def _save(self):
         try:
             open(CFG, "w", encoding="utf-8").write(json.dumps(
-                {"config": self.cfg_var.get(), "folder": self.dir_var.get(), "limit": self.limit.get()},
+                {"config": self.cfg_var.get(), "folder": self.dir_var.get(),
+                 "limit": self.limit.get(), "open_pdf": bool(self.open_pdf.get())},
                 ensure_ascii=False, indent=1))
         except Exception:
             pass
@@ -119,12 +122,18 @@ class Win:
         self.q.put(line)
 
     def _dump_log(self):
-        """Автосохранение полного лога в файл рядом с программой."""
-        p = os.path.join(HERE, "last_run_log.txt")
+        """Автосохранение лога рядом с программой: last_run_log.txt + logs\\run_<дата>.txt."""
+        import datetime
+        text = "\n".join(self.lines) + "\n"
         try:
-            with open(p, "w", encoding="utf-8") as f:
-                f.write("\n".join(self.lines) + "\n")
-            self.status.config(text="готов · лог: last_run_log.txt")
+            with open(os.path.join(HERE, "last_run_log.txt"), "w", encoding="utf-8") as f:
+                f.write(text)
+            d = os.path.join(HERE, "logs")
+            os.makedirs(d, exist_ok=True)
+            name = "run_" + datetime.datetime.now().strftime("%Y-%m-%d_%H%M") + ".txt"
+            with open(os.path.join(d, name), "w", encoding="utf-8") as f:
+                f.write(text)
+            self.status.config(text="готов · лог: logs\\" + name)
         except Exception:
             pass
 
@@ -266,7 +275,10 @@ class Win:
         if mode == "scan":
             self._spawn(["scan", d], "СКАН")
         else:
-            self._spawn(["export", d, self.limit.get().strip() or "50"], "ЭКСПОРТ PDF")
+            args = ["export", d, self.limit.get().strip() or "50"]
+            if self.open_pdf.get():
+                args.append("open")
+            self._spawn(args, "ЭКСПОРТ PDF" + (" (с открытием)" if self.open_pdf.get() else " (не открывать)"))
 
     def from_session(self):
         self._spawn(["config-find"], "ПОИСК КОНФИГА (папка старта Creo и config.pro)")

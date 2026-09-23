@@ -29,6 +29,8 @@ public class CreoPdf {
     "template_drawing", "search_path_file", "pdf_use_pentable", "use_8_plotter_pens"
   };
 
+  static boolean OPEN_PDF = false;      // открывать PDF после создания (иначе ничего не открывается)
+
   public static void main(String[] a) {
     try {
       for (int i = 0; i < a.length; i++) a[i] = a[i].replace("\"", "").trim();   // терпим кавычки в путях
@@ -83,6 +85,9 @@ public class CreoPdf {
         String dir = a.length > 1 ? a[1] : ".";
         int limit = a.length > 2 ? Integer.parseInt(a[2]) : 100;
         if (limit <= 0) limit = Integer.MAX_VALUE;      // 0 = без ограничения
+        for (int i = 3; i < a.length; i++) if (a[i].equalsIgnoreCase("open")) OPEN_PDF = true;
+        System.out.println("режим: " + (OPEN_PDF ? "PDF открывать и оставлять" : "PDF не открывать") +
+                           " | после экспорта чертёж убирается из сессии Creo");
         List<String> need = scan(dir, false, limit);
         System.out.println("к обработке: " + need.size());
         int ok = 0, bad = 0;
@@ -234,17 +239,93 @@ public class CreoPdf {
     return m;
   }
 
-  /** Экспорт PDF одного чертежа: cd в папку -> retrieve -> Display -> Export. */
+  /** Экспорт PDF одного чертежа: cd в папку -> retrieve -> Display -> Export -> уборка.
+   *  Если по имени не нашлось — пробуем по ИМЕНИ ФАЙЛА (внутреннее имя модели могло разойтись с файлом). */
   static void doPdf(Session s, String dir, String name, String out) throws Exception {
     s.ChangeDirectory(dir);
-    Model m = s.RetrieveModel(pfcModel.ModelDescriptor_Create(ModelType.MDL_DRAWING, name, null));
-    try { m.Display(); } catch (Throwable t) { System.out.println("  display warn: " + t); }
+    boolean wasInSession = false;
+    try { wasInSession = (s.GetModel(name, ModelType.MDL_DRAWING) != null); } catch (Throwable t) { }
+    Model m;
+    try {
+      m = s.RetrieveModel(pfcModel.ModelDescriptor_Create(ModelType.MDL_DRAWING, name, null));
+    } catch (Throwable t1) {
+      File src = newestDrw(new File(dir), name);
+      if (src == null) throw t1;
+      Model mm = null; Throwable last = t1;
+      // 0) сборочный чертёж: сперва поднимаем сборку с тем же именем (Creo сам разберётся с исполнением)
+      if (newestByExt(new File(dir), name, "asm") != null) {
+        try {
+          System.out.println("  пробую сперва поднять сборку " + name + ".asm"); System.out.flush();
+          s.RetrieveModel(pfcModel.ModelDescriptor_Create(ModelType.MDL_ASSEMBLY, name, null));
+          mm = s.RetrieveModel(pfcModel.ModelDescriptor_Create(ModelType.MDL_DRAWING, name, null));
+          System.out.println("  чертёж открылся после подъёма сборки");
+        } catch (Throwable t0) {
+          System.out.println("    через сборку не вышло: " + t0); mm = null;
+        }
+      }
+      // 1..4) варианты по имени файла
+      if (mm == null) {
+        String[] variants = {name + ".drw", new File(dir, name + ".drw").getPath(), name, src.getPath()};
+        for (String v : variants) {
+          try {
+            System.out.println("  по имени не нашлось — пробую открыть как «" + v + "»"); System.out.flush();
+            mm = s.RetrieveModel(pfcModel.ModelDescriptor_CreateFromFileName(v));
+            break;
+          } catch (Throwable t2) {
+            System.out.println("    не вышло: " + t2);
+            last = t2;
+          }
+        }
+      }
+      if (mm == null) throw new Exception("не удалось открыть чертёж ни по имени, ни по файлу: " + last);
+      m = mm;
+    }
+    m.Display();
     String path = out + File.separator + name + ".pdf";
-    m.Export(path, pfcExport.PDFExportInstructions_Create());
+    m.Export(path, pdfInstr(OPEN_PDF));
     File f = new File(path);
-    System.out.println("  PDF " + (f.exists() && f.length() > 0
-        ? ("OK " + f.length() + " б  " + f.getName()) : ("НЕ СОЗДАН " + f.getName())));
+    boolean okf = f.exists() && f.length() > 0;
+    System.out.println("  PDF " + (okf ? ("OK " + f.length() + " б  " + f.getName()) : ("НЕ СОЗДАН " + f.getName())));
     System.out.flush();
+    if (okf && OPEN_PDF) {
+      try { java.awt.Desktop.getDesktop().open(f); System.out.println("  (PDF открыт в просмотрщике)"); }
+      catch (Throwable t) { System.out.println("  (открыть PDF не удалось: " + t + ")"); }
+    }
+    if (!wasInSession) {
+      try { m.Erase(); System.out.println("  (чертёж убран из сессии Creo — окно закрыто)"); }
+      catch (Throwable t) { System.out.println("  (убрать чертёж не удалось: " + t + ")"); }
+    }
+  }
+
+  /** Инструкции PDF: с явным управлением «запускать просмотрщик». */
+  static PDFExportInstructions pdfInstr(boolean launchViewer) throws Exception {
+    PDFExportInstructions ins = pfcExport.PDFExportInstructions_Create();
+    try {
+      com.ptc.pfc.pfcExport.PDFOptions opts = com.ptc.pfc.pfcExport.PDFOptions.create();
+      com.ptc.pfc.pfcExport.PDFOption o = pfcExport.PDFOption_Create();
+      o.SetOptionType(com.ptc.pfc.pfcExport.PDFOptionType.PDFOPT_LAUNCH_VIEWER);
+      o.SetOptionValue(com.ptc.pfc.pfcArgument.pfcArgument.CreateBoolArgValue(launchViewer));
+      opts.append(o);
+      ins.SetOptions(opts);
+    } catch (Throwable t) {
+      System.out.println("  (опция «просмотрщик PDF» не применилась: " + t + ")"); System.out.flush();
+    }
+    return ins;
+  }
+
+  /** Новейший файл чертежа в папке: <имя>.drw или <имя>.drw.N */
+  static File newestDrw(File dir, String base) { return newestByExt(dir, base, "drw"); }
+
+  /** Новейший файл <база>.<расширение>[.N] в папке (любое расширение: drw, asm, prt). */
+  static File newestByExt(File dir, String base, String ext) {
+    File[] fs = dir.listFiles();
+    if (fs == null) return null;
+    File best = null;
+    String rx = "(?i)^" + java.util.regex.Pattern.quote(base) + "\\." + ext + "(\\.\\d+)?$";
+    for (File f : fs)
+      if (f.isFile() && f.getName().matches(rx))
+        if (best == null || f.lastModified() > best.lastModified()) best = f;
+    return best;
   }
 
   /** Обход папки: чертежи <имя>.drw[.N], PDF <имя>.pdf; устарел, если PDF старше чертежа. */
