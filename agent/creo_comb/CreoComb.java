@@ -41,6 +41,9 @@ public class CreoComb {
       if (mode.equals("probe-open-f")) { probeOpenFile(s, a.length > 1 ? a[1] : ""); return; }
       if (mode.equals("add")) { comb(s, a.length > 1 ? a[1] : "", a.length > 2 && !a[2].startsWith("--") ? a[2] : CFG_DEFAULT, hasFlag(a, "--apply"), hasFlag(a, "--empty-first")); return; }
       if (mode.equals("mkparam")) { mkParam(s, a.length > 1 ? a[1] : "", a.length > 2 ? a[2] : "", a.length > 3 ? a[3] : ""); return; }
+      if (mode.equals("typcheck")) { typCheck(s, a.length > 1 ? a[1] : ""); return; }
+      if (mode.equals("typcheck-here")) { typCheck(s, s.GetCurrentDirectory()); return; }
+      if (mode.equals("setparam")) { setParam(s, a.length > 1 ? a[1] : "", a.length > 2 ? a[2] : "", a.length > 3 ? a[3] : "", hasFlag(a, "--save")); return; }
       if (mode.equals("dump")) { dump(s, a.length > 1 ? a[1] : "", a.length > 2 ? a[2] : ""); return; }
       if (mode.equals("scan")) { scan(s, a.length > 1 ? a[1] : "", a.length > 2 ? a[2] : CFG_DEFAULT); return; }
       if (mode.equals("scan-here")) { scan(s, s.GetCurrentDirectory(), a.length > 1 ? a[1] : CFG_DEFAULT); return; }
@@ -166,6 +169,61 @@ public class CreoComb {
     } catch (Throwable t) { System.out.println("не открылась: " + t); }
   }
 
+  /** ПРОВЕРКА ТИП: у детали «Деталь», у сборки «Сборка» — только чтение, быстрый отчёт.
+   *  Нужна для аудита дома: где ТИП стоит неверно или отсутствует. */
+  static void typCheck(Session s, String root) throws Exception {
+    File dir = new File(root);
+    if (!dir.isDirectory()) { System.out.println("нет папки: " + root); return; }
+    List<File> models = collectModels(dir);
+    System.out.println("моделей к проверке: " + models.size() + " (лимит " + LIMIT + ")");
+    int bad = 0, n = 0, noTyp = 0;
+    String cwd0 = null; try { cwd0 = s.GetCurrentDirectory(); } catch (Throwable t) { }
+    for (File f : models) {
+      if (n >= LIMIT) { System.out.println("…лимит достигнут"); break; }
+      boolean isAsm = f.getName().toLowerCase().matches(".*\\.asm(\\.\\d+)?$");
+      String want = isAsm ? "Сборка" : "Деталь";
+      Model m = null;
+      try {
+        m = openAny(s, f);
+        n++;
+        String have = paramsRaw(m).get("ТИП");
+        if (have == null) {
+          noTyp++;
+          System.out.println("  " + f.getName() + ": ТИП отсутствует (надо «" + want + "»)");
+        } else if (!want.equalsIgnoreCase(have.trim())) {
+          bad++;
+          System.out.println("  " + f.getName() + ": ТИП = «" + have.trim() + "», надо «" + want + "»");
+        }
+      } catch (Throwable t) {
+        System.out.println("  " + f.getName() + ": не открылась (" + t + ")");
+      } finally {
+        if (m != null) { try { m.Erase(); } catch (Throwable t) { } }
+      }
+    }
+    try { if (cwd0 != null) s.ChangeDirectory(cwd0); } catch (Throwable t) { }
+    System.out.println("\nИТОГО: проверено " + n + ", неверный ТИП " + bad + ", ТИП отсутствует " + noTyp);
+  }
+
+  /** ПРОБА: поставить значение существующему параметру (метки вместо кириллицы). */
+  static void setParam(Session s, String file, String pname, String pval, boolean save) throws Exception {
+    if (pname.equals("TYP")) pname = "ТИП";
+    if (pval.equals("ASM")) pval = "Сборка";
+    if (pval.equals("PART")) pval = "Деталь";
+    Model m = null;
+    try {
+      m = openAny(s, new File(file));
+      System.out.println("модель: " + m.GetFileName());
+      try {
+        Parameter p = m.GetParam(pname);
+        System.out.println("было: " + p.GetName() + " = '" + paramValue(p) + "'");
+        p.SetValue(toParamValue(pval));
+        System.out.println("стало: " + p.GetName() + " = '" + paramValue(p) + "'");
+        if (save) { m.Save(); System.out.println("сохранено"); }
+      } catch (Throwable t) { System.out.println("ОТКАЗ: " + t); }
+      try { m.Erase(); } catch (Throwable t) { }
+    } catch (Throwable t) { System.out.println("не открылась: " + t); }
+  }
+
   static boolean hasFlag(String[] a, String f) {
     for (String x : a) if (x.equalsIgnoreCase(f)) return true;
     return false;
@@ -198,7 +256,7 @@ public class CreoComb {
     restrictions(s, tplAsm, "сборка");
     List<File> models = collectModels(dir);
     System.out.println("моделей к проверке: " + models.size() + " (лимит " + LIMIT + ")\n");
-    int planned = 0, changed = 0, errs = 0, checked = 0;
+    int planned = 0, changed = 0, errs = 0, checked = 0, typFixed = 0;
     String cwd0 = null; try { cwd0 = s.GetCurrentDirectory(); } catch (Throwable t) { }
     for (File f : models) {
       if (checked >= LIMIT) { System.out.println("…лимит достигнут"); break; }
@@ -222,11 +280,18 @@ public class CreoComb {
           if (v == null) skipped.add(e.getKey());
           else addPar.put(e.getKey(), v);
         }
-        if (addRel.isEmpty() && addPost.isEmpty() && addPar.isEmpty() && skipped.isEmpty()) continue;
+        // ТИП — всегда по типу модели: у детали «Деталь», у сборки «Сборка» (ограниченный параметр).
+        // Если он есть, но стоит неверно — ИСПРАВЛЯЕМ (решение хозяина 23.09.2026).
+        String wantTyp = isAsm ? "Сборка" : "Деталь";
+        String haveTyp = par.get("ТИП");
+        boolean fixTyp = (haveTyp != null) && !wantTyp.equalsIgnoreCase(haveTyp.trim());
+        if (addRel.isEmpty() && addPost.isEmpty() && addPar.isEmpty() && skipped.isEmpty() && !fixTyp) continue;
         planned++;
         System.out.println("  " + f.getName() + ": +параметров " + addPar.size() + ", +уравнений " + addRel.size() +
-                           ", +постреген. " + addPost.size());
+                           ", +постреген. " + addPost.size() + (fixTyp ? ", ТИП исправить" : ""));
         if (!addPar.isEmpty()) System.out.println("      параметры:  " + addPar.keySet());
+        if (fixTyp) System.out.println("      ТИП: «" + haveTyp.trim() + "» → «" + wantTyp +
+                                       "» (по типу модели; параметр ограниченный)");
         if (!skipped.isEmpty())
           System.out.println("      ПРОПУЩЕНЫ (ограничены, пустое значение Creo через API не даёт — ставь руками " +
                              "в диалоге «Параметры» или запусти с --empty-first): " + skipped);
@@ -236,6 +301,11 @@ public class CreoComb {
         if (!apply) continue;
         backupPre(f);
         int okp = 0;
+        if (fixTyp) {
+          try { m.GetParam("ТИП").SetValue(toParamValue(wantTyp)); typFixed++;
+                System.out.println("      ТИП исправлен: «" + haveTyp.trim() + "» → «" + wantTyp + "»"); }
+          catch (Throwable t) { System.out.println("      ТИП не исправлен: " + t); }
+        }
         for (Map.Entry<String, String> e : addPar.entrySet()) {
           try { m.CreateParam(e.getKey(), toParamValue(e.getValue())); okp++; }
           catch (Throwable t) {
@@ -273,7 +343,8 @@ public class CreoComb {
     }
     try { if (cwd0 != null) s.ChangeDirectory(cwd0); } catch (Throwable t) { }
     System.out.println("\nИТОГО: проверено " + checked + ", к правке " + planned +
-                       (apply ? (", исправлено " + changed) : " (план, ничего не менялось)") + ", ошибок " + errs);
+                       (apply ? (", исправлено " + changed) : " (план, ничего не менялось)") +
+                       (typFixed > 0 ? ", ТИП исправлен: " + typFixed : "") + ", ошибок " + errs);
   }
 
   /** Новейшие .prt/.asm папки (рекурсивно, глубина 6), кроме служебных копий pre_. */
