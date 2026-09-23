@@ -32,8 +32,8 @@
 | Программа | Папка | Что делает | Запуск | README |
 |---|---|---|---|---|
 | **creo_pdf** | `agent\creo_pdf` | скан и обновление PDF чертежей; окно с настройками и отчётом | `creo_pdf_gui.bat` | ✅ |
-| **creo_export** | `agent\creo_export` | выгрузка из живой сессии: step, iges, vrml, pdf, neutral, dxf3d, stl | `creo_export.bat <формат> <модель>` | ✅ |
-| **creo_comb** (чесалка) | `agent\creo_comb` | параметры/уравнения/ограничения: `tpl-plan`, `refs`, `roles`, `scan`, `add`, `typcheck`… | `creo_comb.bat <режим> [папка]` | ✅ |
+| **creo_export** | `agent\creo_export` | выгрузка из живой сессии: step, iges, vrml, pdf, neutral, dxf3d, stl; **окно с настройками** | `creo_export_gui.bat` (окно) / `creo_export.bat <формат> <модель>` | ✅ |
+| **creo_comb** (чесалка) | `agent\creo_comb` | параметры/уравнения/ограничения: `tpl-plan`, `refs`, `roles`, `scan`, `add`, `typcheck`…; **окно режимов** | `creo_comb_gui.bat` (окно) / `creo_comb.bat <режим> [папка]` | ✅ |
 
 ⚠️ Creo-программы звать **только по полному пути** (живая находка 23.09.2026: при детач-запуске голое имя
 бата может не найтись). Требование одно: Creo **уже запущен** и стартовал из папки боевого `config.pro`.
