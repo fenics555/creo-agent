@@ -47,7 +47,7 @@ class Win:
         bar.pack(fill="x")
         self.b_scan = ttk.Button(bar, text="СКАН (отчёт)", command=lambda: self.run("scan"))
         self.b_scan.pack(side="left")
-        ttk.Label(bar, text="   лимит:").pack(side="left")
+        ttk.Label(bar, text="   лимит (0 = без ограничения):").pack(side="left")
         self.limit = tk.StringVar(value=str(self.s.get("limit", 50)))
         ttk.Entry(bar, width=6, textvariable=self.limit).pack(side="left")
         self.b_exp = ttk.Button(bar, text="СОЗДАТЬ / ОБНОВИТЬ PDF", command=lambda: self.run("export"))
@@ -57,6 +57,14 @@ class Win:
         ttk.Button(bar, text="Очистить лог", command=self.clear).pack(side="left", padx=6)
         self.status = ttk.Label(bar, text="готов")
         self.status.pack(side="right")
+
+        bar2 = ttk.Frame(root, padding=(8, 4))
+        bar2.pack(fill="x")
+        ttk.Button(bar2, text="README", width=12, command=self.show_readme).pack(side="left")
+        ttk.Button(bar2, text="Где Creo (без сессии)", width=21, command=self.scan_cfg).pack(side="left", padx=4)
+        ttk.Button(bar2, text="Запустить Creo", width=16, command=self.start_creo).pack(side="left", padx=4)
+        ttk.Label(bar2, text="PDF делает только ЖИВАЯ сессия Creo (инженер открыл её сам или кнопкой «Запустить Creo»)",
+                  foreground="#7a7a7a").pack(side="left", padx=10)
 
         box = ttk.Frame(root, padding=8)
         box.pack(fill="both", expand=True)
@@ -171,6 +179,40 @@ class Win:
 
     def from_session(self):
         self._spawn(["config-find"], "ПОИСК КОНФИГА (папка старта Creo и config.pro)")
+
+    def scan_cfg(self):
+        self._spawn(["config-scan"], "ПОИСК config.pro БЕЗ СЕССИИ CREO")
+
+    def show_readme(self):
+        p = os.path.join(HERE, "README.md")
+        try:
+            text = open(p, encoding="utf-8").read()
+        except Exception as e:
+            self.log("README не прочитан: %s" % e)
+            return
+        self.log("=" * 92)
+        self.log("README: " + p)
+        self.log("=" * 92)
+        for line in text.splitlines():
+            self.log(line)
+        self.log("=" * 92)
+        self.log("конец README")
+
+    def start_creo(self):
+        bat = r"Z:\PTC\CREO-START\START-STD\CREO-START.bat"
+        if not os.path.isfile(bat):
+            messagebox.showwarning("Creo", "Нет стартового скрипта:\n" + bat)
+            return
+        if not messagebox.askyesno("Запуск Creo",
+                                   "Запустить Creo домашним стартом?\n\n" + bat +
+                                   "\n\n(скрипт поднимет Creo с рабочей папкой START-STD, где лежит боевой config.pro)"):
+            return
+        try:
+            subprocess.Popen(["cmd", "/c", "start", "", bat, "silent"], cwd=os.path.dirname(bat))
+            self.log("запущен старт Creo: %s silent" % bat)
+            self.log("через 1–2 минуты нажми «Из сессии» — проверить, что сессия поднялась и конфиг домашний.")
+        except Exception as e:
+            self.log("не удалось запустить Creo: %s" % e)
 
     def apply_cfg(self):
         c = self.cfg_var.get().strip()

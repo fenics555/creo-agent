@@ -34,6 +34,7 @@ public class CreoPdf {
       for (int i = 0; i < a.length; i++) a[i] = a[i].replace("\"", "").trim();   // терпим кавычки в путях
       String mode = a.length > 0 ? a[0].toLowerCase() : "help";
       if (mode.equals("scan")) { scan(a.length > 1 ? a[1] : ".", false, Integer.MAX_VALUE); return; }
+      if (mode.equals("config-scan")) { configScan(); return; }
       if (mode.equals("help")) { usage(); return; }
 
       System.loadLibrary("pfcasyncmt");
@@ -76,6 +77,7 @@ public class CreoPdf {
       } else if (mode.equals("export")) {
         String dir = a.length > 1 ? a[1] : ".";
         int limit = a.length > 2 ? Integer.parseInt(a[2]) : 100;
+        if (limit <= 0) limit = Integer.MAX_VALUE;      // 0 = без ограничения
         List<String> need = scan(dir, false, limit);
         System.out.println("к обработке: " + need.size());
         int ok = 0, bad = 0;
@@ -93,12 +95,41 @@ public class CreoPdf {
   }
 
   static void usage() {
-    System.out.println("creo_pdf scan <папка> | export <папка> [лимит] | pdf <папка> <имя> [out] |\n" +
-                       "         config-find | config-read [config.pro] | config-load <config.pro>");
+    System.out.println("creo_pdf scan <папка> | export <папка> [лимит, 0=без ограничения] | pdf <папка> <имя> [out] |\n" +
+                       "         config-scan | config-find | config-read [config.pro] | config-load <config.pro>");
   }
 
   static String readOpt(Session s, String k) {
     try { return String.valueOf(s.GetConfigOption(k)); } catch (Throwable t) { return "(нет)"; }
+  }
+
+  /** Поиск config.pro БЕЗ сессии Creo: известные места дома + профиль + loadpoint Creo. */
+  static void configScan() {
+    java.util.List<String> cand = new java.util.ArrayList<>();
+    cand.add("Z:\\PTC\\CREO-START\\START-STD\\config.pro");
+    cand.add("Z:\\PTC\\CREO-START\\START-Config\\config.pro");
+    cand.add("Z:\\PTC\\CREO-START\\START-Config\\lokal для Сергея\\config.pro");
+    cand.add("Z:\\PTC\\CREO-START\\START-Config\\Иные конфиги\\config3-lokal.pro");
+    cand.add("D:\\PTC\\CREO-LOCAL-SETUP\\CREO-LOCAL-START\\config.pro");
+    cand.add(System.getProperty("user.home") + File.separator + "config.pro");
+    for (String lp : loadPoints()) cand.add(lp + File.separator + "text" + File.separator + "config.pro");
+    System.out.println("config.pro — где искать БЕЗ сессии Creo:");
+    for (String p : cand) {
+      File f = new File(p);
+      if (!f.exists()) { System.out.println("  нет                              " + p); continue; }
+      boolean house = false;
+      try {
+        Map<String, String> m = parseConfig(p);
+        house = m.containsKey("pro_format_dir") && m.containsKey("pen_table_file")
+                && m.containsKey("drawing_setup_file");
+      } catch (Exception e) { }
+      System.out.println("  " + (house ? "БОЕВОЙ (годен для PDF)  " : "есть, но БЕЗ домашних путей  ") +
+                         f.length() + " б   " + p);
+    }
+    System.out.println("стартовые скрипты Creo:");
+    for (String s : new String[]{"Z:\\PTC\\CREO-START\\START-STD\\CREO-START.bat",
+                                 "D:\\PTC\\CREO-LOCAL-SETUP\\CREO-LOCAL-START\\Creo_LOCAL.bat"})
+      System.out.println("  " + (new File(s).exists() ? "ЕСТЬ " : "нет  ") + s);
   }
 
   /** Каталоги Creo (loadpoint): выводим из x86e_win64 внутри java.library.path. */
