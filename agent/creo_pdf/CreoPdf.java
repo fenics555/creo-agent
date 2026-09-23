@@ -400,26 +400,31 @@ public class CreoPdf {
         }
       });
     } catch (IOException e) { System.out.println("обход: " + e); }
-    int miss = 0, stale = 0, ok = 0;
+    int miss = 0, stale = 0, ok = 0, orphMiss = 0, orphStale = 0;
+    if (NAMES == null) loadNames();
     for (Map.Entry<String, File> e : new TreeMap<>(drw).entrySet()) {
       File p = pdf.get(e.getKey());
       File d = e.getValue();
       String dir = d.getParent();
       String base = d.getName().replaceAll("\\.drw(\\.\\d+)?$", "");
+      boolean orph = isOrphan(new File(dir), base);
       if (p == null) {
         miss++;
-        if (!quiet) { System.out.println("  НЕТ PDF    " + dir + File.separator + base + ".pdf"); System.out.flush(); }
+        if (orph) orphMiss++;
+        if (!quiet) { System.out.println("  НЕТ PDF    " + (orph ? "(СИРОТА) " : "") + dir + File.separator + base + ".pdf"); System.out.flush(); }
         need.add(dir + File.separator + base);
       } else if (p.lastModified() < d.lastModified()) {
         stale++;
-        System.out.println("  УСТАРЕЛ    " + dir + File.separator + base + ".pdf (pdf " + p.lastModified() +
+        if (orph) orphStale++;
+        System.out.println("  УСТАРЕЛ    " + (orph ? "(СИРОТА) " : "") + dir + File.separator + base + ".pdf (pdf " + p.lastModified() +
                            " < drw " + d.lastModified() + ")"); System.out.flush();
         need.add(dir + File.separator + base);
       } else ok++;
       if (need.size() >= limit) break;
     }
     System.out.println("чертежей: " + drw.size() + " | PDF в порядке: " + ok +
-                       " | нет PDF: " + miss + " | устарели: " + stale);
+                       " | нет PDF: " + miss + " | устарели: " + stale +
+                       " | из них СИРОТ (нет модели): " + (orphMiss + orphStale));
     return need;
   }
 }
