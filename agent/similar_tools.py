@@ -1,11 +1,14 @@
 ﻿# -*- coding: utf-8 -*-
 import numpy as np
 import os
+import threading
 from core import log, embed, db
 import scanner
 
-MAT = None   # np.ndarray (N,768)
+MAT = None   # np.ndarray (N,768) — грузится ЛЕНИВО (при первом поиске)
 ROWS = []    # [(name, path, emb_blob), ...]
+_ready = False
+_lock = threading.Lock()
 
 def reload_model_matrix():
     global MAT, ROWS
@@ -17,7 +20,7 @@ def reload_model_matrix():
         c.close()
         if ROWS:
             MAT = np.stack([np.frombuffer(r[2], np.float32) for r in ROWS])
-            log("similar: матрица %d моделей" % len(ROWS))
+            log("similar: матрица %d моделей (ленивая загрузка)" % len(ROWS))
         else:
             MAT = None
     except Exception as ex:
@@ -25,13 +28,25 @@ def reload_model_matrix():
         MAT = None
         ROWS = []
 
-try:
-    scanner.init_db_schema()
-    reload_model_matrix()
-except Exception as ex:
-    log("similar init err: %s" % ex)
+
+def ensure():
+    """Ленивая загрузка матрицы моделей: раньше она поднималась при импорте блока
+    (лишний расход памяти у каждого агента) — теперь только при первом поиске."""
+    global _ready
+    if _ready:
+        return
+    with _lock:
+        if _ready:
+            return
+        try:
+            scanner.init_db_schema()
+        except Exception:
+            pass
+        reload_model_matrix()
+        _ready = True
 
 def find_similar(name="", q="", top=10):
+    ensure()
     try:
         top = int(top)
     except:

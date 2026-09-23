@@ -18,23 +18,35 @@ try:
 except Exception:
     scanner = None
 
-MAT = None; ROWS = []
+MAT = None; ROWS = []          # матрица знаний: грузится ЛЕНИВО (при первом поиске)
+_ready = False
+_lock = threading.Lock()
 
 def reload_matrix():
-    global MAT, ROWS
+    global MAT, ROWS, _ready
     try:
         c = core.db()
         ROWS = c.execute("SELECT path, text, emb FROM chunks").fetchall()
         c.close()
         MAT = np.stack([np.frombuffer(r[2], np.float32) for r in ROWS]) if ROWS else None
-        log("knowledge: матрица %d фрагментов" % len(ROWS))
+        log("knowledge: матрица %d фрагментов (ленивая загрузка)" % len(ROWS))
     except Exception as e:
         log("knowledge err: %s" % e)
+        MAT = None
+    _ready = True
 
-reload_matrix()
+def ensure():
+    """Загрузить матрицу при ПЕРВОМ обращении. Раньше это делалось при импорте блока
+    и съедало ~12 ГБ памяти у каждого агента (1,33 млн фрагментов) — вынесено по требованию дома."""
+    if _ready:
+        return
+    with _lock:
+        if not _ready:
+            reload_matrix()
 
 def tool_search(query="", **kw):
     if not query: return "пустой запрос"
+    ensure()
     if MAT is None: return "база не загружена"
     e = embed(query)
     if e is None: return "эмбеддинг не ответил (Ollama?)"
