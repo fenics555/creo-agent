@@ -105,7 +105,10 @@ def get(key, default=None):
 
 def set_val(key, value):
     d = _raw()
-    for _, k, typ, _, _, _, _ in REGISTRY:
+    # ЖИВАЯ НАХОДКА 24.09.2026: здесь была сдвинутая распаковка — вместо типа настройки бралось её
+    # НАЗВАНИЕ, поэтому приведение типов (int/float/bool/list) никогда не срабатывало и в config.json
+    # попадали строки ("202752" вместо 202752). Порядок полей: (пространство, ключ, название, тип, ...).
+    for _, k, _nm, typ, _dfl, _desc, _ui in REGISTRY:
         if k == key:
             try:
                 if typ == "bool": value = str(value).lower() in ("1", "true", "yes", "on", "да")
@@ -114,10 +117,10 @@ def set_val(key, value):
                 elif typ == "list" and isinstance(value, str): value = [x.strip() for x in value.split(",") if x.strip()]
             except Exception: pass
             d[key] = value
-            if key == "auto_mode" and value is True:
-                for _, k2, _, _, defl2, _, _ in REGISTRY:
-                    if k2 in ("creativity", "auto_temperature", "top_p", "steps_max"):
-                        d[k2] = defl2
+            # ЖИВАЯ НАХОДКА 24.09.2026 (жалоба хозяина «ставлю галку — всё встаёт в умолчания»):
+            # здесь при включении авторежима ПРИНУДИТЕЛЬНО переписывались creativity / auto_temperature /
+            # top_p / steps_max на значения по умолчанию. Из-за этого терялись настроенные человеком числа.
+            # Авторежим лишь ВЫБИРАЕТ, какое значение применить — ничего не сбрасываем.
             break
     CONFIG_FILE.write_text(json.dumps(d, ensure_ascii=False, indent=1), encoding="utf-8")
     return True
