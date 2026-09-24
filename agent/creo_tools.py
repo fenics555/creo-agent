@@ -19,13 +19,44 @@ def _post(body, t=15):
     r = urllib.request.Request(CREOSON_URL, json.dumps(body).encode(), {"Content-Type": "application/json"})
     return json.load(urllib.request.urlopen(r, timeout=t))
 
+def creo_running():
+    """Живой ли Creo. БЕЗОПАСНЫЙ вызов: НЕ поднимает Creo (только спрашивает состояние)."""
+    try:
+        j = _post({"command": "connection", "function": "is_creo_running", "data": {}}, 5)
+        return bool((j.get("data") or {}).get("running"))
+    except Exception:
+        return False
+
+
+def _creo_gate(cmd, fn):
+    """ЖИВАЯ НАХОДКА 24.09.2026 (моргание синего экрана): CREOSON на команду `connection/connect`
+    сам поднимает Creo — отсюда синий сплеш Creo при работе агента и 1 052 падения JVM в его DLL.
+    Теперь дом по умолчанию Creo НЕ стартует: работаем только с уже запущенной сессией.
+    Исключения: явная команда start_creo и настройка «creo_allow_start» (админ)."""
+    if fn == "start_creo":
+        return None
+    if str(settings.get("creo_allow_start") or "").strip().lower() in ("1", "true", "да", "yes"):
+        return None
+    if creo_running():
+        return None
+    return ("Creo не запущен. Дом НЕ поднимает Creo сам (это и был синий сплеш Creo). "
+            "Запусти CREO-START.bat и повтори. Разрешить агенту стартовать Creo — настройка "
+            "«Разрешить агенту стартовать Creo» (только админ).")
+
+
 def connect():
     global CREO_SESSION
+    # Сначала спрашиваем, идёт ли Creo. Если нет — сессию НЕ открываем: иначе CREOSON запустит Creo.
+    if not creo_running():
+        CREO_SESSION = ""
+        return ""
     j = _post({"command": "connection", "function": "connect", "data": {}})
     CREO_SESSION = j.get("sessionId") or CREO_SESSION
+    # set_creo_version нужен ТОЛЬКО для пишущих операций Creo 7+ и только при живой сессии.
     if CREO_SESSION:
         try:
-            _post({"sessionId": CREO_SESSION, "command": "creo", "function": "set_creo_version", "data": {"version": 12}})
+            _post({"sessionId": CREO_SESSION, "command": "creo", "function": "set_creo_version",
+                   "data": {"version": 12}})
         except Exception:
             pass
     return CREO_SESSION
@@ -69,6 +100,9 @@ def _ensure_creoson(t_wait=40):
 
 def creo_call(cmd, fn, data=None, t=15):
     _ensure_creoson()
+    gate = _creo_gate(cmd, fn)
+    if gate:
+        return {"status": {"error": True, "message": gate}}
     try:
         return creo_raw(cmd, fn, data, t)
     except Exception as e:
