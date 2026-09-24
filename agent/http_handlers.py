@@ -107,6 +107,7 @@ class Hd(BaseHTTPRequestHandler):
                      "tools": len(TR.TOOLS), "user": prof,
                      "is_manager": users.can_manage_users(prof["login"]) if prof else False,
                      "trails": tail, "mode": settings.get_for(cl2["login"], "chat_mode", 1) if cl2 else 1,
+                     "ui_layout": settings.get_for(cl2["login"], "ui_layout", "v2") if cl2 else "v2",
                      "up_ollama": _alive(11434), "up_creoson": _alive(8080), "up_agent": True})
             return
         elif p == "/health":

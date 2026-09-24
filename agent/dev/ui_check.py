@@ -68,7 +68,11 @@ _app = (UI / 'app.js').read_text(encoding='utf-8', errors='replace')
 for _where, _txt, _what in (('index.html', _idx, 'id="rail"'), ('index.html', _idx, 'id="zone"'),
                             ('index.html', _idx, 'data-act="rl"'), ('app.js', _app, 'function showZone'),
                             ('app.js', _app, 'function rlJobs'), ('app.js', _app, "a=='rl'"),
-                            ('app.js', _app, 'jobsload')):
+                            ('app.js', _app, 'jobsload'),
+                            ('index.html', _idx, 'id="tabs"'), ('index.html', _idx, 'data-act="lay"'),
+                            ('index.html', _idx, 'lay-v1'), ('index.html', _idx, 'lay-v3'),
+                            ('app.js', _app, 'function applyLayout'), ('app.js', _app, 'function zonePult'),
+                            ('app.js', _app, 'function fillPstate'), ('app.js', _app, "a=='lay'")):
     if _what not in _txt:
         print('%s: пропал опорный элемент варианта 2: %s' % (_where, _what))
         bad = True

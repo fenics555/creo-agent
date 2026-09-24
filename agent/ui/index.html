@@ -64,10 +64,41 @@ input[type=checkbox]{accent-color:#1273EB}
 ::-webkit-scrollbar-thumb{background:#3E4043;border-radius:5px;border:2px solid #111214}
 ::-webkit-scrollbar-thumb:hover{background:#4C8FD6}
 ::-webkit-scrollbar-track{background:transparent}
+/* ==== ВИД ОКНА (личная настройка): v1 вкладки сверху · v2 боковое меню · v3 пульт ==== */
+#tabs{display:none;position:fixed;top:46px;left:0;right:292px;height:40px;align-items:center;gap:6px;padding:0 10px;background:#1B1D21;border-bottom:1px solid #2C2F35;z-index:6}
+#tabs .item{padding:6px 12px;border-radius:8px;cursor:pointer;color:#C9CBCE;border-bottom:2px solid transparent}
+#tabs .item:hover{background:#232630}
+#tabs .item.on{background:#12375F;color:#fff;border-bottom:2px solid #1273EB}
+.laygrp{display:flex;gap:4px;margin-left:8px}
+.lay{padding:3px 9px;border:1px solid #3E4043;border-radius:12px;font-size:12px;color:#C9CBCE;cursor:pointer}
+.lay:hover{border-color:#1273EB}
+.lay.on{border-color:#1273EB;background:#12375F;color:#fff}
+body.lay-v1 #rail{display:none}
+body.lay-v1 #tabs{display:flex}
+body.lay-v1 #chat{margin:98px 300px 70px 12px}
+body.lay-v1 #zone{left:6px;top:98px}
+body.lay-v1 #inp{left:0}
+body.lay-v2 #top,body.lay-v3 #top{padding:5px 12px}
+body.lay-v3 #rail,body.lay-v3 #tabs,body.lay-v3 #panel{display:none}
+body.lay-v3 #chat{position:fixed;top:40px;right:0;bottom:0;width:320px;margin:0;padding:8px;border-left:1px solid #2C2F35;background:#1F2126;z-index:4;overflow-y:auto}
+body.lay-v3 #inp{left:6px;right:320px}
+body.lay-v3 #zone{left:6px;right:326px;top:44px;bottom:74px}
+#zone.pult{grid-template-columns:1.2fr 1fr;gap:8px;align-content:start}
+#zone.pult .pultwide{grid-column:1 / span 2}
+#zone.pult .grp{margin:0 0 8px}
 </style></head>
-<body>
-<div id="top"><b>АГЕНТ v15</b><span id="hdr"></span><span class="stc" id="st_oll" title="Ollama — модель для ответов">● Ollama</span><span class="stc" id="st_creo" title="CREOSON — мост к Creo">● CREOSON</span><span class="stc" id="st_ag" title="веб-агент — эта страница">● АГЕНТ</span><span style="flex:1"></span>
+<body class="lay-v2">
+<div id="top"><b>АГЕНТ v15</b><span class="laygrp"><span class="lay" data-act="lay" data-val="v1" title="вкладки сверху">◫ вкладки</span><span class="lay on" data-act="lay" data-val="v2" title="боковое меню">▤ меню</span><span class="lay" data-act="lay" data-val="v3" title="пульт: программы и базы сразу, чат доком">⊞ пульт</span></span><span id="hdr"></span><span class="stc" id="st_oll" title="Ollama — модель для ответов">● Ollama</span><span class="stc" id="st_creo" title="CREOSON — мост к Creo">● CREOSON</span><span class="stc" id="st_ag" title="веб-агент — эта страница">● АГЕНТ</span><span style="flex:1"></span>
 <button data-act="chip" data-val="guide">❓</button><button data-act="wizard">🧙 МАСТЕР ОПЕРАЦИЙ</button><button data-act="showlog">Лог</button><button data-act="panel" class="sec">Панель</button><button data-act="showpro">👤</button><button data-act="showchat">💬</button><button data-act="mode" class="sec">🛠 Инженер</button><button data-act="logout" class="sec">Выйти</button></div>
+<div id="tabs">
+<span class="item on" data-act="rl" data-val="chat">💬 Чат</span>
+<span class="item" data-act="rl" data-val="prog">🧰 Программы</span>
+<span class="item" data-act="rl" data-val="base">🗄 Базы</span>
+<span class="item" data-act="showpro">👤 Профиль</span>
+<span class="item" data-act="showchat">👥 Команда</span>
+<span class="item" data-act="showlog">📜 Лог агента</span>
+<span class="item" data-act="panel">⚙ Инструменты</span>
+</div>
 <div id="rail">
 <div class="rl-h">Рабочие зоны</div>
 <div class="item on" data-act="rl" data-val="chat">💬 <span>Чат</span></div>

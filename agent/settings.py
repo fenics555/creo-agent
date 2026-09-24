@@ -28,6 +28,7 @@ REGISTRY = [
     ("Главное", "parallel_tools", "Параллельные инструменты", "bool", False, "Несколько [TOOL] за ход — в потоках.", True),
     ("Главное", "stream_ui", "Стриминг в веб", "bool", False, "Токены в чат по мере генерации.", True),
     ("Главное", "log_mode", "Режим логов 0-3", "int", 1, "0 авто / 1 авто+токены / 2 отладка / 3 полный.", True),
+("Главное", "ui_layout", "Вид окна агента", "str", "v2", "Личный вид окна: v1 вкладки сверху / v2 боковое меню / v3 пульт.", True),
     ("Разум", "log_days", "Дней хранить лог", "int", 14, "Автоочистка логов.", True),
     ("Разум", "verbose_trace", "Подробный trace", "bool", False, "Сырые JSON в trace-файл.", False),
     ("Разум", "think_mode", "Глубина рассуждений 0-2", "int", 2, "0=выкл, 1=кратко, 2=полно.", True),
@@ -156,7 +157,7 @@ def model_for(role):
     v = get("model_" + role)
     return v or get("llm_model")
 
-PERSONAL_KEYS = ["chat_mode"]
+PERSONAL_KEYS = ["chat_mode", "ui_layout"]
 PREF_FILE = DATA_DIR / "user_prefs.json"
 def _prefs():
     try: return json.loads(PREF_FILE.read_text(encoding="utf-8"))

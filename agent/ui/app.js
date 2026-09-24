@@ -5,7 +5,7 @@ var DETAILS_RE = /\[DETAILS:([A-Za-z0-9_]+)(?:\|([^\]]*))?\]([\s\S]*?)\[\/DETAIL
 var TAGS_RE = /\[\/?(ANSWER|TOOL)[^\]]*\]/g;
 var foldKey = /[^A-Za-z0-9_а-яА-ЯёЁ]/gi;
 
-var TK=localStorage.getItem('tk')||'',IMG=null,CURM='',MODELS=[],REG=[];
+var TK=localStorage.getItem('tk')||'',IMG=null,CURM='',MODELS=[],REG=[],LAY=localStorage.getItem('lay')||'v2';
 var chat=document.getElementById('chat'),panel=document.getElementById('panel'),
 qinp=document.getElementById('q'),login=document.getElementById('login'),
 hdr=document.getElementById('hdr'),lg=document.getElementById('lg'),pw=document.getElementById('pw');
@@ -48,7 +48,8 @@ mm.forEach(function(n){n=n.toLowerCase();if(un.indexOf(n)<0&&un.length<6)un.push
 un.forEach(function(nm){addPdfBlock(row,nm)})}
 var foldKey = new RegExp("[^A-Za-z0-9_а-яА-ЯёЁ]", "gi");
 function buildPanel(p){p=p||{actions:[],models:[],chips:[],groups:[]};MODELS=p.models||[];
-var h='<div class="grp"><input id="psearch" placeholder="поиск инструмента…"><small id="pfound" style="color:#A6A8AB"></small></div>';
+var h='<div class="grp"><h4 data-act="fold" data-fkey="state">▸ 🖥 СОСТОЯНИЕ АГЕНТА</h4><div class="gbody" style="display:none"><div class="mono" id="pstate" style="font-size:12px;color:#A6A8AB;white-space:pre-wrap">…</div></div></div>';
+h+='<div class="grp"><input id="psearch" placeholder="поиск инструмента…"><small id="pfound" style="color:#A6A8AB"></small></div>';
 h+='<div class="grp"><h4 data-act="fold">▸ ⚙ ДЕЙСТВИЯ (без ИИ)</h4><div class="gbody" style="display:none">';
 (p.actions||[]).forEach(function(a){h+='<div class="tool" data-act="act" data-val="'+a.endpoint+'"><b>'+esc(a.label)+'</b></div>'});h+='</div></div>';
 h+='<div class="grp"><h4 data-act="fold">▸ 🧠 МОДЕЛЬ ИИ (клик — смена)</h4><div class="gbody" style="display:none">';
@@ -124,6 +125,38 @@ h+='</table></div><div class="grp"><h4 style="color:#4C8FD6">📈 ХОД РАБ�
 +'<button class="sec" data-act="jobsload" style="padding:4px 9px;margin-top:6px">Обновить</button></div>';
 z.innerHTML=h;rlJobs()}).catch(function(){z.innerHTML=rlNeed()})}}
 setInterval(rlJobs,60000); // ход работ дома: тихое обновление, если блок открыт
+
+/* ==== ВИД ОКНА: v1 вкладки сверху · v2 боковое меню · v3 пульт (личная настройка ui_layout) ==== */
+function applyLayout(v,save){if(v!='v1'&&v!='v2'&&v!='v3')v='v2';LAY=v;document.body.className='lay-'+v;localStorage.setItem('lay',v);
+document.querySelectorAll('.lay').forEach(function(x){x.classList.toggle('on',x.getAttribute('data-val')==v)});
+if(save)J('/setcfg',{token:TK,key:'ui_layout',value:v});
+var z=document.getElementById('zone');
+if(v=='v3'){zonePult()}
+else if(z&&z.classList.contains('pult')){z.classList.remove('pult');z.style.display='none';chat.style.display='block'}}
+function fillPstate(){var el=document.getElementById('pstate');var s=window.ST;if(!el||!s)return;
+el.innerHTML='хост: '+esc(s.host||'')+'\nмодель: '+esc(s.model||'')+'\nпользователь: '+esc((s.user&&(s.user.display_name||s.user.login))||'нет входа')
++'\nрежим: '+(s.mode==2?'собеседник':'инженер')+'\nOllama: '+(s.up_ollama?'жива':'молчит')+' · CREOSON: '+(s.up_creoson?'жив':'молчит')
++'\nблоков: '+s.blocks+' · инструментов: '+s.tools}
+function zonePult(){var z=document.getElementById('zone');if(!z)return;chat.style.display='block';
+z.classList.add('pult');z.style.display='grid';
+z.innerHTML='<div class="grp" id="zp1">⏳ программы…</div><div class="grp" id="zp2">⏳ базы…</div>'
++'<div class="grp pultwide"><h4 style="color:#4C8FD6">📈 ХОД РАБОТ ДОМА</h4><div class="log jobsline" style="max-height:150px;overflow:auto">…</div>'
++'<button class="sec" data-act="jobsload" style="padding:4px 9px;margin-top:6px">Обновить</button></div>';
+J('/api/programs').then(function(d){var e=document.getElementById('zp1');if(!e)return;
+if(!d||!d.programs){e.innerHTML=rlNeed();return}
+var h='<h4>🧰 ПРОГРАММЫ ДОМА</h4>';
+(d.groups||[]).forEach(function(g){var ps=(d.programs||[]).filter(function(p){return p.group==g.id});if(!ps.length)return;
+h+='<div class="grp" style="margin:6px 0"><h4>'+(g.icon||'')+' '+esc(g.title)+' <small style="color:#A6A8AB">('+ps.length+')</small></h4>'+ps.map(rlProgCard).join('')+'</div>'});
+e.innerHTML=h}).catch(function(){var e=document.getElementById('zp1');if(e)e.innerHTML=rlNeed()});
+J('/api/bases').then(function(d){var e=document.getElementById('zp2');if(!e)return;
+if(!d||!d.bases){e.innerHTML=rlNeed();return}
+var h='<h4>🗄 БАЗЫ ДОМА</h4><table class="reg-t"><tr><td><b>База</b></td><td>Мб</td><td>Табл.</td><td>Обновлена</td><td></td></tr>';
+(d.bases||[]).forEach(function(b){var own=/своя/.test(b.kind);
+h+='<tr><td><b>'+esc(b.name)+'</b><br><small style="color:#A6A8AB">'+esc(b.kind)+'</small></td><td>'+b.mb+'</td><td>'+esc(b.tables)
++'</td><td>'+esc(b.mtime)+'</td><td>'+(own?'<button data-act="bupd" style="padding:3px 8px">Обновить</button>':'')+'</td></tr>'});
+e.innerHTML=h+'</table>'}).catch(function(){var e=document.getElementById('zp2');if(e)e.innerHTML=rlNeed()});
+rlJobs()}
+applyLayout(LAY); // вид применяем сразу, ещё до ответа агента (без мигания)
 function loadReg(){J('/pdfregistry').catch(function(){return{}}).then(function(rr){if(!rr||!rr.rows||!rr.rows.length)return;REG=rr.rows;
 var h='<div class="grp" data-gkey="reg"><h4 data-act="fold">▸  PDF-РЕЕСТР ('+rr.rows.length+')</h4><div class="gbody" style="display:none">';
 h+='<small id="reghdr" style="color:#A6A8AB"></small><div class="row"><label><input type="checkbox" id="regstale"> только устаревшие</label><button id="regall" class="sec" style="padding:4px 8px">Обновить все устаревшие</button></div>';
@@ -144,7 +177,7 @@ var dir=String(r.dir||'').split(String.fromCharCode(92)).slice(-2).join(String.f
 h+='<tr><td>'+esc(r.name)+'</td><td style="color:#A6A8AB">'+esc(dir)+'</td><td class="'+col+'">'+esc(r.verdict)+'</td></tr>'});
 box.innerHTML=h+'</table>'}
 function setSt(id,on){if(on===undefined)return;var e=document.getElementById('st_'+id);if(e)e.className='stc'+(on?' ok':' bad')}
-function init(){J('/status').then(function(s){CURM=s.model;hdr.textContent=s.host+(s.user?' | '+(s.user.display_name||s.user.login):'')+' | '+s.model+' | блоков: '+s.blocks+' · инструментов: '+(s.tools||0);setSt('oll',s.up_ollama);setSt('creo',s.up_creoson);setSt('ag',s.up_agent);var mb=document.querySelector('[data-act="mode"]');if(mb){mb.textContent=(s.mode==2?'💬 Собеседник':'🛠 Инженер');}qinp.placeholder='Задача для АГЕНТА... (Enter) | Ctrl+V — вставить скриншот | chat <вопрос> — разовый режим собеседника';J('/panel').then(function(p){buildPanel(p);J('/settings').then(buildSettings)})}).then(function(){initModal();})}
+function init(){J('/status').then(function(s){CURM=s.model;hdr.textContent=s.host+(s.user?' | '+(s.user.display_name||s.user.login):'')+' | '+s.model+' | блоков: '+s.blocks+' · инструментов: '+(s.tools||0);setSt('oll',s.up_ollama);setSt('creo',s.up_creoson);setSt('ag',s.up_agent);window.ST=s;if(s.ui_layout&&s.ui_layout!=LAY)applyLayout(s.ui_layout);var mb=document.querySelector('[data-act="mode"]');if(mb){mb.textContent=(s.mode==2?'💬 Собеседник':'🛠 Инженер');}qinp.placeholder='Задача для АГЕНТА... (Enter) | Ctrl+V — вставить скриншот | chat <вопрос> — разовый режим собеседника';J('/panel').then(function(p){buildPanel(p);fillPstate();J('/settings').then(buildSettings)})}).then(function(){initModal();})}
 function initModal(){var modal=document.createElement('div');modal.id='pdf-modal';modal.style.cssText='display:none;position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,0.8);z-index:9999;justify-content:center;align-items:center;flex-direction:column;cursor:zoom-in';modal.innerHTML='<div style="position:relative"><span id="pdf-modal-close" style="position:absolute;top:-30px;right:0;color:white;font-size:24px;cursor:pointer">✖</span><img src="" style="max-width:90%;max-height:80%;border:2px solid #555;cursor:zoom-in" data-act="pdf-enlarge"></div><div style="color:white;margin-top:10px;font-size:12px">клик для увеличения/открытия, Esc для закрытия</div>';document.body.appendChild(modal);modal.addEventListener('click',function(e){if(e.target===modal||e.target.id==='pdf-modal-close')modal.style.display='none'});modal.querySelector('img').addEventListener('click',function(e){e.stopPropagation();var nm=this.getAttribute('data-nm');window.open('/'+nm,'_blank')});document.addEventListener('keydown',function(e){if(e.key==='Escape'&&modal.style.display==='flex')modal.style.display='none'});}
 document.addEventListener('click',function(e){var el=e.target.closest('[data-act]');if(!el)return;var a=el.getAttribute('data-act');
 if(a=='think'){var n=el.nextElementSibling;n.style.display=n.style.display=='none'?'block':'none'}
@@ -164,7 +197,8 @@ else if(a=='snap')J('/snap',{token:TK}).then(function(r){addMsg(esc(r.msg||'ок
 else if(a=='showlog'){fetch('/log',{headers:{'X-Token':TK||''}}).then(r=>r.text()).then(t=>addMsg('<div class="log">'+esc(t)+'</div>'))}
 else if(a=='panel')panel.style.display=panel.style.display=='none'?'block':'none';
 /* ==== ВАРИАНТ 2: рейл (рабочие зоны), запуск движков, ход работ ==== */
-else if(a=='rl'){document.querySelectorAll('#rail .item').forEach(function(x){x.classList.remove('on')});el.classList.add('on');showZone(el.getAttribute('data-val'))}
+else if(a=='rl'){var vz=el.getAttribute('data-val');document.querySelectorAll('#rail .item,#tabs .item').forEach(function(x){if(x.getAttribute('data-act')=='rl')x.classList.toggle('on',x.getAttribute('data-val')==vz)});var zp=document.getElementById('zone');if(zp&&zp.classList.contains('pult')){zp.classList.remove('pult');zp.style.display='none'}showZone(vz)}
+else if(a=='lay'){applyLayout(el.getAttribute('data-val'),true)}
 else if(a=='jobsload'){rlJobs()}
 else if(a=='prun'){el.disabled=true;J('/prog_run',{token:TK,prog_id:el.getAttribute('data-val')}).then(function(r){el.disabled=false;var host=el.parentElement;host.insertAdjacentHTML('beforeend','<small style="color:#A6A8AB"> '+esc(((r||{}).text)||'?')+'</small>')}).catch(function(e){el.disabled=false;alert('ошибка: '+e)})}
 else if(a=='pstate'){var pid2=el.getAttribute('data-val');J('/prog_state',{token:TK,prog_id:pid2,tail:14}).then(function(r){var e2=document.getElementById('pst_'+pid2);if(e2){e2.style.display='block';e2.textContent=((r||{}).text)||'?'}}).catch(function(){var e2=document.getElementById('pst_'+pid2);if(e2){e2.style.display='block';e2.textContent='нужен перезапуск агента (AI_RESTART.bat)'}})}
