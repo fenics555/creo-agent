@@ -37,14 +37,63 @@ def tool_set(key="", value="", **kw):
     return "обновлено: %s=%s" % (key, value) if ST.set_val(key, value) else "ключ %s не найден" % key
 
 
+_INFO_CACHE = None
+
+
+def _model_info(name):
+    """Окно контекста и размер модели (кэш в data\\model_info.json — не дёргаем Ollama зря)."""
+    global _INFO_CACHE
+    cf = core.DATA_DIR / "model_info.json"
+    if _INFO_CACHE is None:
+        try:
+            _INFO_CACHE = json.loads(cf.read_text(encoding="utf-8"))
+        except Exception:
+            _INFO_CACHE = {}
+    if name in _INFO_CACHE and _INFO_CACHE[name].get("ctx"):
+        return _INFO_CACHE[name]
+    try:
+        r = urllib.request.Request(core.OLL + "/api/show", json.dumps({"model": name}).encode(),
+                                   {"Content-Type": "application/json"})
+        d = json.load(urllib.request.urlopen(r, timeout=20))
+        mi = d.get("model_info") or {}
+        ctx = next((v for k, v in mi.items() if str(k).endswith(".context_length")), None)
+        _INFO_CACHE[name] = {"ctx": ctx, "params": (d.get("details") or {}).get("parameter_size")}
+        cf.write_text(json.dumps(_INFO_CACHE, ensure_ascii=False, indent=1), encoding="utf-8")
+    except Exception:
+        _INFO_CACHE[name] = {"ctx": None, "params": None}
+    return _INFO_CACHE[name]
+
+
 def tool_models(**kw):
+    """Список моделей с ДЛИНОЙ ОКНА: чтобы человек сам выбирал модель и окно под неё."""
     try:
         j = json.load(urllib.request.urlopen(core.OLL + "/api/tags", timeout=5))
-        cur = ST.get("llm_model")
-        return "\n".join("• %s%s" % (m.get("name"), " ← активна" if m.get("name") == cur else "")
-                         for m in j.get("models", [])) or "моделей нет"
     except Exception:
         return "Ollama не отвечает"
+    cur = ST.get("llm_model")
+    ncx = ST.get("num_ctx")
+    out = ["МОДЕЛИ OLLAMA (окно — свойство модели; своё окно дома: %s, активная модель: %s)" % (ncx, cur)]
+    for m in j.get("models", []):
+        nm = m.get("name")
+        inf = _model_info(nm)
+        out.append("• %-34s окно %-7s %-8s%s" % (nm, inf.get("ctx") or "?", inf.get("params") or "",
+                                                 " ← активна" if nm == cur else ""))
+    out.append("Поменять модель/окно: панель настроек (только админ) — «Модель чата» и «Окно контекста».")
+    return "\n".join(out)
+
+
+def tool_window(model="", **kw):
+    """Какое окно у модели и что поставить в «Окно контекста» (без выдумок)."""
+    nm = model or ST.get("llm_model")
+    inf = _model_info(nm)
+    ctx = inf.get("ctx")
+    if not ctx:
+        return "не смог узнать окно модели %s (Ollama не ответила)" % nm
+    cur = int(ST.get("num_ctx") or 0)
+    verdict = "совпадает с моделью" if cur == ctx else ("меньше, чем может: %s из %s" % (cur, ctx))
+    return ("модель %s: окно %s, размер %s\nсейчас в настройках num_ctx=%s (%s)\n"
+            "Совет дома: ставить не больше окна модели; больше — пустая трата памяти, меньше — режем контекст."
+            % (nm, ctx, inf.get("params") or "?", cur, verdict))
 
 
 def tool_memory(**kw):
@@ -70,6 +119,7 @@ def tool_memory(**kw):
 TOOLS = [
     {"name": "settings_show", "desc": "Показать все настройки системы", "params": {}, "approval": False, "fn": tool_show},
     {"name": "settings_set", "desc": "Изменить настройку (только админ: модель, окна и т.д.)", "params": {"key": "ключ", "value": "значение"}, "approval": True, "fn": tool_set},
-    {"name": "settings_models", "desc": "Список моделей Ollama с активной", "params": {}, "approval": False, "fn": tool_models},
+    {"name": "settings_models", "desc": "Список моделей Ollama с окном контекста и активной", "params": {}, "approval": False, "fn": tool_models},
+    {"name": "model_window", "desc": "Какое окно у модели и что поставить в «Окно контекста»", "params": {"model": "имя модели (пусто = активная)"}, "approval": False, "fn": tool_window},
     {"name": "ollama_memory", "desc": "Что сейчас в памяти GPU: какие модели, ВРАМ, до когда", "params": {}, "approval": False, "fn": tool_memory},
 ]
