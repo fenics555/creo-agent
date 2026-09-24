@@ -7,6 +7,28 @@ r"""
 import json, re, html as H, sqlite3, socket, datetime, urllib.request
 from pathlib import Path
 
+# ==== СКРЫТИЕ КОНСОЛЬНЫХ ОКОН (живая находка 24.09.2026: «моргает синим» — это мелькали окна)
+# Агент запускал процессы (скан, индексация, программы, задачи) без CREATE_NO_WINDOW, и на экране
+# каждый раз вспыхивал консольный прямоугольник. Патчим subprocess в СВОЁМ процессе: любой запуск
+# теперь без окна. GUI-программы (tkinter) свои окна показывают как и раньше — это не консоль.
+import subprocess as _sp_mod
+if _sp_mod.__name__ == "subprocess" and not getattr(_sp_mod, "_nw_patched", False):
+    if hasattr(_sp_mod, "CREATE_NO_WINDOW"):
+        _CNW = _sp_mod.CREATE_NO_WINDOW
+        _P0, _R0 = _sp_mod.Popen, _sp_mod.run
+
+        def _P_nw(*a, **kw):
+            kw.setdefault("creationflags", _CNW)
+            return _P0(*a, **kw)
+
+        def _R_nw(*a, **kw):
+            kw.setdefault("creationflags", _CNW)
+            return _R0(*a, **kw)
+
+        _sp_mod.Popen, _sp_mod.run = _P_nw, _R_nw
+        _sp_mod._nw_patched = True
+
+
 BASE = Path(r"D:\AI\tools")
 HOST = socket.gethostname().replace(" ", "").replace("-", "")[:16]
 DATA_DIR = BASE / "agent" / "data"
