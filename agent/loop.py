@@ -231,9 +231,12 @@ def build_system(mode=1, question=""):
 
 def _npred():
     """Лимит генерации для модели.
-    ЖИВАЯ НАХОДКА 24.09.2026: размышления тратят ТОТ ЖЕ лимит, что и ответ — с 2048 токенов ответ
-    обрывался («обрезки»). Даём запас: служебный канал размышлений дороже, свой блок [THINK] — дешевле."""
-    base = int(settings.get("num_predict") or 2048)
+    ЖИВЫЕ НАХОДКИ 24.09.2026:
+      • размышления тратят ТОТ ЖЕ лимит, что и ответ — с малым лимитом ответ приходил «обрезком»;
+      • резать ответ смысла нет (быстрее модель не станет), поэтому 0 в настройке = БЕЗ ОГРАНИЧЕНИЯ (-1)."""
+    base = int(settings.get("num_predict") or 0)
+    if base <= 0:
+        return -1                       # -1 = генерировать без предела (до конца окна модели)
     if int(settings.get("think_mode") or 0) > 0:
         if settings.get("think_native"):
             return max(base * 4, 12288)
@@ -249,14 +252,20 @@ def _native_think():
 
 
 def beh():
+    """Опции запроса к модели. Окно (num_ctx) задаём ТОЛЬКО если человек вписал число:
+    0/пусто = не трогаем — Ollama возьмёт окно самой модели (ничего не «схлопнется»)."""
     steps = int(settings.get("steps_max") or 6)
-    if settings.get("auto_mode"):
-        return ({"temperature": (settings.get("auto_temperature") or 10) / 100.0,
-                 "top_p": float(settings.get("top_p") or 0.9),
-                 "num_predict": _npred(), "num_ctx": int(settings.get("num_ctx") or 8192)}, steps)
-    return ({"temperature": (settings.get("creativity") or 30) / 100.0,
-             "top_p": float(settings.get("top_p") or 0.9),
-             "num_predict": _npred(), "num_ctx": int(settings.get("num_ctx") or 8192)}, steps)
+    temp = (settings.get("auto_temperature") if settings.get("auto_mode") else settings.get("creativity")) or 10
+    opts = {"temperature": temp / 100.0,
+            "top_p": float(settings.get("top_p") or 0.9),
+            "num_predict": _npred()}
+    try:
+        ncx = int(settings.get("num_ctx") or 0)
+    except Exception:
+        ncx = 0
+    if ncx > 0:
+        opts["num_ctx"] = ncx
+    return opts, steps
 
 
 def parse_model(text):

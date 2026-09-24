@@ -13,6 +13,19 @@ function J(u,b){return fetch(u,{method:b?'POST':'GET',headers:{'Content-Type':'a
 /* ОТПРАВКА ПО ENTER (живая находка 24.09.2026: обработчика не было вообще — Enter «не реагировал»).
    Shift+Enter оставлен для переноса (если поле станет многострочным). */
 if(qinp){qinp.addEventListener('keydown',function(e){if(e.key==='Enter'&&!e.shiftKey){e.preventDefault();send()}})}
+/* СОХРАНЕНИЕ НАСТРОЕК ИЗ ОКНА (живая находка 24.09.2026: обработчика НЕ БЫЛО — «что ни поставь,
+   ничего не меняется»). change — сохраняем на сервере, input — сразу показываем число у ползунка. */
+function cfgNote(txt,okf){var n=document.getElementById('cfgnote');
+ if(!n){n=document.createElement('div');n.id='cfgnote';n.className='log';panel.insertBefore(n,panel.firstChild)}
+ n.style.color=okf?'#86BC43':'#E8912D';n.textContent=txt}
+document.addEventListener('change',function(e){var el=e.target.closest('[data-cfg]');if(!el)return;
+ var k=el.getAttribute('data-cfg');var v=(el.type==='checkbox')?(el.checked?1:0):el.value;
+ var b=el.parentElement&&el.parentElement.querySelector('[data-v="'+k+'"]');if(b)b.textContent=' '+v;
+ J('/setcfg',{token:TK,key:k,value:v}).then(function(r){
+   cfgNote(r&&r.ok?('✓ сохранено: '+k+' = '+v):('⚠ не сохранено '+k+': '+((r&&(r.error||r.msg))||'?')),!!(r&&r.ok))})
+ .catch(function(x){cfgNote('⚠ не сохранено '+k+': '+x,false)})});
+document.addEventListener('input',function(e){var el=e.target.closest('[data-cfg]');if(!el||el.type!=='range')return;
+ var b=el.parentElement.querySelector('[data-v="'+el.getAttribute('data-cfg')+'"]');if(b)b.textContent=' '+el.value});
 function esc(s){return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;')}
 function att(s){return esc(s).replace(new RegExp('"', 'g'),'&quot;')}
 
@@ -87,6 +100,8 @@ MODELS.forEach(function(m){h+='<option value="'+att(m)+'"'+(m==String(it.value)?
 if(MODELS.indexOf(String(it.value))<0&&String(it.value)!='')h+='<option selected>'+esc(String(it.value))+'</option>';
 h+='</select></div>';});
 h+='<h4 style="color:#4C8FD6">Параметры</h4>';
+h+='<div class="log" style="color:#A6A8AB">окно модели «'+esc((window.ST||{}).model||'')+'»: <b>'+((window.ST||{}).model_ctx||'не прочитано')+
+   '</b> — это максимум модели. Ниже «Окно контекста» впиши цифрой (0 = не задавать; Ollama тогда берёт своё, часто всего 4096).</div>';
 s.items.forEach(function(it){if(MK.indexOf(it.key)>=0||skip(it))return;
 (window.CFG=window.CFG||{})[it.key]=it.value;h+='<div class="tool"><small>'+esc(it.space)+' · '+esc(it.name)+'</small>';
 if(it.kind=='range'){h+=`<div class="row"><input type="range" data-cfg="${att(it.key)}" min="${it.min}" max="${it.max}" step="${it.step}" value="${it.value}"><b data-v="${att(it.key)}"> ${it.value}</b></div>`;}
@@ -145,7 +160,7 @@ else if(z&&z.classList.contains('pult')){z.classList.remove('pult');z.style.disp
 function fillPstate(){var el=document.getElementById('pstate');var s=window.ST;if(!el||!s)return;
 el.innerHTML='хост: '+esc(s.host||'')+'\nмодель: '+esc(s.model||'')+'\nпользователь: '+esc((s.user&&(s.user.display_name||s.user.login))||'нет входа')
 +'\nрежим: '+(s.mode==2?'собеседник':'инженер')+'\nOllama: '+(s.up_ollama?'жива':'молчит')+' · CREOSON: '+(s.up_creoson?'жив':'молчит')
-+'\nблоков: '+s.blocks+' · инструментов: '+s.tools}
++'\nблоков: '+s.blocks+' · инструментов: '+s.tools+(s.model_ctx?('\nокно модели: '+s.model_ctx+((window.CFG&&window.CFG.num_ctx)?(' · в настройках: '+window.CFG.num_ctx):'')):'')}
 function zonePult(){var z=document.getElementById('zone');if(!z)return;chat.style.display='block';
 z.classList.add('pult');z.style.display='grid';
 z.innerHTML='<div class="grp" id="zp1">⏳ программы…</div><div class="grp" id="zp2">⏳ базы…</div>'
