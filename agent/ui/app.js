@@ -101,7 +101,8 @@ if(MODELS.indexOf(String(it.value))<0&&String(it.value)!='')h+='<option selected
 h+='</select></div>';});
 h+='<h4 style="color:#4C8FD6">Параметры</h4>';
 h+='<div class="log" style="color:#A6A8AB">окно модели «'+esc((window.ST||{}).model||'')+'»: <b>'+((window.ST||{}).model_ctx||'не прочитано')+
-   '</b> — это максимум модели. Ниже «Окно контекста» впиши цифрой (0 = не задавать; Ollama тогда берёт своё, часто всего 4096).</div>';
+   '</b> · агент просит: <b>'+((window.ST||{}).ctx_requested||'0 (как в модели)')+'</b> · в сессии сейчас: '+((window.ST||{}).ctx_session||'модель не загружена')+
+   '. Для Cline ставь то же число, что «в сессии сейчас» — иначе Ollama перезагружает веса.</div>';
 s.items.forEach(function(it){if(MK.indexOf(it.key)>=0||skip(it))return;
 (window.CFG=window.CFG||{})[it.key]=it.value;h+='<div class="tool"><small>'+esc(it.space)+' · '+esc(it.name)+'</small>';
 if(it.kind=='range'){h+=`<div class="row"><input type="range" data-cfg="${att(it.key)}" min="${it.min}" max="${it.max}" step="${it.step}" value="${it.value}"><b data-v="${att(it.key)}"> ${it.value}</b></div>`;}
@@ -160,7 +161,7 @@ else if(z&&z.classList.contains('pult')){z.classList.remove('pult');z.style.disp
 function fillPstate(){var el=document.getElementById('pstate');var s=window.ST;if(!el||!s)return;
 el.innerHTML='хост: '+esc(s.host||'')+'\nмодель: '+esc(s.model||'')+'\nпользователь: '+esc((s.user&&(s.user.display_name||s.user.login))||'нет входа')
 +'\nрежим: '+(s.mode==2?'собеседник':'инженер')+'\nOllama: '+(s.up_ollama?'жива':'молчит')+' · CREOSON: '+(s.up_creoson?'жив':'молчит')
-+'\nблоков: '+s.blocks+' · инструментов: '+s.tools+(s.model_ctx?('\nокно модели: '+s.model_ctx+((window.CFG&&window.CFG.num_ctx)?(' · в настройках: '+window.CFG.num_ctx):'')):'')}
++'\nблоков: '+s.blocks+' · инструментов: '+s.tools+(s.model_ctx?('\nОКНО: модель '+s.model_ctx+' · агент просит '+(s.ctx_requested||'0 (как в модели)')+' · в сессии сейчас '+(s.ctx_session||'модель не загружена')):'')}
 function zonePult(){var z=document.getElementById('zone');if(!z)return;chat.style.display='block';
 z.classList.add('pult');z.style.display='grid';
 z.innerHTML='<div class="grp" id="zp1">⏳ программы…</div><div class="grp" id="zp2">⏳ базы…</div>'

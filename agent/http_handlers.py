@@ -105,13 +105,16 @@ class Hd(BaseHTTPRequestHandler):
                 except Exception: return False
             # Окно активной модели (данные, а не догадки) — человек вписывает его цифрой в «Окно контекста».
             _mctx = None
+            _sctx = None
             try:
                 import settings_tools as _st50
                 _mctx = _st50._model_info(settings.model_for("chat")).get("ctx")
+                _sctx = _st50.loaded_ctx()
             except Exception:
                 _mctx = None
             self._j({"host": HOSTNAME, "model": settings.get("llm_model"), "blocks": len(TR.BLOCKS),
                      "tools": len(TR.TOOLS), "user": prof, "model_ctx": _mctx,
+                     "ctx_requested": int(settings.get("num_ctx") or 0), "ctx_session": _sctx,
                      "is_manager": users.can_manage_users(prof["login"]) if prof else False,
                      "trails": tail, "mode": settings.get_for(cl2["login"], "chat_mode", 1) if cl2 else 1,
                      "ui_layout": settings.get_for(cl2["login"], "ui_layout", "v2") if cl2 else "v2",

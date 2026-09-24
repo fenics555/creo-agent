@@ -96,6 +96,18 @@ def tool_window(model="", **kw):
             % (nm, ctx, inf.get("params") or "?", cur, verdict))
 
 
+def loaded_ctx():
+    """Сколько контекста ВЫДЕЛЕНО загруженной модели прямо сейчас (факт, а не желаемое).
+    Для сверки агента и Cline: они должны просить одинаковое окно, иначе Ollama перезагружает веса."""
+    try:
+        j = json.load(urllib.request.urlopen(core.OLL + "/api/ps", timeout=5))
+        for m in (j.get("models") or []):
+            return m.get("context_length") or (m.get("details") or {}).get("context_length")
+    except Exception:
+        return None
+    return None
+
+
 def tool_memory(**kw):
     """Что СЕЙЧАС лежит в памяти видеокарты (политика дома: одна модель на агент и Cline)."""
     try:
