@@ -277,6 +277,14 @@ def beh():
         ncx = int(settings.get("num_ctx") or 0)
     except Exception:
         ncx = 0
+    if ncx <= 0:
+        # «0 = как в модели»: ВАЖНО — Ollama по умолчанию даёт всего 4096 токенов (её FAQ),
+        # поэтому окно модели спрашиваем у неё самой (/api/show) и подставляем.
+        try:
+            import settings_tools as _st37
+            ncx = int(_st37._model_info(settings.model_for("chat")).get("ctx") or 0)
+        except Exception:
+            ncx = 0
     if ncx > 0:
         opts["num_ctx"] = ncx
     return opts, steps
