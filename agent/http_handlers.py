@@ -223,25 +223,25 @@ class Hd(BaseHTTPRequestHandler):
                     verdict, entry = None, {}
                     m = re.search(r"(.*?)\.(drw|asm|prt)(\.\\d+)?$", nm, re.I)
                     if m:
-                        core, ext, suffix = m.groups()
+                        base_nm, ext, suffix = m.groups()
                         suffix = suffix or ""
                         if ext.lower() == "drw":
-                            stem = core
+                            stem = base_nm
                             pdf = fs.get(stem + ".pdf")
                             verdict = "нет pdf" if not pdf else ("актуален" if pdf[1] >= mt else "УСТАРЕЛ")
                             entry = {"name": nm, "dir": d, "drw": path, "pdf": pdf[0] if pdf else "",
                                      "drw_mtime": mt, "pdf_mtime": pdf[1] if pdf else 0, "verdict": verdict}
                         else:
-                            drw = fs.get(core + ".drw" + suffix)
-                            pdf = fs.get(core + ".pdf")
+                            drw = fs.get(base_nm + ".drw" + suffix)
+                            pdf = fs.get(base_nm + ".pdf")
                             if drw:
                                 drw_p, drw_mt = drw
                                 if pdf:
                                     pdf_p, pdf_mt = pdf
                                     v = "актуален" if pdf_mt >= drw_mt else "устарел"
-                                    verdict = f"pdf через чертёж {core}.drw{suffix}: {v}"
+                                    verdict = f"pdf через чертёж {base_nm}.drw{suffix}: {v}"
                                 else:
-                                    verdict = f"чертёж {core}.drw{suffix}: нет pdf"
+                                    verdict = f"чертёж {base_nm}.drw{suffix}: нет pdf"
                                     pdf_p, pdf_mt = "", 0
                                 entry = {"name": nm, "dir": d, "drw": drw_p, "pdf": pdf_p,
                                          "drw_mtime": drw_mt, "pdf_mtime": pdf_mt, "verdict": verdict}
