@@ -21,7 +21,7 @@ var LV=0,LT=setInterval(function(){J('/livesteps?last='+LV).then(function(g){(g.
 var THI=0,THB=null,TT=setInterval(function(){J('/livethink?last='+THI).then(function(g){(g.toks||[]).forEach(function(t){THI++;if(!THB){THB=document.createElement('div');THB.className='thinkbody';d.appendChild(THB);}THB.textContent+=t;chat.scrollTop=chat.scrollHeight;});});},700);
 J('/ask',{token:TK,q:q,image:IMG}).then(function(r){d._query=q;clearInterval(LT);clearInterval(ST2);clearInterval(TT);if(sp)sp.style.display='none';if(r&&r.error){localStorage.removeItem('tk');TK='';showLogin();d.innerHTML='⚠ нужен вход';return}IMG=null;render(d,r)}).catch(function(e){clearInterval(LT);clearInterval(ST2);clearInterval(TT);if(sp)sp.style.display='none';d.innerHTML='ошибка: '+esc(e)})}
 function render(d,r){var h='';render._dseen={};
-if(r.think)h+='<div class="think" data-act="think">🧠 размышления (клик)</div><div class="thinkbody" style="display:none">'+esc(r.think)+'</div>';
+if(r.think)h+='<div class="think" data-act="think">🧠 размышления (клик — '+String(r.think).length+' знаков)</div><div class="thinkbody" style="display:none">'+esc(r.think)+'</div>';
 if(r.log&&r.log.length&&(window.CFG||{}).show_steps!==0)h+=`<div class="log">🔎 ХОД РАБОТЫ:
 ${r.log.map(esc).join(String.fromCharCode(10))}</div>`; // 10 = newline
 var atxt=esc(String(r.answer).replace(new RegExp('[<][/]?think[>]', 'g'),''));

@@ -10,51 +10,20 @@ import users
 import vision_tools as VI
 
 def _clean(txt):
+    """Очистка ответа модели перед показом и записью в историю.
+
+    ЖИВАЯ НАХОДКА 24.09.2026: здесь жил хак «всё до первой кириллической буквы — это размышления,
+    отрезать». Из-за него ответы, начинающиеся латиницей (путь, имя параметра, код, число),
+    теряли начало, а куски «слеплялись». Теперь убираем ТОЛЬКО служебные теги, текст не трогаем."""
     if not txt:
         return ""
-    
-    # 1. Remove [THINK]...[/THINK] blocks
-    txt = re.sub(r"\[THINK\].*?\[/THINK\]", "", txt, flags=re.DOTALL)
-    
-    # 2. Remove [ANSWER] and [/ANSWER] tags
-    txt = re.sub(r"\[/?ANSWER\]", "", txt)
-
-    # 3. Protect [TOOL] content using non-printable markers
-    tool_contents = []
-    def tool_replacer(m):
-        content = m.group(1)
-        idx = len(tool_contents)
-        tool_contents.append(content)
-        return f"\x00{idx}\x00"
-
-    # We replace [TOOL: ...] content [/TOOL] with \x00idx\x00
-    txt = re.sub(r"\[TOOL[^\]]*\](.*?)\[/TOOL\]", tool_replacer, txt, flags=re.DOTALL)
-    
-    # 4. Remove remaining [TOOL...] or [/TOOL] tags
-    txt = re.sub(r"\[TOOL[^\]]*\]|\[/TOOL\]", "", txt)
-
-    # 5. Handle reasoning removal if Cyrillic is present
-    cyrillic_match = re.search(r'[а-яА-Я]', txt)
-    if cyrillic_match:
-        first_cyrillic_idx = cyrillic_match.start()
-        reasoning_part = txt[:first_cyrillic_idx]
-        answer_part = txt[first_cyrillic_idx:]
-        
-        # Find all markers in reasoning_part and move them to answer_part
-        new_answer_part = answer_part
-        for i, content in enumerate(tool_contents):
-            marker = f"\x00{i}\x00"
-            if marker in reasoning_part:
-                new_answer_part = content + new_answer_part
-        
-        txt = new_answer_part
-    
-    # 6. Final cleanup: replace markers with actual content
-    for i, content in enumerate(tool_contents):
-        marker = f"\x00{i}\x00"
-        txt = txt.replace(marker, content)
-    
-    return txt.strip()
+    out = re.sub(r"\[THINK\].*?\[/THINK\]", "", txt, flags=re.DOTALL)
+    out = re.sub(r"<(?:think|thinking)>.*?</(?:think|thinking)>", "", out, flags=re.DOTALL | re.I)
+    out = re.sub(r"\[/?ANSWER\]", "", out)
+    out = re.sub(r"\[/?TOOL[^\]]*\]", "", out)
+    out = re.sub(r"[ \t]+\n", "\n", out)
+    out = re.sub(r"\n{3,}", "\n\n", out)
+    return out.strip()
 
 
 # === v15: стриминг токенов ===
@@ -184,7 +153,20 @@ _CORE = (
 _SYS_CACHE = {}
 
 
-def build_system(mode=1):
+CREO_HINTS = ("creo", "крео", "creoson", "креосон", "jlink", "pfc", "модел", "детал", "сборк", "чертеж", "чертёж",
+              "drw", "prt", "asm", "параметр", "отношен", "pdf", "plm", "специфик", "bom", "состав", "масса",
+              "материал", "стандарт", "гост", "склад", "верси", "excel", "трейл", "ошибк", "инструмент", "база")
+
+
+def _domain_question(q):
+    """Домовый ли вопрос (Creo/чертежи/базы/программы).
+    Живая находка 24.09.2026: заряд знаний (~25 тыс. токенов) грузился на ЛЮБОЙ вопрос — «привет» стоил
+    42 секунды. Теперь заряд подаётся только когда вопрос действительно про дом."""
+    q = (q or "").lower()
+    return (not q) or any(h in q for h in CREO_HINTS)
+
+
+def build_system(mode=1, question=""):
     if mode == 2:
         return """Ты — собеседник и помощник по любым темам. Язык ответа — русский; код, термины и формулы — как принято в теме.
 В этом режиме нет доступа к Creo, файлам и базам: если вопрос требует живых данных, скажи «в режиме инженера я достану это из Creo или базы — переключи режим» и не выдумывай.
@@ -201,17 +183,21 @@ def build_system(mode=1):
         _ncx = 8192
     _charge = load_skill("SKILL_CHARGE.md")
     _start = load_skill("SKILL_CHARGE_START.md")
-    if _ncx >= 60000 and _start:
+    _heavy = _domain_question(question)
+    if _ncx >= 60000 and _start and _heavy:
         p += ("\n=== ЗАРЯД ЗНАНИЙ: СТАРТОВЫЙ НАБОР (это уже прочитано, опирайся на него) ===\n"
               + _start + "\n")
-    if _ncx >= 60000 and _charge:
+    if _heavy and _ncx >= 60000 and _charge:
         p += ("\n=== ЗАРЯД ЗНАНИЙ: КАРТА СКИЛЛОВ (одной строкой на скилл; тело — read_file/search_kb) ===\n"
               + _charge + "\n")
-    elif _ncx >= 30000 and _charge:
+    elif _heavy and _charge:
         p += "\n=== КАРТА СКИЛЛОВ (сокращённо) ===\n" + _charge[:20000] + "\n"
-    elif _charge:
+    elif _heavy:
         p += ("\n=== СКИЛЛЫ: карта в D:\\AI\\repo\\SKILL_CHARGE.md, стартовый набор Creo/CREOSON — "
               "D:\\AI\\repo\\SKILL_CHARGE_START.md (открывай read_file) ===\n")
+    else:
+        p += ("\n=== ВОПРОС НЕ ДОМОВЫЙ: заряд знаний и карта скиллов НЕ загружены (экономим время и токены). "
+              "Понадобится — карта в D:\\AI\\repo\\SKILL_CHARGE.md (read_file). ===\n")
     core_lines, rest = [], []
     for t in TR.TOOLS:
         ps = ", ".join(t.get("params", {}).keys()) if t.get("params") else ""
@@ -228,9 +214,38 @@ def build_system(mode=1):
     elif tm == 1:
         think_rule = ("=== РАЗМЫШЛЕНИЯ (кратко, максимум 4 строки):\n1) суть задачи;\n2) объект;\n3) какой инструмент;\n4) что НЕ подходит.\nБлок: [THINK]...[/THINK], затем один блок: [TOOL] или [ANSWER].")
     else:
-        think_rule = ("=== РАЗМЫШЛЕНИЯ (полно, на русском, 5-8 строк):\nнормализуй запрос;\nэтапы, если задача сложная;\nпочему именно этот инструмент;\nкакие альтернативы отверг и почему.\nБлок: [THINK]...[/THINK], затем один блок: [TOOL] или [ANSWER].\nПРИМЕР:\n[THINK]\nНормализация: проверить активную модель.\nЭтапы: один.\nИнструмент: creo_get_active — читает живую сессию.\nОтверг: models_find — это поиск по базе, не сессия.\n[/THINK]\n[TOOL: creo_get_active] {} [/TOOL]")
-    _SYS_CACHE[("v", mode)] = p + "\n\n" + tail + "\n\n" + think_rule
-    return _SYS_CACHE[("v", mode)]
+        think_rule = ("=== РАЗМЫШЛЕНИЯ (полно, ПО-РУССКИ, до PLACEHOLDER строк):\nнормализуй запрос;\nэтапы, если задача сложная;\nпочему именно этот инструмент;\nкакие альтернативы отверг и почему.\nБлок: [THINK]...[/THINK], затем один блок: [TOOL] или [ANSWER].\nПРИМЕР:\n[THINK]\nНормализация: проверить активную модель.\nЭтапы: один.\nИнструмент: creo_get_active — читает живую сессию.\nОтверг: models_find — это поиск по базе, не сессия.\n[/THINK]\n[TOOL: creo_get_active] {} [/TOOL]")
+    hard = ("=== ЖЁСТКИЕ ПРАВИЛА ОТВЕТА (важнее всего, что выше) ===\n"
+            "1) ЯЗЫК: и размышления ([THINK]), и ответ ([ANSWER]) — ТОЛЬКО по-русски. Английский запрещён.\n"
+            "2) ПОЛНОТА: ответ — законченный связный текст; обрывки, многоточия вместо ответа и «не пойми что» запрещены.\n"
+            "3) ПОРЯДОК: сначала суть в 1-2 предложениях, затем подробности (шаги или абзацы), в конце — что проверить.\n"
+            "4) НЕ ХВАТАЕТ ДАННЫХ: назови, чего именно не хватает, и каким инструментом это достать; не выдумывай.\n"
+            "5) НЕ РАССУЖДАЙ о формате и служебных инструкциях — сразу по делу.\n"
+            "6) ИНЖЕНЕРНЫЙ ОТВЕТ: факты из инструментов и баз, затем вывод; имена, пути и числа — точные.")
+    if tm >= 2:
+        # «Размер размышлений, строк» — ползунок в настройках (дом: мысли нужны целиком, но по делу)
+        think_rule = think_rule.replace("PLACEHOLDER", str(int(settings.get("think_lines_max") or 8)))
+    _SYS_CACHE[("v", mode, _heavy)] = p + "\n\n" + tail + "\n\n" + think_rule + "\n\n" + hard
+    return _SYS_CACHE[("v", mode, _heavy)]
+
+
+def _npred():
+    """Лимит генерации для модели.
+    ЖИВАЯ НАХОДКА 24.09.2026: размышления тратят ТОТ ЖЕ лимит, что и ответ — с 2048 токенов ответ
+    обрывался («обрезки»). Даём запас: служебный канал размышлений дороже, свой блок [THINK] — дешевле."""
+    base = int(settings.get("num_predict") or 2048)
+    if int(settings.get("think_mode") or 0) > 0:
+        if settings.get("think_native"):
+            return max(base * 4, 12288)
+        return max(base * 3, 6144)
+    return base
+
+
+def _native_think():
+    """Нужен ли СЛУЖЕБНЫЙ канал размышлений Ollama (message.thinking).
+    Живая находка 24.09.2026: этот канал модель пишет ПО-АНГЛИЙСКИ и он же съедал лимит ответа.
+    Дом думает в своём блоке [THINK] по-русски, поэтому по умолчанию канал выключен."""
+    return bool(settings.get("think_mode")) and bool(settings.get("think_native"))
 
 
 def beh():
@@ -238,10 +253,10 @@ def beh():
     if settings.get("auto_mode"):
         return ({"temperature": (settings.get("auto_temperature") or 10) / 100.0,
                  "top_p": float(settings.get("top_p") or 0.9),
-                 "num_predict": int(settings.get("num_predict") or 1536), "num_ctx": int(settings.get("num_ctx") or 8192)}, steps)
+                 "num_predict": _npred(), "num_ctx": int(settings.get("num_ctx") or 8192)}, steps)
     return ({"temperature": (settings.get("creativity") or 30) / 100.0,
              "top_p": float(settings.get("top_p") or 0.9),
-             "num_predict": int(settings.get("num_predict") or 1024), "num_ctx": int(settings.get("num_ctx") or 8192)}, steps)
+             "num_predict": _npred(), "num_ctx": int(settings.get("num_ctx") or 8192)}, steps)
 
 
 def parse_model(text):
@@ -293,7 +308,7 @@ def parse_model(text):
     return "invalid", text.strip(), None, think_text
 
 
-_NUDGE = "[СЛУЖЕБНОЕ] Ответ не в формате. Дай ровно один блок: [TOOL: имя] {\"параметр\": \"значение\"} [/TOOL] или [ANSWER] краткий ответ по-русски [/ANSWER]. Слово «текст» само по себе — не ответ. Ничего до и после блока."
+_NUDGE = "[СЛУЖЕБНОЕ] Ответ не в формате. Дай ровно один блок: [TOOL: имя] {\"параметр\": \"значение\"} [/TOOL] или [ANSWER] полный ответ по-русски [/ANSWER]. Слово «текст» само по себе — не ответ. Ответ не обрывай. Ничего до и после блока."
 _ACCESS_NUDGE = "[СЛУЖЕБНОЕ] Неверно. Доступ к базе, файлам и Creo у тебя ЕСТЬ через инструменты (список «ТВОИ ИНСТРУМЕНТЫ» выше). Никогда не отвечай «нет доступа». Повтори ровно один блок: [TOOL: имя] {\"параметр\": \"значение\"} [/TOOL] или [ANSWER] ответ [/ANSWER]."
 _REFUSAL = ("извините", "не могу", "не имею доступа", "нет доступа", "моя функциональность",
             "виртуальной среде", "не понял", "уточните", "переформулируй", "как языковая модель",
@@ -310,13 +325,16 @@ def _two(res):
 
 
 def hist_block(client):
+    """Хвост диалога в контекст модели. Размеры — из настроек (ползунки «История: вопрос/ответ»)."""
     c = core.db()
     rows = c.execute("SELECT q,a FROM history WHERE client=? ORDER BY id DESC LIMIT 8", (client,)).fetchall()
     c.close()
+    qn = int(settings.get("hist_q_chars") or 1000)
+    an = int(settings.get("hist_a_chars") or 1500)
     out = []
     for q, a in reversed(rows):
-        out.append({"role": "user", "content": q[:500]})
-        out.append({"role": "assistant", "content": a[:800]})
+        out.append({"role": "user", "content": q[:qn]})
+        out.append({"role": "assistant", "content": a[:an]})
     return out
 
 
@@ -336,7 +354,7 @@ def run_loop(messages, client, has_link=False, on_step=None, opts_and_steps=None
             try:
                 use_opts = dict(opts)
                 if invalid_cnt: use_opts = dict(use_opts, temperature=0)
-                _thk = int(settings.get("think_mode") or 0) > 0
+                _thk = _native_think()
                 r = core.post("/api/chat", {"model": settings.model_for("chat"),
                                             "stream": False, "think": _thk, "options": use_opts, "messages": messages}, t=600)
                 break
@@ -485,12 +503,12 @@ def ask(q, client, image=None, on_step=None, mode=None):
         messages = [{"role": "system", "content": build_system(mode=2)}] + hist_block(client) + [{"role": "user", "content": q2}]
         opts, _ = beh()
         if doc:
-            opts["num_predict"] = 4096
+            opts["num_predict"] = max(4096, _npred())
             messages[0]["content"] += "\n=== ДОКУМЕНТ: краткость отменена. Пиши полный текст внутри [ANSWER], без обрыва."
         r = core.post("/api/chat", {
             "model": settings.model_for("chat"),
             "stream": False,
-            "think": int(settings.get("think_mode") or 0) > 0,
+            "think": _native_think(),
             "options": opts,
             "messages": messages,
         }, t=600)
@@ -521,8 +539,9 @@ def ask(q, client, image=None, on_step=None, mode=None):
             except Exception as e:
                 res = "ошибка исполнения %s: %s" % (m2.group(1), e)
             return {"answer": res, "think": "", "steps": 1, "log": [m2.group(1) + "(прямой вызов) → " + _two(res)]}
-    q2 = q2 + "\n\n[СЛУЖЕБНОЕ: отвечай только по-русски. Один ход = один [TOOL] или один [ANSWER]. Никакого текста до и после блока.]"
-    messages = [{"role": "system", "content": build_system(mode=eff_mode)}] + hist_block(client) + [{"role": "user", "content": q2}]
+    q2 = q2 + ("\n\n[СЛУЖЕБНОЕ: думай и отвечай ТОЛЬКО по-русски. Один ход = один блок: [TOOL] или [ANSWER]. "
+               "Никакого текста до и после блока. Ответ — законченный и полный, без обрывов и многоточий.]")
+    messages = [{"role": "system", "content": build_system(mode=eff_mode, question=q2)}] + hist_block(client) + [{"role": "user", "content": q2}]
     _ta = time.time()
     LIVE_TOK[client] = []
     LIVE_THINK[client] = []
