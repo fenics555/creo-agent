@@ -5,14 +5,21 @@
 body{margin:0;background:radial-gradient(1100px 520px at 18% -8%,#1C2735 0%,#131417 55%,#111214 100%);background-attachment:fixed;color:#E8E8E8;font:14px/1.5 Segoe UI,sans-serif}
 #top{position:fixed;top:0;left:0;right:0;background:linear-gradient(180deg,#24262B,#1B1D21);border-bottom:1px solid #1273EB;box-shadow:0 4px 18px rgba(0,0,0,.45);padding:8px 14px;display:flex;gap:10px;align-items:center;z-index:5}
 #top b{color:#4C8FD6;letter-spacing:.5px}
-#chat{margin:52px 300px 70px 12px;padding:8px;overflow-y:auto}
+#chat{margin:52px 300px 70px 212px;padding:8px;overflow-y:auto}
 #panel{position:fixed;top:46px;right:0;bottom:0;width:292px;background:#242527;overflow-y:auto;padding:8px;border-left:1px solid #3E4043}
+/* ==== ВАРИАНТ 2: БОКОВОЕ МЕНЮ (выбран 24.09.2026) — рейл слева, рабочая зона посередине ==== */
+#rail{position:fixed;top:46px;left:0;bottom:0;width:200px;background:#1B1D21;border-right:1px solid #2C2F35;padding:8px;overflow-y:auto;z-index:6}
+#rail .item{display:flex;gap:9px;align-items:center;padding:9px 11px;border-radius:9px;cursor:pointer;color:#C9CBCE;margin-bottom:4px;border-left:3px solid transparent}
+#rail .item:hover{background:#232630}
+#rail .item.on{background:#12375F;color:#fff;border-left:3px solid #1273EB}
+#rail .rl-h{color:#4C8FD6;font-size:12px;text-transform:uppercase;letter-spacing:.4px;margin:8px 4px 4px}
+#zone{position:fixed;top:52px;left:206px;right:300px;bottom:70px;overflow-y:auto;padding:8px;display:none}
 .msg{max-width:760px;margin:10px 0;padding:10px 14px;border-radius:12px;background:linear-gradient(180deg,#2E3035,#292B2F);box-shadow:0 2px 8px rgba(0,0,0,.35),0 0 0 1px rgba(255,255,255,.03);white-space:pre-wrap}
 .msg.me{margin-left:auto;background:linear-gradient(180deg,#1266C9,#0D57AE);box-shadow:0 2px 10px rgba(18,115,235,.25)}
 .think{background:#242527;border:1px solid #3E4043;border-radius:8px;padding:6px 10px;margin-bottom:4px;color:#A6A8AB;cursor:pointer}
 .thinkbody{background:#242527;border:1px solid #3E4043;border-radius:8px;padding:6px 10px;margin-bottom:8px;color:#A6A8AB;white-space:pre-wrap}
 .log{color:#A6A8AB;font-size:12px;margin:6px 0;white-space:pre-wrap}
-#inp{position:fixed;bottom:0;left:0;right:292px;background:#242527;padding:8px;display:flex;gap:8px}
+#inp{position:fixed;bottom:0;left:206px;right:292px;background:#242527;padding:8px;display:flex;gap:8px}
 #q{flex:1;background:#2C2D30;color:#E8E8E8;border:1px solid #3E4043;border-radius:8px;padding:10px}
 button{background:#1273EB;color:#fff;border:0;border-radius:8px;padding:8px 14px;cursor:pointer;transition:background .15s,transform .1s,box-shadow .15s}
 button:hover{background:#0E5FC2;box-shadow:0 2px 10px rgba(18,115,235,.35)}
@@ -61,6 +68,20 @@ input[type=checkbox]{accent-color:#1273EB}
 <body>
 <div id="top"><b>АГЕНТ v15</b><span id="hdr"></span><span class="stc" id="st_oll" title="Ollama — модель для ответов">● Ollama</span><span class="stc" id="st_creo" title="CREOSON — мост к Creo">● CREOSON</span><span class="stc" id="st_ag" title="веб-агент — эта страница">● АГЕНТ</span><span style="flex:1"></span>
 <button data-act="chip" data-val="guide">❓</button><button data-act="wizard">🧙 МАСТЕР ОПЕРАЦИЙ</button><button data-act="showlog">Лог</button><button data-act="panel" class="sec">Панель</button><button data-act="showpro">👤</button><button data-act="showchat">💬</button><button data-act="mode" class="sec">🛠 Инженер</button><button data-act="logout" class="sec">Выйти</button></div>
+<div id="rail">
+<div class="rl-h">Рабочие зоны</div>
+<div class="item on" data-act="rl" data-val="chat">💬 <span>Чат</span></div>
+<div class="item" data-act="rl" data-val="prog">🧰 <span>Программы</span></div>
+<div class="item" data-act="rl" data-val="base">🗄 <span>Базы</span></div>
+<div class="rl-h">Дом</div>
+<div class="item" data-act="showpro">👤 <span>Профиль</span></div>
+<div class="item" data-act="showchat">👥 <span>Команда</span></div>
+<div class="item" data-act="showlog">📜 <span>Лог агента</span></div>
+<div class="item" data-act="panel">⚙ <span>Настройки</span></div>
+<div class="rl-h" style="margin-top:14px">Панель инструментов →</div>
+<small style="color:#A6A8AB;margin-left:4px">инструменты и «ход работ» — справа</small>
+</div>
+<div id="zone"></div>
 <div id="chat"></div><div id="panel"></div>
 <div id="inp"><input id="q" placeholder="Задача для АГЕНТА... (Enter) | Ctrl+V — вставить скриншот | chat <вопрос> — разовый режим собеседника"><button data-act="snap" class="sec">📷</button><button data-act="send">Спросить</button><span id="spin" class="spin" style="display:none"></span></div>
 <div id="login"><div style="position:relative;width:300px"><button data-act="closelogin" style="position:absolute;top:6px;right:6px" class="sec">✕</button>

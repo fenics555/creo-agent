@@ -56,6 +56,7 @@ h+='<div class="grp"><h4 data-act="fold">▸ 🧠 МОДЕЛЬ ИИ (клик �
 h+='<div class="grp"><h4 data-act="fold">▸ ⚡ БЫСТРЫЕ ЗАДАЧИ</h4><div class="gbody" style="display:none">';
 (p.chips||[]).forEach(function(c){h+='<div class="tool" data-act="chip" data-val="'+att(c)+'">'+esc(c)+'</div>'});h+='</div></div>';
 h+='<div class="grp"><h4 data-act="fold">▸ 🧹 ОЧИСТКА</h4><div class="gbody" style="display:none"><div class="tool" data-act="open_purge"><b style="color:#4C8FD6">🧹 Мастер очистки</b></div></div></div>';
+h+='<div class="grp"><h4 data-act="fold">▸ 📈 ХОД РАБОТ ДОМА</h4><div class="gbody" style="display:none"><div class="log jobsline" style="max-height:200px;overflow:auto">…</div><button class="sec" data-act="jobsload" style="padding:4px 9px;margin-top:6px">Обновить</button></div></div>';
 h+='<div class="grp"><h4>📌 ЗАКРЕПЫ</h4>';['creo_get_active','models_find','search_kb','trail_problems','calc','creo_session'].forEach(function(n){h+='<span class="pin" data-act="chip" data-val="'+n+'">'+n+'</span>'});h+='</div>';
 var FOLD=JSON.parse(localStorage.getItem('panel_fold')||'{}');
 (p.groups||[]).forEach(function(g){var ti=g.title||'';var key=ti.replace(foldKey, "");
@@ -66,7 +67,7 @@ panel.innerHTML=h;
 var si=document.getElementById('psearch');if(si)si.addEventListener('input',function(){var q=si.value.toLowerCase();var n=0;
 panel.querySelectorAll('.grp[data-gkey]').forEach(function(gr){var vis=0;gr.querySelectorAll('.tool').forEach(function(tl){var hit=!q||((tl.getAttribute('data-val')||'')+(tl.getAttribute('data-desc')||'')).toLowerCase().indexOf(q)>=0;tl.style.display=hit?'':'none';if(hit)vis++});n+=vis;gr.style.display=(q&&!vis)?'none':''});
 var f=document.getElementById('pfound');if(f)f.textContent=q?('найдено: '+n):''});
-loadReg()}
+loadReg();rlJobs()}
 function buildSettings(s){var MK=['llm_model','model_fast','model_trail','model_vision','model_index'];
 var hasMV=false;s.items.forEach(function(it){if(it.key=='model_vision')hasMV=true});
 var skip=function(it){return it.key=='model_chat'||(it.key=='vision_model'&&hasMV)};
@@ -86,6 +87,43 @@ else if(it.kind=='check'){h+=`<input type="checkbox" data-cfg="${att(it.key)}" $
 else{h+=`<input data-cfg="${att(it.key)}" value="${att(String(it.value))}" style="width:100%">`;}
 h+='</div>';});
 h+='</div></div>';panel.querySelectorAll('.grp').forEach(g=>{if(g.textContent.includes('НАСТРОЙКИ'))g.remove()});panel.innerHTML+=h}
+/* ==== ВАРИАНТ 2 (выбран 24.09.2026): рабочая зона «Программы»/«Базы» + ход работ ==== */
+function rlNeed(){return '<div class="grp" style="border-color:#E8912D"><h4 style="color:#E8912D">⚠ нужен перезапуск агента</h4><small style="color:#A6A8AB">Маршруты /api/programs, /api/bases, /api/jobs появятся после AI_RESTART.bat. Пока вариант можно смотреть во временном предпросмотре: http://127.0.0.1:8799/</small></div>'}
+function rlProgCard(p){var kk=(p.klass=='Ж')?'#E8912D':(p.klass=='Г'?'#8AA8E8':'#86BC43');
+var run=p.run?'<button data-act="prun" data-val="'+att(p.id)+'" style="padding:4px 9px">Запустить</button>':'<small style="color:#A6A8AB">запуск — своим окном</small>';
+return '<div class="grp" style="margin:8px 0"><h4><span style="color:'+(p.pid?'#86BC43':'#8A8C90')+'">●</span> '+esc(p.title)+' <small style="color:'+kk+'">класс '+esc(p.klass)+'</small></h4>'
++'<small style="color:#A6A8AB">движок: '+esc(p.engine)+'</small><br><small style="color:#A6A8AB">'+(p.window?('окно: '+esc(p.cwd)+' / '+esc(p.window)):'окна нет — зовёт агент')+'</small><br>'
++'<small style="color:#A6A8AB">'+esc(p.status)+'</small><div class="row" style="margin-top:6px">'+run
++'<button class="sec" data-act="pstate" data-val="'+att(p.id)+'" style="padding:4px 9px">Журнал</button></div>'
++'<div class="log" id="pst_'+att(p.id)+'" style="display:none"></div></div>'}
+function rlJobs(){var els=document.querySelectorAll('.jobsline');if(!els.length)return;
+J('/api/jobs').then(function(d){els.forEach(function(e){e.textContent=((d||{}).lines)||'журнал пуст'})})
+.catch(function(){els.forEach(function(e){e.textContent='нужен перезапуск агента (AI_RESTART.bat)'})})}
+function showZone(v){var z=document.getElementById('zone');if(!z)return;
+if(v=='chat'){z.style.display='none';chat.style.display='block';return}
+chat.style.display='none';z.style.display='block';
+if(v=='prog'){z.innerHTML='<div class="grp">⏳ читаю список программ дома…</div>';
+J('/api/programs').then(function(d){if(!d||!d.programs){z.innerHTML=rlNeed();return}
+var h='<div class="grp"><h4>🧰 ПРОГРАММЫ ДОМА <small style="color:#A6A8AB">список от '+esc(d.updated||'')+'</small></h4>'
++'<small style="color:#A6A8AB">Отдельные программы — для человека (своё окно). Программы Creo — живая сессия (JLINK). '
++'Программы для ИИ — движки, их зовёт агент. Устаревшее — в _legacy, запуск оттуда запрещён.</small></div>';
+(d.groups||[]).forEach(function(g){var ps=(d.programs||[]).filter(function(p){return p.group==g.id});if(!ps.length)return;
+h+='<div class="grp"><h4>'+(g.icon||'')+' '+esc(g.title)+' <small style="color:#A6A8AB">('+ps.length+')</small></h4>'
++'<small style="color:#A6A8AB">'+esc(g.note||'')+'</small>'+ps.map(rlProgCard).join('')+'</div>'});
+z.innerHTML=h}).catch(function(){z.innerHTML=rlNeed()})}
+else if(v=='base'){z.innerHTML='<div class="grp">⏳ читаю базы дома…</div>';
+J('/api/bases').then(function(d){if(!d||!d.bases){z.innerHTML=rlNeed();return}
+var h='<div class="grp"><h4>🗄 БАЗЫ ДОМА</h4><small style="color:#A6A8AB">Свои базы можно обновлять кнопкой; чужие — только чтение.</small></div>'
++'<div class="grp"><table class="reg-t"><tr><td><b>База</b></td><td>Размер</td><td>Таблиц</td><td>Обновлена</td><td>Статус</td><td></td></tr>';
+(d.bases||[]).forEach(function(b){var own=/своя/.test(b.kind);
+h+='<tr><td><b>'+esc(b.name)+'</b><br><small style="color:#A6A8AB">'+esc(b.path)+'</small><br><small style="color:#A6A8AB">'+esc(b.what)+'</small></td>'
++'<td>'+b.mb+' МБ</td><td>'+esc(b.tables)+'</td><td>'+esc(b.mtime)+'</td><td>'+esc(b.kind)+'</td>'
++'<td>'+(own?'<button data-act="bupd" style="padding:4px 9px">Обновить</button>':'')+'</td></tr>'});
+h+='</table></div><div class="grp"><h4 style="color:#4C8FD6">📈 ХОД РАБОТ ДОМА</h4>'
++'<div class="log jobsline" style="max-height:240px;overflow:auto">…</div>'
++'<button class="sec" data-act="jobsload" style="padding:4px 9px;margin-top:6px">Обновить</button></div>';
+z.innerHTML=h;rlJobs()}).catch(function(){z.innerHTML=rlNeed()})}}
+setInterval(rlJobs,60000); // ход работ дома: тихое обновление, если блок открыт
 function loadReg(){J('/pdfregistry').catch(function(){return{}}).then(function(rr){if(!rr||!rr.rows||!rr.rows.length)return;REG=rr.rows;
 var h='<div class="grp" data-gkey="reg"><h4 data-act="fold">▸  PDF-РЕЕСТР ('+rr.rows.length+')</h4><div class="gbody" style="display:none">';
 h+='<small id="reghdr" style="color:#A6A8AB"></small><div class="row"><label><input type="checkbox" id="regstale"> только устаревшие</label><button id="regall" class="sec" style="padding:4px 8px">Обновить все устаревшие</button></div>';
@@ -125,6 +163,12 @@ else if(a=='w_night'){document.getElementById('wiz').style.display='none';qinp.v
 else if(a=='snap')J('/snap',{token:TK}).then(function(r){addMsg(esc(r.msg||'ок'))});
 else if(a=='showlog'){fetch('/log',{headers:{'X-Token':TK||''}}).then(r=>r.text()).then(t=>addMsg('<div class="log">'+esc(t)+'</div>'))}
 else if(a=='panel')panel.style.display=panel.style.display=='none'?'block':'none';
+/* ==== ВАРИАНТ 2: рейл (рабочие зоны), запуск движков, ход работ ==== */
+else if(a=='rl'){document.querySelectorAll('#rail .item').forEach(function(x){x.classList.remove('on')});el.classList.add('on');showZone(el.getAttribute('data-val'))}
+else if(a=='jobsload'){rlJobs()}
+else if(a=='prun'){el.disabled=true;J('/prog_run',{token:TK,prog_id:el.getAttribute('data-val')}).then(function(r){el.disabled=false;var host=el.parentElement;host.insertAdjacentHTML('beforeend','<small style="color:#A6A8AB"> '+esc(((r||{}).text)||'?')+'</small>')}).catch(function(e){el.disabled=false;alert('ошибка: '+e)})}
+else if(a=='pstate'){var pid2=el.getAttribute('data-val');J('/prog_state',{token:TK,prog_id:pid2,tail:14}).then(function(r){var e2=document.getElementById('pst_'+pid2);if(e2){e2.style.display='block';e2.textContent=((r||{}).text)||'?'}}).catch(function(){var e2=document.getElementById('pst_'+pid2);if(e2){e2.style.display='block';e2.textContent='нужен перезапуск агента (AI_RESTART.bat)'}})}
+else if(a=='bupd'){if(!confirm('Обновить индекс дома (harvest) в фоне? Обычно ~20 секунд.'))return;J('/prog_run',{token:TK,prog_id:'harvest'}).then(function(r){alert(((r||{}).text)||'?');rlJobs()})}
 else if(a=='logout'){localStorage.removeItem('tk');localStorage.removeItem('usr');TK='';showLogin()}
 else if(a=='showpro'){J('/profile',{token:TK}).then(function(u){document.getElementById('proinfo').textContent=(u.display_name||'')+' · '+(u.role||'')+' · '+u.login;document.getElementById('pname').value=u.display_name||'';document.getElementById('pro').style.display='flex';document.getElementById('adm_btn').style.display=u.can_manage?'block':'none'})}
 else if(a=='closepro'){document.getElementById('pro').style.display='none'}
