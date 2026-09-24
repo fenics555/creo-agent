@@ -4,6 +4,26 @@ up [--browser] [--hidden] — идемпотентный пуск: подним�
 down — явный стоп. restart — down+up. status — таблица портов. --watch — сторож 60 сек."""
 import os, sys, time, socket, subprocess, datetime
 
+# ==== СКРЫТИЕ КОНСОЛЬНЫХ ОКОН (живая находка 24.09.2026 — «моргает синим») ====
+# Сторож дома (AI-WATCH -> pythonw ctl.py --watch) каждые 60 с вызывал _kill_stray_agents(),
+# а тот запускал PowerShell БЕЗ CREATE_NO_WINDOW: на экране раз в минуту вспыхивало окно PowerShell.
+# Патчим subprocess в СВОЁМ процессе: любой запуск из ctl.py идёт без окна.
+if not getattr(subprocess, "_nw_patched", False) and hasattr(subprocess, "CREATE_NO_WINDOW"):
+    _CNW = subprocess.CREATE_NO_WINDOW
+    _P0, _R0 = subprocess.Popen, subprocess.run
+
+    def _P_nw(*a, **kw):
+        kw.setdefault("creationflags", _CNW)
+        return _P0(*a, **kw)
+
+    def _R_nw(*a, **kw):
+        kw.setdefault("creationflags", _CNW)
+        return _R0(*a, **kw)
+
+    subprocess.Popen, subprocess.run = _P_nw, _R_nw
+    subprocess._nw_patched = True
+
+
 TOOLS = r"D:\AI\tools"
 AG = TOOLS + r"\agent"
 
