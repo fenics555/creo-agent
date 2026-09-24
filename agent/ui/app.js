@@ -69,9 +69,9 @@ var si=document.getElementById('psearch');if(si)si.addEventListener('input',func
 panel.querySelectorAll('.grp[data-gkey]').forEach(function(gr){var vis=0;gr.querySelectorAll('.tool').forEach(function(tl){var hit=!q||((tl.getAttribute('data-val')||'')+(tl.getAttribute('data-desc')||'')).toLowerCase().indexOf(q)>=0;tl.style.display=hit?'':'none';if(hit)vis++});n+=vis;gr.style.display=(q&&!vis)?'none':''});
 var f=document.getElementById('pfound');if(f)f.textContent=q?('найдено: '+n):''});
 loadReg();rlJobs()}
-function buildSettings(s){var MK=['llm_model','model_fast','model_trail','model_vision','model_index'];
+function buildSettings(s){var MK=['llm_model','model_chat','model_fast','model_creo','model_spec','model_trail','model_web','model_vision','model_index'];
 var hasMV=false;s.items.forEach(function(it){if(it.key=='model_vision')hasMV=true});
-var skip=function(it){return it.key=='model_chat'||(it.key=='vision_model'&&hasMV)};
+var skip=function(it){return (it.key=='vision_model'&&hasMV)};
 var find=function(k){var r=null;s.items.forEach(function(it){if(it.key==k)r=it});return r};
 var h='<div class="grp"><h4 data-act="fold" data-fkey="settings">▸ ⚙ НАСТРОЙКИ</h4><div class="gbody" data-gkey="settings" style="display:none"><h4 style="color:#4C8FD6">Модели и роли</h4>';
 MK.forEach(function(k){var it=find(k);if(!it)return;
