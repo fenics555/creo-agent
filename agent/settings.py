@@ -68,6 +68,8 @@ REGISTRY = [
     ("Главное", "steps_max", "steps_max", "int", 6, "Из config.json (авто-регистрация).", True),
     ("Сканер", "scan_roots", "scan_roots", "list", ["D:\\AI\\repo"], "Из config.json (авто-регистрация).", True),
     ("Сканер", "scan_exclude", "scan_exclude", "list", [".git\\", "__pycache__\\", "node_modules\\", "venv\\", ".venv\\", "backup\\", "old\\", "temp\\", "tmp\\", "cache\\", ".idea\\", ".vscode\\", "Thumbs.db", "desktop.ini", "*.tmp", "*.bak", "*~", "*.log", "*.sqlite", "*.db", "*.exe", "*.dll", "*.so", "*.o", "*.obj", "*.pyc", ".DS_Store"], "Из config.json (авто-регистрация).", True),
+    ("ИИ-роли", "ollama_keep_alive", "Держать модель в памяти", "str", "1h", "keep_alive Ollama: 1h/30m/-1 (всегда). Дом: одна модель на агент и Cline.", True),
+    ("ИИ-роли", "ollama_max_models", "Моделей в памяти, максимум", "int", 1, "1 = только одна модель в памяти (не роняем машину).", True),
     ("ИИ-роли", "model_index", "Модель индексации", "str", "nomic-embed-text:latest", "Эмбеддинги, без чата.", True),
     ("ИИ-роли", "model_chat", "Модель чата", "str", "", "Пусто = llm_model.", True),
     ("ИИ-роли", "model_fast", "Модель рутины", "str", "", "Быстрые/простые ходы.", True),
@@ -135,7 +137,7 @@ def list_ui():
          "chunk_size": (500, 4000, 250), "chunk_overlap": (0, 1000, 50),
          "repo_boost": (0.5, 3, 0.1), "repo_boost_min_sim": (0, 1, 0.05),
          "vision_gpu": (0, 64, 1), "max_file_mb": (1, 100, 1), "retention": (1, 30, 1),
-         "audit_limit": (1, 100, 1), "steps_max": (1, 16, 1), "think_mode": (0, 2, 1), "think_lines_max": (2, 30, 1), "hist_q_chars": (200, 4000, 100), "hist_a_chars": (200, 8000, 100),
+         "audit_limit": (1, 100, 1), "steps_max": (1, 16, 1), "think_mode": (0, 2, 1), "think_lines_max": (2, 30, 1), "ollama_max_models": (1, 4, 1), "hist_q_chars": (200, 4000, 100), "hist_a_chars": (200, 8000, 100),
          "web_quick_links": (0, 100, 1), "web_deep_pages": (0, 200, 5)}
     out = []
     for space, k, name, typ, defl, desc, ui in REGISTRY:

@@ -117,6 +117,14 @@ def boot_report():
     return "\n".join(lines)
 
 def post(u, p, t=600):
+    # ОДНА МОДЕЛЬ НА ДОМ: просим Ollama держать веса в памяти (иначе агент и Cline
+    # выбивают друг друга и каждая смена = минуты загрузки). Живое решение 24.09.2026.
+    if u in ("/api/chat", "/api/generate") and isinstance(p, dict) and "keep_alive" not in p:
+        try:
+            import settings as _st
+            p["keep_alive"] = _st.get("ollama_keep_alive") or "1h"
+        except Exception:
+            p["keep_alive"] = "1h"
     t0 = datetime.datetime.now().timestamp()
     try:
         r = urllib.request.Request(OLL + u, json.dumps(p).encode(), {"Content-Type": "application/json"})

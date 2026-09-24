@@ -56,6 +56,9 @@ def kill_pid(pidf):
 
 
 def start_ollama():
+    # ОДНА МОДЕЛЬ НА ДОМ (24.09.2026): держим веса в памяти, вторую модель не грузим.
+    os.environ.setdefault("OLLAMA_KEEP_ALIVE", "1h")
+    os.environ.setdefault("OLLAMA_MAX_LOADED_MODELS", "1")
     wd = TOOLS + r"\OLLAMA-WD.bat"
     if os.path.exists(wd):
         subprocess.Popen('cmd /c start "" /B "%s"' % wd, shell=True)

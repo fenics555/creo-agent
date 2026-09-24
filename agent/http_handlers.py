@@ -399,6 +399,11 @@ class Hd(BaseHTTPRequestHandler):
             self._j(_rn37.build_plan(old=b.get("old") or "", new=b.get("new") or "",
                                      drawings=b.get("drawings", 1)))
         elif p == "/setmodel":
+            # ЛИЧНЫЙ ВЫБОР МОДЕЛИ — ТОЛЬКО АДМИН (требование дома 24.09.2026: одна модель на дом,
+            # агент и Cline не должны гонять веса в память; случайная смена модель ломает это всем).
+            if not users.is_admin(cl):
+                self._j({"error": "смена модели — только админ"}, 403)
+                return
             import panel as _pn
             ok_names = _pn.models()
             want = b.get("model") or ""
@@ -408,6 +413,9 @@ class Hd(BaseHTTPRequestHandler):
             settings.set_val("llm_model", want)
             self._j({"ok": True})
         elif p == "/setauto":
+            if not users.is_admin(cl):
+                self._j({"error": "настройки — только админ"}, 403)
+                return
             settings.set_val("auto_mode", 1 if b.get("on") else 0); self._j({"ok": True})
         elif p == "/feedback":
             try:

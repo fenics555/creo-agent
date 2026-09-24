@@ -52,8 +52,9 @@ var h='<div class="grp"><h4 data-act="fold" data-fkey="state">▸ 🖥 СОСТ�
 h+='<div class="grp"><input id="psearch" placeholder="поиск инструмента…"><small id="pfound" style="color:#A6A8AB"></small></div>';
 h+='<div class="grp"><h4 data-act="fold">▸ ⚙ ДЕЙСТВИЯ (без ИИ)</h4><div class="gbody" style="display:none">';
 (p.actions||[]).forEach(function(a){h+='<div class="tool" data-act="act" data-val="'+a.endpoint+'"><b>'+esc(a.label)+'</b></div>'});h+='</div></div>';
-h+='<div class="grp"><h4 data-act="fold">▸ 🧠 МОДЕЛЬ ИИ (клик — смена)</h4><div class="gbody" style="display:none">';
-(p.models||[]).forEach(function(m){h+='<div class="tool" data-act="setm" data-val="'+att(m)+'">'+esc(m)+(m==CURM?' ←':'')+'</div>'});h+='</div></div>';
+h+='<div class="grp"><h4 data-act="fold">▸ 🧠 МОДЕЛЬ ИИ'+(((window.ST||{}).is_manager)?' (клик — смена)':' (смена — только админ)')+'</h4><div class="gbody" style="display:none">';
+var pnMan=!!((window.ST||{}).is_manager);
+(p.models||[]).forEach(function(m){h+='<div class="tool"'+(pnMan?' data-act="setm" data-val="'+att(m)+'"':'')+'>'+esc(m)+(m==CURM?' ←':'')+'</div>'});h+='</div></div>';
 h+='<div class="grp"><h4 data-act="fold">▸ ⚡ БЫСТРЫЕ ЗАДАЧИ</h4><div class="gbody" style="display:none">';
 (p.chips||[]).forEach(function(c){h+='<div class="tool" data-act="chip" data-val="'+att(c)+'">'+esc(c)+'</div>'});h+='</div></div>';
 h+='<div class="grp"><h4 data-act="fold">▸ 🧹 ОЧИСТКА</h4><div class="gbody" style="display:none"><div class="tool" data-act="open_purge"><b style="color:#4C8FD6">🧹 Мастер очистки</b></div></div></div>';
@@ -87,7 +88,10 @@ if(it.kind=='range'){h+=`<div class="row"><input type="range" data-cfg="${att(it
 else if(it.kind=='check'){h+=`<input type="checkbox" data-cfg="${att(it.key)}" ${it.value?'checked':''}>`;}
 else{h+=`<input data-cfg="${att(it.key)}" value="${att(String(it.value))}" style="width:100%">`;}
 h+='</div>';});
-h+='</div></div>';panel.querySelectorAll('.grp').forEach(g=>{if(g.textContent.includes('НАСТРОЙКИ'))g.remove()});panel.innerHTML+=h}
+h+='</div></div>';panel.querySelectorAll('.grp').forEach(g=>{if(g.textContent.includes('НАСТРОЙКИ'))g.remove()});panel.innerHTML+=h;
+if(!((window.ST||{}).is_manager)){panel.querySelectorAll('[data-cfg]').forEach(function(e){e.disabled=true;e.title='только админ'});
+if(!document.getElementById('setnote')){var _n=document.createElement('div');_n.className='log';_n.id='setnote';
+_n.textContent='⚙ Модель и параметры меняет только админ: дом держит ОДНУ модель для агента и Cline.';panel.insertBefore(_n,panel.firstChild)}}}
 /* ==== ВАРИАНТ 2 (выбран 24.09.2026): рабочая зона «Программы»/«Базы» + ход работ ==== */
 function rlNeed(){return '<div class="grp" style="border-color:#E8912D"><h4 style="color:#E8912D">⚠ нужен перезапуск агента</h4><small style="color:#A6A8AB">Маршруты /api/programs, /api/bases, /api/jobs появятся после AI_RESTART.bat. Пока вариант можно смотреть во временном предпросмотре: http://127.0.0.1:8799/</small></div>'}
 function rlProgCard(p){var kk=(p.klass=='Ж')?'#E8912D':(p.klass=='Г'?'#8AA8E8':'#86BC43');
