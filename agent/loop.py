@@ -120,7 +120,7 @@ def _role_check(client, tool):
 HOSTNAME = socket.gethostname()
 PENDING = {}
 LIVE = {}
-LAST_META = {"p": 0, "r": 0}
+LAST_META = {"p": 0, "r": 0, "think_block": "", "think_native": "", "cut": False}
 UI_FILE = os.path.join(os.path.dirname(os.path.abspath(__file__)), "ui", "index.html")
 _UI_CACHE = [0, b""]
 STUB_PAGE = ("<html><head><meta charset='utf-8'><title>АГЕНТ v15</title></head>"
@@ -299,6 +299,24 @@ def parse_model(text):
             try: args = json.loads(mm.group(2))
             except Exception: args = {}
             return "tool", mm.group(1), args, think_text
+    # ТЕРПИМОСТЬ К ФОРМАТУ (у моделей разный стиль вывода — ловим все встречавшиеся варианты):
+    #  <ANSWER>…</ANSWER>, строка «ОТВЕТ: …», а также ответ/вызов инструмента внутри ```json.
+    m = re.search(r"<ANSWER>\s*(.*?)\s*</ANSWER>", text, re.S)
+    if m: return "answer", m.group(1).strip(), None, think_text
+    m = re.search(r"^\s*(?:ОТВЕТ|ANSWER)\s*[:：]\s*(.+)$", text, re.S | re.M)
+    if m: return "answer", m.group(1).strip(), None, think_text
+    m = re.search(r"```(?:json)?\s*(\{.*?\})\s*```", text, re.S)
+    if m:
+        try:
+            _j = json.loads(m.group(1))
+            if isinstance(_j, dict):
+                _nm = str(_j.get("tool") or _j.get("name") or "")
+                if _nm and TR.get(_nm):
+                    return "tool", _nm, {k: v for k, v in _j.items() if k not in ("tool", "name")}, think_text
+                if _j.get("answer"):
+                    return "answer", str(_j["answer"]), None, think_text
+        except Exception:
+            pass
     m = re.search(r"\[ANSWER\]\s*(.*?)\[/ANSWER\]", text, re.S)
     if m: return "answer", m.group(1).strip(), None, think_text
     if "[ANSWER]" in text and "[/ANSWER]" not in text:
@@ -343,7 +361,7 @@ def run_loop(messages, client, has_link=False, on_step=None, opts_and_steps=None
         opts, steps_max = opts_and_steps
     else:
         opts, steps_max = beh()
-    LAST_META.update(p=0, r=0)
+    LAST_META.update(p=0, r=0, think_block="", think_native="", cut=False)
     steps_log, last_res, sig_prev, invalid_cnt = [], "", None, 0
 
     def _log(line): steps_log.append(line); LIVE.setdefault(client, []).append(line)
@@ -365,8 +383,19 @@ def run_loop(messages, client, has_link=False, on_step=None, opts_and_steps=None
         raw = (r.get("message") or {}).get("content") or ""
         try: LAST_META["p"] += r.get("prompt_eval_count") or 0; LAST_META["r"] += r.get("eval_count") or 0
         except Exception: pass
+        if (r.get("done_reason") or "") == "length":
+            # ЖИВАЯ НАХОДКА 24.09.2026: модель упиралась в лимит, а в окне это выглядело просто «обрезком».
+            LAST_META["cut"] = True
+            _log("⚠ упёрлись в лимит генерации — подними «Макс токенов ответа» (настройки, только админ)")
         kind, payload, args, think = parse_model(raw)
-        think = think or (((r.get("message") or {}).get("thinking") or "").strip())
+        # Мысли собираем из ДВУХ источников и ничего не выбрасываем:
+        #  блок [THINK] из ответа (русский план) и служебный канал модели (message.thinking).
+        if think:
+            LAST_META["think_block"] = think
+        native = ((r.get("message") or {}).get("thinking") or "").strip()
+        if native:
+            LAST_META["think_native"] = native
+        think = think or native
         if kind == "answer" and (_refusal(payload) or (len(payload) < 80 and payload.strip().lower() in _NUDGE.lower())):
             _log("refusal/echo_guard"); kind, payload = "invalid", raw
         if kind == "answer":
@@ -565,6 +594,16 @@ def ask(q, client, image=None, on_step=None, mode=None):
         pass
     if int(settings.get("log_mode") or 1) >= 1:
         r.setdefault("log", []).append("⏱ %dмс · 🔢 %d ток (промт %d + ответ %d) · шагов: %d" % (int((time.time() - _ta) * 1000), LAST_META["p"] + LAST_META["r"], LAST_META["p"], LAST_META["r"], r.get("steps", 1)))
+    if LAST_META.get("cut"):
+        r.setdefault("log", []).append("⚠ ОБРЕЗАНО лимитом токенов — увеличь «Макс токенов ответа» в настройках (только админ)")
+    # Мысли отдаём в окно ДВУМЯ полями, чтобы ничего не терялось:
+    #  think       — служебный канал модели (как правило, по-английски),
+    #  think_block — блок [THINK] из ответа (по-русски, по нашим правилам).
+    r["think_block"] = LAST_META.get("think_block") or ""
+    if not r.get("think"):
+        r["think"] = LAST_META.get("think_native") or ""
+    r["think_native"] = LAST_META.get("think_native") or ""
+    r["cut"] = bool(LAST_META.get("cut"))
     c = core.db()
     c.execute("INSERT INTO history(client,q,a,ts) VALUES(?,?,?,?)", (client, q, r["answer"][:2000], datetime.datetime.now().isoformat()))
     c.commit(); c.close()

@@ -52,8 +52,7 @@ def _balance(src):
     return js_balance.balance(src)
 
 
-for _f in (UI / 'app.js', UI / 'index.html', UI / 'variants' / 'live.js',
-           UI / 'variants' / 'v1_tabs.html', UI / 'variants' / 'v2_side.html', UI / 'variants' / 'v3_pult.html'):
+for _f in (UI / 'app.js', UI / 'index.html'):
     if not _f.exists():
         print('НЕТ ФАЙЛА: %s' % _f)
         bad = True
@@ -62,6 +61,13 @@ for _f in (UI / 'app.js', UI / 'index.html', UI / 'variants' / 'live.js',
     if _err:
         print('%s: JS не сбалансирован — %s' % (_f.name, _err))
         bad = True
+# Макеты трёх раскладок перенесены в _legacy\ui_variants (24.09.2026): вид переключается в боевом окне.
+for _f in (_P(r'D:\AI\tools\agent\_legacy\ui_variants') / 'live.js',):
+    if _f.exists():
+        _err = _balance(_js_parts(_f))
+        if _err:
+            print('_legacy/%s: JS не сбалансирован — %s' % (_f.name, _err))
+            bad = True
 
 _idx = (UI / 'index.html').read_text(encoding='utf-8', errors='replace')
 _app = (UI / 'app.js').read_text(encoding='utf-8', errors='replace')

@@ -10,6 +10,9 @@ var chat=document.getElementById('chat'),panel=document.getElementById('panel'),
 qinp=document.getElementById('q'),login=document.getElementById('login'),
 hdr=document.getElementById('hdr'),lg=document.getElementById('lg'),pw=document.getElementById('pw');
 function J(u,b){return fetch(u,{method:b?'POST':'GET',headers:{'Content-Type':'application/json','X-Token':TK||''},body:b?JSON.stringify(b):undefined}).then(function(r){return r.json()})}
+/* ОТПРАВКА ПО ENTER (живая находка 24.09.2026: обработчика не было вообще — Enter «не реагировал»).
+   Shift+Enter оставлен для переноса (если поле станет многострочным). */
+if(qinp){qinp.addEventListener('keydown',function(e){if(e.key==='Enter'&&!e.shiftKey){e.preventDefault();send()}})}
 function esc(s){return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;')}
 function att(s){return esc(s).replace(new RegExp('"', 'g'),'&quot;')}
 
@@ -21,7 +24,9 @@ var LV=0,LT=setInterval(function(){J('/livesteps?last='+LV).then(function(g){(g.
 var THI=0,THB=null,TT=setInterval(function(){J('/livethink?last='+THI).then(function(g){(g.toks||[]).forEach(function(t){THI++;if(!THB){THB=document.createElement('div');THB.className='thinkbody';d.appendChild(THB);}THB.textContent+=t;chat.scrollTop=chat.scrollHeight;});});},700);
 J('/ask',{token:TK,q:q,image:IMG}).then(function(r){d._query=q;clearInterval(LT);clearInterval(ST2);clearInterval(TT);if(sp)sp.style.display='none';if(r&&r.error){localStorage.removeItem('tk');TK='';showLogin();d.innerHTML='⚠ нужен вход';return}IMG=null;render(d,r)}).catch(function(e){clearInterval(LT);clearInterval(ST2);clearInterval(TT);if(sp)sp.style.display='none';d.innerHTML='ошибка: '+esc(e)})}
 function render(d,r){var h='';render._dseen={};
-if(r.think)h+='<div class="think" data-act="think">🧠 размышления (клик — '+String(r.think).length+' знаков)</div><div class="thinkbody" style="display:none">'+esc(r.think)+'</div>';
+if(r.think)h+='<div class="think" data-act="think">🧠 мысли модели (служебный канал, клик — '+String(r.think).length+' знаков)</div><div class="thinkbody" style="display:none">'+esc(r.think)+'</div>';
+if(r.think_block&&r.think_block!==r.think)h+='<div class="think" data-act="think">🧩 размышления по-русски (блок [THINK], клик — '+String(r.think_block).length+' знаков)</div><div class="thinkbody" style="display:none">'+esc(r.think_block)+'</div>';
+if(r.cut)h+='<div class="log" style="color:#E8912D">⚠ ответ упёрся в лимит токенов — подними «Макс токенов ответа» в настройках (только админ)</div>';
 if(r.log&&r.log.length&&(window.CFG||{}).show_steps!==0)h+=`<div class="log">🔎 ХОД РАБОТЫ:
 ${r.log.map(esc).join(String.fromCharCode(10))}</div>`; // 10 = newline
 var atxt=esc(String(r.answer).replace(new RegExp('[<][/]?think[>]', 'g'),''));
@@ -74,7 +79,7 @@ function buildSettings(s){var MK=['llm_model','model_chat','model_fast','model_c
 var hasMV=false;s.items.forEach(function(it){if(it.key=='model_vision')hasMV=true});
 var skip=function(it){return (it.key=='vision_model'&&hasMV)};
 var find=function(k){var r=null;s.items.forEach(function(it){if(it.key==k)r=it});return r};
-var h='<div class="grp"><h4 data-act="fold" data-fkey="settings">▸ ⚙ НАСТРОЙКИ</h4><div class="gbody" data-gkey="settings" style="display:none"><h4 style="color:#4C8FD6">Модели и роли</h4>';
+var h='<div class="grp"><h4 data-act="fold" data-fkey="settings">▸ ⚙ НАСТРОЙКИ (модель, длина ответа, мысли, история, окно)</h4><div class="gbody" data-gkey="settings" style="display:none"><h4 style="color:#4C8FD6">Модели и роли</h4>';
 MK.forEach(function(k){var it=find(k);if(!it)return;
 h+='<div class="tool"><small>'+esc(it.name)+'</small><select data-cfg="'+att(k)+'" style="width:100%">';
 if(k!='llm_model')h+='<option value=""'+(String(it.value)==''?' selected':'')+'>— как чат —</option>';
