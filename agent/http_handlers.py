@@ -427,6 +427,10 @@ class Hd(BaseHTTPRequestHandler):
             settings.set_val(b.get("key"), b.get("value")); _SYS_CACHE.clear(); self._j({"ok": True})
         elif p == "/snap":
             self._j({"msg": "скриншот принимается через Ctrl+V в поле ввода"})
+        elif p == "/prog_state":
+            self._j({"text": prog_tools.prog_state(b.get("prog_id") or "", b.get("tail") or 20)})
+        elif p == "/prog_run":
+            self._j({"text": prog_tools.prog_run(b.get("prog_id") or "", b.get("args") or "")})
         elif p == "/rescan" or p == "/scan":
             # Запуск через prog_tools: движок идёт в фон, а дом получает строки в ОБЩИЙ ЖУРНАЛ РАБОТ
             # («запущено в фоне» … «завершено …»). Раньше был прямой Popen и в журнале ничего не оставалось.
