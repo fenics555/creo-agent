@@ -26,8 +26,11 @@ def tool_vision_analyze(q="", **kw):
     f = files[-1]
     prompt = (q or "Опиши, что на скриншоте: окна, модели, ошибки, кнопки. Кратко и по делу.")
     
-    # New candidate logic
-    raw_candidates = [settings.get("vision_model") or "minicpm-v:8b", "minicpm-v:8b", "gemma4:26b"]
+    # ЖИВАЯ НАХОДКА 24.09.2026: здесь первым брался СКРЫТЫЙ ключ vision_model (в нём по умолчанию
+    # неустановленный qwen2-vl:7b), из-за чего визия каждый раз пробовала несуществующую модель.
+    # Правильный порядок: настроенная роль model_vision -> старый vision_model -> запасные.
+    _vm = settings.get("model_vision") or settings.get("vision_model") or "gemma4:12b"
+    raw_candidates = [_vm, "gemma4:12b", "gemma4:26b"]
     candidates = []
     for c in raw_candidates:
         if c not in candidates:
