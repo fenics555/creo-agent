@@ -2,7 +2,5 @@
 D:\AI\repo
 <WORK_ROOT>
 D:\AI\ИЗУЧИТЬ
-D:\AI\PROBA
 <CREO_START>
-D:\AI\ПРОБА
 
