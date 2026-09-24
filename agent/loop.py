@@ -42,7 +42,7 @@ def _stream_post(path, payload, *ar, **kw):
     thparts = []
     req = _ur.Request(core.OLL + path, data=json.dumps(payload).encode(), headers={"Content-Type": "application/json"})
     try:
-        with _ur.urlopen(req, timeout=600) as resp:
+        with _ur.urlopen(req, timeout=_llm_t()) as resp:
             for line in resp:
                 line = line.strip()
                 if not line: continue
@@ -247,6 +247,16 @@ def _npred():
     return base
 
 
+def _llm_t():
+    """Таймаут ОДНОГО ответа модели, секунд.
+    Живой урок 24.09.2026: зациклившаяся модель молотила минутами (GPU занят, результата нет).
+    Теперь у каждого вызова к модели есть предел времени — дом честно скажет и не будет жечь впустую."""
+    try:
+        return max(30, int(settings.get("llm_timeout") or 240))
+    except Exception:
+        return 240
+
+
 def _native_think():
     """Нужен ли СЛУЖЕБНЫЙ канал размышлений Ollama (message.thinking).
     Живая находка 24.09.2026: этот канал модель пишет ПО-АНГЛИЙСКИ и он же съедал лимит ответа.
@@ -386,12 +396,16 @@ def run_loop(messages, client, has_link=False, on_step=None, opts_and_steps=None
                 if invalid_cnt: use_opts = dict(use_opts, temperature=0)
                 _thk = _native_think()
                 r = core.post("/api/chat", {"model": settings.model_for("chat"),
-                                            "stream": False, "think": _thk, "options": use_opts, "messages": messages}, t=600)
+                                            "stream": False, "think": _thk, "options": use_opts, "messages": messages}, t=_llm_t())
                 break
             except Exception as e:
                 if attempt == 1 and "500" in str(e):
                     time.sleep(2); continue
-                return {"answer": _clean("ошибка модели: %s" % e), "think": "", "steps": step + 1, "log": steps_log}
+                _em = str(e)
+                if "timed out" in _em.lower() or "timeout" in _em.lower():
+                    _em = ("модель не уложилась в отведённое время (%d с) — похоже, зациклилась. "
+                           "Уменьши «Длина ответа (токенов)» или выбери модель попроще." % _llm_t())
+                return {"answer": _clean("ошибка модели: %s" % _em), "think": "", "steps": step + 1, "log": steps_log}
         raw = (r.get("message") or {}).get("content") or ""
         try: LAST_META["p"] += r.get("prompt_eval_count") or 0; LAST_META["r"] += r.get("eval_count") or 0
         except Exception: pass
@@ -552,7 +566,7 @@ def ask(q, client, image=None, on_step=None, mode=None):
             "think": _native_think(),
             "options": opts,
             "messages": messages,
-        }, t=600)
+        }, t=_llm_t())
         return {
             "answer": _clean(r.get("message", {}).get("content", "")),
             "think": r.get("message", {}).get("thinking", ""),
