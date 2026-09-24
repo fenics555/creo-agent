@@ -7,7 +7,8 @@ import ctypes, time, datetime, traceback
 from ctypes import wintypes
 from pathlib import Path
 
-OUT = Path(r"D:\AI\log\reports\window_watch.txt")
+OUT = Path(r"D:\AI\log\urn\cline\flicker\window_watch.txt")   # урна: вывод пробы — не отчёт (правило дома 24.09.2026)
+OUT.parent.mkdir(parents=True, exist_ok=True)
 u32 = ctypes.windll.user32
 PROC = ctypes.WINFUNCTYPE(ctypes.c_bool, wintypes.HWND, wintypes.LPARAM)
 

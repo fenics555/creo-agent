@@ -6,7 +6,8 @@ sys.path.insert(0, r"D:\AI\tools\agent")
 os.chdir(r"D:\AI\tools\agent")
 import loop
 
-OUT = r"D:\AI\PROBA\agent_live_test2.txt"
+OUT = r"D:\AI\log\urn\cline\live\agent_live_test2.txt"   # урна: вывод пробы — не отчёт (правило дома 24.09.2026)
+os.makedirs(os.path.dirname(OUT), exist_ok=True)
 QUESTIONS = [
     "найди деталь расв_002_8654_040_001 — что это за деталь и есть ли она у нас? посмотри её массу, если получится",
     "найди сборку 1040-954-35 и скажи, что в неё входит",

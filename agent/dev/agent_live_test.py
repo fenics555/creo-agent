@@ -6,7 +6,8 @@ sys.path.insert(0, r"D:\AI\tools\agent")
 os.chdir(r"D:\AI\tools\agent")
 import loop
 
-OUT = r"D:\AI\PROBA\agent_live_test.txt"
+OUT = r"D:\AI\log\urn\cline\live\agent_live_test.txt"   # урна: вывод пробы — не отчёт (правило дома 24.09.2026)
+os.makedirs(os.path.dirname(OUT), exist_ok=True)
 QUESTIONS = [
     "как дела? что ты умеешь?",
     "какие у тебя есть скилы по Creo? какие скилы по CREOSON? перечисли коротко, по-русски",

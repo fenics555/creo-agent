@@ -4,7 +4,8 @@ r"""ЛОВУШКА МОРГАНИЯ: 3 минуты пишем (1) смену а
 import ctypes, subprocess, time, datetime, traceback
 from pathlib import Path
 
-OUT = Path(r"D:\AI\log\reports\flicker_catch.txt")
+OUT = Path(r"D:\AI\log\urn\cline\flicker\flicker_catch.txt")   # урна: вывод пробы — не отчёт (правило дома 24.09.2026)
+OUT.parent.mkdir(parents=True, exist_ok=True)
 u32 = ctypes.windll.user32
 NAMES = ("cmd", "conhost", "wscript", "cscript", "powershell", "pwsh", "java", "xtop",
          "parametric", "ollama", "msedge", "browser", "yandex", "python", "pythonw", "wermgr", "WerFault")

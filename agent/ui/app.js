@@ -13,6 +13,8 @@ function J(u,b){return fetch(u,{method:b?'POST':'GET',headers:{'Content-Type':'a
 /* ОТПРАВКА ПО ENTER (живая находка 24.09.2026: обработчика не было вообще — Enter «не реагировал»).
    Shift+Enter оставлен для переноса (если поле станет многострочным). */
 if(qinp){qinp.addEventListener('keydown',function(e){if(e.key==='Enter'&&!e.shiftKey){e.preventDefault();send()}})}
+/* Esc = СТОП (та же живая просьба 24.09.2026: «передумал — а он всё пишет») */
+document.addEventListener('keydown',function(e){if(e.key==='Escape'&&CUR_ABORT)stopAsk()});
 /* СОХРАНЕНИЕ НАСТРОЕК ИЗ ОКНА (живая находка 24.09.2026: обработчика НЕ БЫЛО — «что ни поставь,
    ничего не меняется»). change — сохраняем на сервере, input — сразу показываем число у ползунка. */
 function cfgNote(txt,okf){var n=document.getElementById('cfgnote');
@@ -31,11 +33,17 @@ function att(s){return esc(s).replace(new RegExp('"', 'g'),'&quot;')}
 
 function addMsg(html,me){var d=document.createElement('div');d.className='msg'+(me?' me':'');var t=new Date().toLocaleTimeString([], {hour:'2-digit',minute:'2-digit',hour12:false});d.innerHTML='<small style="color:#A6A8AB;margin-right:5px;">'+t+'</small>'+html;chat.appendChild(d);chat.scrollTop=chat.scrollHeight;return d}
 function showLogin(){login.style.display='flex';hdr.textContent='';panel.innerHTML=''}
-function send(){var q=qinp.value;if(!q)return;qinp.value='';addMsg(esc(q),true);var d=addMsg('🤔 думаю...');var sp=document.getElementById('spin');if(sp)sp.style.display='inline-block';
+var CUR_ABORT=null,CUR_TIMERS=[];
+/* СТОП ОТ ЧЕЛОВЕКА (живая просьба хозяина 24.09.2026: «задал вопрос — передумал, а он всё пишет»).
+   Рвём и запрос из окна (abort), и саму генерацию на сервере (/ask_cancel). */
+function stopAsk(msg){if(CUR_ABORT){try{CUR_ABORT.abort()}catch(e){}}CUR_ABORT=null;J('/ask_cancel',{token:TK}).catch(function(){});CUR_TIMERS.forEach(function(t){clearInterval(t)});CUR_TIMERS=[];var sp=document.getElementById('spin');if(sp)sp.style.display='none';addMsg('⏹ '+(msg||'остановлено по твоей команде'))}
+function send(){var q=qinp.value;if(!q)return;qinp.value='';addMsg(esc(q),true);var d=addMsg('🤔 думаю... <button class="sec" data-act="stop" style="padding:1px 8px;margin-left:6px" title="остановить генерацию (Esc)">■ СТОП</button>');var sp=document.getElementById('spin');if(sp)sp.style.display='inline-block';
+CUR_ABORT=(typeof AbortController!=='undefined')?new AbortController():null;
 var TKI=0,ST2=setInterval(function(){J('/livetoks?last='+TKI).then(function(g){(g.toks||[]).forEach(function(t){TKI++;var s=d.querySelector('.stream')||(function(){var e=document.createElement('div');e.className='stream';d.appendChild(e);return e})();s.textContent+=t;chat.scrollTop=chat.scrollHeight;});});},120);
 var LV=0,LT=setInterval(function(){J('/livesteps?last='+LV).then(function(g){(g.lines||[]).forEach(function(l){LV++;var lg=d.querySelector('.live')||(function(){var e=document.createElement('div');e.className='log live';d.appendChild(e);return e})();lg.textContent+=String.fromCharCode(10)+'· '+l;chat.scrollTop=chat.scrollHeight;});});},700); // 10 = newline
 var THI=0,THB=null,TT=setInterval(function(){J('/livethink?last='+THI).then(function(g){(g.toks||[]).forEach(function(t){THI++;if(!THB){THB=document.createElement('div');THB.className='thinkbody';d.appendChild(THB);}THB.textContent+=t;chat.scrollTop=chat.scrollHeight;});});},700);
-J('/ask',{token:TK,q:q,image:IMG}).then(function(r){d._query=q;clearInterval(LT);clearInterval(ST2);clearInterval(TT);if(sp)sp.style.display='none';if(r&&r.error){localStorage.removeItem('tk');TK='';showLogin();d.innerHTML='⚠ нужен вход';return}IMG=null;render(d,r)}).catch(function(e){clearInterval(LT);clearInterval(ST2);clearInterval(TT);if(sp)sp.style.display='none';d.innerHTML='ошибка: '+esc(e)})}
+CUR_TIMERS=[ST2,LT,TT];
+fetch('/ask',{method:'POST',headers:{'Content-Type':'application/json','X-Token':TK||''},body:JSON.stringify({token:TK,q:q,image:IMG}),signal:CUR_ABORT?CUR_ABORT.signal:undefined}).then(function(rr){return rr.json()}).then(function(r){d._query=q;CUR_TIMERS.forEach(function(t){clearInterval(t)});CUR_TIMERS=[];CUR_ABORT=null;if(sp)sp.style.display='none';if(r&&r.error){localStorage.removeItem('tk');TK='';showLogin();d.innerHTML='⚠ нужен вход';return}IMG=null;render(d,r)}).catch(function(e){CUR_TIMERS.forEach(function(t){clearInterval(t)});CUR_TIMERS=[];CUR_ABORT=null;if(sp)sp.style.display='none';if(e&&e.name==='AbortError'){if(d&&d.parentElement)d.parentElement.removeChild(d);return}d.innerHTML='ошибка: '+esc(e)})}
 function render(d,r){var h='';render._dseen={};
 if(r.think)h+='<div class="think" data-act="think">🧠 мысли модели (служебный канал, клик — '+String(r.think).length+' знаков)</div><div class="thinkbody" style="display:none">'+esc(r.think)+'</div>';
 if(r.think_block&&r.think_block!==r.think)h+='<div class="think" data-act="think">🧩 размышления по-русски (блок [THINK], клик — '+String(r.think_block).length+' знаков)</div><div class="thinkbody" style="display:none">'+esc(r.think_block)+'</div>';
@@ -218,6 +226,7 @@ else if(a=='w_rename'){var o=document.getElementById('w_old').value,n=document.g
 else if(a=='w_audit'){document.getElementById('wiz').style.display='none';qinp.value='creo_audit_folder';send()}
 else if(a=='w_usage'){document.getElementById('wiz').style.display='none';qinp.value='usage_build full=1';send()}
 else if(a=='w_night'){document.getElementById('wiz').style.display='none';qinp.value='nightly_run';send()}
+else if(a=='stop'){stopAsk()}
 else if(a=='snap')J('/snap',{token:TK}).then(function(r){addMsg(esc(r.msg||'ок'))});
 else if(a=='showlog'){fetch('/log',{headers:{'X-Token':TK||''}}).then(r=>r.text()).then(t=>addMsg('<div class="log">'+esc(t)+'</div>'))}
 else if(a=='panel')panel.style.display=panel.style.display=='none'?'block':'none';

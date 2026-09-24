@@ -44,6 +44,9 @@ def _stream_post(path, payload, *ar, **kw):
     try:
         with _ur.urlopen(req, timeout=_llm_t()) as resp:
             for line in resp:
+                if _cancel_here():          # человек нажал СТОП: рвём поток — Ollama прекращает генерацию
+                    state["cancelled"] = True
+                    break
                 line = line.strip()
                 if not line: continue
                 try: j = json.loads(line)
@@ -74,6 +77,8 @@ def _stream_post(path, payload, *ar, **kw):
         p2 = dict(payload); p2["stream"] = False
         return _orig_core_post(path, p2, *ar, **kw)
     r = {"message": {"content": "".join(parts), "thinking": "".join(thparts)}}
+    if state.get("cancelled"):
+        r["_cancelled"] = True
     for _kk in ("prompt_eval_count", "eval_count", "prompt_eval_duration", "eval_duration"):
         if _kk in lastj: r[_kk] = lastj[_kk]
     return r
@@ -121,6 +126,28 @@ HOSTNAME = socket.gethostname()
 PENDING = {}
 LIVE = {}
 LAST_META = {"p": 0, "r": 0, "think_block": "", "think_native": "", "cut": False}
+
+# ==== СТОП ОТ ЧЕЛОВЕКА (живая просьба хозяина 24.09.2026: «задал вопрос — передумал, а он всё пишет») ====
+CANCEL = {}          # client -> True: человек нажал «■ СТОП» в окне
+
+
+def cancel(client):
+    """Просьба человека: остановить текущий ответ."""
+    CANCEL[str(client)] = True
+    return True
+
+
+def _cancelled(client):
+    return bool(CANCEL.get(str(client)))
+
+
+def _cancel_here():
+    """Отменён ли ход в ЭТОМ потоке (поток знает клиента через _tokclient)."""
+    try:
+        return _cancelled(getattr(threading.current_thread(), "_tokclient", "") or "")
+    except Exception:
+        return False
+
 UI_FILE = os.path.join(os.path.dirname(os.path.abspath(__file__)), "ui", "index.html")
 _UI_CACHE = [0, b""]
 STUB_PAGE = ("<html><head><meta charset='utf-8'><title>АГЕНТ v15</title></head>"
@@ -398,6 +425,10 @@ def run_loop(messages, client, has_link=False, on_step=None, opts_and_steps=None
     def _log(line): steps_log.append(line); LIVE.setdefault(client, []).append(line)
 
     for step in range(steps_max):
+        if _cancelled(client):      # ■ СТОП: человек передумал ещё до начала хода
+            _log("⏹ остановлено человеком")
+            return {"answer": "⏹ остановлено по твоей команде", "think": "", "steps": step,
+                    "log": steps_log, "cancelled": True}
         r = None
         for attempt in (1, 2):
             try:
@@ -416,6 +447,13 @@ def run_loop(messages, client, has_link=False, on_step=None, opts_and_steps=None
                            "Уменьши «Длина ответа (токенов)» или выбери модель попроще." % _llm_t())
                 return {"answer": _clean("ошибка модели: %s" % _em), "think": "", "steps": step + 1, "log": steps_log}
         raw = (r.get("message") or {}).get("content") or ""
+        if r.get("_cancelled") or _cancelled(client):
+            # ■ СТОП: поток к Ollama разорван; недоделанный ответ не исполняем как инструмент
+            part = _clean(raw)
+            _log("⏹ остановлено человеком")
+            return {"answer": (part + "\n\n" if part else "") + "⏹ остановлено по твоей команде",
+                    "think": LAST_META.get("think_native") or "", "steps": step + 1,
+                    "log": steps_log, "cancelled": True}
         try: LAST_META["p"] += r.get("prompt_eval_count") or 0; LAST_META["r"] += r.get("eval_count") or 0
         except Exception: pass
         if (r.get("done_reason") or "") == "length":
@@ -513,6 +551,7 @@ def run_loop(messages, client, has_link=False, on_step=None, opts_and_steps=None
 
 
 def ask(q, client, image=None, on_step=None, mode=None):
+    CANCEL.pop(str(client), None)      # новый вопрос снимает старый «СТОП», иначе он глушил бы следующий ответ
     # 1. Determine mode
     eff_mode = 1
     if mode in (1, 2):
@@ -563,6 +602,8 @@ def ask(q, client, image=None, on_step=None, mode=None):
 
     # 3. If mode 2, handle it immediately
     if eff_mode == 2:
+        if _cancelled(client):
+            return {"answer": "⏹ остановлено по твоей команде", "think": "", "steps": 1, "log": ["chat_mode"]}
         q2 = VI.attach(q, image, client)
         messages = [{"role": "system", "content": build_system(mode=2)}] + hist_block(client) + [{"role": "user", "content": q2}]
         opts, _ = beh()
@@ -576,6 +617,10 @@ def ask(q, client, image=None, on_step=None, mode=None):
             "options": opts,
             "messages": messages,
         }, t=_llm_t())
+        if r.get("_cancelled") or _cancelled(client):
+            # ■ СТОП в чат-режиме: генерацию не рвём (здесь нет стрима), но недоделанный ответ не отдаём
+            return {"answer": "⏹ остановлено по твоей команде", "think": "", "steps": 1,
+                    "log": ["chat_mode", "⏹ остановлено человеком"]}
         return {
             "answer": _clean(r.get("message", {}).get("content", "")),
             "think": r.get("message", {}).get("thinking", ""),
@@ -639,6 +684,10 @@ def ask(q, client, image=None, on_step=None, mode=None):
         r["think"] = LAST_META.get("think_native") or ""
     r["think_native"] = LAST_META.get("think_native") or ""
     r["cut"] = bool(LAST_META.get("cut"))
+    if r.get("cancelled"):
+        # ■ СТОП: недоделанный обмен в историю не пишем — иначе он попадёт в контекст следующего вопроса
+        r.setdefault("log", []).append("⏹ остановлено человеком (в историю не записано)")
+        return r
     c = core.db()
     c.execute("INSERT INTO history(client,q,a,ts) VALUES(?,?,?,?)", (client, q, r["answer"][:2000], datetime.datetime.now().isoformat()))
     c.commit(); c.close()

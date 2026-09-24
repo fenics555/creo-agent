@@ -105,6 +105,14 @@ def main():
 
     now = datetime.datetime.now().strftime("%d.%m.%Y %H:%M")
     lines = [
+        "---",
+        "name: CHARGE",
+        "system: ЗНАНИЯ",
+        "description: Use when: карта скиллов репо — что есть и когда брать (сборка dev\\skills_charge.py)",
+        "when: карта скиллов, заряд знаний, какие скиллы есть, индекс скиллов",
+        "date: %s" % now,
+        "---",
+        "",
         "# ЗАРЯД ЗНАНИЙ АГЕНТА (карта скиллов репо)",
         "",
         "**Собрано:** %s · скиллов: %d" % (now, len(items)),
@@ -129,6 +137,14 @@ def main():
     map_text = "\n".join(lines)
 
     start_parts = [
+        "---",
+        "name: CHARGE_START",
+        "system: ЗНАНИЯ",
+        "description: Use when: стартовый набор знаний Creo/CREOSON — полные тексты главных скиллов (уже в промпте агента)",
+        "when: стартовый набор, Creo, CREOSON, с чего начать задачу, индекс Creo",
+        "date: %s" % now,
+        "---",
+        "",
         "# СТАРТОВЫЙ НАБОР ЗНАНИЙ (читать сразу, это в промпте агента)",
         "",
         "**Собрано:** %s" % now,

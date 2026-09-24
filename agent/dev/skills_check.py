@@ -10,6 +10,13 @@ ROOTS = [r"D:\AI\repo", r"D:\AI\repo\Prog"]
 PTR = "\u044d\u0442\u043e\u0442 \u0444\u0430\u0439\u043b \u2014 \u0443\u043a\u0430\u0437\u0430\u0442\u0435\u043b\u044c"
 ERRF = "\u041e\u0428\u0418\u0411\u041a\u0410"
 NAMERX = re.compile(r"^\s*#?\s*name:\s*([\w\-]+)", re.M)
+HEAD_LINES = 40   # шапка — это НАЧАЛО файла: у сборников (SKILL_CHARGE*) ниже вшиты тела
+                  # чужих скиллов со своими name:, и поиск по всему файлу давал ложный «mismatch»
+STAGE = {"SKILL_crash_constitution.md", "SKILL_crash_index.md"}   # документы темы, а не экземпляры болезни
+
+
+def head(t):
+    return "\n".join(t.splitlines()[:HEAD_LINES])
 
 
 def canon(s):
@@ -39,12 +46,13 @@ if os.path.isdir(CRASH):
             notes.append("%s: pointer, name check waived (decision 22.09)" % fn)
             continue
         exp = fn.replace("SKILL_", "").replace(".md", "")
-        m = NAMERX.search(t)
+        m = NAMERX.search(head(t))
         if not m:
             violations.append("%s: missing name field" % fn)
         elif canon(m.group(1)) != canon(exp):
             violations.append("%s: name mismatch (found %s, expected %s)" % (fn, m.group(1), exp))
-        if fn == "SKILL_crash_constitution.md":
+        if fn in STAGE:
+            # конституция крахов и индекс — документы темы (навигация и рамки), полей болезни не имеют
             continue
         if "executor:" not in t:
             violations.append("%s: missing executor field" % fn)
@@ -62,7 +70,7 @@ for root in ROOTS:
             continue
         t = read(p)
         exp = fn.replace("SKILL_", "").replace(".md", "")
-        m = NAMERX.search(t)
+        m = NAMERX.search(head(t))
         if not m:
             notes.append("%s/%s: text passport, no name header (observation only)" % (label, fn))
         elif canon(m.group(1)) != canon(exp):

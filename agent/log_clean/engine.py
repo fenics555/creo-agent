@@ -7,7 +7,10 @@
 Правила (важные):
   * по умолчанию НЕ удаляем навсегда, а уносим в корзину `D:\\AI\\log\\_trash_clean\\<дата>\\` (можно вернуть);
   * файл, который сейчас открыт (залочен) — пропускаем, пишем причину в отчёт;
-  * сам `retention.json`, корзину и свой журнал не трогаем никогда.
+  * сам `retention.json`, корзину и свой журнал не трогаем никогда;
+  * считаем ВЛОЖЕННЫЕ папки (`urn\\<исполнитель>\\`, `reports\\<тема>\\`) и файлы прямо в корне `log`
+    (живая находка 24.09.2026: раньше до них не доходило — обещанные 14/28 дней не работали);
+  * вложенную структуру сохраняем и в корзине, чтобы файлы с одинаковыми именами не перетирались.
 
 API: scan(root) -> список записей; clean(root, mode, days_default) -> отчёт; get_retention/save_retention.
 """
@@ -24,6 +27,32 @@ PROG_DIR = Path(__file__).resolve().parent
 TRASH = LOG_ROOT / "_trash_clean"
 DEFAULT_DAYS = 30
 NEVER = {"_trash_clean", "log_clean"}          # свои каталоги — не трогаем
+NEVER_FILES = {"retention.json"}               # служебные файлы корня log
+ROOT_LABEL = "root"                            # псевдокаталог: файлы прямо в D:\AI\log
+
+
+def _files_of(sub):
+    """Все файлы каталога, ВКЛЮЧАЯ вложенные (урна и отчёты держат подпапки по темам)."""
+    for f in sorted(sub.rglob("*")):
+        if f.is_file() and f.name not in NEVER_FILES:
+            yield f
+
+
+def _targets(root, days_default=DEFAULT_DAYS):
+    """Что убираем и с каким сроком: подпапки log по retention.json + файлы в корне log.
+
+    ЖИВАЯ НАХОДКА 24.09.2026: раньше брали только файлы в подпапках ПЕРВОГО уровня, поэтому
+    содержимое `urn\\<исполнитель>\\` (обещали 14 дней) и `reports\\creoson_crashes\\` (28 дней)
+    не убиралось никогда, а 15 МБ в корне log не видел никто."""
+    r = get_retention()
+    for sub in sorted(root.iterdir()):
+        if not sub.is_dir() or sub.name in NEVER:
+            continue
+        days = days_default if sub.name not in r else r[sub.name]
+        yield sub.name, sub, days, list(_files_of(sub))
+    rf = [f for f in sorted(root.glob("*")) if f.is_file() and f.name not in NEVER_FILES]
+    if rf:
+        yield ROOT_LABEL, root, r.get(ROOT_LABEL, days_default), rf
 
 
 def get_retention():
@@ -57,28 +86,25 @@ def is_locked(path):
 
 
 def scan(root=None, days_default=DEFAULT_DAYS):
-    """План уборки: по каждому каталогу — сколько файлов и что старше срока."""
+    """План уборки: по каждому каталогу — сколько файлов и что старше срока.
+
+    Файлы считаем ВКЛЮЧАЯ вложенные (см. `_targets`) и файлы прямо в корне log."""
     root = Path(root or LOG_ROOT)
-    retention = get_retention()
     now = time.time()
     out = []
     if not root.exists():
         return out
-    for sub in sorted(root.iterdir()):
-        if not sub.is_dir() or sub.name in NEVER:
-            continue
-        days = days_default if sub.name not in retention else retention[sub.name]
-        rec = {"folder": sub.name, "path": str(sub), "days": days, "files": 0,
+    for label, folder, days, files in _targets(root, days_default):
+        rec = {"folder": label, "path": str(folder), "days": days, "files": len(files),
                "old": 0, "old_bytes": 0, "locked": 0, "newest": "", "oldest": ""}
         times = []
-        for f in sub.glob("*"):
-            if not f.is_file():
+        for f in files:
+            try:
+                st = f.stat()
+            except OSError:
                 continue
-            rec["files"] += 1
-            st = f.stat()
             times.append(st.st_mtime)
-            age_days = (now - st.st_mtime) / 86400
-            if age_days > days:
+            if (now - st.st_mtime) / 86400 > days:
                 if is_locked(f):
                     rec["locked"] += 1
                 else:
@@ -93,41 +119,42 @@ def scan(root=None, days_default=DEFAULT_DAYS):
 
 def clean(root=None, mode="trash", days_default=DEFAULT_DAYS, report=True):
     """mode='trash' — унести в корзину (по умолчанию), mode='delete' — удалить навсегда.
-    Возвращает отчёт: что сделано, сколько файлов и байт, что пропущено и почему."""
+    Возвращает отчёт: что сделано, сколько файлов и байт, что пропущено и почему.
+
+    Вложенные папки сохраняются и в корзине: иначе одноимённые `out.txt` из разных тем
+    перетирали бы друг друга и вернуть файл было бы нельзя."""
     root = Path(root or LOG_ROOT)
-    retention = get_retention()
     now = time.time()
     stamp = datetime.datetime.now().strftime("%Y-%m-%d_%H%M")
     trash_dir = (root / "_trash_clean") / stamp
     rep = {"когда": stamp, "каталог": str(root), "режим": mode, "перенесено": [], "удалено": [],
            "пропущено": [], "байт": 0}
-    for sub in sorted(root.iterdir()):
-        if not sub.is_dir() or sub.name in NEVER:
-            continue
-        days = days_default if sub.name not in retention else retention[sub.name]
-        for f in sub.glob("*"):
-            if not f.is_file():
-                continue
-            st = f.stat()
+    for label, folder, days, files in _targets(root, days_default):
+        for f in files:
+            try:
+                st = f.stat()
+            except OSError as e:
+                rep["пропущено"].append("%s / %s: %s" % (label, f.name, e)); continue
             if (now - st.st_mtime) / 86400 <= days:
                 continue
             if is_locked(f):
-                rep["пропущено"].append("%s / %s: файл занят" % (sub.name, f.name))
+                rep["пропущено"].append("%s / %s: файл занят" % (label, f.name))
                 continue
             try:
+                rel = f.relative_to(folder)
                 if mode == "delete":
                     size = st.st_size
                     f.unlink()
-                    rep["удалено"].append("%s / %s" % (sub.name, f.name))
+                    rep["удалено"].append("%s / %s" % (label, rel.as_posix()))
                 else:
-                    dst_dir = trash_dir / sub.name
-                    dst_dir.mkdir(parents=True, exist_ok=True)
+                    dst = trash_dir / label / rel
+                    dst.parent.mkdir(parents=True, exist_ok=True)
                     size = st.st_size
-                    shutil.move(str(f), str(dst_dir / f.name))
-                    rep["перенесено"].append("%s / %s" % (sub.name, f.name))
+                    shutil.move(str(f), str(dst))
+                    rep["перенесено"].append("%s / %s" % (label, rel.as_posix()))
                 rep["байт"] += size
             except Exception as e:
-                rep["пропущено"].append("%s / %s: %s" % (sub.name, f.name, e))
+                rep["пропущено"].append("%s / %s: %s" % (label, f.name, e))
     if report:
         prog_log = LOG_ROOT / "log_clean"
         prog_log.mkdir(parents=True, exist_ok=True)

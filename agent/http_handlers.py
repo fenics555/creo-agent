@@ -14,7 +14,7 @@ import panel
 import tools_registry as TR
 import vision_tools as VI
 from loop import (LIVE_TOK, LIVE_THINK, LIVE, PENDING, HOSTNAME, UI_FILE,
-                  _UI_CACHE, STUB_PAGE, _SYS_CACHE, ask, do_approve)
+                  _UI_CACHE, STUB_PAGE, _SYS_CACHE, ask, do_approve, cancel as ask_cancel)
 from agent_sched import _wd_port
 
 def _serve_ui(handler):
@@ -375,6 +375,10 @@ class Hd(BaseHTTPRequestHandler):
         cl = self._client(b)
         if not cl:
             self._j({"error": "нужен вход"}, 401); return
+        if p == "/ask_cancel":
+            # ■ СТОП: человек передумал — рвём генерацию этой модели (живая просьба хозяина 24.09.2026)
+            ask_cancel(cl)
+            self._j({"ok": True, "msg": "стоп принят"}); return
         if p == "/ask":
             self._j(ask(b.get("q") or "", cl, b.get("image"), mode=b.get("mode")))
         elif p == "/ask_stream":
