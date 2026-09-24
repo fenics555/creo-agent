@@ -1,0 +1,32 @@
+<!DOCTYPE html>
+<!-- ВАРИАНТ 1 — ВКЛАДКИ СВЕРХУ. Данные живые: /api/programs, /api/bases, /api/jobs, /prog_run, /prog_state -->
+<html lang="ru"><head><meta charset="utf-8"><title>АГЕНТ · вариант 1 — вкладки сверху</title>
+<link rel="stylesheet" href="common.css"></head><body>
+<div class="sw"><b>ВАРИАНТЫ ОКНА:</b>
+  <a class="on" href="v1_tabs.html">1 · вкладки сверху</a>
+  <a href="v2_side.html">2 · боковое меню</a>
+  <a href="v3_pult.html">3 · пульт с плитками</a>
+  <span class="muted" id="who"></span></div>
+
+<div class="bar"><b>🛠 АГЕНТ v15</b>
+  <span class="chip on" data-t="chat">💬 Чат</span><span class="chip" data-t="prog">🧰 Программы</span>
+  <span class="chip" data-t="base">🗄 Базы</span><span class="chip">⚙ Настройки</span><span class="chip">👥 Команда</span>
+  <span style="flex:1"></span><span class="muted mono" id="up"></span></div>
+
+<div id="chat" style="padding:12px;max-width:900px">
+  <div class="msg">Привет! Это <b>вариант 1</b>: вкладки сверху, как привычная программа; диалог слева,
+    инструменты в панели, вкладки переключают рабочие зоны. Данные в «Программах» и «Базах» — живые.</div>
+  <div class="msg me">покажи программы дома</div>
+  <div class="log" id="preview">нажми «🧰 Программы» — данные придут из живого агента…</div>
+</div>
+
+<div id="zone" style="display:none;padding:14px"></div>
+<div style="padding:0 12px 90px"><input class="q" placeholder="Задача для АГЕНТА… (Enter) — здесь будет то же поле, что сейчас"></div>
+
+<script src="live.js"></script>
+<script>
+V.init({chips:".chip", zone:"zone", chat:"chat", who:"who", up:"up"});
+V.api('/status').then(d=>{var e=document.getElementById('preview'); if(e) e.textContent = d
+  ? ('Агент отвечает: инструментов '+d.tools+', блоков '+d.blocks+', модель '+d.model)
+  : 'агент не отвечает — проверь, поднят ли стек (ctl.py up)';});
+</script></body></html>

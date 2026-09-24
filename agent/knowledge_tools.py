@@ -67,6 +67,38 @@ def tool_read(path="", **kw):
         return "файл слишком большой: %d КБ (лимит %d КБ)" % (sz // 1024, READ_MAX_BYTES // 1024)
     return p.read_text(encoding="utf-8", errors="ignore")[:6000]
 
+def tool_skills_map(domain="", find="", rebuild=False, **kw):
+    """КАРТА СКИЛЛОВ (заряд знаний): что есть в репо и когда брать.
+    domain — домен (creo, pdf, plm, ...), find — подстрока в пути/описании, rebuild — пересобрать карту."""
+    if rebuild:
+        import subprocess, sys
+        r = subprocess.run([sys.executable, str(core.BASE / "agent" / "dev" / "skills_charge.py")],
+                           capture_output=True, text=True, encoding="utf-8", errors="replace",
+                           cwd=str(core.BASE / "agent"), timeout=180)
+        return "карта пересобрана:\n" + (r.stdout or "") + (r.stderr or "")
+    p = REPO / "SKILL_CHARGE.md"
+    if not p.exists():
+        return ("карты ещё нет. Собрать: skills_map(rebuild=true) или "
+                "python dev\\skills_charge.py")
+    txt = p.read_text(encoding="utf-8", errors="ignore")
+    dom, fnd = (domain or "").strip().lower(), (find or "").strip().lower()
+    if not dom and not fnd:
+        heads = [l for l in txt.splitlines() if l.startswith("## ")]
+        return "ДОМЕНЫ СКИЛЛОВ (уточни domain или find):\n" + "\n".join(heads)
+    cur, out = "", []
+    for line in txt.splitlines():
+        if line.startswith("## "):
+            cur = line[3:].strip()
+            continue
+        if not line.startswith("- "):
+            continue
+        if (dom and dom in cur.lower()) and (fnd in line.lower() if fnd else True):
+            out.append("[%s] %s" % (cur, line[2:]))
+    if not out:
+        return "по запросу ничего нет: domain=%r find=%r" % (domain, find)
+    return "НАЙДЕНО СКИЛЛОВ: %d\n%s" % (len(out), "\n".join(out[:60]))
+
+
 def tool_save(name="", content="", **kw):
     if not name or not content: return "нужны name и content"
     p = REPO / ("SKILL_" + name + ".md")
@@ -76,6 +108,7 @@ def tool_save(name="", content="", **kw):
     
 TOOLS = [
     {"name": "search_kb", "desc": "Поиск по базе знаний КБ (скиллы, ГОСТы, docs)", "params": {"query": "запрос"}, "approval": False, "fn": tool_search},
+    {"name": "skills_map", "desc": "Карта скиллов репо: что есть (domain/find), когда брать", "params": {"domain": "домен: creo, pdf, plm…", "find": "подстрока", "rebuild": "пересобрать карту"}, "approval": False, "fn": tool_skills_map},
     {"name": "read_file", "desc": "Прочитать файл целиком (до 6000 симв.)", "params": {"path": "полный путь"}, "approval": False, "fn": tool_read},
     {"name": "save_skill", "desc": "Сохранить новый скилл в базу знаний", "params": {"name": "имя", "content": "markdown"}, "approval": True, "fn": tool_save},
 ]

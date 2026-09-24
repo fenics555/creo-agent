@@ -36,6 +36,30 @@ def log_tail(n=80):
         with open(LOGF, "r", encoding="utf-8", errors="ignore") as f: return "".join(f.readlines()[-n:])
     except Exception: return "лог пуст"
 
+JOBSF = Path(r"D:\AI\log\agent") / "jobs.log"
+
+def job(name, text, **kw):
+    """ОБЩИЙ ЖУРНАЛ РАБОТ (решение дома 24.09.2026): каждая программа докладывает о себе в общий
+    лог агента — «запущено в фоне», «завершено: файлов=100 обновлено=50». Одинаково работает,
+    когда программу запустил человек из своего окна и когда её позвал агент через движок."""
+    extra = " ".join("%s=%s" % (k, v) for k, v in kw.items() if v is not None)
+    line = "%s РАБОТА %s: %s%s" % (datetime.datetime.now().strftime("%m-%d %H:%M:%S"),
+                                   name, text, (" " + extra) if extra else "")
+    try:
+        JOBSF.parent.mkdir(parents=True, exist_ok=True)
+        with open(JOBSF, "a", encoding="utf-8") as f:
+            f.write(line + "\n")
+    except Exception:
+        pass
+    log(line)
+
+def jobs_tail(n=40):
+    try:
+        with open(JOBSF, "r", encoding="utf-8", errors="ignore") as f:
+            return "".join(f.readlines()[-n:])
+    except Exception:
+        return "журнал работ пуст"
+
 ALERTS = []
 def alert(msg, fix=""):
     ALERTS.append({"ts": datetime.datetime.now().strftime("%m-%d %H:%M"), "msg": msg, "fix": fix, "read": False})

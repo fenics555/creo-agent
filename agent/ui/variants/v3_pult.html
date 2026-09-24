@@ -1,0 +1,40 @@
+<!DOCTYPE html>
+<!-- ВАРИАНТ 3 — ПУЛЬТ С ПЛИТКАМИ (обзор всего дома сразу). Логика и данные — из live.js -->
+<html lang="ru"><head><meta charset="utf-8"><title>АГЕНТ · вариант 3 — пульт</title>
+<link rel="stylesheet" href="common.css">
+<style>
+body{display:flex;flex-direction:column;height:100vh;overflow:hidden}
+.pult{display:grid;grid-template-columns:1.35fr 1fr 320px;grid-template-rows:1fr 210px;gap:10px;padding:10px;flex:1;min-height:0}
+.box{background:#1F2126;border:1px solid #2C2F35;border-radius:12px;padding:10px;overflow:auto}
+.box h4{color:#4C8FD6;font-size:12px;text-transform:uppercase;letter-spacing:.4px;margin-bottom:6px}
+#tiles .card{background:linear-gradient(180deg,#26282D,#212327)}
+#dock{grid-row:1 / span 2}
+.tick{grid-column:1 / span 2}
+</style></head><body>
+<div class="bar"><b>🛠 АГЕНТ v15 · ПУЛЬТ ДОМА</b>
+  <span class="chip">вариант 3</span><span class="muted">варианты:</span>
+  <span class="chip"><a href="v1_tabs.html">1 вкладки</a></span><span class="chip"><a href="v2_side.html">2 меню</a></span>
+  <span style="flex:1"></span><span class="muted mono" id="up"></span></div>
+<div class="pult">
+  <div class="box" id="tiles"><h4>🧰 Программы дома</h4><div id="progzone">…</div></div>
+  <div class="box" id="bases"><h4>🗄 Базы дома</h4><div id="basezone">…</div></div>
+  <div class="box" id="dock"><h4>💬 Диалог с агентом</h4>
+    <div class="msg">Это <b>вариант 3 (пульт)</b>: сразу видно всё — программы, базы, ход работ и чат рядом.
+      Ничего не спрятано за вкладками.</div>
+    <div class="msg me">запусти обновление индекса</div>
+    <div class="log" id="preview">данные живые: /api/programs, /api/bases, /api/jobs…</div>
+    <div style="margin-top:8px"><input class="q" placeholder="Задача для АГЕНТА… (Enter)"></div>
+    <div class="muted" id="who" style="font-size:12px;margin-top:8px"></div></div>
+  <div class="box tick"><h4>📈 Ход работ дома (общий журнал)</h4><div class="log" id="jobs">…</div></div>
+</div>
+<script src="live.js"></script>
+<script>
+document.getElementById('progzone').innerHTML = '<span class="spin"></span> читаю…';
+document.getElementById('basezone').innerHTML = '<span class="spin"></span> читаю…';
+V.init({who:"who", up:"up", jobs:"jobs"});
+V.programsHTML('card').then(h => { document.getElementById('progzone').innerHTML = h; });
+V.basesHTML().then(h => { document.getElementById('basezone').innerHTML = h; });
+V.api('/status').then(function(d){var e=document.getElementById('preview'); if(e) e.textContent = d
+  ? ('Агент отвечает: инструментов '+d.tools+', блоков '+d.blocks+', модель '+d.model)
+  : 'агент не отвечает — проверь стек (ctl.py up)';});
+</script></body></html>

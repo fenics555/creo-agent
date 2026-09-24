@@ -18,6 +18,27 @@
 6. В папке программы README с разделами «ОКНО» и «ДВИЖОК» и строкой `STATUS: PASSED` после приёмки.
 7. Программа не импортирует агент и не тянет его базы в память (урок 23.09.2026: ленивая загрузка).
 
+## Что изменено 24.09.2026 (заряд знаний, программы в окне, чистка)
+* **Скиллы грузятся на старте.** Раньше промпт агента знал только `MANIFEST.md` + протокол, а карта 118 скиллов
+  (`SKILL_index.md`) не подавалась вовсе — потому агент «не знал, что у него есть». Теперь `dev\skills_charge.py`
+  собирает `repo\SKILL_CHARGE.md` (карта одного строкой на скилл) и `repo\SKILL_CHARGE_START.md` (полные тексты
+  индекса Creo, индекса CREOSON, рутины CREOSON, природы модели, общей карты). `loop.build_system(1)` подаёт их
+  в промпт (≈95 КБ при окне 131 072); режим собеседника остаётся лёгким. Новый инструмент `skills_map` ищет по карте.
+* **Единый список программ** `agent\data\programs.json` (4 группы: человек / Creo / ИИ / устаревшее) и блок
+  `prog_tools.py`: `prog_list`, `prog_run`, `prog_state`, `bases_list`, `jobs_show`.
+* **Общий журнал работ** `D:\AI\log\agent\jobs.log`: любая программа докладывает «запущено в фоне» и
+  «завершено code=… секунд=…» через `core.job` (обёртка `dev\prog_runner.py`). Кнопки агента `/rescan`, `/scan`
+  переведены на `prog_run` — теперь и они оставляют след в журнале.
+* **Витрина:** `GET /api/programs`, `/api/bases`, `/api/jobs`, `POST /prog_run`, `/prog_state`, статика `/ui/<файл>`.
+  Три варианта окна — `agent\ui\variants\` (вкладки сверху / боковое меню / пульт), данные живые.
+* **Чистка:** удалено 82,7 МБ мусора (`agent_log_frezer4.txt`), `startup.log`, `kill_8765.ps1`, пустышки
+  `harvest.db` (3 шт), `dev\_gui_err.txt`, `dev\test.py`, кэш `purge_versions\__pycache__`.
+  В `agent\_legacy\` перенесены `pdf_refresh_batch/gui/tools.py` и `ui\index_rename.html`.
+  **Исправлен дубль**: инструмент `pdf_refresh` объявлялся двумя блоками (`pdf_tools` и `pdf_refresh_tools`) —
+  теперь 147 инструментов без единого дубля имён.
+* **`purge_versions` проверен:** окно `purge_gui.bat`, настройки `gui_settings.json`, журнал
+  `D:\AI\log\purge_versions\`, README 4,7 КБ — программа была готова и остаётся автономной.
+
 ## Программы
 
 | Программа | Класс | Вход (ОКНО) | Движок (ДВИЖОК) | Логи | Состояние |
@@ -35,7 +56,7 @@
 | **harvest** (сборщик индекса дома) | Р | `harvest_gui.py` (агентское окно) | `python harvest.py [--roots <файл>] [--allow-z] [--text] [--bench]` | `D:\AI\log\harvest\`; индекс — `data\harvest.db` (только свои таблицы) | работает; 23.09: **исправлено — прогон не добавлял Creo-модели** (фильтр ждал `prt`, а в базе `ext=.1`): было added=0, стало added=3; чтение файла корней теперь utf-8/cp1251; паспорт `agent\HARVEST_README.md` |
 | **purge_versions** (ЧИСТИЛЬЩИК версий) | Р | `purge_gui.bat` (окно настроек) | `purge_versions.bat -r <папка> -k 2` (движок `purge_versions\engine.py`) | `D:\AI\log\purge_versions\`; настройки — `gui_settings.json` рядом | работает; приёмка 23.09: план + перенос в бэкап; шим `agent\purge_versions.py` для агента |
 | **navigator** (НАВИГАТОР по дому) | Р | `navigator_gui.bat` | `python navigator.py find|bom|pdf …` | `—` (своих логов не пишет, работает по индексу) | работает; приёмка 23.09: автотест окна **PASS 11, FAIL 0** (поиск → деталировка → PDF → «рыбий глаз») |
-| **pdf_refresh** (старое поколение PDF-рутины) | Р | `pdf_refresh_gui.py` (агент) | `pdf_refresh_batch.py` | `D:\AI\log\pdf_refresh\` | ⚠️ **УСТАРЕЛ — заменён `creo_pdf`**: делает то же (перепечатка устаревших PDF), но через CREOSON и таблицу `pairs`; автономной программой не делаем (дубль) |
+| **pdf_refresh** (старое поколение PDF-рутины) | Р | — (окно убрано) | `_legacy\pdf_refresh_batch.py` (перенесён 24.09.2026) | `D:\AI\log\pdfrefresh\` (историческое) | ⚠️ **УСТАРЕЛ — заменён `creo_pdf`**; файлы перенесены в `agent\_legacy\`, окно `wiz_pdf` и 4 эндпоинта `/wiz_pdf*` вырезаны из агента, инструкция — `_legacy\README.md` |
 | **log_clean** (УБОРКА ЛОГОВ) | Р | `log_clean_gui.bat` (окно настроек) | `log_clean.bat [--apply] [--delete]` (движок `log_clean\engine.py`) | `D:\AI\log\log_clean\`; настройки — `gui_settings.json` рядом; сроки — `D:\AI\log\retention.json` | работает; приёмка 23.09: план по срокам + уборка в корзину; шим `agent\log_clean.py` (прежнее умолчание — удаление) |
 | **copy_server** (служба копирования) | Р | `copy_gui.bat` (окно службы) | `python copy_server.py [--port N] [--bind addr]` (по умолчанию 8000) | печать в консоль; настройки — `gui_settings.json` рядом | работает; живая находка 23.09: адрес `/copy.html` отдавал 404 (было только `/` и `/copy`) — исправлено; окно добавлено |
 | **excel** (просмотр спецификаций) | Р | `excel_gui.bat` (окно просмотра) | `excel_import.read_specification_xlsx` / `excel_export.create_xlsx` (модули для агента) | — | работает; окно добавлено 23.09 (чтение + понятная ошибка на «не спецификации») |

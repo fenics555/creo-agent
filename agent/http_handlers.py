@@ -7,6 +7,7 @@ import core
 from core import log, trace
 import settings
 import pdf_tools
+import prog_tools
 import users
 import chat_tools
 import panel
@@ -27,6 +28,30 @@ def _serve_ui(handler):
         b = STUB_PAGE.encode("utf-8")
     handler.send_response(200)
     handler.send_header("Content-Type", "text/html; charset=utf-8")
+    handler.send_header("Cache-Control", "no-cache")
+    handler.send_header("Content-Length", str(len(b)))
+    handler.end_headers()
+    handler.wfile.write(b)
+
+
+# Отдача статики витрины (варианты окна, картинки). Только из папки ui\, без «..» и левых расширений.
+STATIC_EXT = {".html": "text/html; charset=utf-8", ".js": "text/javascript; charset=utf-8",
+              ".css": "text/css; charset=utf-8", ".png": "image/png", ".svg": "image/svg+xml",
+              ".json": "application/json; charset=utf-8", ".md": "text/plain; charset=utf-8"}
+
+
+def _serve_file(handler, rel):
+    rel = (rel or "").replace("\\", "/").lstrip("/")
+    ext = os.path.splitext(rel)[1].lower()
+    if ".." in rel or ext not in STATIC_EXT:
+        return handler._j({"error": "плохой путь: %s" % rel}, 400)
+    p = os.path.join(os.path.dirname(os.path.abspath(__file__)), "ui", rel.replace("/", os.sep))
+    if not os.path.isfile(p):
+        return handler._j({"error": "нет файла ui\\%s" % rel}, 404)
+    with open(p, "rb") as f:
+        b = f.read()
+    handler.send_response(200)
+    handler.send_header("Content-Type", STATIC_EXT[ext])
     handler.send_header("Cache-Control", "no-cache")
     handler.send_header("Content-Length", str(len(b)))
     handler.end_headers()
@@ -87,6 +112,21 @@ class Hd(BaseHTTPRequestHandler):
         elif p == "/health":
             if not users.token_info(self.headers.get("X-Token") or ""): return self._j({"error": "no token"})
             self._j({"ollama": _wd_port(11434), "creoson": _wd_port(8080), "agent": True})
+            return
+        elif p == "/api/programs":
+            if not users.token_info(self.headers.get("X-Token") or ""):
+                return self._j({"error": "нужен вход"})
+            self._j(prog_tools.prog_list(as_json=True))
+            return
+        elif p == "/api/bases":
+            if not users.token_info(self.headers.get("X-Token") or ""):
+                return self._j({"error": "нужен вход"})
+            self._j({"bases": prog_tools.bases_list(as_json=True)})
+            return
+        elif p == "/api/jobs":
+            if not users.token_info(self.headers.get("X-Token") or ""):
+                return self._j({"error": "нужен вход"})
+            self._j({"lines": core.jobs_tail(60)})
             return
         elif p == "/pdfpages":
             if not users.token_info(self.headers.get("X-Token") or ""): return self._j({"error": "no token"})
@@ -306,17 +346,8 @@ class Hd(BaseHTTPRequestHandler):
             except Exception: pass
             self._j({"tail": tail})
             return
-        elif p == "/ui/app.js":
-            try:
-                b = open(os.path.join(os.path.dirname(__file__), "ui", "app.js"), "rb").read()
-            except Exception:
-                self._j({"error": "app.js not found"})
-                return
-            self.send_response(200)
-            self.send_header("Content-Type", "text/javascript; charset=utf-8")
-            self.send_header("Content-Length", str(len(b)))
-            self.end_headers()
-            self.wfile.write(b)
+        elif p.startswith("/ui/"):
+            _serve_file(self, p[4:])
             return
         else:
             _serve_ui(self)
@@ -396,16 +427,10 @@ class Hd(BaseHTTPRequestHandler):
             settings.set_val(b.get("key"), b.get("value")); _SYS_CACHE.clear(); self._j({"ok": True})
         elif p == "/snap":
             self._j({"msg": "скриншот принимается через Ctrl+V в поле ввода"})
-        elif p == "/rescan":
-            subprocess.Popen([sys.executable, "-u", r"D:\AI\tools\agent\harvest.py"],
-                             cwd=r"D:\AI\tools\agent")
-            self._j({"msg": "harvest запущен детачем, отчёт в D:\\AI\\log\\harvest\\last_harvest.json",
-                     "report": r"D:\AI\log\harvest\last_harvest.json",
-                     "z_status": "Z запрещён словом, пропущен"})
-        elif p == "/scan":
-            subprocess.Popen([sys.executable, "-u", r"D:\AI\tools\agent\harvest.py"],
-                             cwd=r"D:\AI\tools\agent")
-            self._j({"msg": "harvest запущен детачем, отчёт в D:\\AI\\log\\harvest\\last_harvest.json",
+        elif p == "/rescan" or p == "/scan":
+            # Запуск через prog_tools: движок идёт в фон, а дом получает строки в ОБЩИЙ ЖУРНАЛ РАБОТ
+            # («запущено в фоне» … «завершено …»). Раньше был прямой Popen и в журнале ничего не оставалось.
+            self._j({"msg": prog_tools.prog_run(prog_id="harvest"),
                      "report": r"D:\AI\log\harvest\last_harvest.json",
                      "z_status": "Z запрещён словом, пропущен"})
         elif p == "/profile":

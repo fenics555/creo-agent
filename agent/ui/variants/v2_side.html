@@ -1,0 +1,53 @@
+<!DOCTYPE html>
+<!-- ВАРИАНТ 2 — БОКОВОЕ МЕНЮ (рейл слева). Логика и данные — из live.js -->
+<html lang="ru"><head><meta charset="utf-8"><title>АГЕНТ · вариант 2 — боковое меню</title>
+<link rel="stylesheet" href="common.css">
+<style>
+body{display:flex;flex-direction:column;height:100vh;overflow:hidden}
+.shell{display:flex;flex:1;min-height:0}
+.rail{width:210px;background:#1B1D21;border-right:1px solid #2C2F35;padding:10px;display:flex;flex-direction:column;gap:6px}
+.rail .item{display:flex;gap:9px;align-items:center;padding:9px 11px;border-radius:9px;cursor:pointer;color:#C9CBCE}
+.rail .item:hover{background:#232630}
+.rail .item.on{background:#12375F;color:#fff;border-left:3px solid #1273EB}
+.main{flex:1;min-width:0;overflow:auto;padding:14px}
+.right{width:300px;background:#1F2126;border-left:1px solid #2C2F35;overflow:auto;padding:10px}
+</style></head><body>
+<div class="bar"><b>🛠 АГЕНТ v15</b><span class="chip">вариант 2 · боковое меню</span>
+  <span style="flex:1"></span><span class="muted mono" id="up"></span></div>
+<div class="shell">
+  <div class="rail">
+    <div class="item on" data-t="chat">💬 <span>Чат</span></div>
+    <div class="item" data-t="prog">🧰 <span>Программы</span></div>
+    <div class="item" data-t="base">🗄 <span>Базы</span></div>
+    <div class="item" data-t="chat">⚙ <span>Настройки</span></div>
+    <div class="item" data-t="chat">👥 <span>Команда</span></div>
+    <div style="flex:1"></div>
+    <div class="muted" style="font-size:12px;padding:6px">Варианты окна:
+      <div><a href="v1_tabs.html">1 · вкладки сверху</a></div>
+      <div><a href="v2_side.html">2 · боковое меню</a></div>
+      <div><a href="v3_pult.html">3 · пульт с плитками</a></div></div>
+  </div>
+  <div class="main">
+    <div id="chat">
+      <div class="msg">Это <b>вариант 2</b>: меню слева как в редакторах (VS Code, Creo). Рабочая зона широкая —
+        удобно для таблиц программ, больших спецификаций и логов.</div>
+      <div class="msg me">что у дома есть?</div>
+      <div class="log" id="preview">выбери «🧰 Программы» слева — данные придут из живого агента…</div>
+    </div>
+    <div id="zone" style="display:none" data-cell="row"></div>
+  </div>
+  <div class="right">
+    <div class="card"><h4>Инструменты агента</h4><div class="muted" style="font-size:12px">
+      В реальном окне здесь те же группы инструментов, что сейчас в правой панели:
+      Creo, модели, базы, трейлы, знания.</div></div>
+    <div class="card" style="margin-top:10px"><h4>Состояние</h4><div class="muted" id="who" style="font-size:12px"></div></div>
+    <div class="card" style="margin-top:10px"><h4>Ход работ</h4><div class="log" id="jobs">…</div></div>
+  </div>
+</div>
+<script src="live.js"></script>
+<script>
+V.init({chips:".rail .item", zone:"zone", chat:"chat", who:"who", up:"up", jobs:"jobs"});
+V.api('/status').then(function(d){var e=document.getElementById('preview'); if(e) e.textContent = d
+  ? ('Агент отвечает: инструментов '+d.tools+', блоков '+d.blocks+', модель '+d.model)
+  : 'агент не отвечает — проверь стек (ctl.py up)';});
+</script></body></html>

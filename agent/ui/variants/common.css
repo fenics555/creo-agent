@@ -1,0 +1,44 @@
+/* ОБЩАЯ ТЕМА ВАРИАНТОВ ОКНА АГЕНТА (ui\variants\common.css)
+   Единый стиль дома: тёмный фон, синий акцент, карточки. Варианты отличаются РАСКЛАДКОЙ, не цветом. */
+*{box-sizing:border-box}
+body{margin:0;background:radial-gradient(1100px 520px at 18% -8%,#1C2735 0%,#131417 55%,#111214 100%);
+     background-attachment:fixed;color:#E8E8E8;font:14px/1.5 "Segoe UI",sans-serif}
+a{color:#4C8FD6;text-decoration:none}
+h1,h2,h3,h4{margin:0 0 8px}
+.muted{color:#A6A8AB}
+.mono{font-family:Consolas,monospace;font-size:12px}
+.sw{display:flex;gap:8px;align-items:center;padding:6px 12px;background:#1B1D21;border-bottom:1px solid #2C2F35;flex-wrap:wrap}
+.sw b{color:#4C8FD6}
+.sw a{padding:4px 10px;border:1px solid #3E4043;border-radius:14px;font-size:12px;color:#C9CBCE}
+.sw a.on{border-color:#1273EB;background:#12375F;color:#fff}
+.bar{display:flex;gap:10px;align-items:center;padding:8px 14px;background:linear-gradient(180deg,#24262B,#1B1D21);
+     border-bottom:1px solid #1273EB;box-shadow:0 4px 18px rgba(0,0,0,.45)}
+.bar b{color:#4C8FD6;letter-spacing:.5px}
+.btn{background:#1273EB;color:#fff;border:0;border-radius:8px;padding:6px 12px;cursor:pointer;font-size:13px}
+.btn:hover{background:#0E5FC2}
+.btn.sec{background:#2C2D30;border:1px solid #3E4043;color:#E8E8E8}
+.btn.sec:hover{border-color:#1273EB}
+.btn:disabled{opacity:.45;cursor:default}
+.chip{display:inline-block;padding:3px 9px;border:1px solid #3E4043;border-radius:12px;font-size:12px;color:#C9CBCE;cursor:pointer}
+.chip:hover{border-color:#1273EB}
+.k{border:1px solid #3E4043;border-radius:10px;padding:4px 8px;font-size:11px;color:#C9CBCE}
+.k-zh{border-color:#7A5C1F;color:#E0B94B}
+.k-r{border-color:#2C5F3A;color:#6FCF8E}
+.k-g{border-color:#3A4B7A;color:#8AA8E8}
+.card{background:linear-gradient(180deg,#26282D,#212327);border:1px solid #3A3D43;border-radius:10px;padding:10px 12px;
+      box-shadow:0 1px 6px rgba(0,0,0,.25)}
+.card h4{color:#4C8FD6;font-size:13px;text-transform:uppercase;letter-spacing:.4px}
+.card .row{display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-top:6px}
+.dot{width:9px;height:9px;border-radius:50%;background:#5A5E66;display:inline-block}
+.dot.on{background:#4CC46A;box-shadow:0 0 8px #4CC46A}
+.log{background:#131417;border:1px solid #3E4043;border-radius:8px;padding:8px;font-family:Consolas,monospace;
+     font-size:12px;white-space:pre-wrap;max-height:220px;overflow:auto;color:#C9CBCE}
+table{width:100%;border-collapse:collapse;font-size:13px}
+th,td{text-align:left;padding:6px 8px;border-bottom:1px solid #2C2F35}
+th{color:#A6A8AB;font-weight:400}
+.q{background:#2C2D30;color:#E8E8E8;border:1px solid #3E4043;border-radius:8px;padding:10px;width:100%}
+.msg{max-width:760px;margin:10px 0;padding:10px 14px;border-radius:12px;background:linear-gradient(180deg,#2E3035,#292B2F)}
+.msg.me{margin-left:auto;background:linear-gradient(180deg,#1266C9,#0D57AE)}
+.spin{display:inline-block;width:14px;height:14px;border:2px solid #4C8FD6;border-top-color:transparent;border-radius:50%;
+      animation:rot .8s linear infinite;vertical-align:middle}
+@keyframes rot{to{transform:rotate(360deg)}}

@@ -192,6 +192,26 @@ def build_system(mode=1):
 Краткость ценится, но полнота решения важнее."""
     _SYS_CACHE.clear()  # надёжность: промпт всегда собирается свежим с диска
     p = ((load_skill("MANIFEST.md") or "") + "\n\n" + (load_skill("SKILL_agent_protocol.md") or DEFAULT_PROTO)).strip() + "\n"
+    # ЗАРЯД ЗНАНИЙ (решение дома 24.09.2026). Раньше база знаний лежала в РАМ целиком (16 ГБ) и агент
+    # «уже знал» скиллы; теперь память — FTS5-поиск, поэтому карта скиллов и стартовый набор Creo/CREOSON
+    # подаются прямо в промпт (собирает dev\skills_charge.py). Главное направление дома — CREO.
+    try:
+        _ncx = int(settings.get("num_ctx") or 8192)
+    except Exception:
+        _ncx = 8192
+    _charge = load_skill("SKILL_CHARGE.md")
+    _start = load_skill("SKILL_CHARGE_START.md")
+    if _ncx >= 60000 and _start:
+        p += ("\n=== ЗАРЯД ЗНАНИЙ: СТАРТОВЫЙ НАБОР (это уже прочитано, опирайся на него) ===\n"
+              + _start + "\n")
+    if _ncx >= 60000 and _charge:
+        p += ("\n=== ЗАРЯД ЗНАНИЙ: КАРТА СКИЛЛОВ (одной строкой на скилл; тело — read_file/search_kb) ===\n"
+              + _charge + "\n")
+    elif _ncx >= 30000 and _charge:
+        p += "\n=== КАРТА СКИЛЛОВ (сокращённо) ===\n" + _charge[:20000] + "\n"
+    elif _charge:
+        p += ("\n=== СКИЛЛЫ: карта в D:\\AI\\repo\\SKILL_CHARGE.md, стартовый набор Creo/CREOSON — "
+              "D:\\AI\\repo\\SKILL_CHARGE_START.md (открывай read_file) ===\n")
     core_lines, rest = [], []
     for t in TR.TOOLS:
         ps = ", ".join(t.get("params", {}).keys()) if t.get("params") else ""
