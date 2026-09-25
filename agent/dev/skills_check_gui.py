@@ -8,6 +8,7 @@
 """
 import os
 import subprocess
+import time
 import sys
 import threading
 import tkinter as tk
@@ -89,10 +90,12 @@ class App:
             return self.done()
 
         def pump():
+            _t0 = time.time()
             for line in self.proc.stdout:
                 self.root.after(0, self.log, line)
             self.proc.wait()
-            self.root.after(0, self.log, "\n=== код возврата: %s ===\n" % self.proc.returncode)
+            self.root.after(0, self.log, "\n=== код возврата: %s за %.1f с ===\n"
+                            % (self.proc.returncode, time.time() - _t0))
             self.root.after(0, self.done)
 
         threading.Thread(target=pump, daemon=True).start()

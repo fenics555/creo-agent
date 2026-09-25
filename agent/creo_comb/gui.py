@@ -9,6 +9,7 @@
 import json
 import os
 import subprocess
+import time
 import threading
 import tkinter as tk
 from pathlib import Path
@@ -200,10 +201,12 @@ class App:
                 self.proc = subprocess.Popen(args, cwd=str(HERE), stdout=subprocess.PIPE,
                                              stderr=subprocess.STDOUT, text=True,
                                              encoding="utf-8", errors="replace", bufsize=1)
+                _t0 = time.time()
                 for line in self.proc.stdout:
                     self.root.after(0, self.log, line)
                 self.proc.wait()
-                self.root.after(0, self.log, "\n=== код возврата: %s ===\n" % self.proc.returncode)
+                self.root.after(0, self.log, "\n=== код возврата: %s за %.1f с ===\n"
+                                % (self.proc.returncode, time.time() - _t0))
             except Exception as e:
                 self.root.after(0, self.log, "\nошибка запуска: %s\n" % e)
             self.root.after(0, self.done)
