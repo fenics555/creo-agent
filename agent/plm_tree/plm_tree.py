@@ -169,7 +169,7 @@ def collect(roots, max_mb):
     return paths
 
 
-def scan_item(s, path, stems):
+def scan_item(s, path, stems, fstems=frozenset()):
     raw = open(path, "rb").read()
     pr = params(raw, parse_toc(raw))
     vol = real(raw, "volume") or real(raw, "mtrl_volume")
@@ -180,7 +180,7 @@ def scan_item(s, path, stems):
             "volume": vol or 0.0, "material": pr.get("PTC_MASTER_MATERIAL") or "",
             "name": pr.get("\u041d\u0410\u0418\u041c\u0415\u041d\u041e\u0412\u0410\u041d\u0418\u0415") or "",
             "designation": pr.get("\u041e\u0411\u041e\u0417\u041d\u0410\u0427\u0415\u041d\u0418\u0415") or "",
-            "rev": h[0], "author": h[1], "revdate": h[2], "role": role(raw), "refs": refs}
+            "rev": h[0], "author": h[1], "revdate": h[2], "role": role(raw, fstems, s), "refs": refs}
 
 
 # --- ЕДИНЫЙ ЧИТАТЕЛЬ из общей библиотеки дома (локальные копии выше — к удалению) ---
@@ -219,6 +219,9 @@ def do_scan(roots, max_mb, limit):
     t0 = time.time()
     paths = collect(roots, max_mb)
     stems = set(paths)
+    fstems = defaultdict(set)
+    for _s, _p in paths.items():
+        fstems[os.path.dirname(_p)].add(_s)
     con = connect()
     prev = {r[0]: r for r in con.execute(
         "SELECT model,volume,material,name,designation,rev,author,revdate,role,size FROM snapshots")}
@@ -229,7 +232,7 @@ def do_scan(roots, max_mb, limit):
         if time.time() - t0 > limit:
             break
         try:
-            it = scan_item(s, p, stems)
+            it = scan_item(s, p, stems, fstems.get(os.path.dirname(p), set()))
         except Exception as e:
             log("ERROR %s: %s" % (s, e))
             continue

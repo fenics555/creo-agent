@@ -87,15 +87,24 @@ def params(raw, toc):
     return out
 
 
-def role(raw):
-    """Роль изделия: `nasled.<родитель>` (MERGE_BASE_PART) или `proizv.<родитель>` (ref_part_tab)."""
+def role(raw, stems=frozenset(), me=""):
+    """Роль изделия по правилам §8.5 (имя файла НЕ признак):
+    `MFG` — сборка `ASSEM_MFG`; `nasled.<база>` — `MERGE_BASE_PART` (отражение/отливка);
+    `proizv.<родитель>` — `ref_part_tab.name` из ТОЙ ЖЕ папки (у обычной детали там шаблонный
+    `MM_ASSY`/`SBORKA_MM` — не роль, поэтому сверяем с именами папки)."""
+    if b"ASSEM_MFG" in raw[:400]:
+        return "MFG"
     if b"MERGE_BASE_PART" in raw:
         m = re.search(rb"MERGE_BASE_PART.{0,80}?([A-Za-z0-9_\-]{5,40})\x00", raw, re.S)
-        return "nasled." + (m.group(1).decode("latin-1") if m else "?")
+        base = m.group(1).decode("latin-1") if m else ""
+        if base and base.upper() not in ("MM_ASSY", "MM_PART"):
+            return "nasled." + base
     for m in re.finditer(rb"ref_part_tab\x00", raw):
         nm = re.search(rb"name\x00([A-Za-z0-9_\-\.]{4,47})\x00", raw[m.end():m.end() + 200])
         if nm:
-            return "proizv." + nm.group(1).decode("latin-1")
+            s = stem(nm.group(1).decode("latin-1"))
+            if s != me and (not stems or s in stems):
+                return "proizv." + nm.group(1).decode("latin-1")
     return ""
 
 
@@ -147,4 +156,5 @@ def passport(path, stems=()):
             "volume": vol or 0.0, "material": pr.get("PTC_MASTER_MATERIAL") or "",
             "name": pr.get("\u041d\u0410\u0418\u041c\u0415\u041d\u041e\u0412\u0410\u041d\u0418\u0415") or "",
             "designation": pr.get("\u041e\u0411\u041e\u0417\u041d\u0410\u0427\u0415\u041d\u0418\u0415") or "",
-            "rev": h[0], "author": h[1], "revdate": h[2], "role": role(raw), "refs": refs}
+            "rev": h[0], "author": h[1], "revdate": h[2],
+            "role": role(raw, stems, stem(os.path.basename(path))), "refs": refs}
