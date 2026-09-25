@@ -105,6 +105,7 @@ class App:
         tk.Button(bar, text="Сохранить картинку…", command=self.save_png).pack(side="left", padx=4)
         tk.Button(bar, text="Состав из живой сессии (Creo)", command=self.live_bom).pack(side="left", padx=4)
         tk.Button(bar, text="Показать полную деталировку (глубже)", command=self.deep_bom).pack(side="left", padx=4)
+        tk.Button(bar, text="README", command=self.show_readme).pack(side="left", padx=4)
         self.lab_pdf = tk.Label(bar, text="PDF не выбран", anchor="w", fg="#444")
         self.lab_pdf.pack(side="left", padx=10)
 
@@ -312,6 +313,24 @@ class App:
                 self.lab_pdf.config(text="картинка сохранена: %s" % p)
             except Exception as e:
                 messagebox.showerror("Не сохранить", str(e))
+
+    def show_readme(self):
+        p = Path(__file__).resolve().parent / "README.md"
+        try:
+            text = p.read_text(encoding="utf-8")
+        except Exception as e:
+            messagebox.showwarning("README", "README не прочитан: %s" % e)
+            return
+        w = tk.Toplevel(self.root)
+        w.title("README — Навигатор")
+        w.geometry("900x600")
+        txt = tk.Text(w, font=("Consolas", 10), padx=8, pady=8)
+        sb = ttk.Scrollbar(w, command=txt.yview)
+        txt.configure(yscrollcommand=sb.set)
+        txt.pack(side="left", fill="both", expand=True)
+        sb.pack(side="right", fill="y")
+        txt.insert("1.0", text)
+        txt.config(state="disabled")
 
 
 if __name__ == "__main__":

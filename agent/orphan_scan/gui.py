@@ -67,7 +67,7 @@ class App:
         self.toggle()
 
         btns = tk.Frame(self.root)
-        btns.pack(fill="x", padx=10)
+        btns.pack(fill="x", padx=10, pady=(0, 6))
         self.b_run = tk.Button(btns, text="НАЙТИ СИРОТ", width=18, command=self.run)
         self.b_run.pack(side="left", padx=4)
         self.b_stop = tk.Button(btns, text="СТОП", width=10, state="disabled", command=self.stop)
@@ -75,6 +75,7 @@ class App:
         tk.Button(btns, text="Последний отчёт", command=self.open_report).pack(side="left", padx=4)
         tk.Button(btns, text="Папка отчётов", command=lambda: self.open_dir(eng.REPORT_DIR)).pack(side="left", padx=4)
         tk.Button(btns, text="Сохранить список (CSV)", command=self.save_csv).pack(side="left", padx=4)
+        tk.Button(btns, text="README", command=self.show_readme).pack(side="left", padx=4)
 
         self.sum = tk.Label(self.root, text="готов", anchor="w", bg="#fff1c7", padx=8, pady=4)
         self.sum.pack(fill="x", padx=10)
@@ -216,6 +217,21 @@ class App:
             self.log("список сохранён: %s" % p)
         except Exception as e:
             messagebox.showerror("Не сохранить", str(e))
+
+    def show_readme(self):
+        p = Path(__file__).resolve().parent / "README.md"
+        try:
+            text = p.read_text(encoding="utf-8")
+        except Exception as e:
+            self.log("README не прочитан: %s" % e)
+            return
+        self.log("=" * 100)
+        self.log("README: %s" % p)
+        self.log("=" * 100)
+        for line in text.splitlines():
+            self.log(line)
+        self.log("=" * 100)
+        self.log("конец README")
 
 
 if __name__ == "__main__":

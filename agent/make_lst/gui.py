@@ -40,12 +40,13 @@ class App:
             row=2, column=0, columnspan=3, sticky="w")
 
         btns = tk.Frame(self.root)
-        btns.pack(fill="x", padx=10)
+        btns.pack(fill="x", padx=10, pady=(0, 6))
         tk.Button(btns, text="ПОКАЗАТЬ (ничего не пишем)", width=30, command=self.preview).pack(side="left", padx=4)
         self.b_write = tk.Button(btns, text="ЗАПИСАТЬ ФАЙЛ (с бэкапом)", width=26, command=self.write)
         self.b_write.pack(side="left", padx=4)
         tk.Button(btns, text="Открыть папку файла", command=lambda: self.open_dir(os.path.dirname(self.var_target.get()))).pack(side="left", padx=4)
         tk.Button(btns, text="Показать текущий файл", command=self.show_current).pack(side="left", padx=4)
+        tk.Button(btns, text="README", command=self.show_readme).pack(side="left", padx=4)
 
         tk.Label(self.root, text="Что будет записано / журнал", anchor="w").pack(fill="x", padx=12, pady=(8, 0))
         self.txt = tk.Text(self.root, font=("Consolas", 9), bg="#fbfbfb")
@@ -117,6 +118,21 @@ class App:
         except Exception as e:
             messagebox.showerror("Ошибка записи", str(e))
 
+
+    def show_readme(self):
+        p = Path(__file__).resolve().parent / "README.md"
+        try:
+            text = p.read_text(encoding="utf-8")
+        except Exception as e:
+            self.log("README не прочитан: %s" % e)
+            return
+        self.log("=" * 100)
+        self.log("README: %s" % p)
+        self.log("=" * 100)
+        for line in text.splitlines():
+            self.log(line)
+        self.log("=" * 100)
+        self.log("конец README")
 
 if __name__ == "__main__":
     r = tk.Tk()

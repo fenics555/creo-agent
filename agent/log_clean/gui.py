@@ -77,12 +77,13 @@ class App:
                  fg="#555").grid(row=4, column=0, columnspan=3, sticky="w")
 
         btns = tk.Frame(self.root)
-        btns.pack(fill="x", padx=10)
+        btns.pack(fill="x", padx=10, pady=(0, 6))
         tk.Button(btns, text="ОБНОВИТЬ ПЛАН", width=18, command=self.refresh).pack(side="left", padx=4)
         self.b_run = tk.Button(btns, text="УБРАТЬ СТАРОЕ", width=18, state="disabled", command=self.run_clean)
         self.b_run.pack(side="left", padx=4)
         tk.Button(btns, text="Открыть папку логов", command=lambda: self.open_dir(self.var_root.get())).pack(side="left", padx=4)
         tk.Button(btns, text="Открыть корзину", command=lambda: self.open_dir(str(Path(self.var_root.get()) / "_trash_clean"))).pack(side="left", padx=4)
+        tk.Button(btns, text="README", command=self.show_readme).pack(side="left", padx=4)
 
         cols = ("folder", "files", "days", "old", "mb", "locked", "oldest", "newest")
         heads = ("Каталог", "Файлов", "Срок дн.", "Старше", "МБ", "Занятых", "Самый старый", "Последний")
@@ -168,6 +169,21 @@ class App:
         for g in gone:
             self.log("корзина: убран старый каталог %s" % g)
         self.refresh()
+
+    def show_readme(self):
+        p = Path(__file__).resolve().parent / "README.md"
+        try:
+            text = p.read_text(encoding="utf-8")
+        except Exception as e:
+            self.log("README не прочитан: %s" % e)
+            return
+        self.log("=" * 100)
+        self.log("README: %s" % p)
+        self.log("=" * 100)
+        for line in text.splitlines():
+            self.log(line)
+        self.log("=" * 100)
+        self.log("конец README")
 
 
 if __name__ == "__main__":

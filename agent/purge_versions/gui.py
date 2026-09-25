@@ -84,6 +84,8 @@ class PurgeGUI:
         self.btn_plan.pack(side="left", padx=5)
         self.btn_execute = tk.Button(btn_frame, text="ЧИСТИТЬ", width=15, state="disabled", command=self.confirm_execute)
         self.btn_execute.pack(side="left", padx=5)
+        self.btn_readme = tk.Button(btn_frame, text="README", width=15, command=self.show_readme)
+        self.btn_readme.pack(side="left", padx=5)
 
         self.warn_label = tk.Label(self.root, text="", bg="#fff1c7", fg="#856404", font=("Arial", 10, "bold"))
         self.warn_label.pack(fill="x", padx=10)
@@ -165,6 +167,24 @@ class PurgeGUI:
             try:
                 for l in LOG_FILE.read_text(encoding='utf-8', errors='replace').splitlines()[-10:]: self.info_text.insert(tk.END, f"{l}\n")
             except: pass
+    def show_readme(self):
+        p = Path(__file__).resolve().parent / "README.md"
+        try:
+            text = p.read_text(encoding="utf-8")
+        except Exception as e:
+            self.show_error("README не прочитан: %s" % e)
+            return
+        w = tk.Toplevel(self.root)
+        w.title("README — Очистка версий Creo")
+        w.geometry("900x600")
+        txt = tk.Text(w, font=("Consolas", 10), padx=8, pady=8)
+        sb = ttk.Scrollbar(w, command=txt.yview)
+        txt.configure(yscrollcommand=sb.set)
+        txt.pack(side="left", fill="both", expand=True)
+        sb.pack(side="right", fill="y")
+        txt.insert("1.0", text)
+        txt.config(state="disabled")
+
         self.info_text.config(state="disabled")
 
 if __name__ == "__main__":
