@@ -27,6 +27,17 @@ import threading
 
 APP_TITLE = "PLM Reader"
 SETTINGS_FILE = os.path.join(os.path.dirname(os.path.abspath(__file__)), "settings.json")
+LOG_DIR = r"D:\AI\log\plm_reader"
+
+
+def log_line(text):
+    """Одна строка в общий лог инструмента: D:\\AI\\log\\plm_reader\\plm_reader.log."""
+    try:
+        os.makedirs(LOG_DIR, exist_ok=True)
+        with open(os.path.join(LOG_DIR, "plm_reader.log"), "a", encoding="utf-8") as f:
+            f.write("%s  %s\n" % (datetime.datetime.now().strftime("%d.%m.%Y %H:%M:%S"), text))
+    except Exception:
+        pass
 
 DEFAULT_SETTINGS = {
     "folder": "",
@@ -446,6 +457,7 @@ def history_window(parent, tk, ttk, filedialog, title, load, columns=HIST_COLUMN
     def loaded(rows):
         cache[:] = rows
         render()
+        log_line("history: %s -> записей %d" % (status or title, len(rows)))
         if not rows:
             lbl.config(text="записей нет" + (" (%s)" % status if status else ""))
 
@@ -631,6 +643,8 @@ def run_gui():
         tree.bind("<Double-1>", lambda e: show_history())
         redraw()
 
+    root._plm = {"redraw": redraw, "rebuild": rebuild_tree, "tree": lambda: tree}   # для самопроверки
+
     ALL_FIELDS = ["Файл", "Обозначение", "Наименование", "Материал", "Объём, мм³", "Тип",
                   "Роль", "Родитель", "Записей", "Ревизия", "Дата", "Пользователь",
                   "Версия Creo", "Габарит, мм"]
@@ -732,6 +746,7 @@ def run_gui():
                 else:
                     redraw()
                     lbl.config(text="готово: %d моделей; показано %d" % (msg[1], len(shown)))
+                    log_line("scan: %s -> моделей %d (показано %d)" % (e_folder.get(), msg[1], len(shown)))
                     btn.config(state="normal")
                     return
         except queue.Empty:
@@ -775,6 +790,10 @@ def run_gui():
 
 
 def main():
+    try:                                   # консоль cp1251 не умеет «³» — печатаем заменой, без падения
+        sys.stdout.reconfigure(errors="replace")
+    except Exception:
+        pass
     ap = argparse.ArgumentParser(description=APP_TITLE)
     ap.add_argument("--folder", help="папка для сканирования (режим без окна)")
     ap.add_argument("--csv", help="файл выгрузки (режим без окна)")
@@ -799,6 +818,8 @@ def main():
         for r in rows:
             print(" | ".join(str(r[c]) for c in cols))
         print("\nзаписей всего: %d" % len(rows))
+        log_line("history: %s -> записей %d%s" % ("; ".join(a.history), len(rows),
+                                                  " -> " + a.history_csv if a.history_csv else ""))
         if a.history_csv:
             save_csv(rows, a.history_csv)
             print("CSV: %s" % a.history_csv)
@@ -810,6 +831,7 @@ def main():
         for r in rows:
             print(" | ".join(str(r.get(c, "")) for c in cols))
         print("\nвсего моделей: %d" % len(rows))
+        log_line("scan: %s -> моделей %d%s" % (a.folder, len(rows), " -> " + a.csv if a.csv else ""))
         if a.csv:
             save_csv(rows, a.csv)
             print("CSV: %s" % a.csv)

@@ -1,8 +1,9 @@
 {
- "folder": "D:\\AI\\PROBA\\exp",
- "max_size_mb": 24.0,
+ "folder": "D:\\AI\\PROBA",
+ "max_size_mb": 24,
  "recurse": true,
  "columns": [
+  "Файл",
   "Обозначение",
   "Наименование",
   "Материал",
@@ -13,8 +14,7 @@
   "Записей",
   "Дата",
   "Пользователь",
-  "Версия Creo",
-  "Файл"
+  "Версия Creo"
  ],
  "param_designation": [
   "ОБОЗНАЧЕНИЕ",
