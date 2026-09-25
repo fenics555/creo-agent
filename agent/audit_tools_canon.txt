@@ -1,0 +1,64 @@
+=== cmnm_scan ===
+  README: # cmnm_scan — внутренние имена Creo-файлов (класс Р, без Creo)
+  Title: ['"V1 — ВНУТРЕННИЕ ИМЕНА (CMNM']
+  Log: True | Time: False | Readme_btn: True
+=== config_audit ===
+  README: # config_audit — проверка путей config.pro (класс Р, без Creo)
+  Title: ['"V1 — ПУТИ CONFIG.PRO — что есть, чего нет"']
+  Log: True | Time: True | Readme_btn: True
+=== copy ===
+  README: # copy_server — служба копирования и переименования (для веб-страниц дома)
+  Title: ['"V1 — СЛУЖБА КОПИРОВАНИЯ (copy_server']
+  Log: True | Time: False | Readme_btn: True
+=== creo_comb ===
+  README: # ЧЕСАЛКА (creo_comb) — JLINK, без CREOSON
+  Title: ['"V1 — ЧЕСАЛКА CREO (creo_comb']
+  Log: True | Time: True | Readme_btn: True
+=== creo_export ===
+  README: # CREO EXPORT — экспорт модели из ЖИВОГО Creo (JLINK, без CREOSON)
+  Title: ['"V1 — ВЫГРУЗКА ИЗ CREO (JLINK']
+  Log: True | Time: True | Readme_btn: True
+=== creo_pdf ===
+  README: # CREO PDF V1 — скан и обновление PDF чертежей (JLINK, без CREOSON)
+  Title: ['"CREO PDF V1 — чертежи, дубли, PDF без модели  ·  дизайн 2"']
+  Log: True | Time: True | Readme_btn: True
+=== skills_check ===
+  README: # dev — служебные проверки дома
+  Title: ['"V1 — ПРОВЕРКА СКИЛЛОВ (skills_check']
+  Log: True | Time: True | Readme_btn: True
+=== dup_scan ===
+  README: # ДВОЙНИКИ (dup_scan) — отдельная программа класса Р
+  Title: ['"V1 — ДВОЙНИКИ (одинаковые файлы']
+  Log: True | Time: True | Readme_btn: True
+=== excel ===
+  README: # excel — модули XLSX спецификаций + окно просмотра
+  Title: ['"V1 — СПЕЦИФИКАЦИЯ XLSX — просмотр"']
+  Log: True | Time: True | Readme_btn: True
+=== log_clean ===
+  README: # log_clean — УБОРКА ЛОГОВ дома (класс Р, автономная программа)
+  Title: ['"V1 — УБОРКА ЛОГОВ дома"']
+  Log: True | Time: True | Readme_btn: True
+=== make_lst ===
+  README: # make_lst — файл ограничений параметров дома (`list.lst`)
+  Title: ['"V1 — ОГРАНИЧЕНИЯ ПАРАМЕТРОВ (list.lst']
+  Log: True | Time: True | Readme_btn: True
+=== navigator ===
+  README: # navigator — НАВИГАТОР ПО ДОМУ (поиск → деталировка → PDF)
+  Title: ['"V1 — НАВИГАТОР ПО ДОМУ — поиск, деталировка, PDF"', '"README — Навигатор"']
+  Log: False | Time: True | Readme_btn: True
+=== orphan_scan ===
+  README: # ORPHAN SCAN (orphan_scan)
+  Title: ['"V1 — ЧЕРТЕЖИ-СИРОТЫ (нет модели рядом']
+  Log: True | Time: True | Readme_btn: True
+=== purge_versions ===
+  README: # purge_versions — ЧИСТИЛЬЩИК склада версий Creo (класс Р, автономная программа)
+  Title: ['"V1 — ОКНО ЧИСТИЛЬЩИКА"', '"README — Очистка версий Creo"']
+  Log: True | Time: True | Readme_btn: True
+=== plm_reader ===
+  README: # PLM Reader — V1
+  Title: ['title', 'title']
+  Log: True | Time: True | Readme_btn: False
+=== plm_tree ===
+  README: # plm_tree — V1
+  Title: ['"PLM-ДЕРЕВО %s — паспорт · дерево · входимость · изменения" % VERSION']
+  Log: True | Time: True | Readme_btn: True
