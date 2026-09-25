@@ -177,6 +177,7 @@ def outline_mm(raw, sec):
                 vals.append(abs(struct.unpack_from("<f", seg, k)[0]) / 1000.0)
             except Exception:
                 pass
+        vals = [v for v in vals if 0.001 <= v <= 100000.0]   # отсеять мусорные значения
         if vals:
             return vals
     return []
@@ -201,7 +202,7 @@ def history(raw):
         stamps.append((m.start(), m.group(1).decode("ascii", "replace"), dt))
     stamps.sort()
     out = []
-    for t in re.finditer(rb"\xf7(.)\xe3([0-9]{1,7})\x00\x00(.{0,220}?)\x00(Creo [0-9][0-9.]*)\x00", raw, re.S):
+    for t in re.finditer(rb"\xf7(.)\xe3([0-9]{1,7})\x00\x00(.{0,220}?)\x00((?:Creo )?[0-9][0-9.]*)\x00", raw, re.S):
         prev = [s for s in stamps if s[0] < t.start()]
         user = prev[-1][1] if prev else ""
         dt = prev[-1][2] if prev else None
@@ -231,17 +232,182 @@ COLS_WIDTH = {"Обозначение": 130, "Наименование": 210, "�
               "Пользователь": 100, "Версия Creo": 110, "Файл": 215}
 
 
+def clean_computer(text):
+    """Имя компьютера из служебной строки записи.
+    Пример: "Наименование компьютера: 'frezer-4'" -> "frezer-4"."""
+    m = re.search(r"'([^']+)'", text or "")
+    if m:
+        return m.group(1).strip()
+    return (text or "").strip().split(":")[-1].strip().strip("'")
+
+
+def parse_changes(raw):
+    """ЧТО МЕНЯЛОСЬ в модели (из внутренних записей изменения Creo).
+
+    Возвращает {ревизия: {"dims": [...], "params": [...]}}: изменение привязано к ближайшей
+    предшествующей записи истории (маркер `f7 ?? e3 <rev> 00 00`).
+    Размеры — `typed_data(MTTyped_ModifyData)` -> имена `d*`; параметры — `chg_param_arr`/`param_typed_data`.
+    ВАЖНО: числовые «было→стало» по размеру Creo в записи НЕ хранит (old_val/new_val пусты) —
+    видно ИМЯ изменённого размера, а не значения.
+    """
+    marks = [(m.start(), m.group(2).decode()) for m in
+             re.finditer(rb"\xf7(.)\xe3([0-9]{1,7})\x00\x00", raw)]
+
+    def rev_at(off):
+        prev = [r for r in marks if r[0] < off]
+        return prev[-1][1] if prev else ""
+
+    out = {}
+
+    def add(rev, key, val):
+        if not val:
+            return
+        d = out.setdefault(rev, {"dims": [], "params": []})
+        if val not in d[key]:
+            d[key].append(val)
+
+    for m in re.finditer(rb"MTTyped_ModifyData", raw):
+        seg = raw[m.start():m.start() + 600]
+        for d in re.findall(rb"(?<![A-Za-z0-9_])(d[0-9]{1,6})(?![A-Za-z0-9_])", seg):
+            add(rev_at(m.start()), "dims", d.decode("latin-1"))
+    for m in re.finditer(rb"chg_param_arr", raw):
+        seg = raw[m.start():m.start() + 400]
+        n = re.search(rb"name\x00([^\x00]{1,40})\x00", seg)
+        if n:
+            add(rev_at(m.start()), "params", n.group(1).decode("utf-8", "replace"))
+    for m in re.finditer(rb"param_typed_data", raw):
+        seg = raw[m.start() + 16:m.start() + 160]
+        t = re.search(rb"((?:\xd0[\x80-\xbf]|\xd1[\x80-\xbf])[^\x00]{1,40})\x00", seg)
+        if t:
+            try:
+                add(rev_at(m.start()), "params", t.group(1).decode("utf-8"))
+            except UnicodeDecodeError:
+                pass
+    return out
+
+
+def changes_line(chg):
+    """Короткая строка «что изменено» из словаря изменений одной записи."""
+    if not chg:
+        return ""
+    parts = []
+    if chg.get("dims"):
+        parts.append("размеры: " + ", ".join(chg["dims"]))
+    if chg.get("params"):
+        parts.append("параметры: " + ", ".join(chg["params"]))
+    return "; ".join(parts)
+
+
+def sibling_versions(path):
+    """Все версии того же изделия в папке: [(номер, путь), ...] по возрастанию."""
+    folder = os.path.dirname(path)
+    m = re.match(r"^(.*)\.([A-Za-z_]{2,4})\.(\d+)$", os.path.basename(path))
+    if not m:
+        return []
+    stem, ext = m.group(1).lower(), m.group(2).lower()
+    out = []
+    try:
+        for n in os.listdir(folder):
+            mm = re.match(r"^(.*)\.([A-Za-z_]{2,4})\.(\d+)$", n)
+            if mm and mm.group(1).lower() == stem and mm.group(2).lower() == ext:
+                out.append((int(mm.group(3)), os.path.join(folder, n)))
+    except OSError:
+        return []
+    out.sort()
+    return out
+
+
+VERSION_FIELDS = ("Ревизия", "Дата", "Пользователь", "Версия Creo", "Объём, мм³", "Габарит, мм")
+VER_COLUMNS = ("Версия", "Ревизия", "Дата", "Пользователь", "Версия Creo", "Объём, мм³",
+               "Габарит, мм", "Изменение")
+
+
+def version_diff(path, settings):
+    """Было→стало между версиями одного изделия (.1 .2 .3 …).
+
+    Числа (объём, габарит) сравниваются, когда оба значения правдоподобны; ревизия — всегда.
+    Плюс к каждой версии — что менялось по её внутренним записям (размеры/параметры).
+    """
+    vers = sibling_versions(path)
+    if len(vers) < 2:
+        return []
+    parsed = []
+    for num, p in vers:
+        raw = read_bytes(p, settings.get("max_size_mb", 0))
+        if raw is None:
+            parsed.append((num, {}, {}))
+            continue
+        try:
+            r = scan_file(p, settings)
+        except Exception:
+            r = {}
+        parsed.append((num, r, parse_changes(raw)))
+    rows = []
+    for i, (num, r, chg) in enumerate(parsed):
+        d = {f: (r.get(f, "") if r else "") for f in VERSION_FIELDS}
+        d["Версия"] = str(num)
+        changes = []
+        if i:
+            pr = parsed[i - 1][1]
+            if pr and r:
+                if pr.get("Ревизия") != r.get("Ревизия"):
+                    changes.append("ревизия %s→%s" % (pr.get("Ревизия"), r.get("Ревизия")))
+                for f in ("Объём, мм³", "Габарит, мм"):
+                    a, b = str(pr.get(f, "")), str(r.get(f, ""))
+                    if a and b and a != b:
+                        changes.append("%s %s→%s" % (f.split(",")[0], a, b))
+            else:
+                changes.append("нет данных предыдущей версии")
+        for rev, c in sorted(chg.items()):
+            line = changes_line(c)
+            if line:
+                changes.append("rev %s: %s" % (rev, line))
+        d["Изменение"] = "; ".join(changes)
+        rows.append(d)
+    return rows
+
+
+def versions_window(parent, tk, ttk, filedialog, title, rows):
+    """Окно сравнения версий одного изделия (.1 .2 .3 …)."""
+    win = tk.Toplevel(parent)
+    win.title(title)
+    win.geometry("1100x440")
+    W = {"Версия": 70, "Ревизия": 70, "Дата": 145, "Пользователь": 100, "Версия Creo": 100,
+         "Объём, мм³": 100, "Габарит, мм": 130, "Изменение": 340}
+    tv = ttk.Treeview(win, columns=VER_COLUMNS, show="headings")
+    for c in VER_COLUMNS:
+        tv.heading(c, text=c)
+        tv.column(c, width=W.get(c, 120), anchor="w")
+    tv.pack(fill="both", expand=True, padx=6, pady=6)
+
+    def exp():
+        p = filedialog.asksaveasfilename(defaultextension=".csv", initialfile="versions.csv",
+                                         filetypes=[("CSV", "*.csv")])
+        if p:
+            save_csv(rows, p)
+
+    ttk.Button(win, text="Выгрузить в CSV", command=exp).pack(anchor="w", padx=6, pady=(0, 6))
+    for r in rows:
+        tv.insert("", "end", values=[r.get(c, "") for c in VER_COLUMNS])
+    return win
+
+
 def history_rows(path, settings):
-    """Полная история изменений файла: список записей (ревизия, дата, кто, компьютер, версия)."""
+    """Полная история файла: список записей (ревизия, дата, кто, компьютер, версия, что изменено)."""
     raw = read_bytes(path, settings.get("max_size_mb", 0))
     if raw is None:
         return []
+    chg = parse_changes(raw)
+    typ = kind(raw)
+    base = os.path.basename(path)
+    folder = os.path.dirname(path)
     out = []
     for rev, dt, who, comp, ver in history(raw):
         d = dt.replace(tzinfo=datetime.timezone.utc).astimezone() if dt else None
-        out.append({"Файл": os.path.basename(path), "Путь": os.path.dirname(path),
+        out.append({"Файл": base, "Путь": folder, "Тип": typ,
                     "Ревизия": rev, "Дата": d.strftime("%d.%m.%Y %H:%M:%S") if d else "",
-                    "Пользователь": who, "Компьютер": comp, "Версия Creo": ver,
+                    "Пользователь": who, "Компьютер": clean_computer(comp), "Версия Creo": ver,
+                    "Что изменено": changes_line(chg.get(rev)),
                     "_dt": d.isoformat() if d else ""})
     return out
 
@@ -419,19 +585,31 @@ def save_csv(rows, path):
 
 
 # ------------------------------------------------------------------ окно истории
-HIST_COLUMNS = ("Файл", "Ревизия", "Дата", "Пользователь", "Компьютер", "Версия Creo")
-HIST_WIDTH = {"Файл": 210, "Ревизия": 80, "Дата": 145, "Пользователь": 110,
-              "Компьютер": 210, "Версия Creo": 100}
+HIST_ALL = ["Файл", "Путь", "Тип", "Ревизия", "Дата", "Пользователь", "Компьютер",
+            "Версия Creo", "Что изменено"]
+HIST_DEFAULT = ["Файл", "Ревизия", "Дата", "Пользователь", "Компьютер", "Версия Creo",
+                "Что изменено"]
+HIST_WIDTH = {"Файл": 200, "Путь": 220, "Тип": 90, "Ревизия": 70, "Дата": 145,
+              "Пользователь": 100, "Компьютер": 110, "Версия Creo": 100, "Что изменено": 360}
 
 
-def history_window(parent, tk, ttk, filedialog, title, load, columns=HIST_COLUMNS, status=""):
+def history_window(parent, tk, ttk, filedialog, title, load, columns=None,
+                   settings=None, save_settings=None, status=""):
     """Окно истории изменений: load() -> список записей.
 
-    Файлы читаются один раз (в отдельном потоке), затем фильтр по датам работает мгновенно.
+    Столбцы выбираются кнопкой «Столбцы…» (сохраняются в настройках), сортировка — по клику заголовка.
+    Файлы читаются один раз (в отдельном потоке), фильтр по датам мгновенный.
     """
+    settings = settings if settings is not None else {}
+    cols = [c for c in (settings.get("history_columns") or columns or HIST_DEFAULT) if c in HIST_ALL]
+    if "Файл" in cols:
+        cols = ["Файл"] + [c for c in cols if c != "Файл"]
+    if not cols:
+        cols = list(HIST_DEFAULT)
+
     win = tk.Toplevel(parent)
     win.title(title)
-    win.geometry("1000x540")
+    win.geometry("1160x560")
     bar = ttk.Frame(win, padding=6)
     bar.pack(fill="x")
     ttk.Label(bar, text="с:").pack(side="left")
@@ -444,20 +622,69 @@ def history_window(parent, tk, ttk, filedialog, title, load, columns=HIST_COLUMN
     lbl = ttk.Label(bar, text="…")
     lbl.pack(side="right")
 
-    tv = ttk.Treeview(win, columns=columns, show="headings")
-    for c in columns:
-        tv.heading(c, text=c)
-        tv.column(c, width=HIST_WIDTH.get(c, 140), anchor="w")
-    tv.pack(fill="both", expand=True, padx=6, pady=6)
+    body = ttk.Frame(win)
+    body.pack(fill="both", expand=True, padx=6, pady=6)
+    body.rowconfigure(0, weight=1)
+    body.columnconfigure(0, weight=1)
 
     cache, shown = [], []
+    sort_state = {"col": "Дата", "desc": True}
+
+    def hkey(r, col):
+        v = r.get(col, "")
+        if col == "Ревизия":
+            try:
+                return (0, int(v))
+            except (TypeError, ValueError):
+                return (1, 0)
+        if col == "Дата":
+            d = parse_dt(v)
+            return (0, d.timestamp()) if d else (1, 0)
+        return (0, str(v).lower())
+
+    def make_tree():
+        tv = ttk.Treeview(body, columns=cols, show="headings", height=18)
+        for c in cols:
+            tv.heading(c, text=c, command=lambda c=c: set_sort(c))
+            tv.column(c, width=HIST_WIDTH.get(c, 140), anchor="w")
+        return tv
+
+    tree = make_tree()
+    vsb = ttk.Scrollbar(body, orient="vertical", command=tree.yview)
+    hsb = ttk.Scrollbar(body, orient="horizontal", command=tree.xview)
+    tree.configure(yscrollcommand=vsb.set, xscrollcommand=hsb.set)
+    tree.grid(row=0, column=0, sticky="nsew")
+    vsb.grid(row=0, column=1, sticky="ns")
+    hsb.grid(row=1, column=0, sticky="ew")
+
+    def set_sort(col):
+        if sort_state["col"] == col:
+            sort_state["desc"] = not sort_state["desc"]
+        else:
+            sort_state["col"], sort_state["desc"] = col, False
+        render()
+
+    def rebuild_tree():
+        nonlocal tree
+        tree.destroy()
+        tree = make_tree()
+        tree.configure(yscrollcommand=vsb.set, xscrollcommand=hsb.set)
+        vsb.configure(command=tree.yview)
+        hsb.configure(command=tree.xview)
+        tree.grid(row=0, column=0, sticky="nsew")
+        render()
 
     def render(*_):
         rows = filter_history(cache, e_from.get(), e_to.get())
+        rows.sort(key=lambda r: hkey(r, sort_state["col"]), reverse=sort_state["desc"])
         shown[:] = rows
-        tv.delete(*tv.get_children())
+        tree.delete(*tree.get_children())
         for r in rows:
-            tv.insert("", "end", values=[r.get(c, "") for c in columns])
+            tree.insert("", "end", values=[r.get(c, "") for c in cols])
+        for c in cols:
+            mark = "  ▼" if (sort_state["col"] == c and sort_state["desc"]) else \
+                   ("  ▲" if sort_state["col"] == c else "")
+            tree.heading(c, text=c + mark)
         lbl.config(text="записей: %d из %d" % (len(rows), len(cache)))
 
     def loaded(rows):
@@ -477,7 +704,7 @@ def history_window(parent, tk, ttk, filedialog, title, load, columns=HIST_COLUMN
         try:
             tag, payload = q.get_nowait()
         except queue.Empty:
-            win.after(150, poll)          # опрос планируется из главного потока
+            win.after(150, poll)
             return
         if tag == "ok":
             loaded(payload)
@@ -493,11 +720,51 @@ def history_window(parent, tk, ttk, filedialog, title, load, columns=HIST_COLUMN
             save_csv(shown, p)
             lbl.config(text="выгружено: %s" % os.path.basename(p))
 
+    def choose_cols():
+        ch = tk.Toplevel(win)
+        ch.title("Столбцы истории — сохраняются в настройках")
+        ch.geometry("480x340")
+        ttk.Label(ch, text="Какие столбцы показывать в истории («Файл» — всегда первый):").pack(
+            anchor="w", padx=8, pady=(8, 2))
+        box = ttk.Frame(ch, padding=8)
+        box.pack(fill="x")
+        vars_ = {}
+        for f in HIST_ALL:
+            vars_[f] = tk.BooleanVar(value=f in cols)
+            cb = ttk.Checkbutton(box, text=f, variable=vars_[f])
+            cb.pack(anchor="w")
+            if f == "Файл":
+                cb.state(["disabled"])
+
+        def apply():
+            cols[:] = ["Файл"] + [f for f in HIST_ALL if f != "Файл" and vars_[f].get()]
+            settings["history_columns"] = list(cols)
+            if save_settings:
+                save_settings()
+            rebuild_tree()
+            ch.destroy()
+
+        ttk.Button(ch, text="Применить и сохранить", command=apply).pack(anchor="w", padx=8, pady=(0, 10))
+
+    def show_versions():
+        if not cache:
+            return
+        p = os.path.join(cache[0].get("Путь", ""), cache[0].get("Файл", ""))
+        try:
+            rows_v = version_diff(p, settings)
+        except Exception:
+            rows_v = []
+        versions_window(win, tk, ttk, filedialog,
+                        "Версии — %s" % os.path.basename(p), rows_v)
+
     ttk.Button(bar, text="Показать", command=render).pack(side="left", padx=8)
+    ttk.Button(bar, text="Столбцы…", command=choose_cols).pack(side="left", padx=4)
+    ttk.Button(bar, text="Версии…", command=show_versions).pack(side="left", padx=4)
     ttk.Button(bar, text="Выгрузить в CSV", command=exp).pack(side="left", padx=4)
     e_from.bind("<Return>", render)
     e_to.bind("<Return>", render)
     q = queue.Queue()
+    win._plm_hist = {"render": render, "tree": lambda: tree}   # для самопроверки
     threading.Thread(target=work, daemon=True).start()
     win.after(150, poll)
     return win
@@ -533,18 +800,6 @@ def run_gui():
             e_folder.insert(0, d)
 
     ttk.Button(top, text="Выбрать…", command=pick).pack(side="left")
-    ttk.Button(top, text="Вставить", command=lambda: paste()).pack(side="left", padx=(4, 0))
-    def paste():
-        try:
-            txt = root.clipboard_get()
-        except Exception:
-            txt = ""
-        p = norm_path(txt)
-        if not p:
-            messagebox.showinfo(APP_TITLE, "В буфере нет пути. Скопируйте папку (или файл) и нажмите «Вставить».")
-            return
-        e_folder.delete(0, "end")
-        e_folder.insert(0, p)
 
     ttk.Label(top, text="Пропускать > МБ:").pack(side="left", padx=(10, 2))
     e_max = ttk.Entry(top, width=5)
@@ -723,6 +978,7 @@ def run_gui():
         history_window(root, tk, ttk, filedialog,
                        "История изменений — %s" % os.path.basename(path),
                        lambda: history_rows(path, hist_settings()),
+                       settings=settings, save_settings=save_settings,
                        status=os.path.basename(path))
 
     def show_folder_history():
@@ -733,6 +989,7 @@ def run_gui():
         history_window(root, tk, ttk, filedialog,
                        "История изменений — %s" % folder,
                        lambda: history_folder(folder, hist_settings()),
+                       settings=settings, save_settings=save_settings,
                        status=folder)
 
     q = queue.Queue()
@@ -819,7 +1076,7 @@ def main():
             else:
                 rows += history_rows(f, {"max_size_mb": a.max_mb})
         rows.sort(key=lambda r: (r.get("_dt", "") == "", r.get("_dt", ""), r.get("Файл", "")))
-        cols = ["Файл", "Ревизия", "Дата", "Пользователь", "Компьютер", "Версия Creo"]
+        cols = ["Файл", "Ревизия", "Дата", "Пользователь", "Компьютер", "Версия Creo", "Что изменено"]
         print(" | ".join(cols))
         for r in rows:
             print(" | ".join(str(r[c]) for c in cols))
