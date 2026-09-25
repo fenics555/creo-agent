@@ -127,6 +127,7 @@
 | **excel** (просмотр спецификаций) | Р | `excel_gui.bat` (окно просмотра) | `excel_import.read_specification_xlsx` / `excel_export.create_xlsx` (модули для агента) | — | работает; окно добавлено 23.09 (чтение + понятная ошибка на «не спецификации») |
 | **skills_check** (проверка скиллов) | Р | `dev\skills_check_gui.bat` (окно) | `python dev\skills_check.py` | `D:\AI\log\skills_check\` | работает; приёмка 23.09: violations=2, notes=17; окно добавлено |
 | **plm_reader** (данные изделий ИЗ ФАЙЛОВ) | Р | `plm_reader_gui.bat` (окно настроек) | `plm_reader.bat --folder DIR [--csv]` или `--history FILE/DIR [--history-csv]` | `D:\AI\log\plm_reader\`; настройки — `settings.json` рядом | работает (окно+CLI); переезд 25.09.2026 из `tools\plm_reader\` в `tools\agent\plm_reader\`; дымовая проба CLI exit=0 |
+| **plm_tree** (ПЛМ: паспорт · входимость · изменения) | Р | — (окно — долг) | `plm_tree.bat scan` / `where МОДЕЛЬ` / `changes` | `D:\AI\log\plm_tree\`; своя база — `plm_tree.db` рядом | работает (библиотека+CLI); 796 моделей за 6 с; своя база, переносимо; окно и визард — долг |
 
 ## Агент (тело и диалог) — остаётся агентом, не программа класса Р
 `agent.py`, `loop.py`, `core.py`, `http_handlers.py`, `panel/ui`, `settings.py`, `users.py`, `ctl.py`,
