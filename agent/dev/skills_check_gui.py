@@ -33,7 +33,7 @@ class App:
                  anchor="w", fg="#555").pack(fill="x", padx=10, pady=(10, 4))
 
         btns = tk.Frame(self.root)
-        btns.pack(fill="x", padx=10)
+        btns.pack(fill="x", padx=10, pady=(0, 6))
         self.b_run = tk.Button(btns, text="ПРОВЕРИТЬ", width=16, command=self.run)
         self.b_run.pack(side="left", padx=4)
         self.b_stop = tk.Button(btns, text="СТОП", width=10, state="disabled", command=self.stop)
@@ -41,6 +41,7 @@ class App:
         tk.Button(btns, text="Открыть отчёт", command=self.open_report).pack(side="left", padx=4)
         tk.Button(btns, text="Обновить эталон (после разбора нарушений)",
                   command=self.rebaseline).pack(side="left", padx=4)
+        tk.Button(btns, text="README", command=self.show_readme).pack(side="left", padx=4)
 
         self.sum = tk.Label(self.root, text="готов", anchor="w", bg="#fff1c7", padx=8, pady=4)
         self.sum.pack(fill="x", padx=10, pady=(6, 0))
@@ -112,6 +113,21 @@ class App:
     def done(self):
         self.proc = None
         self.b_run.config(state="normal")
+    def show_readme(self):
+        p = Path(__file__).resolve().parent / "README.md"
+        try:
+            text = p.read_text(encoding="utf-8")
+        except Exception as e:
+            self.log("README не прочитан: %s\n" % e)
+            return
+        self.log("=" * 100 + "\n")
+        self.log("README: %s\n" % p)
+        self.log("=" * 100 + "\n")
+        for line in text.splitlines():
+            self.log(line + "\n")
+        self.log("=" * 100 + "\n")
+        self.log("конец README\n")
+
         self.b_stop.config(state="disabled")
         self.sum.config(text="готов · отчёт: %s" % REPORT)
 

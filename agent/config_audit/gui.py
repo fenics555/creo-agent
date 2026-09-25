@@ -44,11 +44,12 @@ class App:
                  fg="#555").grid(row=1, column=0, columnspan=3, sticky="w")
 
         btns = tk.Frame(self.root)
-        btns.pack(fill="x", padx=10)
+        btns.pack(fill="x", padx=10, pady=(0, 6))
         tk.Button(btns, text="ПРОВЕРИТЬ", width=18, command=self.run).pack(side="left", padx=4)
         tk.Button(btns, text="Открыть файл", command=self.open_file).pack(side="left", padx=4)
         tk.Button(btns, text="Открыть папку", command=lambda: self.open_dir(os.path.dirname(self.var_path.get()))).pack(side="left", padx=4)
         tk.Button(btns, text="Сохранить отчёт (CSV)", command=self.save_csv).pack(side="left", padx=4)
+        tk.Button(btns, text="README", command=self.show_readme).pack(side="left", padx=4)
 
         self.sum = tk.Label(self.root, text="готов", anchor="w", bg="#fff1c7", padx=8, pady=4)
         self.sum.pack(fill="x", padx=10)
@@ -125,6 +126,21 @@ class App:
             self.log("отчёт сохранён: %s" % p)
         except Exception as e:
             messagebox.showerror("Не сохранить", str(e))
+
+    def show_readme(self):
+        p = Path(__file__).resolve().parent / "README.md"
+        try:
+            text = p.read_text(encoding="utf-8")
+        except Exception as e:
+            self.log("README не прочитан: %s" % e)
+            return
+        self.log("=" * 100)
+        self.log("README: %s" % p)
+        self.log("=" * 100)
+        for line in text.splitlines():
+            self.log(line)
+        self.log("=" * 100)
+        self.log("конец README")
 
 
 if __name__ == "__main__":

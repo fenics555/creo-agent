@@ -78,11 +78,12 @@ class App:
                        value="apply", command=self.save).grid(row=5, column=1, sticky="e", padx=6)
 
         btns = tk.Frame(self.root)
-        btns.pack(fill="x", padx=10)
+        btns.pack(fill="x", padx=10, pady=(0, 6))
         tk.Button(btns, text="НАЙТИ ДВОЙНИКОВ", width=20, command=self.run_find).pack(side="left", padx=4)
         self.b_apply = tk.Button(btns, text="ПЕРЕНЕСТИ В УРНУ", width=20, state="disabled", command=self.run_apply)
         self.b_apply.pack(side="left", padx=4)
         tk.Button(btns, text="Открыть папку отчётов", command=lambda: self.open_dir(eng.LOG_DIR)).pack(side="left", padx=4)
+        tk.Button(btns, text="README", command=self.show_readme).pack(side="left", padx=4)
 
         cols = ("size", "keep", "extra", "where")
         heads = ("МБ", "Образец (оставляем самый свежий)", "Двойников", "Где они лежат")
@@ -188,6 +189,21 @@ class App:
                     self.log("   → в урну: %s" % os.path.basename(one[0]))
         self.log("перенесено файлов: %d" % moved)
         self.run_find()
+    def show_readme(self):
+        p = Path(__file__).resolve().parent / "README.md"
+        try:
+            text = p.read_text(encoding="utf-8")
+        except Exception as e:
+            self.log("README не прочитан: %s" % e)
+            return
+        self.log("=" * 100)
+        self.log("README: %s" % p)
+        self.log("=" * 100)
+        for line in text.splitlines():
+            self.log(line)
+        self.log("=" * 100)
+        self.log("конец README")
+
 
 
 if __name__ == "__main__":

@@ -61,11 +61,12 @@ class App:
         tk.Spinbox(top, from_=0, to=1000000, textvariable=self.var_limit, width=9).grid(row=3, column=1, sticky="w", padx=6)
 
         btns = tk.Frame(self.root)
-        btns.pack(fill="x", padx=10)
+        btns.pack(fill="x", padx=10, pady=(0, 6))
         self.b_find = tk.Button(btns, text="ПРОВЕРИТЬ", width=18, command=self.run)
         self.b_find.pack(side="left", padx=4)
         tk.Button(btns, text="Открыть папку отчётов", command=lambda: self.open_dir(eng.LOG_DIR)).pack(side="left", padx=4)
         tk.Button(btns, text="Сохранить список (CSV)", command=self.save_csv).pack(side="left", padx=4)
+        tk.Button(btns, text="README", command=self.show_readme).pack(side="left", padx=4)
 
         cols = ("file", "internal", "where")
         heads = ("Файл", "Внутри файла", "Папка")
@@ -168,6 +169,21 @@ class App:
         except Exception as e:
             messagebox.showerror("Не сохранить", str(e))
 
+
+    def show_readme(self):
+        p = Path(__file__).resolve().parent / "README.md"
+        try:
+            text = p.read_text(encoding="utf-8")
+        except Exception as e:
+            self.log("README не прочитан: %s" % e)
+            return
+        self.log("=" * 100)
+        self.log("README: %s" % p)
+        self.log("=" * 100)
+        for line in text.splitlines():
+            self.log(line)
+        self.log("=" * 100)
+        self.log("конец README")
 
 if __name__ == "__main__":
     r = tk.Tk()

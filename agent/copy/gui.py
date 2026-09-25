@@ -62,13 +62,14 @@ class App:
                  fg="#555").grid(row=1, column=0, columnspan=4, sticky="w")
 
         btns = tk.Frame(self.root)
-        btns.pack(fill="x", padx=10)
+        btns.pack(fill="x", padx=10, pady=(0, 6))
         self.b_start = tk.Button(btns, text="ЗАПУСТИТЬ СЛУЖБУ", width=20, command=self.start)
         self.b_start.pack(side="left", padx=4)
         self.b_stop = tk.Button(btns, text="ОСТАНОВИТЬ", width=14, state="disabled", command=self.stop)
         self.b_stop.pack(side="left", padx=4)
         tk.Button(btns, text="Открыть страницу", command=self.open_page).pack(side="left", padx=4)
         tk.Button(btns, text="Проверить порт", command=self.refresh_state).pack(side="left", padx=4)
+        tk.Button(btns, text="README", command=self.show_readme).pack(side="left", padx=4)
 
         self.state = tk.Label(self.root, text="", anchor="w", bg="#fff1c7", padx=8, pady=4)
         self.state.pack(fill="x", padx=10, pady=(6, 0))
@@ -136,6 +137,21 @@ class App:
         else:
             self.log("останавливать нечего: эту службу поднял не я (например, стек агента)\n")
         self.after_stop()
+    def show_readme(self):
+        p = Path(__file__).resolve().parent / "README.md"
+        try:
+            text = p.read_text(encoding="utf-8")
+        except Exception as e:
+            self.log("README не прочитан: %s\n" % e)
+            return
+        self.log("=" * 100 + "\n")
+        self.log("README: %s\n" % p)
+        self.log("=" * 100 + "\n")
+        for line in text.splitlines():
+            self.log(line + "\n")
+        self.log("=" * 100 + "\n")
+        self.log("конец README\n")
+
 
 
 if __name__ == "__main__":
