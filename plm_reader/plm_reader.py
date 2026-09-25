@@ -2,12 +2,15 @@
 r"""PLM Reader — автономный просмотр данных изделий из файлов CAD (детали, сборки, чертежи).
 
 Кнопка «Сканировать» обходит выбранную папку и показывает таблицу:
-Обозначение · Наименование · Материал · Объём (мм³) · Габарит · Роль/родитель · Ревизия · Дата · Пользователь.
+Обозначение · Наименование · Материал · Объём (мм³) · Роль/родитель · Ревизия · Записей · Дата · Пользователь · Версия Creo · Файл.
+Двойной клик по строке (или «История выбранного») — полная история изменений файла, с фильтром по датам.
+Кнопка «История по папке» — сводная история изменений всех моделей папки.
 
 Запуск:
     python plm_reader.py                            — окно
     python plm_reader.py --folder DIR               — без окна: таблица в консоль
     python plm_reader.py --folder DIR --csv out.csv — без окна: выгрузка в CSV
+    python plm_reader.py --history FILE|DIR         — без окна: история изменений
 
 Зависимости: только стандартная библиотека Python (tkinter — для окна).
 """
@@ -16,6 +19,7 @@ import csv
 import datetime
 import json
 import os
+import queue
 import re
 import struct
 import sys
@@ -29,7 +33,8 @@ DEFAULT_SETTINGS = {
     "max_size_mb": 24,
     "recurse": True,
     "columns": ["Обозначение", "Наименование", "Материал", "Объём, мм³",
-                "Роль", "Родитель", "Ревизия", "Дата", "Пользователь", "Файл"],
+                "Роль", "Родитель", "Ревизия", "Записей", "Дата", "Пользователь",
+                "Версия Creo", "Файл"],
 }
 
 MODELFILE = re.compile(r"\.([a-z_]{2,4})\.\d+$", re.IGNORECASE)
@@ -207,6 +212,87 @@ def provenance(raw, is_part):
     return "", ""
 
 
+COLS_WIDTH = {"Обозначение": 130, "Наименование": 210, "Материал": 110, "Объём, мм³": 100,
+              "Роль": 110, "Родитель": 140, "Ревизия": 80, "Записей": 80, "Дата": 120,
+              "Пользователь": 100, "Версия Creo": 110, "Файл": 215}
+
+
+def history_rows(path, settings):
+    """Полная история изменений файла: список записей (ревизия, дата, кто, компьютер, версия)."""
+    raw = read_bytes(path, settings.get("max_size_mb", 0))
+    if raw is None:
+        return []
+    out = []
+    for rev, dt, who, comp, ver in history(raw):
+        d = dt.replace(tzinfo=datetime.timezone.utc).astimezone() if dt else None
+        out.append({"Файл": os.path.basename(path), "Путь": os.path.dirname(path),
+                    "Ревизия": rev, "Дата": d.strftime("%d.%m.%Y %H:%M:%S") if d else "",
+                    "Пользователь": who, "Компьютер": comp, "Версия Creo": ver,
+                    "_dt": d.isoformat() if d else ""})
+    return out
+
+
+def history_folder(folder, settings, progress=None):
+    """Сводная история изменений всех моделей папки (по дате, затем по файлу)."""
+    paths = []
+    if settings.get("recurse", True):
+        for dp, _, files in os.walk(folder):
+            for f in files:
+                if MODELFILE.search(f):
+                    paths.append(os.path.join(dp, f))
+    else:
+        for f in os.listdir(folder):
+            if MODELFILE.search(f):
+                paths.append(os.path.join(folder, f))
+    rows = []
+    for n, p in enumerate(sorted(paths), 1):
+        if progress:
+            progress(n, len(paths), p)
+        try:
+            rows += history_rows(p, settings)
+        except Exception:
+            pass
+    rows.sort(key=lambda r: (r.get("_dt", "") == "", r.get("_dt", ""), r.get("Файл", "")))
+    return rows
+
+
+def parse_dt(s):
+    """Разобрать «дд.мм.гггг» / «дд.мм.гггг чч:мм[:сс]»; None — если пусто или не разобрано."""
+    s = (s or "").strip()
+    if not s:
+        return None
+    for fmt in ("%d.%m.%Y %H:%M:%S", "%d.%m.%Y %H:%M", "%d.%m.%Y", "%d.%m.%y", "%d.%m"):
+        try:
+            d = datetime.datetime.strptime(s, fmt)
+            if fmt == "%d.%m":
+                d = d.replace(year=datetime.date.today().year)
+            return d
+        except ValueError:
+            continue
+    return None
+
+
+def filter_history(rows, s_from, s_to):
+    """Записи истории в границах «с»/«по» (строки вида дд.мм.гггг; пусто — без границы)."""
+    f, t = parse_dt(s_from), parse_dt(s_to)
+    if t and (t.hour, t.minute) == (0, 0):
+        t = t + datetime.timedelta(days=1) - datetime.timedelta(seconds=1)
+    out = []
+    for r in rows:
+        d = None
+        if r.get("_dt"):
+            try:
+                d = datetime.datetime.fromisoformat(r["_dt"]).replace(tzinfo=None)
+            except ValueError:
+                d = None
+        if f and (d is None or d < f):
+            continue
+        if t and (d is None or d > t):
+            continue
+        out.append(r)
+    return out
+
+
 def kind(raw):
     head = raw[:40].decode("cp1251", "replace")
     m = re.match(r"#UGC:2\s+([A-Z_/]+)", head)
@@ -235,14 +321,16 @@ def scan_file(path, settings):
         "Роль": role,
         "Родитель": parent,
         "Ревизия": last[0] if last else "",
-        "Дата": last[1].strftime("%d.%m.%Y %H:%M") if last and last[1] else "",
+        "Дата": last[1].replace(tzinfo=datetime.timezone.utc).astimezone().strftime("%d.%m.%Y %H:%M")
+                if last and last[1] else "",
         "Пользователь": last[2] if last else "",
         "Записей": len(hist),
-        "Версия": last[4] if last else "",
+        "Версия Creo": last[4] if last else "",
+        "_path": path,
     }
 
 
-def scan_folder(folder, settings, progress=None):
+def scan_folder(folder, settings, progress=None, on_row=None):
     rows, paths = [], []
     if settings.get("recurse", True):
         for dp, _, files in os.walk(folder):
@@ -262,18 +350,116 @@ def scan_folder(folder, settings, progress=None):
             r = None
         if r:
             rows.append(r)
+            if on_row:
+                on_row(r)
     return rows
+
+
+def norm_path(s):
+    """Привести вставленный путь к рабочему виду: убрать кавычки/пробелы по краям,
+    заменить прямые слэши, отбросить хвостовой слэш; если вставлен файл — взять его папку."""
+    s = (s or "").strip().strip('"').strip("'").strip("«»").strip()
+    s = s.replace("/", "\\")
+    while len(s) > 3 and s.endswith("\\"):
+        s = s[:-1]
+    if s and os.path.isfile(s):
+        s = os.path.dirname(s)
+    return s
 
 
 def save_csv(rows, path):
     if not rows:
         return
     cols = [c for c in DEFAULT_SETTINGS["columns"] if c in rows[0]] + \
-           [c for c in rows[0] if c not in DEFAULT_SETTINGS["columns"]]
+           [c for c in rows[0] if c not in DEFAULT_SETTINGS["columns"] and not c.startswith("_")]
     with open(path, "w", newline="", encoding="utf-8-sig") as f:
         w = csv.DictWriter(f, fieldnames=cols, delimiter=";")
         w.writeheader()
         w.writerows(rows)
+
+
+# ------------------------------------------------------------------ окно истории
+HIST_COLUMNS = ("Файл", "Ревизия", "Дата", "Пользователь", "Компьютер", "Версия Creo")
+HIST_WIDTH = {"Файл": 210, "Ревизия": 80, "Дата": 145, "Пользователь": 110,
+              "Компьютер": 210, "Версия Creo": 100}
+
+
+def history_window(parent, tk, ttk, filedialog, title, load, columns=HIST_COLUMNS, status=""):
+    """Окно истории изменений: load() -> список записей.
+
+    Файлы читаются один раз (в отдельном потоке), затем фильтр по датам работает мгновенно.
+    """
+    win = tk.Toplevel(parent)
+    win.title(title)
+    win.geometry("1000x540")
+    bar = ttk.Frame(win, padding=6)
+    bar.pack(fill="x")
+    ttk.Label(bar, text="с:").pack(side="left")
+    e_from = ttk.Entry(bar, width=12)
+    e_from.pack(side="left", padx=(2, 8))
+    ttk.Label(bar, text="по:").pack(side="left")
+    e_to = ttk.Entry(bar, width=12)
+    e_to.pack(side="left", padx=(2, 8))
+    ttk.Label(bar, text="дд.мм.гггг (пусто — без границы)").pack(side="left")
+    lbl = ttk.Label(bar, text="…")
+    lbl.pack(side="right")
+
+    tv = ttk.Treeview(win, columns=columns, show="headings")
+    for c in columns:
+        tv.heading(c, text=c)
+        tv.column(c, width=HIST_WIDTH.get(c, 140), anchor="w")
+    tv.pack(fill="both", expand=True, padx=6, pady=6)
+
+    cache, shown = [], []
+
+    def render(*_):
+        rows = filter_history(cache, e_from.get(), e_to.get())
+        shown[:] = rows
+        tv.delete(*tv.get_children())
+        for r in rows:
+            tv.insert("", "end", values=[r.get(c, "") for c in columns])
+        lbl.config(text="записей: %d из %d" % (len(rows), len(cache)))
+
+    def loaded(rows):
+        cache[:] = rows
+        render()
+        if not rows:
+            lbl.config(text="записей нет" + (" (%s)" % status if status else ""))
+
+    def work():
+        try:
+            q.put(("ok", load()))
+        except Exception as e:
+            q.put(("err", str(e)))
+
+    def poll():
+        try:
+            tag, payload = q.get_nowait()
+        except queue.Empty:
+            win.after(150, poll)          # опрос планируется из главного потока
+            return
+        if tag == "ok":
+            loaded(payload)
+        else:
+            lbl.config(text="ошибка чтения: %s" % payload)
+
+    def exp():
+        if not shown:
+            return
+        p = filedialog.asksaveasfilename(defaultextension=".csv", initialfile="history.csv",
+                                         filetypes=[("CSV", "*.csv")])
+        if p:
+            save_csv(shown, p)
+            lbl.config(text="выгружено: %s" % os.path.basename(p))
+
+    ttk.Button(bar, text="Показать", command=render).pack(side="left", padx=8)
+    ttk.Button(bar, text="Выгрузить в CSV", command=exp).pack(side="left", padx=4)
+    e_from.bind("<Return>", render)
+    e_to.bind("<Return>", render)
+    q = queue.Queue()
+    threading.Thread(target=work, daemon=True).start()
+    win.after(150, poll)
+    return win
 
 
 # ------------------------------------------------------------------ окно
@@ -290,7 +476,7 @@ def run_gui():
 
     root = tk.Tk()
     root.title(APP_TITLE)
-    root.geometry("1200x640")
+    root.geometry("1330x660")
 
     top = ttk.Frame(root, padding=6)
     top.pack(fill="x")
@@ -306,6 +492,19 @@ def run_gui():
             e_folder.insert(0, d)
 
     ttk.Button(top, text="Выбрать…", command=pick).pack(side="left")
+    ttk.Button(top, text="Вставить", command=lambda: paste()).pack(side="left", padx=(4, 0))
+    def paste():
+        try:
+            txt = root.clipboard_get()
+        except Exception:
+            txt = ""
+        p = norm_path(txt)
+        if not p:
+            messagebox.showinfo(APP_TITLE, "В буфере нет пути. Скопируйте папку (или файл) и нажмите «Вставить».")
+            return
+        e_folder.delete(0, "end")
+        e_folder.insert(0, p)
+
     ttk.Label(top, text="Пропускать > МБ:").pack(side="left", padx=(10, 2))
     e_max = ttk.Entry(top, width=5)
     e_max.insert(0, str(settings.get("max_size_mb", 24)))
@@ -318,6 +517,8 @@ def run_gui():
     btn = ttk.Button(mid, text="Сканировать")
     btn.pack(side="left")
     ttk.Button(mid, text="Выгрузить в CSV", command=lambda: export()).pack(side="left", padx=8)
+    ttk.Button(mid, text="История выбранного", command=lambda: show_history()).pack(side="left", padx=8)
+    ttk.Button(mid, text="История по папке", command=lambda: show_folder_history()).pack(side="left", padx=8)
     lbl = ttk.Label(mid, text="готов")
     lbl.pack(side="left", padx=10)
 
@@ -325,38 +526,87 @@ def run_gui():
     tree = ttk.Treeview(root, columns=cols, show="headings", height=20)
     for c in cols:
         tree.heading(c, text=c)
-        tree.column(c, width=200 if c == "Наименование" else 108, anchor="w")
+        tree.column(c, width=COLS_WIDTH.get(c, 108), anchor="w")
     tree.pack(fill="both", expand=True, padx=6, pady=6)
+    tree.bind("<Double-1>", lambda e: show_history())
     sb = ttk.Scrollbar(root, orient="vertical", command=tree.yview)
     tree.configure(yscrollcommand=sb.set)
     sb.pack(side="right", fill="y")
 
     rows_all = []
 
+    def hist_settings():
+        return {"max_size_mb": float(e_max.get() or 0), "recurse": var_rec.get()}
+
+    def show_history():
+        items = tree.selection()
+        if not items:
+            messagebox.showinfo(APP_TITLE, "Выберите строку в таблице.")
+            return
+        row = rows_all[tree.index(items[0])]
+        path = row.get("_path")
+        if not path:
+            return
+        history_window(root, tk, ttk, filedialog,
+                       "История изменений — %s" % os.path.basename(path),
+                       lambda: history_rows(path, hist_settings()),
+                       status=os.path.basename(path))
+
+    def show_folder_history():
+        folder = e_folder.get().strip()
+        if not os.path.isdir(folder):
+            messagebox.showwarning(APP_TITLE, "Сначала выберите папку.")
+            return
+        history_window(root, tk, ttk, filedialog,
+                       "История изменений — %s" % folder,
+                       lambda: history_folder(folder, hist_settings()),
+                       status=folder)
+
+    q = queue.Queue()
+
+    def poll_scan():
+        try:
+            while True:
+                msg = q.get_nowait()
+                if msg[0] == "row":
+                    r = msg[1]
+                    rows_all.append(r)
+                    tree.insert("", "end", values=[r.get(c, "") for c in cols])
+                elif msg[0] == "prog":
+                    lbl.config(text="%d / %d … %s" % (msg[1], msg[2], msg[3][:40]))
+                else:
+                    lbl.config(text="готово: %d моделей" % msg[1])
+                    btn.config(state="normal")
+                    return
+        except queue.Empty:
+            pass
+        root.after(120, poll_scan)
+
     def worker(folder):
-        def prog(i, total, path):
-            lbl.config(text="%d / %d … %s" % (i, total, os.path.basename(path)[:40]))
-            root.update_idletasks()
-        rows = scan_folder(folder, {"max_size_mb": float(e_max.get() or 0), "recurse": var_rec.get()}, prog)
-        rows_all.clear()
-        rows_all.extend(rows)
-        for r in rows:
-            tree.insert("", "end", values=[r.get(c, "") for c in cols])
-        lbl.config(text="готово: %d моделей" % len(rows))
-        btn.config(state="normal")
+        opts = {"max_size_mb": float(e_max.get() or 0), "recurse": var_rec.get()}
+        rows = scan_folder(folder, opts,
+                           lambda i, total, p: q.put(("prog", i, total, os.path.basename(p))),
+                           lambda r: q.put(("row", r)))
+        q.put(("done", len(rows)))
 
     def go():
-        folder = e_folder.get().strip()
+        folder = norm_path(e_folder.get())
         if not os.path.isdir(folder):
             messagebox.showwarning(APP_TITLE, "Выберите папку.")
             return
+        e_folder.delete(0, "end")
+        e_folder.insert(0, folder)
+        tree.delete(*tree.get_children())
+        rows_all.clear()
         btn.config(state="disabled")
+        lbl.config(text="поиск файлов…")
         settings.update({"folder": folder, "max_size_mb": float(e_max.get() or 0), "recurse": var_rec.get()})
         try:
             json.dump(settings, open(SETTINGS_FILE, "w", encoding="utf-8"), ensure_ascii=False, indent=1)
         except Exception:
             pass
         threading.Thread(target=worker, args=(folder,), daemon=True).start()
+        root.after(120, poll_scan)
 
     def export():
         if not rows_all:
@@ -377,7 +627,29 @@ def main():
     ap.add_argument("--csv", help="файл выгрузки (режим без окна)")
     ap.add_argument("--max-mb", type=float, default=DEFAULT_SETTINGS["max_size_mb"])
     ap.add_argument("--no-recurse", action="store_true")
+    ap.add_argument("--history", nargs="+", help="файл(ы) или папка: показать историю изменений (без окна)")
+    ap.add_argument("--history-csv", help="CSV для истории изменений")
     a = ap.parse_args()
+    if a.history:
+        rows = []
+        for f in a.history:
+            if os.path.isdir(f):
+                for dp, _, files in os.walk(f):
+                    for n in files:
+                        if MODELFILE.search(n):
+                            rows += history_rows(os.path.join(dp, n), {"max_size_mb": a.max_mb})
+            else:
+                rows += history_rows(f, {"max_size_mb": a.max_mb})
+        rows.sort(key=lambda r: (r.get("_dt", "") == "", r.get("_dt", ""), r.get("Файл", "")))
+        cols = ["Файл", "Ревизия", "Дата", "Пользователь", "Компьютер", "Версия Creo"]
+        print(" | ".join(cols))
+        for r in rows:
+            print(" | ".join(str(r[c]) for c in cols))
+        print("\nзаписей всего: %d" % len(rows))
+        if a.history_csv:
+            save_csv(rows, a.history_csv)
+            print("CSV: %s" % a.history_csv)
+        return
     if a.folder:
         rows = scan_folder(a.folder, {"max_size_mb": a.max_mb, "recurse": not a.no_recurse})
         cols = DEFAULT_SETTINGS["columns"]
