@@ -273,19 +273,68 @@ def do_changes(n):
         print("   %s  %-30s rev%-8s %-7s %s" % (ts, item, rev, kind, descr[:70]))
 
 
+def do_tree(model, depth):
+    con = connect()
+    kids, parents = defaultdict(list), set()
+    for par, ch, qty in con.execute("SELECT parent, child, qty FROM links"):
+        kids[par].append((ch, qty))
+        parents.add(ch)
+    snap = {r[0]: r for r in con.execute("SELECT model, name, volume, rev FROM snapshots")}
+    con.close()
+
+    def lab(m):
+        r = snap.get(m)
+        if not r:
+            return m
+        nm = ("  «%s»" % r[1]) if r[1] else ""
+        vol = ("  %.0f мм³" % r[2]) if r[2] else ""
+        rv = ("  rev%s" % r[3]) if r[3] else ""
+        return "%s%s%s%s" % (m, nm, vol, rv)
+
+    tops = [stem(model)] if model else sorted(m for m in snap if m not in parents)
+    print("ДЕРЕВО ПРОИЗВОДСТВА: моделей %d, связей %d%s"
+          % (len(snap), sum(len(v) for v in kids.values()),
+             ("  (корень: %s)" % stem(model)) if model else ""))
+    seen = set()
+
+    def walk(m, pref, last, d):
+        if d > depth:
+            return
+        print("%s%s%s" % (pref, "└─ " if last else "├─ ", lab(m)))
+        if m in seen:
+            print("%s   ⋯ (уже показано выше)" % pref)
+            return
+        seen.add(m)
+        ch = kids.get(m, [])
+        for i, (c, q) in enumerate(ch):
+            walk(c, pref + ("   " if last else "│  "), i == len(ch) - 1, d + 1)
+
+    shown = tops[:60]
+    for i, t in enumerate(shown):
+        walk(t, "", i == len(shown) - 1, 1)
+        print()
+
+
 def main():
+    try:
+        sys.stdout.reconfigure(errors="replace")
+    except Exception:
+        pass
     ap = argparse.ArgumentParser(description="plm_tree " + VERSION)
-    ap.add_argument("cmd", choices=["scan", "where", "changes"])
+    ap.add_argument("cmd", choices=["scan", "where", "changes", "tree"])
     ap.add_argument("model", nargs="?")
     ap.add_argument("--roots", nargs="+", default=DEFAULT_ROOTS)
     ap.add_argument("--limit", type=float, default=120.0)
     ap.add_argument("--max-mb", type=float, default=8.0)
     ap.add_argument("--n", type=int, default=40)
+    ap.add_argument("--depth", type=int, default=4)
     a = ap.parse_args()
     if a.cmd == "scan":
         do_scan(a.roots, a.max_mb, a.limit)
     elif a.cmd == "where":
         do_where(a.model or "")
+    elif a.cmd == "tree":
+        do_tree(a.model, a.depth)
     else:
         do_changes(a.n)
 
