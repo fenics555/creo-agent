@@ -29,6 +29,7 @@
 | **copy_server** | `agent\copy` | служба копирования/переименования для веб-страниц дома, порт **8000**; **окно управления** (порт, старт/стоп, страница, лог) | `copy_gui.bat` (окно) / `python copy_server.py --port N` | ✅ |
 | **excel** (спецификации XLSX) | `agent\excel` | **модули** сборки/чтения XLSX без внешних библиотек + **окно просмотра** спецификации | `excel_gui.bat` (окно) | ✅ |
 | **skills_check** (проверка скиллов) | `agent\dev` | шапки скиллов, дубли, «краши» + эталон; **окно** с живым выводом | `dev\skills_check_gui.bat` / `python dev\skills_check.py` | ✅ |
+| **plm_reader** (данные изделий из файлов) | `agent\plm_reader` | читает `.prt/.asm/.drw` напрямую (**без Creo**): обозначение/наименование/материал/объём/роль/ревизия + история изменений; **окно** с фильтром, сортировкой, выбором столбцов, CSV; настройки — `settings.json` рядом | `plm_reader_gui.bat` (окно) / `plm_reader.bat --folder "Z:\PTC\Work" --csv items.csv` | ✅ |
 | **excel** (export/import) | `agent\excel` | XLSX **без внешних библиотек** (модули для спецы) | импортируется кодом | — |
 
 ## B. Автономные, нужен ЖИВОЙ Creo (JLINK, без CREOSON)
@@ -63,7 +64,7 @@
 | **`prog_tools.py`** | `agent\` | Мост «программы ↔ агент»: `prog_list`, `prog_run` (запуск движка в фоне), `prog_state`, `bases_list`, `jobs_show` (5 инструментов). |
 | **`dev\prog_runner.py`** | `agent\dev\` | Обёртка запуска: пишет вывод в `D:\AI\log\<программа>\run_last.txt` и докладывает в **ОБЩИЙ ЖУРНАЛ РАБОТ** (`core.job`): «запущено в фоне» → «завершено code=0 секунд=20.3». |
 | **`D:\AI\log\agent\jobs.log`** | журнал | Ход работ всех программ одной лентой (видно и человеку, и агенту: `jobs_show`). |
-| **`dev\skills_charge.py`** | `agent\dev\` | **ЗАРЯД ЗНАНИЙ**: собирает карту 134 скиллов (`repo\SKILL_CHARGE.md`) и стартовый набор Creo/CREOSON (`repo\SKILL_CHARGE_START.md`). |
+| **`dev\skills_charge.py`** | `agent\dev\` | **ЗАРЯД ЗНАНИЙ**: собирает карту 145 скиллов (`repo\SKILL_CHARGE.md`) и стартовый набор Creo/CREOSON (`repo\SKILL_CHARGE_START.md`). |
 | **`skills_map`** | инструмент | Карта скиллов по домену/подстроке: `skills_map(domain="creo", find="creoson")`; `rebuild=true` — пересобрать. |
 | **Варианты окна** | `agent\ui\variants\` | Три раскладки витрины: `v1_tabs` (вкладки сверху), `v2_side` (боковое меню), `v3_pult` (пульт). Данные живые: `/api/programs`, `/api/bases`, `/api/jobs`. |
 | **`_legacy\`** | `agent\_legacy\` | Устаревшее (не удаляем по канону): старое поколение перепечатки PDF + старая витрина переименования. |

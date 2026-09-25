@@ -404,10 +404,16 @@ def norm_path(s):
 def save_csv(rows, path):
     if not rows:
         return
-    cols = [c for c in DEFAULT_SETTINGS["columns"] if c in rows[0]] + \
-           [c for c in rows[0] if c not in DEFAULT_SETTINGS["columns"] and not c.startswith("_")]
+    # столбцы — объединение неслужебных ключей всех строк (служебные начинаются с "_")
+    seen = []
+    for r in rows:
+        for k in r:
+            if not k.startswith("_") and k not in seen:
+                seen.append(k)
+    cols = [c for c in DEFAULT_SETTINGS["columns"] if c in seen] + \
+           [c for c in seen if c not in DEFAULT_SETTINGS["columns"]]
     with open(path, "w", newline="", encoding="utf-8-sig") as f:
-        w = csv.DictWriter(f, fieldnames=cols, delimiter=";")
+        w = csv.DictWriter(f, fieldnames=cols, delimiter=";", extrasaction="ignore")
         w.writeheader()
         w.writerows(rows)
 
