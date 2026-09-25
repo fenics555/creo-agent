@@ -44,8 +44,8 @@ DEFAULT_SETTINGS = {
     "max_size_mb": 24,
     "recurse": True,
     "columns": ["Файл", "Обозначение", "Наименование", "Материал", "Объём, мм³",
-                "Роль", "Родитель", "Ревизия", "Записей", "Дата", "Пользователь",
-                "Версия Creo"],
+                "Роль", "Родитель", "Ревизия", "Записей", "Версий", "Дата",
+                "Пользователь", "Версия Creo"],
     "param_designation": ["ОБОЗНАЧЕНИЕ", "OBOZNACHENIE", "DESIGNATION", "DESIGNATOR", "PART_NUMBER"],
     "param_name": ["НАИМЕНОВАНИЕ", "NAME", "PART_NAME", "DESCRIPTION", "TITLE"],
     "param_material": ["PTC_MASTER_MATERIAL", "MATERIAL", "МАТЕРИАЛ"],
@@ -228,7 +228,7 @@ def provenance(raw, is_part):
 
 
 COLS_WIDTH = {"Обозначение": 130, "Наименование": 210, "Материал": 110, "Объём, мм³": 100,
-              "Роль": 110, "Родитель": 140, "Ревизия": 80, "Записей": 80, "Дата": 120,
+              "Роль": 110, "Родитель": 140, "Ревизия": 80, "Записей": 80, "Версий": 70, "Дата": 120,
               "Пользователь": 100, "Версия Creo": 110, "Файл": 215}
 
 
@@ -315,6 +315,26 @@ def sibling_versions(path):
         return []
     out.sort()
     return out
+
+
+def version_change(path, settings):
+    """Коротко: что изменилось в ЭТОЙ версии относительно предыдущей (по читаемым полям)."""
+    vers = sibling_versions(path)
+    if len(vers) < 2:
+        return ""
+    idx = [i for i, (n, p) in enumerate(vers) if os.path.normcase(p) == os.path.normcase(path)]
+    if not idx or idx[0] == 0:
+        return ""
+    cur = scan_file(path, settings) or {}
+    prev = scan_file(vers[idx[0] - 1][1], settings) or {}
+    parts = []
+    if prev.get("Ревизия") != cur.get("Ревизия"):
+        parts.append("ревизия %s→%s" % (prev.get("Ревизия"), cur.get("Ревизия")))
+    for f in ("Объём, мм³", "Габарит, мм"):
+        a, b = str(prev.get(f, "")), str(cur.get(f, ""))
+        if a and b and a != b:
+            parts.append("%s %s→%s" % (f.split(",")[0], a, b))
+    return "; ".join(parts)
 
 
 VERSION_FIELDS = ("Ревизия", "Дата", "Пользователь", "Версия Creo", "Объём, мм³", "Габарит, мм")
@@ -409,6 +429,11 @@ def history_rows(path, settings):
                     "Пользователь": who, "Компьютер": clean_computer(comp), "Версия Creo": ver,
                     "Что изменено": changes_line(chg.get(rev)),
                     "_dt": d.isoformat() if d else ""})
+    if out:
+        vc = version_change(path, settings)
+        if vc:
+            base = out[-1].get("Что изменено", "")
+            out[-1]["Что изменено"] = (base + "; " + vc) if base else vc
     return out
 
 
@@ -530,6 +555,39 @@ def scan_file(path, settings):
     }
 
 
+VERSION_RE = re.compile(r"^(.*)\.([A-Za-z_]{2,4})\.(\d+)$", re.IGNORECASE)
+
+
+def version_key(path):
+    """Ключ изделия (папка, база, тип) и номер версии; None — если имя не похоже на модель."""
+    m = VERSION_RE.match(os.path.basename(path))
+    if not m:
+        return None
+    return (os.path.dirname(path).lower(), m.group(1).lower(), m.group(2).lower(),
+            int(m.group(3)))
+
+
+def pick_latest(paths, latest_only=True):
+    """[(путь, всего_версий)]: при latest_only у изделия оставляем одну — старшую версию."""
+    groups, plain = {}, []
+    for p in paths:
+        k = version_key(p)
+        if not k:
+            plain.append((p, 1))
+            continue
+        groups.setdefault(k[:3], []).append((k[3], p))
+    out = []
+    for lst in groups.values():
+        lst.sort()
+        if latest_only:
+            out.append((lst[-1][1], len(lst)))
+        else:
+            for _, p in lst:
+                out.append((p, len(lst)))
+    out += plain
+    return out
+
+
 def scan_folder(folder, settings, progress=None, on_row=None):
     rows, paths = [], []
     if settings.get("recurse", True):
@@ -541,14 +599,16 @@ def scan_folder(folder, settings, progress=None, on_row=None):
         for f in os.listdir(folder):
             if MODELFILE.search(f):
                 paths.append(os.path.join(folder, f))
-    for n, p in enumerate(sorted(paths), 1):
+    chosen = pick_latest(sorted(paths), settings.get("latest_only", True))
+    for n, (p, total) in enumerate(chosen, 1):
         if progress:
-            progress(n, len(paths), p)
+            progress(n, len(chosen), p)
         try:
             r = scan_file(p, settings)
         except Exception:
             r = None
         if r:
+            r["Версий"] = total
             rows.append(r)
             if on_row:
                 on_row(r)
@@ -807,6 +867,8 @@ def run_gui():
     e_max.pack(side="left")
     var_rec = tk.BooleanVar(value=settings.get("recurse", True))
     ttk.Checkbutton(top, text="с подпапками", variable=var_rec).pack(side="left", padx=8)
+    var_lat = tk.BooleanVar(value=settings.get("latest_only", True))
+    ttk.Checkbutton(top, text="только последние версии", variable=var_lat).pack(side="left", padx=8)
 
     mid = ttk.Frame(root, padding=(6, 0))
     mid.pack(fill="x")
@@ -829,6 +891,8 @@ def run_gui():
     e_filter.bind("<KeyRelease>", lambda e: redraw())
 
     cols = list(settings.get("columns", DEFAULT_SETTINGS["columns"]))
+    if "Версий" not in cols:
+        cols.append("Версий")
     if "Файл" in cols:
         cols = ["Файл"] + [c for c in cols if c != "Файл"]
     sort_state = {"col": "Файл", "desc": False}
@@ -907,7 +971,7 @@ def run_gui():
     root._plm = {"redraw": redraw, "rebuild": rebuild_tree, "tree": lambda: tree}   # для самопроверки
 
     ALL_FIELDS = ["Файл", "Обозначение", "Наименование", "Материал", "Объём, мм³", "Тип",
-                  "Роль", "Родитель", "Записей", "Ревизия", "Дата", "Пользователь",
+                  "Роль", "Родитель", "Записей", "Версий", "Ревизия", "Дата", "Пользователь",
                   "Версия Creo", "Габарит, мм"]
 
     def save_settings():
@@ -1031,10 +1095,12 @@ def run_gui():
         e_folder.insert(0, folder)
         tree.delete(*tree.get_children())
         rows_all.clear()
-        opts = {"max_size_mb": float(e_max.get() or 0), "recurse": var_rec.get()}
+        opts = {"max_size_mb": float(e_max.get() or 0), "recurse": var_rec.get(),
+                "latest_only": var_lat.get()}
         btn.config(state="disabled")
         lbl.config(text="поиск файлов…")
-        settings.update({"folder": folder, "max_size_mb": opts["max_size_mb"], "recurse": opts["recurse"]})
+        settings.update({"folder": folder, "max_size_mb": opts["max_size_mb"],
+                         "recurse": opts["recurse"], "latest_only": opts["latest_only"]})
         save_settings()
         threading.Thread(target=worker, args=(folder, opts), daemon=True).start()
         root.after(120, poll_scan)
