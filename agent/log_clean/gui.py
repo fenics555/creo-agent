@@ -23,7 +23,7 @@ SETTINGS_FILE = PROG_DIR / "gui_settings.json"
 class App:
     def __init__(self, root):
         self.root = root
-        self.root.title("УБОРКА ЛОГОВ дома")
+        self.root.title("V1 — УБОРКА ЛОГОВ дома")
         self.root.geometry("980x620")
         self.st = self.load()
         self.plan = []

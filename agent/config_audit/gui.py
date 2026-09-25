@@ -24,7 +24,7 @@ KNOWN = [
 class App:
     def __init__(self, root):
         self.root = root
-        self.root.title("ПУТИ CONFIG.PRO — что есть, чего нет")
+        self.root.title("V1 — ПУТИ CONFIG.PRO — что есть, чего нет")
         self.root.geometry("1020x620")
         self.res = None
         self.build()

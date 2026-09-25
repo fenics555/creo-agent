@@ -27,7 +27,7 @@ MAX_ZOOM = 8.0
 class App:
     def __init__(self, root):
         self.root = root
-        self.root.title("НАВИГАТОР ПО ДОМУ — поиск, деталировка, PDF")
+        self.root.title("V1 — НАВИГАТОР ПО ДОМУ — поиск, деталировка, PDF")
         self.root.geometry("1320x820")
         self.results = []
         self.bom_rows = []

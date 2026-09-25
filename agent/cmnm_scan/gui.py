@@ -21,7 +21,7 @@ SETTINGS = Path(__file__).resolve().parent / "gui_settings.json"
 class App:
     def __init__(self, root):
         self.root = root
-        self.root.title("ВНУТРЕННИЕ ИМЕНА (CMNM) против имён файлов")
+        self.root.title("V1 — ВНУТРЕННИЕ ИМЕНА (CMNM) против имён файлов")
         self.root.geometry("1020x620")
         self.st = self.load()
         self.res = None

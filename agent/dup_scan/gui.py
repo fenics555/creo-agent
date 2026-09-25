@@ -23,7 +23,7 @@ SETTINGS = Path(__file__).resolve().parent / "gui_settings.json"
 class App:
     def __init__(self, root):
         self.root = root
-        self.root.title("ДВОЙНИКИ (одинаковые файлы)")
+        self.root.title("V1 — ДВОЙНИКИ (одинаковые файлы)")
         self.root.geometry("1000x640")
         self.st = self.load()
         self.res = None

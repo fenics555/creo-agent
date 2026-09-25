@@ -23,7 +23,7 @@ SETTINGS = Path(__file__).resolve().parent / "gui_settings.json"
 class App:
     def __init__(self, root):
         self.root = root
-        self.root.title("ЧЕРТЕЖИ-СИРОТЫ (нет модели рядом)")
+        self.root.title("V1 — ЧЕРТЕЖИ-СИРОТЫ (нет модели рядом)")
         self.root.geometry("1080x680")
         self.st = self.load()
         self.scanner = None

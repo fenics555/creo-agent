@@ -28,7 +28,7 @@ class Win:
         self.lines = []
         self.s = self._load()
 
-        root.title("CREO PDF — чертежи, дубли, PDF без модели  ·  дизайн 2")
+        root.title("CREO PDF V1 — чертежи, дубли, PDF без модели  ·  дизайн 2")
         root.geometry("1180x740")
         root.minsize(900, 560)
         self._style()
@@ -275,6 +275,7 @@ class Win:
 
     def _begin(self, title):
         self._save()
+        self.t0 = datetime.datetime.now()
         self.log("-" * 110)
         self.log(title)
         self.status.config(text="работаю…")
@@ -302,7 +303,9 @@ class Win:
                                          text=True, encoding="utf-8", errors="replace", bufsize=1)
             for line in self.proc.stdout:
                 self.log(line.rstrip())
-            self.log("готово, код %s" % self.proc.wait())
+            _code = self.proc.wait()
+            _secs = (datetime.datetime.now() - self.t0).total_seconds() if getattr(self, "t0", None) else 0.0
+            self.log("готово, код %s за %.1f с" % (_code, _secs))
         except Exception as e:
             self.log("ОШИБКА запуска: %s" % e)
         finally:

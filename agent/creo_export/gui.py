@@ -23,7 +23,7 @@ CREO_EXT = ".prt .asm .drw .frm .sec .lay"
 class App:
     def __init__(self, root):
         self.root = root
-        self.root.title("ВЫГРУЗКА ИЗ CREO (JLINK)")
+        self.root.title("V1 — ВЫГРУЗКА ИЗ CREO (JLINK)")
         self.root.geometry("900x560")
         self.st = self.load()
         self.proc = None

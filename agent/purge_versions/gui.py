@@ -27,7 +27,7 @@ LOCK_FILE = Path(r"D:\AI\log\purge_versions\purge.lock")
 class PurgeGUI:
     def __init__(self, root):
         self.root = root
-        self.root.title("ОКНО ЧИСТИЛЬЩИКА")
+        self.root.title("V1 — ОКНО ЧИСТИЛЬЩИКА")
         self.root.geometry("850x650")
         self.root.configure(bg="#e9edf1")
         

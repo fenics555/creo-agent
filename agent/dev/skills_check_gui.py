@@ -21,7 +21,7 @@ REPORT = Path(r"D:\AI\log\skills_check\skills_check_report.txt")
 class App:
     def __init__(self, root):
         self.root = root
-        self.root.title("ПРОВЕРКА СКИЛЛОВ (skills_check)")
+        self.root.title("V1 — ПРОВЕРКА СКИЛЛОВ (skills_check)")
         self.root.geometry("980x600")
         self.proc = None
         self.build()

@@ -23,7 +23,7 @@ SETTINGS = HERE / "gui_settings.json"
 class App:
     def __init__(self, root):
         self.root = root
-        self.root.title("СЛУЖБА КОПИРОВАНИЯ (copy_server)")
+        self.root.title("V1 — СЛУЖБА КОПИРОВАНИЯ (copy_server)")
         self.root.geometry("820x520")
         self.st = self.load()
         self.proc = None

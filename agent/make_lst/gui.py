@@ -17,7 +17,7 @@ import make_lst as eng  # noqa: E402
 class App:
     def __init__(self, root):
         self.root = root
-        self.root.title("ОГРАНИЧЕНИЯ ПАРАМЕТРОВ (list.lst)")
+        self.root.title("V1 — ОГРАНИЧЕНИЯ ПАРАМЕТРОВ (list.lst)")
         self.root.geometry("980x660")
         self.build()
 

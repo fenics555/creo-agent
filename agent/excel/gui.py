@@ -21,7 +21,7 @@ SETTINGS = Path(__file__).resolve().parent / "gui_settings.json"
 class App:
     def __init__(self, root):
         self.root = root
-        self.root.title("СПЕЦИФИКАЦИЯ XLSX — просмотр")
+        self.root.title("V1 — СПЕЦИФИКАЦИЯ XLSX — просмотр")
         self.root.geometry("1080x640")
         self.rows = []
         self.build()

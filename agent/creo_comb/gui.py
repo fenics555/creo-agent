@@ -39,7 +39,7 @@ WRITE_MODES = {"add", "setparam", "mkparam"}
 class App:
     def __init__(self, root):
         self.root = root
-        self.root.title("ЧЕСАЛКА CREO (creo_comb)")
+        self.root.title("V1 — ЧЕСАЛКА CREO (creo_comb)")
         self.root.geometry("980x640")
         self.st = self.load()
         self.proc = None
