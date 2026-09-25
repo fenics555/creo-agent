@@ -7,6 +7,7 @@
 """
 import json
 import os
+import time
 import subprocess
 import sys
 import threading
@@ -135,6 +136,7 @@ class App:
         self.save()
         exts = {x.strip().lower() for x in self.var_ext.get().split(",") if x.strip()}
         min_bytes = int(float(self.var_min.get()) * 1048576)
+        self._t0 = time.time()
         for i in self.tree.get_children():
             self.tree.delete(i)
         self.res = None
@@ -157,8 +159,9 @@ class App:
             where = os.path.dirname(g["extra"][0][0]) if g["extra"] else ""
             self.tree.insert("", "end", values=(round(g["size"] / 1048576, 2), g["keep"][0],
                                                 len(g["extra"]), where))
-        self.log("групп двойников: %d, лишнего объёма %.2f ГБ (проверено файлов %d)"
-                 % (len(res["groups"]), res["waste"] / 1073741824.0, res["files"]))
+        self.log("групп двойников: %d, лишнего объёма %.2f ГБ (проверено файлов %d, за %.1f с)"
+                 % (len(res["groups"]), res["waste"] / 1073741824.0, res["files"],
+                    time.time() - getattr(self, "_t0", time.time())))
         for e in res["errors"]:
             self.log("   " + e)
         enough = bool(res["groups"]) and self.var_mode.get() == "apply"

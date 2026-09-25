@@ -8,6 +8,7 @@
 import csv
 import json
 import os
+import time
 import sys
 import threading
 import tkinter as tk
@@ -154,6 +155,7 @@ class App:
             self.tree.delete(i)
         self.b_run.config(state="disabled")
         self.b_stop.config(state="normal")
+        self._t0 = time.time()
         self.sum.config(text="идёт осмотр…")
         self.scanner = eng.OrphanScanner()
         self._stop = False
@@ -184,9 +186,10 @@ class App:
         for p in s.model_elsewhere_list:
             self.tree.insert("", "end", values=("модель в другом месте", p, os.path.dirname(p)),
                              tags=("elsewhere",))
-        self.sum.config(text="чертежей: %d | не сирот: %d | модель в другом месте: %d | СИРОТ: %d"
+        self.sum.config(text="чертежей: %d | не сирот: %d | модель в другом месте: %d | СИРОТ: %d | за %.1f с"
                              % (s.stats["total_drawings"], s.stats["not_orphan"],
-                                s.stats["model_elsewhere"], s.stats["orphan"]))
+                                s.stats["model_elsewhere"], s.stats["orphan"],
+                                time.time() - getattr(self, "_t0", time.time())))
         self.log("сирот: %d; по папкам (топ-10): %s"
                  % (s.stats["orphan"],
                     ", ".join("%s=%d" % (k, v) for k, v in

@@ -8,6 +8,7 @@
 """
 import os
 import sys
+import time
 import tkinter as tk
 from pathlib import Path
 from tkinter import filedialog, messagebox, ttk
@@ -81,6 +82,7 @@ class App:
         p = self.var_path.get()
         if not os.path.exists(p):
             return messagebox.showwarning("Нет файла", p)
+        _t0 = time.time()
         try:
             data = open(p, "rb").read()
             sections, rows = imp.read_specification_xlsx(data)
@@ -99,8 +101,9 @@ class App:
             self.tree.column(k, width=140, anchor="w")
         for r in rows:
             self.tree.insert("", "end", values=[r.get(k, "") for k in keys])
-        self.sum.config(text="файл: %s | разделов: %d | строк: %d | колонок: %d"
-                             % (os.path.basename(p), len(sections), len(rows), len(keys)))
+        self.sum.config(text="файл: %s | разделов: %d | строк: %d | колонок: %d | за %.1f с"
+                             % (os.path.basename(p), len(sections), len(rows), len(keys),
+                                time.time() - _t0))
         self.log("разделы: %s" % ", ".join(sections))
         self.log("строк: %d; колонки: %s" % (len(rows), ", ".join(keys)))
 

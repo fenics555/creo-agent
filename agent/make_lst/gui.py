@@ -6,6 +6,7 @@
 """
 import os
 import sys
+import time
 import tkinter as tk
 from pathlib import Path
 from tkinter import filedialog, messagebox, ttk
@@ -80,12 +81,13 @@ class App:
 
     def preview(self):
         self.clear()
+        _t0 = time.time()
         self.log("цель: %s" % self.var_target.get())
         if self.var_refs.get():
             eng.check_against_refs(self.var_refs.get(), self.log)
         self.log("")
         self.log(eng.build())
-        self.sum.config(text="показано содержимое (на диск ничего не записано)")
+        self.sum.config(text="показано за %.1f с (на диск ничего не записано)" % (time.time() - _t0))
 
     def show_current(self):
         self.clear()
@@ -108,9 +110,10 @@ class App:
                                    % p):
             return
         self.clear()
+        _t0 = time.time()
         try:
             eng.write_file(p, eng.build(), self.log)
-            self.sum.config(text="файл записан: %s" % p)
+            self.sum.config(text="файл записан: %s (за %.1f с)" % (p, time.time() - _t0))
         except Exception as e:
             messagebox.showerror("Ошибка записи", str(e))
 

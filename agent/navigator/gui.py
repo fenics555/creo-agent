@@ -10,6 +10,7 @@
      колесо мыши — плавный зум, кнопка — открыть в Acrobat.
 """
 import os
+import time
 import subprocess
 import sys
 import threading
@@ -137,6 +138,7 @@ class App:
         if len(q) < 2:
             return self.say("введите хотя бы 2 буквы")
         self.say("ищу: %s …" % q)
+        self._t0 = time.time()
         self.tree.delete(*self.tree.get_children())
         only = bool(self.var_asm.get())
 
@@ -154,7 +156,8 @@ class App:
         for r in res:
             hit = ("  (слов %d/%d)" % (r["words_hit"], r["words_all"])) if r.get("words_all") else ""
             self.tree.insert("", "end", values=(r["kind"], r["name"] + hit, r["folder"]))
-        self.say("найдено: %d (двойной щелчок — открыть папку, выбор — деталировка)" % len(res))
+        self.say("найдено: %d за %.1f с (двойной щелчок — открыть папку, выбор — деталировка)"
+                 % (len(res), time.time() - getattr(self, "_t0", time.time())))
 
     def picked_model(self):
         sel = self.tree.selection()

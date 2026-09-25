@@ -7,6 +7,7 @@
 import csv
 import os
 import sys
+import time
 import tkinter as tk
 from pathlib import Path
 from tkinter import filedialog, messagebox, ttk
@@ -90,6 +91,7 @@ class App:
         p = self.var_path.get()
         if not os.path.exists(p):
             return messagebox.showwarning("Нет файла", p)
+        _t0 = time.time()
         for i in self.tree.get_children():
             self.tree.delete(i)
         try:
@@ -98,9 +100,10 @@ class App:
             return messagebox.showerror("Ошибка чтения", str(e))
         for pr in self.res["problems"]:
             self.tree.insert("", "end", values=(pr["line"], pr["opt"], pr["value"], pr["path"]))
-        self.sum.config(text="путей проверено: %d | НЕТ на диске: %d"
-                             % (self.res["total"], self.res["missing"]))
-        self.log("файл: %s" % p)
+        _secs = time.time() - _t0
+        self.sum.config(text="путей проверено: %d | НЕТ на диске: %d | за %.1f с"
+                             % (self.res["total"], self.res["missing"], _secs))
+        self.log("файл: %s (%.1f с)" % (p, _secs))
         if self.res["missing"]:
             self.log("ЧТО ДЕЛАТЬ: файла нет → либо положить файл по этому пути, либо закомментировать "
                      "настройку (`!`) и рядом записать причину.")

@@ -4,6 +4,7 @@ import json
 import os
 from pathlib import Path
 from datetime import datetime
+import time
 import sys
 
 # движок лежит рядом с окном (программа автономна)
@@ -140,9 +141,11 @@ class PurgeGUI:
         if messagebox.askyesno("Подтверждение", f"Начать очистку в:\n{bd}?"):
             lock = Lock(LOCK_FILE)
             if not lock.acq()[0]: return messagebox.showerror("Ошибка", "Уже запущено")
+            _t0 = time.time()
             try:
                 rep = execute(Path(self.root_var.get()), self.keep_var.get(), self.creo_var.get(), Path(bd))
-                self.refresh_info_panel(); messagebox.showinfo("Готово", "Очистка завершена.")
+                self.refresh_info_panel()
+                messagebox.showinfo("Готово", "Очистка завершена. (за %.1f с)" % (time.time() - _t0))
                 self.btn_execute.config(state="disabled")
             except Exception as e: messagebox.showerror("Ошибка", str(e))
             finally: lock.rel()

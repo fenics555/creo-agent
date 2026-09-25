@@ -7,6 +7,7 @@
 """
 import json
 import os
+import time
 import subprocess
 import sys
 import tkinter as tk
@@ -156,10 +157,11 @@ class App:
                                    "Файлов старше срока: %d\nЧто делаем: %s\n\nПродолжить?"
                                    % (old, word)):
             return
+        _t0 = time.time()
         rep = engine.clean(self.var_root.get(), mode, int(self.var_days.get()))
-        self.log("сделано: в корзину %d, удалено %d, пропущено %d, освобождено %.1f МБ"
+        self.log("сделано: в корзину %d, удалено %d, пропущено %d, освобождено %.1f МБ (за %.1f с)"
                  % (len(rep["перенесено"]), len(rep["удалено"]), len(rep["пропущено"]),
-                    rep["байт"] / 1048576))
+                    rep["байт"] / 1048576, time.time() - _t0))
         for s in rep["пропущено"][:10]:
             self.log("   пропущено: %s" % s)
         gone = engine.trash_cleanup(int(self.var_trash.get()), self.var_root.get())
