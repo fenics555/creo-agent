@@ -328,14 +328,52 @@ def do_tree(model, depth):
         print()
 
 
+def do_rename_plan(old, new):
+    """СУХОЙ ПРОГОН переименования: модель + чертёж + все сборки-владельцы + порядок сохранения."""
+    o = stem(old)
+    n = stem(new) if new else ""
+    con = connect()
+    snap = {r[0] for r in con.execute("SELECT model FROM snapshots")}
+    parents = defaultdict(set)
+    for par, ch in con.execute("SELECT parent, child FROM links"):
+        parents[ch].add(par)
+    con.close()
+    if not n:
+        print("нужно: rename-plan СТАРОЕ_ИМЯ НОВОЕ_ИМЯ")
+        return
+    seen, order, stack = set(), [], list(parents.get(o, ()))
+    while stack:
+        p = stack.pop()
+        if p in seen:
+            continue
+        seen.add(p)
+        order.append(p)
+        stack.extend(parents.get(p, ()))
+    print("ПЛАН ПЕРЕИМЕНОВАНИЯ (сухой прогон, Creo не нужен) — по скиллу creoson_rename_mechanism")
+    print("  было : %s  (модель/деталь или сборка)" % o)
+    print("  станет: %s" % n)
+    print("  чертёж: %s.drw  (%s)" % (o, "есть в базе" if o in snap else "в базе не виден"))
+    print("  сборок-владельцев: %d" % len(order))
+    for i, p in enumerate(order, 1):
+        print("    %2d. %s" % (i, p))
+    print("  ПОРЯДОК:")
+    print("   1) загрузить (display:false): модель, её чертёж, ВСЕ сборки-владельцы;")
+    print("   2) file:rename {file: %s, new_name: %s, onlysession:true}   (модель)" % (o, n))
+    print("   3) file:rename {file: %s.drw, new_name: %s.drw, onlysession:true} + drawing:regenerate" % (o, n))
+    print("   4) save СНИЗУ ВВЕРХ: модель → сборки-владельцы → ЧЕРТЁЖ ПОСЛЕДНИМ;")
+    print("   5) старые версии %s.* — в backup (не удалять); 6) file:erase всех загруженных." % o)
+    print("  ИСПОЛНЕНИЕ — только при запущенном Creo (CREO-START) + CREOSON, под щитом согласования.")
+
+
 def main():
     try:
         sys.stdout.reconfigure(errors="replace")
     except Exception:
         pass
     ap = argparse.ArgumentParser(description="plm_tree " + VERSION)
-    ap.add_argument("cmd", choices=["scan", "where", "changes", "tree"])
+    ap.add_argument("cmd", choices=["scan", "where", "changes", "tree", "rename-plan"])
     ap.add_argument("model", nargs="?")
+    ap.add_argument("new", nargs="?")
     ap.add_argument("--roots", nargs="+", default=DEFAULT_ROOTS)
     ap.add_argument("--limit", type=float, default=120.0)
     ap.add_argument("--max-mb", type=float, default=8.0)
@@ -348,6 +386,8 @@ def main():
         do_where(a.model or "")
     elif a.cmd == "tree":
         do_tree(a.model, a.depth)
+    elif a.cmd == "rename-plan":
+        do_rename_plan(a.model or "", a.new or "")
     else:
         do_changes(a.n)
 
