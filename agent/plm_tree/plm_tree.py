@@ -19,6 +19,7 @@ import time
 from collections import Counter, defaultdict
 
 HERE = os.path.dirname(os.path.abspath(__file__))
+sys.path.insert(0, os.path.dirname(HERE))     # общая библиотека дома (creo_read)
 DB = os.path.join(HERE, "plm_tree.db")
 LOG = r"D:\AI\log\plm_tree\plm_tree.log"
 DEFAULT_ROOTS = [r"Z:\PTC\Work\000_51 DF Держатели форм",
@@ -181,6 +182,18 @@ def scan_item(s, path, stems):
             "designation": pr.get("\u041e\u0411\u041e\u0417\u041d\u0410\u0427\u0415\u041d\u0418\u0415") or "",
             "rev": h[0], "author": h[1], "revdate": h[2], "role": role(raw), "refs": refs}
 
+
+# --- ЕДИНЫЙ ЧИТАТЕЛЬ из общей библиотеки дома (локальные копии выше — к удалению) ---
+import creo_read as _CR  # noqa: E402
+
+stem = _CR.stem
+parse_toc = _CR.parse_toc
+real = _CR.real
+params = _CR.params
+role = _CR.role
+user_time = _CR.user_time
+last_hist = _CR.last_hist
+names = _CR.names
 
 SCHEMA = """
 CREATE TABLE IF NOT EXISTS snapshots (
