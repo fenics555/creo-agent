@@ -24,8 +24,10 @@ import re
 import struct
 import sys
 import threading
+import time
 
-APP_TITLE = "PLM Reader"
+APP_VERSION = "V1"
+APP_TITLE = "PLM Reader V1"
 SETTINGS_FILE = os.path.join(os.path.dirname(os.path.abspath(__file__)), "settings.json")
 LOG_DIR = r"D:\AI\log\plm_reader"
 
@@ -670,6 +672,7 @@ def history_window(parent, tk, ttk, filedialog, title, load, columns=None,
     win = tk.Toplevel(parent)
     win.title(title)
     win.geometry("1160x560")
+    h0 = time.time()
     bar = ttk.Frame(win, padding=6)
     bar.pack(fill="x")
     ttk.Label(bar, text="с:").pack(side="left")
@@ -750,9 +753,12 @@ def history_window(parent, tk, ttk, filedialog, title, load, columns=None,
     def loaded(rows):
         cache[:] = rows
         render()
-        log_line("history: %s -> записей %d" % (status or title, len(rows)))
+        _secs = time.time() - h0
+        log_line("history: %s -> записей %d за %.1f с" % (status or title, len(rows), _secs))
         if not rows:
             lbl.config(text="записей нет" + (" (%s)" % status if status else ""))
+        else:
+            lbl.config(text="записей: %d за %.1f с" % (len(rows), _secs))
 
     def work():
         try:
@@ -1072,8 +1078,10 @@ def run_gui():
                     lbl.config(text="%d / %d … %s" % (msg[1], msg[2], msg[3][:40]))
                 else:
                     redraw()
-                    lbl.config(text="готово: %d моделей; показано %d" % (msg[1], len(shown)))
-                    log_line("scan: %s -> моделей %d (показано %d)" % (e_folder.get(), msg[1], len(shown)))
+                    _secs = time.time() - getattr(root, "_plm_t0", time.time())
+                    lbl.config(text="готово: %d моделей за %.1f с; показано %d" % (msg[1], _secs, len(shown)))
+                    log_line("scan: %s -> моделей %d за %.1f с (показано %d)"
+                             % (e_folder.get(), msg[1], _secs, len(shown)))
                     btn.config(state="normal")
                     return
         except queue.Empty:
@@ -1098,6 +1106,7 @@ def run_gui():
         opts = {"max_size_mb": float(e_max.get() or 0), "recurse": var_rec.get(),
                 "latest_only": var_lat.get()}
         btn.config(state="disabled")
+        root._plm_t0 = time.time()
         lbl.config(text="поиск файлов…")
         settings.update({"folder": folder, "max_size_mb": opts["max_size_mb"],
                          "recurse": opts["recurse"], "latest_only": opts["latest_only"]})
@@ -1132,6 +1141,7 @@ def main():
     ap.add_argument("--history-csv", help="CSV для истории изменений")
     a = ap.parse_args()
     if a.history:
+        _t0 = time.time()
         rows = []
         for f in a.history:
             if os.path.isdir(f):
@@ -1146,7 +1156,7 @@ def main():
         print(" | ".join(cols))
         for r in rows:
             print(" | ".join(str(r[c]) for c in cols))
-        print("\nзаписей всего: %d" % len(rows))
+        print("\nзаписей всего: %d за %.1f с" % (len(rows), time.time() - _t0))
         log_line("history: %s -> записей %d%s" % ("; ".join(a.history), len(rows),
                                                   " -> " + a.history_csv if a.history_csv else ""))
         if a.history_csv:
@@ -1154,12 +1164,13 @@ def main():
             print("CSV: %s" % a.history_csv)
         return
     if a.folder:
+        _t0 = time.time()
         rows = scan_folder(a.folder, {"max_size_mb": a.max_mb, "recurse": not a.no_recurse})
         cols = DEFAULT_SETTINGS["columns"]
         print(" | ".join(cols))
         for r in rows:
             print(" | ".join(str(r.get(c, "")) for c in cols))
-        print("\nвсего моделей: %d" % len(rows))
+        print("\nвсего моделей: %d за %.1f с" % (len(rows), time.time() - _t0))
         log_line("scan: %s -> моделей %d%s" % (a.folder, len(rows), " -> " + a.csv if a.csv else ""))
         if a.csv:
             save_csv(rows, a.csv)
