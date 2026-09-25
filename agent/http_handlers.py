@@ -494,6 +494,25 @@ class Hd(BaseHTTPRequestHandler):
             backup_dir = root / "_purge_backup" / datetime.datetime.now().strftime("%Y%m%d")
             res = purge_versions.execute(root, keep, creo_mode, backup_dir)
             self._j(res)
+        elif p == "/wiz_plmtree":
+            import contextlib
+            import io
+            import os as _os
+            import sys as _sys
+            _pt = _os.path.join(_os.path.dirname(_os.path.abspath(__file__)), "plm_tree")
+            if _pt not in _sys.path:
+                _sys.path.insert(0, _pt)
+            import plm_tree as _plmtree
+            cmd = b.get("cmd") or "tree"
+            buf = io.StringIO()
+            with contextlib.redirect_stdout(buf):
+                if cmd == "where":
+                    _plmtree.do_where(b.get("model") or "")
+                elif cmd == "rename-plan":
+                    _plmtree.do_rename_plan(b.get("model") or "", b.get("new") or "")
+                else:
+                    _plmtree.do_tree(b.get("model") or "", int(b.get("depth") or 4))
+            self._j({"text": buf.getvalue()})
 
         elif p == "/setname":
             okf, msg = users.update_display_name(cl, b.get("name"))
