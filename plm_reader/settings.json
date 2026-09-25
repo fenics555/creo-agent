@@ -1,5 +1,5 @@
 {
- "folder": "Z:\\PTC\\Work\\000_51 DF Держатели форм",
+ "folder": "D:\\AI\\PROBA\\exp",
  "max_size_mb": 24.0,
  "recurse": true,
  "columns": [
@@ -15,5 +15,24 @@
   "Пользователь",
   "Версия Creo",
   "Файл"
+ ],
+ "param_designation": [
+  "ОБОЗНАЧЕНИЕ",
+  "OBOZNACHENIE",
+  "DESIGNATION",
+  "DESIGNATOR",
+  "PART_NUMBER"
+ ],
+ "param_name": [
+  "НАИМЕНОВАНИЕ",
+  "NAME",
+  "PART_NAME",
+  "DESCRIPTION",
+  "TITLE"
+ ],
+ "param_material": [
+  "PTC_MASTER_MATERIAL",
+  "MATERIAL",
+  "МАТЕРИАЛ"
  ]
 }

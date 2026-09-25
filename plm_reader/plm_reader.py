@@ -32,9 +32,12 @@ DEFAULT_SETTINGS = {
     "folder": "",
     "max_size_mb": 24,
     "recurse": True,
-    "columns": ["Обозначение", "Наименование", "Материал", "Объём, мм³",
+    "columns": ["Файл", "Обозначение", "Наименование", "Материал", "Объём, мм³",
                 "Роль", "Родитель", "Ревизия", "Записей", "Дата", "Пользователь",
-                "Версия Creo", "Файл"],
+                "Версия Creo"],
+    "param_designation": ["ОБОЗНАЧЕНИЕ", "OBOZNACHENIE", "DESIGNATION", "DESIGNATOR", "PART_NUMBER"],
+    "param_name": ["НАИМЕНОВАНИЕ", "NAME", "PART_NAME", "DESCRIPTION", "TITLE"],
+    "param_material": ["PTC_MASTER_MATERIAL", "MATERIAL", "МАТЕРИАЛ"],
 }
 
 MODELFILE = re.compile(r"\.([a-z_]{2,4})\.\d+$", re.IGNORECASE)
@@ -299,6 +302,26 @@ def kind(raw):
     return m.group(1) if m else "?"
 
 
+def match_filter(row, cols, pattern):
+    """Подходит ли строка под фильтр: подстрока без учёта регистра по показанным столбцам."""
+    pat = (pattern or "").strip().lower()
+    if not pat:
+        return True
+    return pat in " ".join(str(row.get(c, "")) for c in cols).lower()
+
+
+def first_param(par, keys):
+    """Первое найденное значение из списка имён параметров (проверка без учёта регистра имени)."""
+    for k in keys:
+        if par.get(k):
+            return par[k]
+    upper = {str(k).upper(): v for k, v in par.items()}
+    for k in keys:
+        if upper.get(str(k).upper()):
+            return upper[str(k).upper()]
+    return ""
+
+
 def scan_file(path, settings):
     raw = read_bytes(path, settings.get("max_size_mb", 0))
     if raw is None:
@@ -313,9 +336,9 @@ def scan_file(path, settings):
     return {
         "Файл": os.path.basename(path),
         "Тип": kind(raw),
-        "Обозначение": par.get("ОБОЗНАЧЕНИЕ") or par.get("OBOZNACHENIE") or "",
-        "Наименование": par.get("НАИМЕНОВАНИЕ") or par.get("NAME") or "",
-        "Материал": par.get("PTC_MASTER_MATERIAL") or par.get("MATERIAL") or "",
+        "Обозначение": first_param(par, settings.get("param_designation", DEFAULT_SETTINGS["param_designation"])),
+        "Наименование": first_param(par, settings.get("param_name", DEFAULT_SETTINGS["param_name"])),
+        "Материал": first_param(par, settings.get("param_material", DEFAULT_SETTINGS["param_material"])),
         "Объём, мм³": ("%.0f" % vol) if vol else "",
         "Габарит, мм": ", ".join("%.1f" % v for v in outline_mm(raw, sec)),
         "Роль": role,
@@ -517,23 +540,153 @@ def run_gui():
     btn = ttk.Button(mid, text="Сканировать")
     btn.pack(side="left")
     ttk.Button(mid, text="Выгрузить в CSV", command=lambda: export()).pack(side="left", padx=8)
+    ttk.Button(mid, text="Столбцы и параметры…", command=lambda: choose_columns()).pack(side="left", padx=(0, 8))
     ttk.Button(mid, text="История выбранного", command=lambda: show_history()).pack(side="left", padx=8)
     ttk.Button(mid, text="История по папке", command=lambda: show_folder_history()).pack(side="left", padx=8)
     lbl = ttk.Label(mid, text="готов")
     lbl.pack(side="left", padx=10)
 
-    cols = [c for c in settings.get("columns", DEFAULT_SETTINGS["columns"])]
-    tree = ttk.Treeview(root, columns=cols, show="headings", height=20)
-    for c in cols:
-        tree.heading(c, text=c)
-        tree.column(c, width=COLS_WIDTH.get(c, 108), anchor="w")
-    tree.pack(fill="both", expand=True, padx=6, pady=6)
-    tree.bind("<Double-1>", lambda e: show_history())
-    sb = ttk.Scrollbar(root, orient="vertical", command=tree.yview)
-    tree.configure(yscrollcommand=sb.set)
-    sb.pack(side="right", fill="y")
+    flt = ttk.Frame(root, padding=(6, 4))
+    flt.pack(fill="x")
+    ttk.Label(flt, text="Фильтр:").pack(side="left")
+    e_filter = ttk.Entry(flt, width=44)
+    e_filter.pack(side="left", padx=4)
+    ttk.Label(flt, text="часть текста; пусто — показать всё").pack(side="left")
+    ttk.Button(flt, text="Сбросить", command=lambda: (e_filter.delete(0, "end"), redraw())).pack(side="left", padx=8)
+    e_filter.bind("<KeyRelease>", lambda e: redraw())
 
-    rows_all = []
+    cols = list(settings.get("columns", DEFAULT_SETTINGS["columns"]))
+    if "Файл" in cols:
+        cols = ["Файл"] + [c for c in cols if c != "Файл"]
+    sort_state = {"col": "Файл", "desc": False}
+    rows_all, shown = [], []
+
+    body = ttk.Frame(root)
+    body.pack(fill="both", expand=True, padx=6, pady=(0, 6))
+    body.rowconfigure(0, weight=1)
+    body.columnconfigure(0, weight=1)
+
+    def make_tree():
+        tv = ttk.Treeview(body, columns=cols, show="headings", height=20)
+        for c in cols:
+            tv.heading(c, text=c, command=lambda c=c: set_sort(c))
+            tv.column(c, width=COLS_WIDTH.get(c, 108), anchor="w")
+        return tv
+
+    tree = make_tree()
+    vsb = ttk.Scrollbar(body, orient="vertical", command=tree.yview)
+    hsb = ttk.Scrollbar(body, orient="horizontal", command=tree.xview)
+    tree.configure(yscrollcommand=vsb.set, xscrollcommand=hsb.set)
+    tree.grid(row=0, column=0, sticky="nsew")
+    vsb.grid(row=0, column=1, sticky="ns")
+    hsb.grid(row=1, column=0, sticky="ew")
+    tree.bind("<Double-1>", lambda e: show_history())
+
+    def sort_key(r, col):
+        v = r.get(col, "")
+        if col in ("Записей", "Ревизия"):
+            try:
+                return (0, int(v))
+            except (TypeError, ValueError):
+                return (1, 0)
+        if col == "Объём, мм³":
+            try:
+                return (0, float(v))
+            except (TypeError, ValueError):
+                return (1, 0.0)
+        if col == "Дата":
+            d = parse_dt(v)
+            return (0, d.timestamp()) if d else (1, 0)
+        return (0, str(v).lower())
+
+    def set_sort(col):
+        if sort_state["col"] == col:
+            sort_state["desc"] = not sort_state["desc"]
+        else:
+            sort_state["col"], sort_state["desc"] = col, False
+        redraw()
+
+    def redraw():
+        pat = e_filter.get().strip().lower()
+        rows = [r for r in rows_all if match_filter(r, cols, pat)]
+        rows.sort(key=lambda r: sort_key(r, sort_state["col"]), reverse=sort_state["desc"])
+        shown[:] = rows
+        tree.delete(*tree.get_children())
+        for r in rows:
+            tree.insert("", "end", values=[r.get(c, "") for c in cols])
+        for c in cols:
+            mark = "  ▼" if (sort_state["col"] == c and sort_state["desc"]) else \
+                   ("  ▲" if sort_state["col"] == c else "")
+            tree.heading(c, text=c + mark)
+        lbl.config(text="показано %d из %d" % (len(rows), len(rows_all)))
+
+    def rebuild_tree():
+        nonlocal tree
+        tree.destroy()
+        tree = make_tree()
+        tree.configure(yscrollcommand=vsb.set, xscrollcommand=hsb.set)
+        vsb.configure(command=tree.yview)
+        hsb.configure(command=tree.xview)
+        tree.grid(row=0, column=0, sticky="nsew")
+        tree.bind("<Double-1>", lambda e: show_history())
+        redraw()
+
+    ALL_FIELDS = ["Файл", "Обозначение", "Наименование", "Материал", "Объём, мм³", "Тип",
+                  "Роль", "Родитель", "Записей", "Ревизия", "Дата", "Пользователь",
+                  "Версия Creo", "Габарит, мм"]
+
+    def save_settings():
+        try:
+            json.dump(settings, open(SETTINGS_FILE, "w", encoding="utf-8"), ensure_ascii=False, indent=1)
+        except Exception:
+            pass
+
+    def split_list(s):
+        return [x.strip() for x in (s or "").replace(";", ",").split(",") if x.strip()]
+
+    def choose_columns():
+        win = tk.Toplevel(root)
+        win.title("Столбцы и параметры — сохраняются в настройках")
+        win.geometry("780x600")
+        ttk.Label(win, text="Какие столбцы показывать («Файл» — всегда первый):").pack(anchor="w", padx=8, pady=(8, 0))
+        box = ttk.Frame(win, padding=8)
+        box.pack(fill="x")
+        vars_ = {}
+        for i, f in enumerate(ALL_FIELDS):
+            vars_[f] = tk.BooleanVar(value=f in cols)
+            cb = ttk.Checkbutton(box, text=f, variable=vars_[f])
+            cb.grid(row=i // 3, column=i % 3, sticky="w", padx=6, pady=2)
+            if f == "Файл":
+                cb.state(["disabled"])
+        pf = ttk.Frame(win, padding=8)
+        pf.pack(fill="x")
+        ttk.Label(pf, text="Имена параметров для «Обозначение» (через запятую, по порядку поиска):").pack(anchor="w")
+        e_des = ttk.Entry(pf, width=92)
+        e_des.insert(0, ", ".join(settings.get("param_designation", DEFAULT_SETTINGS["param_designation"])))
+        e_des.pack(fill="x", pady=(0, 6))
+        ttk.Label(pf, text="Имена параметров для «Наименование»:").pack(anchor="w")
+        e_nam = ttk.Entry(pf, width=92)
+        e_nam.insert(0, ", ".join(settings.get("param_name", DEFAULT_SETTINGS["param_name"])))
+        e_nam.pack(fill="x", pady=(0, 6))
+        ttk.Label(pf, text="Имена параметров для «Материал»:").pack(anchor="w")
+        e_mat = ttk.Entry(pf, width=92)
+        e_mat.insert(0, ", ".join(settings.get("param_material", DEFAULT_SETTINGS["param_material"])))
+        e_mat.pack(fill="x")
+        ttk.Label(win, text="Список проверяется по порядку — берётся первый найденный параметр. "
+                            "Так подойдут любые имена, в т.ч. английские.").pack(anchor="w", padx=8, pady=(0, 8))
+
+        def apply():
+            cols[:] = ["Файл"] + [f for f in ALL_FIELDS if f != "Файл" and vars_[f].get()]
+            settings["columns"] = list(cols)
+            settings["param_designation"] = split_list(e_des.get())
+            settings["param_name"] = split_list(e_nam.get())
+            settings["param_material"] = split_list(e_mat.get())
+            save_settings()
+            rebuild_tree()
+            lbl.config(text="столбцы сохранены")
+            win.destroy()
+
+        ttk.Button(win, text="Применить и сохранить", command=apply).pack(anchor="w", padx=8, pady=(0, 10))
 
     def hist_settings():
         return {"max_size_mb": float(e_max.get() or 0), "recurse": var_rec.get()}
@@ -571,19 +724,21 @@ def run_gui():
                 if msg[0] == "row":
                     r = msg[1]
                     rows_all.append(r)
-                    tree.insert("", "end", values=[r.get(c, "") for c in cols])
+                    pat = e_filter.get().strip()
+                    if match_filter(r, cols, pat):
+                        tree.insert("", "end", values=[r.get(c, "") for c in cols])
                 elif msg[0] == "prog":
                     lbl.config(text="%d / %d … %s" % (msg[1], msg[2], msg[3][:40]))
                 else:
-                    lbl.config(text="готово: %d моделей" % msg[1])
+                    redraw()
+                    lbl.config(text="готово: %d моделей; показано %d" % (msg[1], len(shown)))
                     btn.config(state="normal")
                     return
         except queue.Empty:
             pass
         root.after(120, poll_scan)
 
-    def worker(folder):
-        opts = {"max_size_mb": float(e_max.get() or 0), "recurse": var_rec.get()}
+    def worker(folder, opts):
         rows = scan_folder(folder, opts,
                            lambda i, total, p: q.put(("prog", i, total, os.path.basename(p))),
                            lambda r: q.put(("row", r)))
@@ -598,14 +753,12 @@ def run_gui():
         e_folder.insert(0, folder)
         tree.delete(*tree.get_children())
         rows_all.clear()
+        opts = {"max_size_mb": float(e_max.get() or 0), "recurse": var_rec.get()}
         btn.config(state="disabled")
         lbl.config(text="поиск файлов…")
-        settings.update({"folder": folder, "max_size_mb": float(e_max.get() or 0), "recurse": var_rec.get()})
-        try:
-            json.dump(settings, open(SETTINGS_FILE, "w", encoding="utf-8"), ensure_ascii=False, indent=1)
-        except Exception:
-            pass
-        threading.Thread(target=worker, args=(folder,), daemon=True).start()
+        settings.update({"folder": folder, "max_size_mb": opts["max_size_mb"], "recurse": opts["recurse"]})
+        save_settings()
+        threading.Thread(target=worker, args=(folder, opts), daemon=True).start()
         root.after(120, poll_scan)
 
     def export():
@@ -614,7 +767,7 @@ def run_gui():
         p = filedialog.asksaveasfilename(defaultextension=".csv", initialfile="plm_items.csv",
                                          filetypes=[("CSV", "*.csv")])
         if p:
-            save_csv(rows_all, p)
+            save_csv(shown or rows_all, p)
             lbl.config(text="выгружено: %s" % os.path.basename(p))
 
     btn.config(command=go)
