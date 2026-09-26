@@ -571,15 +571,30 @@ def folder_files_count(folder):
         return 0, 0
 
 
+FILE_COLS = ("path", "designation", "name", "material", "rev", "role", "model")
+
+
+def _like_cond(words, cols):
+    """«каждое слово встречается в любой из колонок» — фильтр по ВСЕМ словам, что видно в окне."""
+    conds, params = [], []
+    for w in words:
+        like = "%" + w + "%"
+        conds.append("(" + " OR ".join("%s LIKE ?" % c for c in cols) + ")")
+        params += [like] * len(cols)
+    return " AND ".join(conds), params
+
+
 def search_files(text, limit=3000):
-    """Фильтр по ВСЕЙ базе: путь/обозначение/наименование/материал/модель."""
-    like = "%" + text + "%"
+    """Фильтр по ВСЕЙ базе: каждое слово — в пути/обозначении/наименовании/материале/ревизии/роли/модели."""
+    words = [w for w in (text or "").split() if w]
+    if not words:
+        return []
+    where, params = _like_cond(words, FILE_COLS)
     try:
         con = connect()
         rows = con.execute(
             "SELECT path,folder,designation,name,material,volume,rev,role FROM snapshots "
-            "WHERE path LIKE ? OR designation LIKE ? OR name LIKE ? OR material LIKE ? "
-            "ORDER BY path LIMIT ?", (like, like, like, like, limit)).fetchall()
+            "WHERE %s ORDER BY path LIMIT ?" % where, params + [limit]).fetchall()
         con.close()
         return rows
     except Exception:
@@ -587,12 +602,13 @@ def search_files(text, limit=3000):
 
 
 def count_files(text):
-    like = "%" + text + "%"
+    words = [w for w in (text or "").split() if w]
+    if not words:
+        return 0
+    where, params = _like_cond(words, FILE_COLS)
     try:
         con = connect()
-        n = con.execute("SELECT COUNT(*) FROM snapshots WHERE path LIKE ? OR designation LIKE ? "
-                        "OR name LIKE ? OR material LIKE ?",
-                        (like, like, like, like)).fetchone()[0]
+        n = con.execute("SELECT COUNT(*) FROM snapshots WHERE %s" % where, params).fetchone()[0]
         con.close()
         return n
     except Exception:
@@ -748,14 +764,19 @@ def plm_parents(model):
 
 
 def find_plm_models(text, limit=400):
-    """Модели по фильтру: [(модель, файлов, входит в сборок)]."""
-    like = "%" + text + "%"
+    """Модели по фильтру (все слова — в модели/обозначении/наименовании/материале/ревизии/роли)."""
+    words = [w for w in (text or "").split() if w]
+    if not words:
+        return []
+    where, params = _like_cond(words, ("model", "designation", "name", "material", "rev", "role"))
     try:
         con = connect()
-        rows = con.execute("SELECT model, COUNT(*) FROM snapshots WHERE model LIKE ? "
-                           "GROUP BY model ORDER BY model LIMIT ?", (like, limit)).fetchall()
+        models = [r[0] for r in con.execute(
+            "SELECT DISTINCT model FROM snapshots WHERE %s ORDER BY model LIMIT ?" % where,
+            params + [limit]).fetchall()]
         out = []
-        for m, n in rows:
+        for m in models:
+            n = con.execute("SELECT COUNT(*) FROM snapshots WHERE model=?", (m,)).fetchone()[0]
             p = con.execute("SELECT COUNT(*) FROM links WHERE child=?", (m,)).fetchone()[0]
             out.append((m, n, p))
         con.close()

@@ -651,11 +651,12 @@ def kind(raw):
 
 
 def match_filter(row, cols, pattern):
-    """Подходит ли строка под фильтр: подстрока без учёта регистра по показанным столбцам."""
-    pat = (pattern or "").strip().lower()
-    if not pat:
+    """Подходит ли строка под фильтр: КАЖДОЕ слово — в любом показанном столбце (без учёта регистра)."""
+    words = [w for w in (pattern or "").lower().split() if w]
+    if not words:
         return True
-    return pat in " ".join(str(row.get(c, "")) for c in cols).lower()
+    blob = " ".join(str(row.get(c, "")) for c in cols).lower()
+    return all(w in blob for w in words)
 
 
 def first_param(par, keys):
@@ -1500,6 +1501,64 @@ def run_gui():
     vsb.grid(row=0, column=1, sticky="ns")
     hsb.grid(row=1, column=0, sticky="ew")
     tree.bind("<Double-1>", lambda e: show_history())
+
+    # --- ОНЛАЙН: внизу сразу строится дерево производства по выбранной строке ---
+    liv = ttk.Frame(tab_table, padding=(6, 0))
+    liv.pack(fill="x", side="bottom", pady=(0, 6))
+    lsum = ttk.Label(liv, text="дерево производства (онлайн): выбери строку в таблице")
+    lsum.pack(anchor="w")
+    LTCOLS = ("Тип", "Изделие/файл", "Обозначение", "Наименование", "Кол-во")
+    ltv = ttk.Treeview(liv, columns=LTCOLS, show="tree headings", height=9)
+    ltv.heading("#0", text="дерево")
+    ltv.column("#0", width=320, anchor="w")
+    for c in LTCOLS:
+        ltv.heading(c, text=c)
+        ltv.column(c, width=150 if c != "Кол-во" else 70, anchor="w")
+    lvs = ttk.Scrollbar(liv, orient="vertical", command=ltv.yview)
+    ltv.configure(yscrollcommand=lvs.set)
+    ltv.pack(side="left", fill="x", expand=True)
+    lvs.pack(side="left", fill="y")
+
+    def _live_vals(m, i, qty):
+        return ("изделие" if (i[6] or i[7]) else "деталь", m, i[0] or "", i[1] or "", qty)
+
+    def live_tree(event=None):
+        """ОНЛАЙН: по выбранной строке таблицы сразу строится дерево изделия."""
+        ltv.delete(*ltv.get_children())
+        sel = tree.selection()
+        if not sel:
+            lsum.config(text="дерево производства (онлайн): выбери строку в таблице")
+            return
+        idx = tree.index(sel[0])
+        row = rows_all[idx] if idx < len(rows_all) else {}
+        p = row.get("_path") or ""
+        model = eng.stem(os.path.basename(p)) if p else ""
+        if not model:
+            lsum.config(text="у выбранной строки нет модели")
+            return
+        info = eng.models_info([model]).get(model, ("", "", "", 0, "", "", 0, 0))
+        rn = ltv.insert("", "end", open=True, text=model, values=_live_vals(model, info, ""))
+        kids = eng.plm_children(model)
+        for c, qty in kids:
+            ci = eng.models_info([c]).get(c, ("", "", "", 0, "", "", 0, 0))
+            n = ltv.insert(rn, "end", text="%s x%d" % (c, qty), values=_live_vals(c, ci, "x%d" % qty))
+            for c2, q2 in eng.plm_children(c):
+                c2i = eng.models_info([c2]).get(c2, ("", "", "", 0, "", "", 0, 0))
+                ltv.insert(n, "end", text="%s x%d" % (c2, q2), values=_live_vals(c2, c2i, "x%d" % q2))
+        der = eng.derived_bases(model)
+        for b, k in der:
+            ltv.insert(rn, "end", text="◄ %s: %s" % (_kind(k), b),
+                       values=("заготовка/отливка", b, "", "", ""))
+        up = eng.plm_parents(model)
+        if up:
+            un = ltv.insert("", "end", open=True, text="входит в:")
+            for pp, q in up:
+                ltv.insert(un, "end", text="%s x%d" % (pp, q))
+        lsum.config(text="онлайн: %s — состав %d, заготовок/отливок %d, входит в %d"
+                    % (model, len(kids), len(der), len(up)))
+
+    tree.bind("<<TreeviewSelect>>", live_tree)
+    _plm_extra.update({"ltv": ltv, "live_tree": live_tree})     # для самопроверки
 
     def sort_key(r, col):
         v = r.get(col, "")
