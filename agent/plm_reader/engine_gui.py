@@ -28,6 +28,33 @@ class App:
         self.s = self.load()
         self.build()
         self.base_info()
+        self.check_auto()
+
+    def check_auto(self):
+        self.check()
+
+    def check(self):
+        """Быстрая проверка: актуальна ли база (обход+stat, БЕЗ чтения файлов)."""
+        self.sum.config(text="проверяю актуальность базы…")
+
+        def work():
+            try:
+                r = eng.do_check(self.roots(), float(self.var_mmb.get() or 8),
+                                 (int(self.var_depth.get() or 0) or None))
+            except Exception as e:
+                self.root.after(0, lambda: self.log("ПРОВЕРКА: ОШИБКА %s" % e))
+                return
+            self.root.after(0, lambda: self.show_check(r))
+
+        threading.Thread(target=work, daemon=True).start()
+
+    def show_check(self, r):
+        if r.get("need"):
+            self.sum.config(text="НУЖЕН СКАН: новых %d · изменённых %d · пропало %d (%.1f с)"
+                            % (r["new"], r["changed"], r["gone"], r["secs"]))
+        else:
+            self.sum.config(text="АКТУАЛЬНО — файлов %d, изменений нет (%.1f с)"
+                            % (r["total"], r["secs"]))
 
     def base_info(self):
         """Окно при открытии сразу говорит, СКОЛЬКО ЧЕГО в базе."""
@@ -119,6 +146,8 @@ class App:
         tk.Button(bar2, text="ИЗМЕНЕНИЯ", width=11,
                   command=lambda: self.cap(eng.do_changes, 40)).pack(side="left", padx=4)
         tk.Button(bar2, text="README", width=9, command=self.show_readme).pack(side="left", padx=4)
+        tk.Button(bar2, text="ПРОВЕРИТЬ (актуально?)", width=24,
+                  command=self.check).pack(side="left", padx=4)
 
         self.sum = tk.Label(self.root, text="готов", anchor="w", bg="#fff1c7", padx=8, pady=4)
         self.sum.pack(fill="x", padx=10)

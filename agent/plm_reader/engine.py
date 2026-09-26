@@ -10,6 +10,7 @@ CLI:
 """
 import argparse
 import datetime
+import json
 import os
 import re
 import sqlite3
@@ -342,6 +343,11 @@ def do_scan(roots, max_mb, limit, depth=None, progress_cb=None, stop_cb=None):
                 n, total, 100.0 * n / max(total, 1), time.time() - t0, mod)
             print(_p, flush=True)
             log(_p)
+    try:                        # корни скана — чтобы «проверка актуальности» знала, что обходить
+        con.execute("CREATE TABLE IF NOT EXISTS meta (k TEXT PRIMARY KEY, v TEXT)")
+        con.execute("INSERT OR REPLACE INTO meta VALUES ('roots', ?)", (json.dumps(roots),))
+    except Exception:
+        pass
     con.commit()
     con.close()
     dt = time.time() - t0
@@ -369,6 +375,66 @@ def summary():
     except Exception:
         out = {}
     return out
+
+
+def meta_set(k, v):
+    con = connect()
+    con.execute("CREATE TABLE IF NOT EXISTS meta (k TEXT PRIMARY KEY, v TEXT)")
+    con.execute("INSERT OR REPLACE INTO meta VALUES (?,?)", (k, v))
+    con.commit()
+    con.close()
+
+
+def meta_get(k, default=None):
+    try:
+        con = connect()
+        r = con.execute("SELECT v FROM meta WHERE k=?", (k,)).fetchone()
+        con.close()
+        return r[0] if r else default
+    except Exception:
+        return default
+
+
+def do_check(roots=None, max_mb=8.0, depth=None):
+    """БЫСТРАЯ проверка актуальности базы: обход + stat, БЕЗ чтения файлов.
+
+    Отвечает на вопрос владельца «актуально / нужен скан?».
+    """
+    t0 = time.time()
+    if not roots:
+        try:
+            roots = json.loads(meta_get("roots") or "null") or DEFAULT_ROOTS
+        except Exception:
+            roots = DEFAULT_ROOTS
+    files = collect(roots, max_mb, depth)
+    con = connect()
+    prev = {r[0]: (r[1], r[2]) for r in con.execute("SELECT path,size,mtime FROM snapshots")}
+    con.close()
+    found, new, changed, same = set(), 0, 0, 0
+    for p in files:
+        found.add(p)
+        try:
+            st = os.stat(p)
+        except OSError:
+            continue
+        old = prev.get(p)
+        if old is None:
+            new += 1
+        elif int(old[0] or 0) == st.st_size and abs(float(old[1] or 0) - st.st_mtime) < 1.0:
+            same += 1
+        else:
+            changed += 1
+    gone = len(set(prev) - found)
+    need = bool(new or changed or gone)
+    verdict = ("НУЖЕН СКАН: новых %d, изменённых %d, пропало %d" % (new, changed, gone)) if need \
+        else "АКТУАЛЬНО (скан не нужен)"
+    res = {"total": len(files), "same": same, "new": new, "changed": changed, "gone": gone,
+           "need": need, "verdict": verdict, "secs": round(time.time() - t0, 1)}
+    msg = ("проверка: файлов %d | без изменений %d | новых %d | изменённых %d | пропало %d"
+           " | за %.1f с → %s" % (res["total"], same, new, changed, gone, res["secs"], verdict))
+    print(msg, flush=True)
+    log(msg)
+    return res
 
 
 def do_where(model):
@@ -476,7 +542,7 @@ def main():
     except Exception:
         pass
     ap = argparse.ArgumentParser(description="plm_tree " + VERSION)
-    ap.add_argument("cmd", choices=["scan", "count", "where", "changes", "tree", "rename-plan"])
+    ap.add_argument("cmd", choices=["scan", "check", "count", "where", "changes", "tree", "rename-plan"])
     ap.add_argument("model", nargs="?")
     ap.add_argument("new", nargs="?")
     ap.add_argument("--roots", nargs="+", default=DEFAULT_ROOTS)
@@ -488,6 +554,8 @@ def main():
     a = ap.parse_args()
     if a.cmd == "scan":
         do_scan(a.roots, a.max_mb, a.limit, (a.max_depth or None))
+    elif a.cmd == "check":
+        do_check(a.roots if a.roots != DEFAULT_ROOTS else None, a.max_mb, (a.max_depth or None))
     elif a.cmd == "count":
         inventory(a.roots, a.max_mb, max_depth=(a.max_depth or None))
     elif a.cmd == "where":

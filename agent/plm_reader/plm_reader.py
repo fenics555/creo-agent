@@ -1014,6 +1014,7 @@ def run_gui():
     b_stop = ttk.Button(mid, text="Стоп", command=stop_scan, state="disabled")
     b_stop.pack(side="left", padx=(8, 0))
     ttk.Button(mid, text="Из базы", command=lambda: load_base()).pack(side="left", padx=(8, 0))
+    ttk.Button(mid, text="Актуально?", command=lambda: check_base()).pack(side="left", padx=(8, 0))
     ttk.Button(mid, text="Выгрузить в CSV", command=lambda: export()).pack(side="left", padx=8)
     ttk.Button(mid, text="Столбцы и параметры…", command=lambda: choose_columns()).pack(side="left", padx=(0, 8))
     ttk.Button(mid, text="История выбранного", command=lambda: show_history()).pack(side="left", padx=8)
@@ -1113,6 +1114,30 @@ def run_gui():
         redraw()
 
     root._plm = {"redraw": redraw, "rebuild": rebuild_tree, "tree": lambda: tree}   # для самопроверки
+
+    def check_base():
+        """Быстро: актуальна база или нужен скан (обход+stat, БЕЗ чтения файлов)."""
+        lbl.config(text="проверяю актуальность базы…")
+
+        def work():
+            try:
+                import engine as eng
+                r = eng.do_check()
+            except Exception as e:
+                root.after(0, lambda: lbl.config(text="проверка не удалась: %s" % e))
+                return
+            root.after(0, lambda: show_check(r))
+
+        threading.Thread(target=work, daemon=True).start()
+
+    def show_check(r):
+        if r.get("need"):
+            lbl.config(text="НУЖЕН СКАН: новых %d · изменённых %d · пропало %d (%.1f с)"
+                       % (r["new"], r["changed"], r["gone"], r["secs"]))
+        else:
+            lbl.config(text="БАЗА АКТУАЛЬНА: файлов %d, изменений нет (%.1f с)"
+                       % (r["total"], r["secs"]))
+        log_line("check: %s" % r.get("verdict", ""))
 
     def load_base(limit=2000):
         """Показать базу БЕЗ чтения файлов: строки паспортов из plm_reader.db."""
@@ -1290,6 +1315,7 @@ def run_gui():
         lbl.config(text="база: файлов %d · моделей %d · изменений %d — читаю из базы…"
                    % (_bs.get("files", 0), _bs.get("models", 0), _bs.get("changes", 0)))
         load_base()
+        check_base()
     root.mainloop()
 
 
