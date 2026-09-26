@@ -150,22 +150,21 @@ def names(raw):
 
 
 def collect(roots, max_mb):
-    """РЕКУРСИВНО по всем папкам корней (ключ — код модели; одинаковые коды в разных папках
-    схлопываются — это долг, см. §8.37)."""
-    paths = {}
+    """ВСЕ файлы моделей рекурсивно, БЕЗ схлопывания по коду (ключ базы теперь — ПУТЬ)."""
+    files = []
     for root in roots:
         if not os.path.isdir(root):
             continue
-        for dp, _dirs, files in os.walk(root):
+        for dp, _dirs, fs in os.walk(root):
             try:
-                for f in sorted(files):
+                for f in sorted(fs):
                     if MODEL.search(f):
                         p = os.path.join(dp, f)
                         if os.path.getsize(p) <= max_mb * 1_000_000:
-                            paths.setdefault(stem(f), p)
+                            files.append(p)
             except Exception:
                 pass
-    return paths
+    return files
 
 
 def scan_item(s, path, stems, fstems=frozenset()):
@@ -196,7 +195,7 @@ names = _CR.names
 
 SCHEMA = """
 CREATE TABLE IF NOT EXISTS snapshots (
-  model TEXT PRIMARY KEY, path TEXT, size INTEGER, mtime REAL, volume REAL,
+  path TEXT PRIMARY KEY, model TEXT, folder TEXT, size INTEGER, mtime REAL, volume REAL,
   material TEXT, name TEXT, designation TEXT, rev TEXT, author TEXT, revdate TEXT,
   role TEXT, seen TEXT);
 CREATE TABLE IF NOT EXISTS changes (
@@ -211,6 +210,15 @@ CREATE TABLE IF NOT EXISTS folders (path TEXT PRIMARY KEY, parent TEXT, depth IN
 
 def connect():
     con = sqlite3.connect(DB, timeout=30)
+    # миграция 25.09.2026: старый ключ (model) → ключ по ПУТИ; старые snapshots/links пересоздаём
+    try:
+        cols = [r[1] for r in con.execute("PRAGMA table_info(snapshots)")]
+        if cols and "folder" not in cols:
+            con.execute("DROP TABLE snapshots")
+            con.execute("DROP TABLE links")
+            con.commit()
+    except Exception:
+        pass
     con.executescript(SCHEMA)
     con.commit()
     return con
@@ -248,25 +256,28 @@ def inventory(roots, max_mb=8, store=True):
 
 def do_scan(roots, max_mb, limit, progress_cb=None):
     t0 = time.time()
-    paths = collect(roots, max_mb)
-    stems = set(paths)
+    files = collect(roots, max_mb)
+    total = len(files)
+    codes = {stem(os.path.basename(p)) for p in files}
     fstems = defaultdict(set)
-    for _s, _p in paths.items():
-        fstems[os.path.dirname(_p)].add(_s)
+    for p in files:
+        fstems[os.path.dirname(p)].add(stem(os.path.basename(p)))
     con = connect()
     prev = {r[0]: r for r in con.execute(
-        "SELECT model,volume,material,name,designation,rev,author,revdate,role,size FROM snapshots")}
+        "SELECT path,volume,material,name,designation,rev,author,revdate,role,size,mtime FROM snapshots")}
     now = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
     done = new = mod = 0
-    for s, p in sorted(paths.items()):
+    seen = set()
+    for path in sorted(files):
         if time.time() - t0 > limit:
             break
+        s = stem(os.path.basename(path))
         try:
-            it = scan_item(s, p, stems, fstems.get(os.path.dirname(p), set()))
+            it = scan_item(s, path, codes, fstems.get(os.path.dirname(path), set()))
         except Exception as e:
-            log("ERROR %s: %s" % (s, e))
+            log("ERROR %s: %s" % (path, e))
             continue
-        old = prev.get(s)
+        old = prev.get(path)
         diffs = []
         if old:
             if abs(float(old[1] or 0) - float(it["volume"] or 0)) >= 0.5:
@@ -278,35 +289,40 @@ def do_scan(roots, max_mb, limit, progress_cb=None):
                     diffs.append("%s: %s→%s" % (key, a or "-", b or "-"))
             if diffs:
                 con.execute("INSERT INTO changes (item,rev,kind,descr,who,ts) VALUES (?,?,?,?,?,?)",
-                            (s, it["rev"], "modify", "; ".join(diffs), it["author"], now))
+                            (path, it["rev"], "modify", "; ".join(diffs), it["author"], now))
                 mod += 1
         else:
             con.execute("INSERT INTO changes (item,rev,kind,descr,who,ts) VALUES (?,?,?,?,?,?)",
-                        (s, it["rev"], "new", "первая запись паспорта", it["author"], now))
+                        (path, it["rev"], "new", "первая запись паспорта", it["author"], now))
             new += 1
-        con.execute("INSERT OR REPLACE INTO snapshots VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?)",
-                    (s, it["path"], it["size"], it["mtime"], it["volume"], it["material"],
-                     it["name"], it["designation"], it["rev"], it["author"], it["revdate"],
-                     it["role"], now))
-        con.execute("DELETE FROM links WHERE parent=? AND source='plm_tree'", (s,))
+        con.execute("INSERT OR REPLACE INTO snapshots VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?)",
+                    (it["path"], it["model"], os.path.dirname(path), it["size"], it["mtime"],
+                     it["volume"], it["material"], it["name"], it["designation"], it["rev"],
+                     it["author"], it["revdate"], it["role"], now))
+        if s not in seen:                       # связи код-родителя чистим ОДИН раз
+            con.execute("DELETE FROM links WHERE parent=? AND source='plm_tree'", (s,))
+            seen.add(s)
         for child, qty in it["refs"].items():
+            if (s, child) in seen:
+                continue
+            seen.add((s, child))
             con.execute("INSERT INTO links VALUES (?,?,?,?)", (s, child, qty, "plm_tree"))
         done += 1
         if progress_cb:
-            progress_cb(done, len(paths))
+            progress_cb(done, total)
         if done % 500 == 0:
             con.commit()            # частичный коммит: база не заперта на весь прогон
-            _p = "progress: %d/%d (%.0f%%), %.1f s" % (done, len(paths),
-                                                       100.0 * done / max(len(paths), 1),
+            _p = "progress: %d/%d (%.0f%%), %.1f s" % (done, total,
+                                                       100.0 * done / max(total, 1),
                                                        time.time() - t0)
             print(_p, flush=True)
             log(_p)
     con.commit()
     con.close()
     dt = time.time() - t0
-    log("scan: моделей %d, новых %d, изменённых %d, за %.1f с" % (done, new, mod, dt))
+    log("scan: файлов %d, новых %d, изменённых %d, за %.1f с" % (done, new, mod, dt))
     print("scan: обработано %d из %d | новых %d | изменённых %d | за %.1f с | база %s"
-          % (done, len(paths), new, mod, dt, DB))
+          % (done, total, new, mod, dt, DB))
 
 
 def do_where(model):
