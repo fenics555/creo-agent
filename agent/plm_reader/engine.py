@@ -149,13 +149,19 @@ def names(raw):
     return c
 
 
-def collect(roots, max_mb):
-    """ВСЕ файлы моделей рекурсивно, БЕЗ схлопывания по коду (ключ базы теперь — ПУТЬ)."""
+def collect(roots, max_mb, max_depth=None):
+    """ВСЕ файлы моделей рекурсивно (ключ — путь). max_depth — предел вложенности (None = без предела)."""
     files = []
     for root in roots:
+        root = os.path.abspath(root)
         if not os.path.isdir(root):
             continue
-        for dp, _dirs, fs in os.walk(root):
+        for dp, dirs, fs in os.walk(root):
+            rel = os.path.relpath(dp, root)
+            d = 0 if rel == "." else rel.count(os.sep) + 1
+            if max_depth is not None and d > max_depth:
+                dirs[:] = []
+                continue
             try:
                 for f in sorted(fs):
                     if MODEL.search(f):
@@ -224,7 +230,7 @@ def connect():
     return con
 
 
-def inventory(roots, max_mb=8, store=True):
+def inventory(roots, max_mb=8, store=True, max_depth=None):
     """СТРОЕНИЕ СКЛАДА (быстро, секунды): папки/подпапки, файлы, модели — и сразу в базу `folders`."""
     t0 = time.time()
     rows, folders, files, models = [], 0, 0, 0
@@ -232,7 +238,12 @@ def inventory(roots, max_mb=8, store=True):
         root = os.path.abspath(root)
         if not os.path.isdir(root):
             continue
-        for dp, _dirs, fs in os.walk(root):
+        for dp, dirs, fs in os.walk(root):
+            rel0 = os.path.relpath(dp, root)
+            d0 = 0 if rel0 == "." else rel0.count(os.sep) + 1
+            if max_depth is not None and d0 > max_depth:
+                dirs[:] = []
+                continue
             folders += 1
             rel = os.path.relpath(dp, root)
             depth = 0 if rel == "." else rel.count(os.sep) + 1
@@ -254,9 +265,9 @@ def inventory(roots, max_mb=8, store=True):
     return folders, files
 
 
-def do_scan(roots, max_mb, limit, progress_cb=None):
+def do_scan(roots, max_mb, limit, depth=None, progress_cb=None):
     t0 = time.time()
-    files = collect(roots, max_mb)
+    files = collect(roots, max_mb, depth)
     total = len(files)
     codes = {stem(os.path.basename(p)) for p in files}
     fstems = defaultdict(set)
@@ -438,11 +449,12 @@ def main():
     ap.add_argument("--max-mb", type=float, default=8.0)
     ap.add_argument("--n", type=int, default=40)
     ap.add_argument("--depth", type=int, default=4)
+    ap.add_argument("--max-depth", type=int, default=0)
     a = ap.parse_args()
     if a.cmd == "scan":
-        do_scan(a.roots, a.max_mb, a.limit)
+        do_scan(a.roots, a.max_mb, a.limit, (a.max_depth or None))
     elif a.cmd == "count":
-        inventory(a.roots, a.max_mb)
+        inventory(a.roots, a.max_mb, max_depth=(a.max_depth or None))
     elif a.cmd == "where":
         do_where(a.model or "")
     elif a.cmd == "tree":

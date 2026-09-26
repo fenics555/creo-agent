@@ -37,7 +37,9 @@ class App:
     def save(self):
         try:
             SETTINGS.write_text(json.dumps(
-                {"roots": self.roots(), "limit": self.var_limit.get()}, ensure_ascii=False, indent=1),
+                {"roots": self.roots(), "limit": self.var_limit.get(),
+                 "max_mb": self.var_mmb.get(), "depth": self.var_depth.get()},
+                ensure_ascii=False, indent=1),
                 encoding="utf-8")
         except Exception:
             pass
@@ -71,8 +73,14 @@ class App:
         tk.Label(top, text="Лимит, с:").grid(row=2, column=0, sticky="w")
         self.var_limit = tk.StringVar(value=str(self.s.get("limit", 120)))
         tk.Entry(top, textvariable=self.var_limit, width=8).grid(row=2, column=1, sticky="w", padx=6, pady=3)
+        tk.Label(top, text="Макс. файл, МБ:").grid(row=3, column=0, sticky="w")
+        self.var_mmb = tk.StringVar(value=str(self.s.get("max_mb", 8)))
+        tk.Entry(top, textvariable=self.var_mmb, width=8).grid(row=3, column=1, sticky="w", padx=6, pady=3)
+        tk.Label(top, text="Глубина папок (0 = без предела):").grid(row=4, column=0, sticky="w")
+        self.var_depth = tk.StringVar(value=str(self.s.get("depth", 0)))
+        tk.Entry(top, textvariable=self.var_depth, width=8).grid(row=4, column=1, sticky="w", padx=6, pady=3)
         tk.Label(top, text="своя база: %s" % eng.DB, fg="#555").grid(
-            row=3, column=0, columnspan=2, sticky="w")
+            row=5, column=0, columnspan=2, sticky="w")
 
         bar = tk.Frame(self.root)
         bar.pack(fill="x", padx=10, pady=(0, 4))
@@ -86,6 +94,8 @@ class App:
         tk.Button(bar, text="ИЗМЕНЕНИЯ", width=11, command=lambda: self.cap(eng.do_changes, 40)).pack(side="left", padx=4)
         tk.Button(bar, text="README", width=9, command=self.show_readme).pack(side="left", padx=4)
         tk.Button(bar, text="СЧИТАТЬ (строение)", width=17, command=self.count).pack(side="left", padx=4)
+        tk.Button(bar, text="💾 СОХРАНИТЬ НАСТРОЙКИ", width=22,
+                  command=self.save_settings).pack(side="left", padx=4)
 
         self.sum = tk.Label(self.root, text="готов", anchor="w", bg="#fff1c7", padx=8, pady=4)
         self.sum.pack(fill="x", padx=10)
@@ -111,8 +121,9 @@ class App:
             buf = io.StringIO()
             try:
                 with contextlib.redirect_stdout(buf):
-                    eng.do_scan(self.roots(), 8.0, float(self.var_limit.get() or 120),
-                                progress_cb=self.on_prog)
+                    eng.do_scan(self.roots(), float(self.var_mmb.get() or 8),
+                                float(self.var_limit.get() or 120),
+                                (int(self.var_depth.get() or 0) or None), progress_cb=self.on_prog)
             except Exception as e:
                 buf.write("ОШИБКА: %s" % e)
             self.root.after(0, lambda: self.done_scan(buf.getvalue(), time.time() - t0))
@@ -128,6 +139,10 @@ class App:
         if m:
             self.cap(eng.do_where, m)
 
+    def save_settings(self):
+        self.save()
+        self.sum.config(text="настройки сохранены: %s" % SETTINGS)
+
     def on_prog(self, done, total):
         pct = 100.0 * done / max(total, 1)
         self.root.after(0, lambda: (self.pb.config(maximum=max(total, 1), value=done),
@@ -140,7 +155,8 @@ class App:
             buf = io.StringIO()
             try:
                 with contextlib.redirect_stdout(buf):
-                    eng.inventory(self.roots())
+                    eng.inventory(self.roots(), float(self.var_mmb.get() or 8),
+                                  max_depth=(int(self.var_depth.get() or 0) or None))
             except Exception as e:
                 buf.write("ОШИБКА: %s" % e)
             self.root.after(0, lambda: self.log(buf.getvalue().rstrip()))
