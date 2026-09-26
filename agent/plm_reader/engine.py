@@ -510,6 +510,72 @@ def do_changes_model(model, n=200):
         print("   %s | %-6s | рев.%s | %-12s | %s" % (ts, kind, rev or "-", who or "-", descr or "-"))
 
 
+def base_roots():
+    """Верхние папки базы (те, чьего родителя нет в таблице folders)."""
+    try:
+        con = connect()
+        rows = con.execute("SELECT path FROM folders WHERE parent NOT IN "
+                           "(SELECT path FROM folders) ORDER BY path").fetchall()
+        con.close()
+        return [r[0] for r in rows]
+    except Exception:
+        return []
+
+
+def folder_children(parent):
+    """Подпапки и файлы одной папки — ИЗ БАЗЫ (для ленивого дерева, без обхода диска)."""
+    try:
+        con = connect()
+        subs = [r[0] for r in con.execute(
+            "SELECT path FROM folders WHERE parent=? ORDER BY path", (parent,))]
+        files = con.execute(
+            "SELECT path,designation,name,material,volume,rev,role FROM snapshots "
+            "WHERE folder=? ORDER BY path", (parent,)).fetchall()
+        con.close()
+        return subs, files
+    except Exception:
+        return [], []
+
+
+def folder_files_count(folder):
+    try:
+        con = connect()
+        a = con.execute("SELECT COUNT(*) FROM folders WHERE parent=?", (folder,)).fetchone()[0]
+        b = con.execute("SELECT COUNT(*) FROM snapshots WHERE folder=?", (folder,)).fetchone()[0]
+        con.close()
+        return a, b
+    except Exception:
+        return 0, 0
+
+
+def search_files(text, limit=3000):
+    """Фильтр по ВСЕЙ базе: путь/обозначение/наименование/материал/модель."""
+    like = "%" + text + "%"
+    try:
+        con = connect()
+        rows = con.execute(
+            "SELECT path,folder,designation,name,material,volume,rev,role FROM snapshots "
+            "WHERE path LIKE ? OR designation LIKE ? OR name LIKE ? OR material LIKE ? "
+            "ORDER BY path LIMIT ?", (like, like, like, like, limit)).fetchall()
+        con.close()
+        return rows
+    except Exception:
+        return []
+
+
+def count_files(text):
+    like = "%" + text + "%"
+    try:
+        con = connect()
+        n = con.execute("SELECT COUNT(*) FROM snapshots WHERE path LIKE ? OR designation LIKE ? "
+                        "OR name LIKE ? OR material LIKE ?",
+                        (like, like, like, like)).fetchone()[0]
+        con.close()
+        return n
+    except Exception:
+        return 0
+
+
 def do_where(model):
     con = connect()
     rows = con.execute("SELECT parent, qty FROM links WHERE child=? ORDER BY qty DESC",

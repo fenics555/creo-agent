@@ -1081,18 +1081,6 @@ def run_gui():
     ttk.Button(mid, text="Столбцы и параметры…", command=lambda: choose_columns()).pack(side="left", padx=(0, 8))
     ttk.Button(mid, text="История выбранного", command=lambda: show_history()).pack(side="left", padx=8)
     ttk.Button(mid, text="История по папке", command=lambda: show_folder_history()).pack(side="left", padx=8)
-    def open_plm():
-        """Дерево — ВНУТРИ этого окна (вкладка), второго окна нет."""
-        if not getattr(root, "_plm_made", False):
-            try:
-                import engine_gui as _eg
-                _eg.App(tab_tree)
-                root._plm_made = True
-            except Exception as e:
-                lbl.config(text="дерево не открылось: %s" % e)
-                return
-        nb.select(tab_tree)
-    ttk.Button(mid, text="Дерево", command=open_plm).pack(side="left", padx=8)
 
     data = ttk.Frame(root, padding=6)
     data.pack(fill="x", padx=6, pady=(0, 4))
@@ -1109,11 +1097,130 @@ def run_gui():
 
     nb = ttk.Notebook(root)
     nb.pack(fill="both", expand=True, padx=6, pady=(0, 6))
-    tab_table = ttk.Frame(nb)                 # таблица паспортов
-    tab_tree = ttk.Frame(nb)                  # ДЕРЕВО (внутри этого же окна)
+    tab_table = ttk.Frame(nb)                 # Таблица — плоский вид данных базы
+    tab_tree = ttk.Frame(nb)                  # Дерево — иерархия ТЕХ ЖЕ данных (папки → файлы)
     nb.add(tab_table, text=" Таблица ")
     nb.add(tab_tree, text=" Дерево ")
-    _plm_extra = {"open_tree": open_plm, "nb": nb, "tab_tree": tab_tree}   # для самопроверки
+
+    # --- ДЕРЕВО: фильтр по ВСЕЙ базе + иерархия папок (ленивая, из базы) ---
+    import engine as eng
+    TCOLS = ("Тип", "Файл", "Обозначение", "Наименование", "Материал", "Объём, мм³", "Ревизия", "Роль", "Путь")
+    tflt = ttk.Frame(tab_tree, padding=(6, 4))
+    tflt.pack(fill="x")
+    ttk.Label(tflt, text="Фильтр по всей базе:").pack(side="left")
+    e_tfilter = ttk.Entry(tflt, width=38)
+    e_tfilter.pack(side="left", padx=4)
+    e_tfilter.bind("<KeyRelease>", lambda ev: fill_tree_view())
+    ttk.Button(tflt, text="Сбросить",
+               command=lambda: (e_tfilter.delete(0, "end"), fill_tree_view())).pack(side="left", padx=6)
+    ttk.Button(tflt, text="ГДЕ ИСПОЛЬЗУЕТСЯ", command=lambda: where_selected()).pack(side="left", padx=6)
+    ttk.Button(tflt, text="ИЗМЕНЕНИЯ", command=lambda: changes_selected()).pack(side="left", padx=6)
+    tsum = ttk.Label(tflt, text="")
+    tsum.pack(side="left", padx=10)
+
+    tbody = ttk.Frame(tab_tree)
+    tbody.pack(fill="both", expand=True, padx=6, pady=(0, 6))
+    tbody.rowconfigure(0, weight=3)
+    tbody.rowconfigure(2, weight=1)
+    tbody.columnconfigure(0, weight=1)
+    tview = ttk.Treeview(tbody, columns=TCOLS, show="tree headings", height=16)
+    tview.heading("#0", text="папка / узел")
+    tview.column("#0", width=280, anchor="w")
+    for c in TCOLS:
+        tview.heading(c, text=c)
+        tview.column(c, width=COLS_WIDTH.get(c, 130), anchor="w")
+    tvs = ttk.Scrollbar(tbody, orient="vertical", command=tview.yview)
+    ths = ttk.Scrollbar(tbody, orient="horizontal", command=tview.xview)
+    tview.configure(yscrollcommand=tvs.set, xscrollcommand=ths.set)
+    tview.grid(row=0, column=0, sticky="nsew")
+    tvs.grid(row=0, column=1, sticky="ns")
+    ths.grid(row=1, column=0, sticky="ew")
+    tout = tk.Text(tbody, height=6, font=("Consolas", 9), bg="#fbfbfb")
+    tout.grid(row=2, column=0, columnspan=2, sticky="nsew")
+    _FOLDERS = {}
+
+    def _short(p):
+        return p if len(p) <= 90 else "…" + p[-88:]
+
+    def _file_row(parent, p, desig, name, material, volume, rev, role):
+        return tview.insert(parent, "end", values=(
+            "файл", os.path.basename(p), desig or "", name or "", material or "",
+            ("%.0f" % volume) if volume else "", rev or "", role or "", _short(p)))
+
+    def node_add(node, folder):
+        subs, files = eng.folder_children(folder)
+        for p, desig, name, material, volume, rev, role in files:
+            _file_row(node, p, desig, name, material, volume, rev, role)
+        for s in subs:
+            a, b = eng.folder_files_count(s)
+            n = tview.insert(node, "end", text="%s  [%d папок, %d файлов]"
+                             % (os.path.basename(s) or s, a, b),
+                             values=("папка", "", "", "", "", "", "", "", _short(s)))
+            _FOLDERS[n] = s
+            tview.insert(n, "end", text="загрузка…")      # «плюсик» для раскрытия
+
+    def on_open(event=None):
+        node = tview.focus()
+        folder = _FOLDERS.get(node)
+        if folder:
+            kids = tview.get_children(node)
+            if kids and tview.item(kids[0], "text") == "загрузка…":
+                tview.delete(*kids)
+                node_add(node, folder)
+
+    tview.bind("<<TreeviewOpen>>", on_open)
+
+    def fill_tree_view():
+        text = e_tfilter.get().strip()
+        tview.delete(*tview.get_children())
+        _FOLDERS.clear()
+        if text:
+            rows = eng.search_files(text)
+            for p, folder, desig, name, material, volume, rev, role in rows:
+                _file_row("", p, desig, name, material, volume, rev, role)
+            tsum.config(text="найдено %d из %d (показано %d)"
+                        % (eng.count_files(text), eng.count_files(""), len(rows)))
+        else:
+            for r in eng.base_roots():
+                a, b = eng.folder_files_count(r)
+                n = tview.insert("", "end", text="%s  [%d папок, %d файлов]" % (r, a, b),
+                                 values=("корень", "", "", "", "", "", "", "", ""))
+                _FOLDERS[n] = r
+                tview.insert(n, "end", text="загрузка…")
+            s = eng.summary()
+            tsum.config(text="в базе файлов %d · моделей %d · изменений %d (раскрывай папки или фильтруй)"
+                        % (s.get("snapshots", 0), s.get("models", 0), s.get("changes", 0)))
+
+    def say(fn, *a):
+        import contextlib
+        import io
+        buf = io.StringIO()
+        try:
+            with contextlib.redirect_stdout(buf):
+                fn(*a)
+        except Exception as e:
+            buf.write("ОШИБКА: %s" % e)
+        tout.delete("1.0", "end")
+        tout.insert("end", buf.getvalue().rstrip())
+
+    def _sel_model():
+        sel = tview.selection()
+        if not sel:
+            return ""
+        vals = tview.item(sel[0], "values")
+        return eng.stem(vals[1]) if len(vals) > 1 and vals[1] else ""
+
+    def where_selected():
+        m = _sel_model()
+        say(eng.do_where, m) if m else tout.insert("end", "выбери строку-файл в дереве\n")
+
+    def changes_selected():
+        m = _sel_model()
+        say(eng.do_changes_model, m, 200) if m else tout.insert("end", "выбери строку-файл в дереве\n")
+
+    _plm_extra = {"nb": nb, "tab_tree": tab_tree, "tview": tview, "tfilter_entry": e_tfilter,
+                  "fill_tree_view": fill_tree_view, "engine": eng}   # для самопроверки
+    fill_tree_view()                       # сразу показать верхние папки базы
 
     flt = ttk.Frame(tab_table, padding=(6, 4))
     flt.pack(fill="x")
@@ -1235,9 +1342,15 @@ def run_gui():
                 import engine as eng
                 r = eng.do_check()
             except Exception as e:
-                root.after(0, lambda: lbl.config(text="проверка не удалась: %s" % e))
+                try:
+                    root.after(0, lambda: lbl.config(text="проверка не удалась: %s" % e))
+                except Exception:
+                    pass
                 return
-            root.after(0, lambda: show_check(r))
+            try:
+                root.after(0, lambda: show_check(r))
+            except Exception:
+                pass                    # окно уже закрыто — молча
 
         threading.Thread(target=work, daemon=True).start()
 
@@ -1459,6 +1572,12 @@ def run_gui():
                    % (_bs.get("files", 0), _bs.get("models", 0), _bs.get("changes", 0)))
         load_base()
         check_base()
+
+    try:                                   # окно не «прыгает» при переключении вкладок
+        root.update_idletasks()
+        root.geometry("1330x660")
+    except Exception:
+        pass
     root.mainloop()
 
 
