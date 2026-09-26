@@ -1558,6 +1558,17 @@ def run_gui():
         cols = ["Файл"] + [c for c in cols if c != "Файл"]
     sort_state = {"col": "Файл", "desc": False}
     rows_all, shown = [], []
+    _ROWS = {}                                # uid -> строка: стабильная связь «строка таблицы ↔ данные»
+    _SEQ = {"n": 0}
+
+    def row_uid(r):
+        """Постоянный id строки: не зависит от сортировки и фильтра (лечит «внизу показано другое»)."""
+        u = r.get("_uid")
+        if not u:
+            _SEQ["n"] += 1
+            u = r["_uid"] = "r%d" % _SEQ["n"]
+        _ROWS[u] = r
+        return u
 
     body = ttk.Frame(tab_table)
     body.pack(fill="both", expand=True, padx=6, pady=(0, 6))
@@ -1709,11 +1720,10 @@ def run_gui():
     def live_tree(event=None):
         """ОНЛАЙН по выбранной строке: состав ВНИЗ и ВСЕ сборки ВВЕРХ."""
         sel = tree.selection()
-        if not sel:
+        row = _ROWS.get(sel[0]) if sel else None
+        if not row:
             live_auto()
             return
-        idx = tree.index(sel[0])
-        row = rows_all[idx] if idx < len(rows_all) else {}
         p = row.get("_path") or ""
         model = eng.stem(os.path.basename(p)) if p else ""
         if not model:
@@ -1768,19 +1778,23 @@ def run_gui():
 
     def redraw():
         pat = e_filter.get().strip().lower()
+        prev = tree.selection()
+        keep = prev[0] if prev else ""
         rows = [r for r in rows_all if match_filter(r, cols, pat)]
         rows.sort(key=lambda r: sort_key(r, sort_state["col"]), reverse=sort_state["desc"])
         shown[:] = rows
         tree.delete(*tree.get_children())
         for r in rows:
-            tree.insert("", "end", values=[r.get(c, "") for c in cols])
+            tree.insert("", "end", iid=row_uid(r), values=[r.get(c, "") for c in cols])
         for c in cols:
             mark = "  ▼" if (sort_state["col"] == c and sort_state["desc"]) else \
                    ("  ▲" if sort_state["col"] == c else "")
             tree.heading(c, text=c + mark)
         lbl.config(text="показано %d из %d" % (len(rows), len(rows_all)))
+        if keep and keep in tree.get_children():
+            tree.selection_set(keep)          # выбор сохраняется при сортировке/фильтре
         try:
-            live_auto()               # нижнее дерево ПЛМ обновляется вместе с таблицей — само
+            live_tree()                       # низ всегда следует за выбором (иначе — общее дерево)
         except Exception:
             pass
 
@@ -1795,7 +1809,8 @@ def run_gui():
         tree.bind("<Double-1>", lambda e: show_history())
         redraw()
 
-    root._plm = {"redraw": redraw, "rebuild": rebuild_tree, "tree": lambda: tree, **_plm_extra}
+    root._plm = {"redraw": redraw, "rebuild": rebuild_tree, "tree": lambda: tree,
+                 "set_sort": set_sort, "rows_map": lambda: _ROWS, **_plm_extra}
 
     def show_readme():
         w = getattr(root, "_readme_win", None)
@@ -1926,7 +1941,7 @@ def run_gui():
         if not items:
             messagebox.showinfo(APP_TITLE, "Выберите строку в таблице.")
             return
-        row = rows_all[tree.index(items[0])]
+        row = _ROWS.get(items[0]) or {}
         path = row.get("_path")
         if not path:
             return
@@ -1958,7 +1973,7 @@ def run_gui():
                     rows_all.append(r)
                     pat = e_filter.get().strip()
                     if match_filter(r, cols, pat):
-                        tree.insert("", "end", values=[r.get(c, "") for c in cols])
+                        tree.insert("", "end", iid=row_uid(r), values=[r.get(c, "") for c in cols])
                 elif msg[0] == "walk":
                     _secs = time.time() - getattr(root, "_plm_t0", time.time())
                     lbl.config(text="ищу файлы: найдено %d%s (%.0f с)"
