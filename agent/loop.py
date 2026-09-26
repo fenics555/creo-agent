@@ -88,10 +88,24 @@ core.post = _stream_post
 _post_before_think = core.post
 
 
+def _think_native_on():
+    """Включён ли СЛУЖЕБНЫЙ (английский) канал размышлений Ollama.
+
+    Живая находка 26.09.2026 (стенд llm_think_ab, log\\urn\\cline): при включённом нативном канале
+    модель уходит в reasoning и НЕ возвращает ответ в content — на сложных задачах 2 ответа из 4
+    пустые, время в 4-5 раз больше (26b: 44 с против 9 с; 12b: 56 с против 13 с). Поэтому канал
+    выключен всегда, кроме явного слова человека: think_native=True. Дефолт False переживает
+    сброс настроек и обновления, «отключать заново» не требуется."""
+    v = settings.get("think_native")
+    if v in (None, "", 0, "0", "false", "False"):
+        return False
+    return bool(v)
+
+
 def _post_think_off(path, payload, *ar, **kw):
     if path == "/api/chat" and isinstance(payload, dict):
         payload = dict(payload)
-        if int(settings.get("think_mode") or 0) == 0:
+        if (not _think_native_on()) or int(settings.get("think_mode") or 0) == 0:
             payload["think"] = False
     return _post_before_think(path, payload, *ar, **kw)
 
