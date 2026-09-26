@@ -1064,6 +1064,14 @@ def run_gui():
     ttk.Checkbutton(top, text="с подпапками", variable=var_rec).pack(side="left", padx=8)
     var_lat = tk.BooleanVar(value=settings.get("latest_only", True))
     ttk.Checkbutton(top, text="только последние версии", variable=var_lat).pack(side="left", padx=8)
+    ttk.Label(top, text="Глубина папок (0=все):").pack(side="left", padx=(10, 2))
+    e_depth = ttk.Entry(top, width=4)
+    e_depth.insert(0, str(settings.get("depth", 0)))
+    e_depth.pack(side="left")
+    ttk.Label(top, text="ПУРГЕ: оставить версий:").pack(side="left", padx=(10, 2))
+    e_keep = ttk.Entry(top, width=4)
+    e_keep.insert(0, str(settings.get("purge_keep", 2)))
+    e_keep.pack(side="left")
 
     mid = ttk.Frame(root, padding=(6, 0))
     mid.pack(fill="x", padx=6, pady=(0, 4))
@@ -1346,7 +1354,7 @@ def run_gui():
     def purge_show():
         """ПЛАН чистки версий ИЗ БАЗЫ (файлы НЕ трогаются) + отчёт в log\\reports."""
         folder = purge_folder()
-        plan = eng.purge_plan(folder or None, 2)
+        plan = eng.purge_plan(folder or None, int(e_keep.get() or 2))
         txt = eng.purge_plan_text(plan)
         tout.delete("1.0", "end")
         tout.insert("end", txt)
@@ -1367,7 +1375,7 @@ def run_gui():
         """Исполнение — инструментом дома `purge_versions` (перенос в БЭКАП, удаления нет)."""
         from tkinter import messagebox as mb
         folder = purge_folder()
-        plan = eng.purge_plan(folder or None, 2)
+        plan = eng.purge_plan(folder or None, int(e_keep.get() or 2))
         if not plan["count"]:
             tsum.config(text="ПУРГЕ: чистить нечего — лишних версий нет")
             return
@@ -1493,6 +1501,7 @@ def run_gui():
             put("\n".join(lines))
 
         def show_hist():
+            """История файла — ОТДЕЛЬНЫМ полноценным окном (столбцы, даты, сортировка, CSV)."""
             con = eng.connect()
             r = con.execute("SELECT path FROM snapshots WHERE model=? ORDER BY path LIMIT 1",
                             (model,)).fetchone()
@@ -1500,13 +1509,11 @@ def run_gui():
             if not r:
                 put("файл не найден")
                 return
-            rows = history_rows(r[0], {"max_size_mb": float(e_max.get() or 0)})
-            lines = ["ИСТОРИЯ ИЗМЕНЕНИЙ: %s — записей %d" % (os.path.basename(r[0]), len(rows))]
-            for x in sorted(rows, key=lambda z: z.get("_dt") or ""):
-                lines.append("%s | рев.%s | %s | %s | %s"
-                             % (x.get("Дата", ""), x.get("Ревизия", ""), x.get("Пользователь", ""),
-                                x.get("Компьютер", ""), x.get("Что изменено", "")))
-            put("\n".join(lines))
+            history_window(root, tk, ttk, filedialog,
+                           "История файла — %s" % os.path.basename(r[0]),
+                           lambda: history_rows(r[0], {"max_size_mb": float(e_max.get() or 0)}),
+                           settings=settings, save_settings=save_settings,
+                           status=os.path.basename(r[0]))
 
         def show_derived():
             lines = ["ЗАГОТОВКА / ОТЛИВКА (из чего сделано это изделие):"]
@@ -1527,7 +1534,7 @@ def run_gui():
                 lines.append("   —")
             put("\n".join(lines))
 
-        ttk.Button(btns, text="История изменений", command=show_hist).pack(fill="x", pady=2)
+        ttk.Button(btns, text="История файла (окно)", command=show_hist).pack(fill="x", pady=2)
         ttk.Button(btns, text="Сборки, куда входит",
                    command=lambda: show(eng.do_tree_up, model, 5)).pack(fill="x", pady=2)
         ttk.Button(btns, text="Состав (вниз)",
@@ -2017,7 +2024,8 @@ def run_gui():
             q.put(("prog", n, total, "", 0, 0))
 
         try:
-            res = eng.do_scan([folder], float(opts.get("max_size_mb") or 8), 3600.0, None,
+            res = eng.do_scan([folder], float(opts.get("max_size_mb") or 8), 3600.0,
+                              (int(e_depth.get() or 0) or None),
                               progress_cb=pc,
                               stop_cb=lambda: getattr(root, "_plm_stop", False)) or {}
         except Exception as e:
@@ -2049,7 +2057,8 @@ def run_gui():
             pass
         lbl.config(text="ищу файлы…" + _hint)
         settings.update({"folder": folder, "max_size_mb": opts["max_size_mb"],
-                         "recurse": opts["recurse"], "latest_only": opts["latest_only"]})
+                         "recurse": opts["recurse"], "latest_only": opts["latest_only"],
+                         "depth": int(e_depth.get() or 0), "purge_keep": int(e_keep.get() or 2)})
         save_settings()
         threading.Thread(target=worker, args=(folder, opts), daemon=True).start()
         root.after(120, poll_scan)

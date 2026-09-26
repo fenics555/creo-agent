@@ -569,6 +569,20 @@ def count_models(text=""):
         return 0
 
 
+def mark_change(item, kind, descr, who="инструмент ДОМА", rev=""):
+    """Записать в журнал правку КОДА/паспорта (kind='code') — чтобы отличать от правок человека."""
+    try:
+        con = connect()
+        con.execute("INSERT INTO changes (item,rev,kind,descr,who,ts) VALUES (?,?,?,?,?,?)",
+                    (item, rev, kind, descr, who,
+                     datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")))
+        con.commit()
+        con.close()
+        return True
+    except Exception:
+        return False
+
+
 def do_changes_model(model, n=200):
     """Изменения по КОНКРЕТНОЙ модели (по её файлам)."""
     m = stem(model)
@@ -578,7 +592,9 @@ def do_changes_model(model, n=200):
     con.close()
     print("изменения «%s»: %d" % (m, len(rows)))
     for ts, kind, rev, who, descr, item in rows:
-        print("   %s | %-6s | рев.%s | %-12s | %s" % (ts, kind, rev or "-", who or "-", descr or "-"))
+        mark = " [КОД]" if (kind or "").startswith("code") else ""
+        print("   %s | %-6s%s | рев.%s | %-12s | %s"
+              % (ts, kind, mark, rev or "-", who or "-", descr or "-"))
 
 
 def base_roots():
