@@ -93,11 +93,53 @@ def db_total(folder=None):
         return 0
 
 
-def db_rows(folder=None, limit=2000):
+def _ver(p):
+    try:
+        return int(p.rsplit(".", 1)[1])
+    except Exception:
+        return 0
+
+
+def db_rows_map(folder=None, latest_only=False):
+    """Единая база: путь -> (size, mtime, строка). Подсчёт версий и, если надо, только последняя."""
+    try:
+        c = db_conn()
+        sql = ("SELECT path,model,size,mtime,volume,material,name,designation,rev,author,revdate,"
+               "role,hist,creo FROM snapshots %s")
+        cur = c.execute(sql % ("WHERE folder LIKE ?" if folder else ""),
+                        ((folder.rstrip("\\") + "%",) if folder else ()))
+        data = list(cur)
+        c.close()
+    except Exception:
+        return {}
+    vers = {}
+    for d in data:
+        vers[d[1]] = vers.get(d[1], 0) + 1
+    out, best = {}, {}
+    for (p, model, size, mtime, volume, material, name, desig, rev, author, revdate,
+         role, hist, creo) in data:
+        v = _ver(p)
+        if latest_only:
+            if model in best and v < best[model]:
+                continue
+            best[model] = v
+        out[p] = (size, mtime, {
+            "Файл": os.path.basename(p), "Тип": "", "Обозначение": desig or "",
+            "Наименование": name or "", "Материал": material or "",
+            "Объём, мм³": ("%.0f" % volume) if volume else "", "Габарит, мм": "",
+            "Роль": role or "", "Родитель": "", "Ревизия": rev or "",
+            "Дата": revdate or "", "Пользователь": author or "",
+            "Записей": str(hist or ""), "Версий": vers.get(model, 0),
+            "Версия Creo": creo or "", "_path": p,
+        })
+    return out
+
+
+def db_rows(folder=None, limit=2000, latest_only=False):
     """Строки паспортов ИЗ БАЗЫ (файлы не читаются)."""
     try:
         c = db_conn()
-        sql = ("SELECT path,volume,material,name,designation,rev,author,revdate,role "
+        sql = ("SELECT path,volume,material,name,designation,rev,author,revdate,role,hist,creo "
                "FROM snapshots %s ORDER BY model, path LIMIT ?")
         if folder:
             cur = c.execute(sql % "WHERE folder LIKE ?",
@@ -105,14 +147,14 @@ def db_rows(folder=None, limit=2000):
         else:
             cur = c.execute(sql % "", (limit,))
         rows = []
-        for p, volume, material, name, desig, rev, author, revdate, role in cur:
+        for p, volume, material, name, desig, rev, author, revdate, role, hist, creo in cur:
             rows.append({
                 "Файл": os.path.basename(p), "Тип": "", "Обозначение": desig or "",
                 "Наименование": name or "", "Материал": material or "",
                 "Объём, мм³": ("%.0f" % volume) if volume else "", "Габарит, мм": "",
                 "Роль": role or "", "Родитель": "", "Ревизия": rev or "",
                 "Дата": revdate or "", "Пользователь": author or "",
-                "Записей": "", "Версий": "", "Версия Creo": "", "_path": p,
+                "Записей": str(hist or ""), "Версий": "", "Версия Creo": creo or "", "_path": p,
             })
         c.close()
         return rows
@@ -705,7 +747,8 @@ def scan_folder(folder, settings, progress=None, on_row=None, stop_cb=None, stat
     if walk_cb:
         walk_cb(len(paths), True)             # обход закончен: всего найдено N моделей
     chosen = pick_latest(sorted(paths), settings.get("latest_only", True))
-    cache = load_cache()                      # ПОВТОРНЫЙ скан не читает неизменённое
+    cache = load_cache()                      # строки, прочитанные самим ридером (полные)
+    known = db_rows_map(folder)               # ЕДИНАЯ БАЗА: что уже прочитано движком и не менялось
     fresh, read_n, from_cache = {}, 0, 0
     for n, (p, total) in enumerate(chosen, 1):
         if stop_cb and stop_cb():
@@ -721,7 +764,11 @@ def scan_folder(folder, settings, progress=None, on_row=None, stop_cb=None, stat
         old = cache.get(p)
         r = None
         if old and int(old.get("size", -1)) == st.st_size and abs(float(old.get("mtime", 0)) - st.st_mtime) < 1.0:
-            r = old.get("row")                # НЕ изменился — берём из кэша, файл НЕ читаем
+            r = old.get("row")                # НЕ изменился: берём из своего кэша (полная строка)
+            from_cache += 1
+        elif p in known and int(known[p][1] or 0) == st.st_size \
+                and abs(float(known[p][2] or 0) - st.st_mtime) < 1.0:
+            r = known[p][0]                   # НЕ изменился: берём из ЕДИНОЙ БАЗЫ — файл НЕ читаем
             from_cache += 1
         else:
             try:
@@ -1286,17 +1333,28 @@ def run_gui():
                                % (msg[1], " — обход готов, читаю изменённое…" if msg[2] else "", _secs))
                 elif msg[0] == "prog":
                     _secs = time.time() - getattr(root, "_plm_t0", time.time())
-                    lbl.config(text="%d / %d · прочитано %d, из кэша %d · %.0f с · %s"
+                    lbl.config(text="%d / %d · прочитано %d, пропущено (уже в базе) %d · %.0f с · %s"
                                % (msg[1], msg[2], msg[4], msg[5], _secs, msg[3][:40]))
                 else:
-                    redraw()
-                    _secs = time.time() - getattr(root, "_plm_t0", time.time())
                     st = msg[2] if len(msg) > 2 else {}
-                    lbl.config(text="готово: %d моделей за %.1f с (прочитано %d, из кэша %d)%s"
-                               % (msg[1], _secs, st.get("read", 0), st.get("cache", 0),
-                                  "; ОСТАНОВЛЕНО" if st.get("stopped") else ""))
-                    log_line("scan: %s -> моделей %d за %.1f с (прочитано %d, из кэша %d)"
-                             % (e_folder.get(), msg[1], _secs, st.get("read", 0), st.get("cache", 0)))
+                    _secs = time.time() - getattr(root, "_plm_t0", time.time())
+                    if st.get("error"):
+                        lbl.config(text="скан не удался: %s" % st["error"])
+                    else:
+                        folder = norm_path(e_folder.get())
+                        rows = db_rows(folder or None, 5000)
+                        total = db_total(folder or None)
+                        rows_all.clear()
+                        tree.delete(*tree.get_children())
+                        rows_all.extend(rows)
+                        redraw()
+                        lbl.config(text="скан базы за %.1f с: новых %d · изменённых %d · "
+                                        "пропущено (уже в базе) %d · в базе %d, показано %d%s"
+                                   % (_secs, st.get("new", 0), st.get("mod", 0), st.get("skipped", 0),
+                                      total, len(rows), "; ОСТАНОВЛЕНО" if st.get("stopped") else ""))
+                        log_line("scan: %s -> новых %d, изменённых %d, пропущено %d за %.1f с"
+                                 % (folder or "вся база", st.get("new", 0), st.get("mod", 0),
+                                    st.get("skipped", 0), _secs))
                     btn.config(state="normal")
                     b_stop.config(state="disabled")
                     return
@@ -1305,16 +1363,19 @@ def run_gui():
         root.after(120, poll_scan)
 
     def worker(folder, opts):
-        stats = {}
+        import engine as eng
+        res = {}
 
-        def prog(i, total, p):
-            q.put(("prog", i, total, os.path.basename(p),
-                   stats.get("read", 0), stats.get("cache", 0)))
+        def pc(n, total):
+            q.put(("prog", n, total, "", 0, 0))
 
-        rows = scan_folder(folder, opts, prog, lambda r: q.put(("row", r)),
-                           stop_cb=lambda: getattr(root, "_plm_stop", False), stats=stats,
-                           walk_cb=lambda n, done=False: q.put(("walk", n, done)))
-        q.put(("done", len(rows), stats))
+        try:
+            res = eng.do_scan([folder], float(opts.get("max_size_mb") or 8), 3600.0, None,
+                              progress_cb=pc,
+                              stop_cb=lambda: getattr(root, "_plm_stop", False)) or {}
+        except Exception as e:
+            res = {"error": str(e)}
+        q.put(("done", 0, res))
 
     def go():
         folder = norm_path(e_folder.get())
@@ -1331,7 +1392,15 @@ def run_gui():
         b_stop.config(state="normal")
         root._plm_stop = False
         root._plm_t0 = time.time()
-        lbl.config(text="поиск файлов…")
+        _hint = ""
+        try:
+            import engine as _e
+            _roots = json.loads(_e.meta_get("roots") or "null") or []
+            if _roots and not any(folder.lower().startswith(r.rstrip("\\").lower()) for r in _roots):
+                _hint = "  (папка ВНЕ базы: %s — будет прочитано заново)" % "; ".join(_roots)
+        except Exception:
+            pass
+        lbl.config(text="ищу файлы…" + _hint)
         settings.update({"folder": folder, "max_size_mb": opts["max_size_mb"],
                          "recurse": opts["recurse"], "latest_only": opts["latest_only"]})
         save_settings()

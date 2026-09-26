@@ -25,6 +25,7 @@ DB = os.environ.get("PLM_DB") or os.path.join(HERE, "plm_reader.db")   # сво�
 LOG = r"D:\AI\log\plm_reader\engine.log"
 DEFAULT_ROOTS = [r"Z:\PTC\Work"]
 MODEL = re.compile(r"\.(prt|asm|drw)\.\d+$", re.IGNORECASE)
+HISTRE = re.compile(rb"\xf7(.)\xe3([0-9]{1,7})\x00\x00(.{0,220}?)\x00((?:Creo )?[0-9][0-9.]*)\x00", re.S)
 VERSION = "V1"
 
 
@@ -181,11 +182,13 @@ def scan_item(s, path, stems, fstems=frozenset()):
     nm = names(raw)
     refs = {c: nm[c] for c in nm if c != s and c in stems and len(c) >= 5}
     h = last_hist(raw) or ("", "", "")
+    hm = HISTRE.findall(raw)
     return {"model": s, "path": path, "size": len(raw), "mtime": os.path.getmtime(path),
             "volume": vol or 0.0, "material": pr.get("PTC_MASTER_MATERIAL") or "",
             "name": pr.get("\u041d\u0410\u0418\u041c\u0415\u041d\u041e\u0412\u0410\u041d\u0418\u0415") or "",
             "designation": pr.get("\u041e\u0411\u041e\u0417\u041d\u0410\u0427\u0415\u041d\u0418\u0415") or "",
-            "rev": h[0], "author": h[1], "revdate": h[2], "role": role(raw, fstems, s), "refs": refs}
+            "rev": h[0], "author": h[1], "revdate": h[2], "role": role(raw, fstems, s), "refs": refs,
+            "hist": len(hm), "creo": (hm[-1][3].decode("latin-1") if hm else "")}
 
 
 # --- ЕДИНЫЙ ЧИТАТЕЛЬ из общей библиотеки дома (локальные копии выше — к удалению) ---
@@ -204,7 +207,7 @@ SCHEMA = """
 CREATE TABLE IF NOT EXISTS snapshots (
   path TEXT PRIMARY KEY, model TEXT, folder TEXT, size INTEGER, mtime REAL, volume REAL,
   material TEXT, name TEXT, designation TEXT, rev TEXT, author TEXT, revdate TEXT,
-  role TEXT, seen TEXT);
+  role TEXT, seen TEXT, hist INTEGER, creo TEXT);
 CREATE TABLE IF NOT EXISTS changes (
   id INTEGER PRIMARY KEY AUTOINCREMENT, item TEXT, rev TEXT, kind TEXT, descr TEXT,
   who TEXT, ts TEXT);
@@ -223,6 +226,10 @@ def connect():
         if cols and "folder" not in cols:
             con.execute("DROP TABLE snapshots")
             con.execute("DROP TABLE links")
+            con.commit()
+        elif cols and "hist" not in cols:                 # 25.09: добавили число записей и версию Creo
+            con.execute("ALTER TABLE snapshots ADD COLUMN hist INTEGER")
+            con.execute("ALTER TABLE snapshots ADD COLUMN creo TEXT")
             con.commit()
     except Exception:
         pass
@@ -266,7 +273,7 @@ def inventory(roots, max_mb=8, store=True, max_depth=None):
     return folders, files
 
 
-def do_scan(roots, max_mb, limit, depth=None, progress_cb=None, stop_cb=None):
+def do_scan(roots, max_mb, limit, depth=None, progress_cb=None, stop_cb=None, full=False):
     t0 = time.time()
     files = collect(roots, max_mb, depth)
     total = len(files)
@@ -295,7 +302,7 @@ def do_scan(roots, max_mb, limit, depth=None, progress_cb=None, stop_cb=None):
         except OSError:
             continue
         old = prev.get(path)
-        if old and int(old[9] or 0) == st.st_size and abs(float(old[10] or 0) - st.st_mtime) < 1.0:
+        if not full and old and int(old[9] or 0) == st.st_size and abs(float(old[10] or 0) - st.st_mtime) < 1.0:
             skipped += 1                     # НЕ изменился (размер+время) — НЕ читаем и не трогаем
             if progress_cb and n % 25 == 0:
                 progress_cb(n, total)
@@ -322,10 +329,10 @@ def do_scan(roots, max_mb, limit, depth=None, progress_cb=None, stop_cb=None):
             con.execute("INSERT INTO changes (item,rev,kind,descr,who,ts) VALUES (?,?,?,?,?,?)",
                         (path, it["rev"], "new", "первая запись паспорта", it["author"], now))
             new += 1
-        con.execute("INSERT OR REPLACE INTO snapshots VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?)",
+        con.execute("INSERT OR REPLACE INTO snapshots VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)",
                     (it["path"], it["model"], os.path.dirname(path), it["size"], it["mtime"],
                      it["volume"], it["material"], it["name"], it["designation"], it["rev"],
-                     it["author"], it["revdate"], it["role"], now))
+                     it["author"], it["revdate"], it["role"], now, it.get("hist", 0), it.get("creo", "")))
         if s not in seen:                       # связи код-родителя чистим ОДИН раз
             con.execute("DELETE FROM links WHERE parent=? AND source='plm_tree'", (s,))
             seen.add(s)
@@ -355,6 +362,8 @@ def do_scan(roots, max_mb, limit, depth=None, progress_cb=None, stop_cb=None):
         % (done, new, mod, skipped, dt))
     print("scan: обработано %d из %d | новых %d | изменённых %d | пропущено (без изменений) %d | за %.1f с%s | база %s"
           % (done, total, new, mod, skipped, dt, " | ОСТАНОВЛЕНО" if stopped else "", DB))
+    return {"done": done, "total": total, "new": new, "mod": mod, "skipped": skipped,
+            "stopped": stopped, "secs": round(dt, 1)}
 
 
 def summary():
@@ -551,9 +560,10 @@ def main():
     ap.add_argument("--n", type=int, default=40)
     ap.add_argument("--depth", type=int, default=4)
     ap.add_argument("--max-depth", type=int, default=0)
+    ap.add_argument("--full", action="store_true", help="перечитать все файлы заново (дозаполнить поля)")
     a = ap.parse_args()
     if a.cmd == "scan":
-        do_scan(a.roots, a.max_mb, a.limit, (a.max_depth or None))
+        do_scan(a.roots, a.max_mb, a.limit, (a.max_depth or None), full=a.full)
     elif a.cmd == "check":
         do_check(a.roots if a.roots != DEFAULT_ROOTS else None, a.max_mb, (a.max_depth or None))
     elif a.cmd == "count":
