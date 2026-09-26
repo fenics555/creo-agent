@@ -983,7 +983,7 @@ def run_gui():
     root.geometry("1330x660")
     root.minsize(760, 420)            # три уровня видны и в небольшом окне
 
-    top = ttk.LabelFrame(root, text=" 1. НАСТРОЙКИ ", padding=6)
+    top = ttk.Frame(root, padding=6)
     top.pack(fill="x", padx=6, pady=(6, 4))
     ttk.Label(top, text="Папка:").pack(side="left")
     e_folder = ttk.Entry(top, width=68)
@@ -1007,7 +1007,7 @@ def run_gui():
     var_lat = tk.BooleanVar(value=settings.get("latest_only", True))
     ttk.Checkbutton(top, text="только последние версии", variable=var_lat).pack(side="left", padx=8)
 
-    mid = ttk.LabelFrame(root, text=" 2. ИНСТРУМЕНТЫ ", padding=6)
+    mid = ttk.Frame(root, padding=(6, 0))
     mid.pack(fill="x", padx=6, pady=(0, 4))
     btn = ttk.Button(mid, text="Сканировать")
     btn.pack(side="left")
@@ -1029,7 +1029,7 @@ def run_gui():
         _eg.App(tk.Toplevel(root))
     ttk.Button(mid, text="🌳 ПЛМ (дерево/входимость/изменения)", command=open_plm).pack(side="left", padx=8)
 
-    data = ttk.LabelFrame(root, text=" 3. ДАННЫЕ ", padding=6)
+    data = ttk.Frame(root, padding=6)
     data.pack(fill="x", padx=6, pady=(0, 4))
     lbl = ttk.Label(data, text="готов", anchor="w", justify="left")
     lbl.pack(fill="x")
