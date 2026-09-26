@@ -10,7 +10,7 @@ import threading
 import time
 import tkinter as tk
 from pathlib import Path
-from tkinter import simpledialog, ttk
+from tkinter import filedialog, simpledialog, ttk
 
 HERE = Path(__file__).resolve().parent
 sys.path.insert(0, str(HERE))
@@ -66,10 +66,12 @@ class App:
         r = self.s.get("roots") or eng.DEFAULT_ROOTS
         tk.Label(top, text="Корень 1:").grid(row=0, column=0, sticky="w")
         self.var_r1 = tk.StringVar(value=r[0] if r else "")
-        tk.Entry(top, textvariable=self.var_r1, width=88).grid(row=0, column=1, padx=6, pady=3)
+        tk.Entry(top, textvariable=self.var_r1, width=80).grid(row=0, column=1, padx=6, pady=3)
+        tk.Button(top, text="Обзор…", command=lambda: self.browse(self.var_r1)).grid(row=0, column=2, padx=4)
         tk.Label(top, text="Корень 2:").grid(row=1, column=0, sticky="w")
         self.var_r2 = tk.StringVar(value=r[1] if len(r) > 1 else "")
-        tk.Entry(top, textvariable=self.var_r2, width=88).grid(row=1, column=1, padx=6, pady=3)
+        tk.Entry(top, textvariable=self.var_r2, width=80).grid(row=1, column=1, padx=6, pady=3)
+        tk.Button(top, text="Обзор…", command=lambda: self.browse(self.var_r2)).grid(row=1, column=2, padx=4)
         tk.Label(top, text="Лимит, с:").grid(row=2, column=0, sticky="w")
         self.var_limit = tk.StringVar(value=str(self.s.get("limit", 120)))
         tk.Entry(top, textvariable=self.var_limit, width=8).grid(row=2, column=1, sticky="w", padx=6, pady=3)
@@ -112,6 +114,7 @@ class App:
         self.b_scan.config(state="disabled")
         self.sum.config(text="сканирую…")
         t0 = time.time()
+        self._t0 = t0
         self.log("=" * 100)
         self.log("СКАНИРОВАНИЕ: %s" % " | ".join(self.roots()))
 
@@ -139,14 +142,21 @@ class App:
         if m:
             self.cap(eng.do_where, m)
 
+    def browse(self, var):
+        p = filedialog.askdirectory()
+        if p:
+            var.set(p)
+
     def save_settings(self):
         self.save()
         self.sum.config(text="настройки сохранены: %s" % SETTINGS)
 
     def on_prog(self, done, total):
         pct = 100.0 * done / max(total, 1)
+        secs = time.time() - getattr(self, "_t0", time.time())
         self.root.after(0, lambda: (self.pb.config(maximum=max(total, 1), value=done),
-                                    self.sum.config(text="скан: %d/%d (%.0f%%)" % (done, total, pct))))
+                                    self.sum.config(text="скан: %d/%d (%.0f%%) · %.1f с"
+                                                    % (done, total, pct, secs))))
 
     def count(self):
         def work():

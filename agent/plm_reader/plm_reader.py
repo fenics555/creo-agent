@@ -885,11 +885,10 @@ def run_gui():
     ttk.Button(mid, text="Столбцы и параметры…", command=lambda: choose_columns()).pack(side="left", padx=(0, 8))
     ttk.Button(mid, text="История выбранного", command=lambda: show_history()).pack(side="left", padx=8)
     ttk.Button(mid, text="История по папке", command=lambda: show_folder_history()).pack(side="left", padx=8)
-    ttk.Button(mid, text="🌳 ПЛМ (дерево/входимость/изменения)",
-               command=lambda: subprocess.Popen(
-                   [sys.executable, "-X", "utf8",
-                    os.path.join(os.path.dirname(os.path.abspath(__file__)), "engine_gui.py")])
-               ).pack(side="left", padx=8)
+    def open_plm():
+        import engine_gui as _eg
+        _eg.App(tk.Toplevel(root))
+    ttk.Button(mid, text="🌳 ПЛМ (дерево/входимость/изменения)", command=open_plm).pack(side="left", padx=8)
     lbl = ttk.Label(mid, text="готов")
     lbl.pack(side="left", padx=10)
 
