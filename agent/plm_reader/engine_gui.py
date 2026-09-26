@@ -91,6 +91,8 @@ class App:
         tk.Entry(bar, textvariable=self.var_model, width=26).pack(side="left", padx=6)
         self.b_scan = tk.Button(bar, text="СКАНИРОВАТЬ", width=15, command=self.scan)
         self.b_scan.pack(side="left", padx=4)
+        self.b_stop = tk.Button(bar, text="СТОП", width=8, command=self.stop, state="disabled")
+        self.b_stop.pack(side="left", padx=4)
         tk.Button(bar, text="ДЕРЕВО", width=10, command=lambda: self.cap(eng.do_tree, self.var_model.get().strip(), 4)).pack(side="left", padx=4)
         tk.Button(bar, text="ГДЕ ИСПОЛЬЗУЕТСЯ", width=17, command=self.where).pack(side="left", padx=4)
         tk.Button(bar, text="ИЗМЕНЕНИЯ", width=11, command=lambda: self.cap(eng.do_changes, 40)).pack(side="left", padx=4)
@@ -109,9 +111,15 @@ class App:
     def roots(self):
         return [x for x in (self.var_r1.get().strip(), self.var_r2.get().strip()) if x]
 
+    def stop(self):
+        self._stop = True
+        self.sum.config(text="останавливаю…")
+
     def scan(self):
         self.save()
+        self._stop = False
         self.b_scan.config(state="disabled")
+        self.b_stop.config(state="normal")
         self.sum.config(text="сканирую…")
         t0 = time.time()
         self._t0 = t0
@@ -126,7 +134,8 @@ class App:
                 with contextlib.redirect_stdout(buf):
                     eng.do_scan(self.roots(), float(self.var_mmb.get() or 8),
                                 float(self.var_limit.get() or 120),
-                                (int(self.var_depth.get() or 0) or None), progress_cb=self.on_prog)
+                                (int(self.var_depth.get() or 0) or None), progress_cb=self.on_prog,
+                                stop_cb=lambda: getattr(self, "_stop", False))
             except Exception as e:
                 buf.write("ОШИБКА: %s" % e)
             self.root.after(0, lambda: self.done_scan(buf.getvalue(), time.time() - t0))
@@ -136,6 +145,7 @@ class App:
         self.log(out.rstrip())
         self.sum.config(text="сканирование: за %.1f с" % secs)
         self.b_scan.config(state="normal")
+        self.b_stop.config(state="disabled")
 
     def where(self):
         m = self.var_model.get().strip() or simpledialog.askstring("Модель", "Имя модели:", parent=self.root)

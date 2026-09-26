@@ -20,7 +20,7 @@ from collections import Counter, defaultdict
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 sys.path.insert(0, os.path.dirname(HERE))     # общая библиотека дома (creo_read)
-DB = os.path.join(HERE, "plm_reader.db")
+DB = os.environ.get("PLM_DB") or os.path.join(HERE, "plm_reader.db")   # своя база: PLM_DB=путь\другая.db
 LOG = r"D:\AI\log\plm_reader\engine.log"
 DEFAULT_ROOTS = [r"Z:\PTC\Work"]
 MODEL = re.compile(r"\.(prt|asm|drw)\.\d+$", re.IGNORECASE)
@@ -265,7 +265,7 @@ def inventory(roots, max_mb=8, store=True, max_depth=None):
     return folders, files
 
 
-def do_scan(roots, max_mb, limit, depth=None, progress_cb=None):
+def do_scan(roots, max_mb, limit, depth=None, progress_cb=None, stop_cb=None):
     t0 = time.time()
     files = collect(roots, max_mb, depth)
     total = len(files)
@@ -277,18 +277,33 @@ def do_scan(roots, max_mb, limit, depth=None, progress_cb=None):
     prev = {r[0]: r for r in con.execute(
         "SELECT path,volume,material,name,designation,rev,author,revdate,role,size,mtime FROM snapshots")}
     now = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-    done = new = mod = 0
+    done = new = mod = skipped = 0
     seen = set()
+    n = 0
+    stopped = False
     for path in sorted(files):
         if time.time() - t0 > limit:
             break
+        if stop_cb and stop_cb():
+            stopped = True
+            break
+        n += 1
         s = stem(os.path.basename(path))
+        try:
+            st = os.stat(path)
+        except OSError:
+            continue
+        old = prev.get(path)
+        if old and int(old[9] or 0) == st.st_size and abs(float(old[10] or 0) - st.st_mtime) < 1.0:
+            skipped += 1                     # НЕ изменился (размер+время) — НЕ читаем и не трогаем
+            if progress_cb and n % 25 == 0:
+                progress_cb(n, total)
+            continue
         try:
             it = scan_item(s, path, codes, fstems.get(os.path.dirname(path), set()))
         except Exception as e:
             log("ERROR %s: %s" % (path, e))
             continue
-        old = prev.get(path)
         diffs = []
         if old:
             if abs(float(old[1] or 0) - float(it["volume"] or 0)) >= 0.5:
@@ -319,21 +334,21 @@ def do_scan(roots, max_mb, limit, depth=None, progress_cb=None):
             seen.add((s, child))
             con.execute("INSERT INTO links VALUES (?,?,?,?)", (s, child, qty, "plm_tree"))
         done += 1
-        if progress_cb:
-            progress_cb(done, total)
-        if done % 500 == 0:
+        if progress_cb and n % 25 == 0:
+            progress_cb(n, total)
+        if n % 500 == 0:
             con.commit()            # частичный коммит: база не заперта на весь прогон
-            _p = "progress: %d/%d (%.0f%%), %.1f s" % (done, total,
-                                                       100.0 * done / max(total, 1),
-                                                       time.time() - t0)
+            _p = "progress: %d/%d (%.0f%%), %.1f s, изменённых %d" % (
+                n, total, 100.0 * n / max(total, 1), time.time() - t0, mod)
             print(_p, flush=True)
             log(_p)
     con.commit()
     con.close()
     dt = time.time() - t0
-    log("scan: файлов %d, новых %d, изменённых %d, за %.1f с" % (done, new, mod, dt))
-    print("scan: обработано %d из %d | новых %d | изменённых %d | за %.1f с | база %s"
-          % (done, total, new, mod, dt, DB))
+    log("scan: файлов %d, новых %d, изменённых %d, пропущено %d, за %.1f с"
+        % (done, new, mod, skipped, dt))
+    print("scan: обработано %d из %d | новых %d | изменённых %d | пропущено (без изменений) %d | за %.1f с%s | база %s"
+          % (done, total, new, mod, skipped, dt, " | ОСТАНОВЛЕНО" if stopped else "", DB))
 
 
 def do_where(model):

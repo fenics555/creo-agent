@@ -217,16 +217,26 @@ def history(raw):
     return out
 
 
+def parent_file(nm, is_part):
+    """Имя файла родителя (с расширением): base -> base.prt / base.asm."""
+    nm = (nm or "").strip()
+    if not nm:
+        return ""
+    if nm.lower().endswith((".prt", ".asm", ".drw")):
+        return nm
+    return nm + (".prt" if is_part else ".asm")
+
+
 def provenance(raw, is_part):
     """Роль изделия и родитель (заготовка / отражение / наследование)."""
     if b"MERGE_BASE_PART" in raw:
         m = re.search(rb"MERGE_BASE_PART.{0,80}?([A-Za-z0-9_\-]{5,40})\x00", raw, re.S)
-        return "наследование", (m.group(1).decode("latin-1") if m else "")
+        return "наследование", parent_file(m.group(1).decode("latin-1") if m else "", True)
     if is_part:
         for m in re.finditer(rb"ref_part_tab\x00", raw):
             nm = re.search(rb"name\x00([A-Za-z0-9_\-\.]{4,47})\x00", raw[m.end():m.end() + 200])
             if nm:
-                return "производная", nm.group(1).decode("latin-1")
+                return "производная", parent_file(nm.group(1).decode("latin-1"), True)
     return "", ""
 
 
