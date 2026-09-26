@@ -46,5 +46,7 @@
   "Версия Creo",
   "Что изменено"
  ],
- "latest_only": true
+ "latest_only": true,
+ "depth": 0,
+ "purge_keep": 2
 }
