@@ -1528,63 +1528,138 @@ def run_gui():
     ltv.configure(yscrollcommand=lvs.set)
     ltv.pack(side="left", fill="x", expand=True)
     lvs.pack(side="left", fill="y")
+    ltv.bind("<<TreeviewOpen>>", lambda ev: ltv_open())
 
-    def _live_vals(m, i, qty):
+    def _live_vals(m, i, qty=""):
         return ("изделие" if (i[6] or i[7]) else "деталь", m, i[0] or "", i[1] or "", qty)
 
-    def live_tree(event=None):
-        """ОНЛАЙН: по выбранной строке сразу строится дерево — состав ВНИЗ и ВСЕ сборки ВВЕРХ (без кнопок)."""
+    _LTREE = {}
+
+    def _branch_updown(node, model):
+        """Ветка изделия: вверх — все сборки, вниз — состав, плюс заготовка/отливка."""
+        up = eng.plm_up_data(model, 8)
+        down = eng.plm_down_data(model, 1)
+        der = eng.derived_bases(model)
+        nodes = {model} | set(up) | set(down)
+        for v in list(up.values()) + list(down.values()):
+            nodes |= {x[0] for x in v}
+        info = eng.models_info(list(nodes))
+        if der:
+            for b, k in der:
+                ltv.insert(node, "end", text="◄ %s: %s" % (_kind(k), b),
+                           values=("заготовка/отливка", b, "", "", ""))
+        if up:
+            un = ltv.insert(node, "end", open=True, text="входит в (все сборки):")
+            stack = [(un, model, 1)]
+            while stack:
+                pn, m, depth = stack.pop()
+                for p2, q in up.get(m, []):
+                    nn = ltv.insert(pn, "end", text="%s  ↑ x%d" % (p2, q),
+                                    values=_live_vals(p2, info.get(p2, ("", "", "", 0, "", "", 0, 0)),
+                                                      "x%d" % q))
+                    if depth < 8:
+                        stack.append((nn, p2, depth + 1))
+        if down:
+            dn = ltv.insert(node, "end", open=True, text="состав:")
+            for c, q in down.get(model, []):
+                cn = ltv.insert(dn, "end", text="%s  x%d" % (c, q),
+                                values=_live_vals(c, info.get(c, ("", "", "", 0, "", "", 0, 0)),
+                                                  "x%d" % q))
+                _LTREE[cn] = c
+                ltv.insert(cn, "end", text="загрузка…")
+        return len(der), sum(len(v) for v in up.values()), len(down.get(model, []))
+
+    def _ltv_model(node):
+        """Модель узла нижнего дерева (если узел — изделие)."""
+        return _LTREE.get(node, "")
+
+    def ltv_open(event=None):
+        node = ltv.focus()
+        model = _ltv_model(node)
+        if not model:
+            return
+        kids = ltv.get_children(node)
+        if kids and ltv.item(kids[0], "text") == "загрузка…":
+            ltv.delete(*kids)
+            tops, children, info, derived = _plm_data_ref()
+            for c, q in children.get(model, []):
+                n = ltv.insert(node, "end", text="%s  x%d" % (c, q),
+                               values=_live_vals(c, info.get(c, ("", "", "", 0, "", "", 0, 0)),
+                                                 "x%d" % q))
+                _LTREE[n] = c
+                ltv.insert(n, "end", text="загрузка…")
+            for b, k in derived.get(model, []):
+                base = _resolve(b, info)
+                lbl = "◄ %s: " % _kind(k)
+                if base:
+                    n = ltv.insert(node, "end", text=lbl + base,
+                                   values=_live_vals(base, info.get(base, ("", "", "", 0, "", "", 0, 0))))
+                    _LTREE[n] = base
+                    ltv.insert(n, "end", text="загрузка…")
+                else:
+                    ltv.insert(node, "end", text=lbl + b + "  (нет в базе)",
+                               values=("заготовка/отливка", b, "", "", ""))
+
+    _PLM = {"data": None}
+
+    def _plm_data_ref():
+        if _PLM["data"] is None:
+            _PLM["data"] = eng.plm_tree_data()
+        return _PLM["data"]
+
+    def live_auto():
+        """ОНЛАЙН: нижнее дерево ПЛМ строится САМО — при открытии, после фильтра и после скана."""
         ltv.delete(*ltv.get_children())
+        _LTREE.clear()
+        pat = e_filter.get().strip()
+        if pat:                                   # есть фильтр в таблице — деревья по найденным изделиям
+            rows = [r for r in rows_all if match_filter(r, cols, pat)]
+            shown = 0
+            for r in rows[:25]:
+                m = eng.stem(os.path.basename(r.get("_path") or ""))
+                if not m:
+                    continue
+                rn = ltv.insert("", "end", open=False, text=m, values=_live_vals(
+                    m, eng.models_info([m]).get(m, ("", "", "", 0, "", "", 0, 0))))
+                _LTREE[rn] = m
+                _branch_updown(rn, m)
+                shown += 1
+            lsum.config(text="онлайн по фильтру: совпадений %d → деревьев %d" % (len(rows), shown))
+            return
+        tops, children, info, derived = _plm_data_ref()
+        rn = ltv.insert("", "end", open=True,
+                        text="ВСЁ ПРОИЗВОДСТВО (ПЛМ) — верхних сборок %d" % len(tops),
+                        values=("корень", "", "", "", ""))
+        for m in tops:
+            n = ltv.insert(rn, "end", text=m,
+                           values=_live_vals(m, info.get(m, ("", "", "", 0, "", "", 0, 0))))
+            _LTREE[n] = m
+            ltv.insert(n, "end", text="загрузка…")
+        lsum.config(text="дерево ПЛМ: верхних сборок %d · раскрывай узлы (состав / заготовка-отливка) — строится само"
+                    % len(tops))
+
+    def live_tree(event=None):
+        """ОНЛАЙН по выбранной строке: состав ВНИЗ и ВСЕ сборки ВВЕРХ."""
         sel = tree.selection()
         if not sel:
-            lsum.config(text="дерево производства (онлайн): выбери строку в таблице")
+            live_auto()
             return
         idx = tree.index(sel[0])
         row = rows_all[idx] if idx < len(rows_all) else {}
         p = row.get("_path") or ""
         model = eng.stem(os.path.basename(p)) if p else ""
         if not model:
-            lsum.config(text="у выбранной строки нет модели")
             return
-        down = eng.plm_down_data(model, 2)
-        up = eng.plm_up_data(model, 8)
-        nodes = {model} | set(down) | set(up)
-        for v in list(down.values()) + list(up.values()):
-            nodes |= {x[0] for x in v}
-        info = eng.models_info(list(nodes))
-
-        def mv(m, qty=""):
-            return _live_vals(m, info.get(m, ("", "", "", 0, "", "", 0, 0)), qty)
-
-        rn = ltv.insert("", "end", open=True, text=model, values=mv(model))
-        der = eng.derived_bases(model)
-        for b, k in der:
-            ltv.insert(rn, "end", text="◄ %s: %s" % (_kind(k), b),
-                       values=("заготовка/отливка", b, "", "", ""))
-        if up:
-            un = ltv.insert(rn, "end", open=True, text="входит в (все сборки):")
-            stack = [(un, model, 1)]
-            while stack:
-                parent_node, m, depth = stack.pop()
-                for p2, q in up.get(m, []):
-                    n = ltv.insert(parent_node, "end", text="%s  ↑ x%d" % (p2, q), values=mv(p2, "x%d" % q))
-                    if depth < 8:
-                        stack.append((n, p2, depth + 1))
-        if down:
-            dn = ltv.insert(rn, "end", open=True, text="состав:")
-            stack = [(dn, model, 1)]
-            while stack:
-                parent_node, m, depth = stack.pop()
-                for c, q in down.get(m, []):
-                    n = ltv.insert(parent_node, "end", text="%s  x%d" % (c, q), values=mv(c, "x%d" % q))
-                    if depth < 3:
-                        stack.append((n, c, depth + 1))
-        ups = sum(len(v) for v in up.values())
+        ltv.delete(*ltv.get_children())
+        _LTREE.clear()
+        info = eng.models_info([model]).get(model, ("", "", "", 0, "", "", 0, 0))
+        rn = ltv.insert("", "end", open=True, text=model, values=_live_vals(model, info))
+        der, ups, dn = _branch_updown(rn, model)
         lsum.config(text="онлайн: %s — состав %d · входит в сборок %d (все уровни) · заготовок/отливок %d"
-                    % (model, len(down.get(model, [])), ups, len(der)))
+                    % (model, dn, ups, der))
 
     tree.bind("<<TreeviewSelect>>", live_tree)
-    _plm_extra.update({"ltv": ltv, "live_tree": live_tree})     # для самопроверки
+    _plm_extra.update({"ltv": ltv, "live_tree": live_tree, "live_auto": live_auto})   # для самопроверки
 
     _auto = {"done": False}
 
@@ -1636,6 +1711,10 @@ def run_gui():
                    ("  ▲" if sort_state["col"] == c else "")
             tree.heading(c, text=c + mark)
         lbl.config(text="показано %d из %d" % (len(rows), len(rows_all)))
+        try:
+            live_auto()               # нижнее дерево ПЛМ обновляется вместе с таблицей — само
+        except Exception:
+            pass
 
     def rebuild_tree():
         nonlocal tree
@@ -1911,6 +1990,7 @@ def run_gui():
                    % (_bs.get("files", 0), _bs.get("models", 0), _bs.get("changes", 0)))
         load_base()
         check_base()
+        root.after(500, live_auto)         # нижнее дерево ПЛМ строится само при открытии
 
     try:                                   # окно не «прыгает» при переключении вкладок
         root.update_idletasks()
