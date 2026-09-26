@@ -981,9 +981,10 @@ def run_gui():
     root = tk.Tk()
     root.title(APP_TITLE)
     root.geometry("1330x660")
+    root.minsize(760, 420)            # три уровня видны и в небольшом окне
 
-    top = ttk.Frame(root, padding=6)
-    top.pack(fill="x")
+    top = ttk.LabelFrame(root, text=" 1. НАСТРОЙКИ ", padding=6)
+    top.pack(fill="x", padx=6, pady=(6, 4))
     ttk.Label(top, text="Папка:").pack(side="left")
     e_folder = ttk.Entry(top, width=68)
     e_folder.insert(0, settings.get("folder", ""))
@@ -1006,8 +1007,8 @@ def run_gui():
     var_lat = tk.BooleanVar(value=settings.get("latest_only", True))
     ttk.Checkbutton(top, text="только последние версии", variable=var_lat).pack(side="left", padx=8)
 
-    mid = ttk.Frame(root, padding=(6, 0))
-    mid.pack(fill="x")
+    mid = ttk.LabelFrame(root, text=" 2. ИНСТРУМЕНТЫ ", padding=6)
+    mid.pack(fill="x", padx=6, pady=(0, 4))
     btn = ttk.Button(mid, text="Сканировать")
     btn.pack(side="left")
 
@@ -1027,8 +1028,19 @@ def run_gui():
         import engine_gui as _eg
         _eg.App(tk.Toplevel(root))
     ttk.Button(mid, text="🌳 ПЛМ (дерево/входимость/изменения)", command=open_plm).pack(side="left", padx=8)
-    lbl = ttk.Label(mid, text="готов")
-    lbl.pack(side="left", padx=10)
+
+    data = ttk.LabelFrame(root, text=" 3. ДАННЫЕ ", padding=6)
+    data.pack(fill="x", padx=6, pady=(0, 4))
+    lbl = ttk.Label(data, text="готов", anchor="w", justify="left")
+    lbl.pack(fill="x")
+
+    def _wrap_data(event=None):
+        try:
+            lbl.config(wraplength=max(240, root.winfo_width() - 80))   # текст не пропадает в узком окне
+        except Exception:
+            pass
+
+    root.bind("<Configure>", _wrap_data)
 
     flt = ttk.Frame(root, padding=(6, 4))
     flt.pack(fill="x")

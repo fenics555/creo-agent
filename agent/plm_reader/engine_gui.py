@@ -56,8 +56,8 @@ class App:
             anchor="w", padx=12, pady=(10, 2))
 
 
-        bar = tk.Frame(self.root)
-        bar.pack(fill="x", padx=10, pady=(0, 2))
+        bar = tk.LabelFrame(self.root, text=" 1. ИНСТРУМЕНТЫ ", padx=6, pady=4)
+        bar.pack(fill="x", padx=10, pady=(0, 4))
         tk.Label(bar, text="Модель:").pack(side="left")
         self.var_model = tk.StringVar(value="")
         tk.Entry(bar, textvariable=self.var_model, width=28).pack(side="left", padx=6)
@@ -71,10 +71,15 @@ class App:
                  fg="#555").pack(anchor="w", padx=12, pady=(0, 4))
 
 
-        self.sum = tk.Label(self.root, text="готовая база", anchor="w", bg="#fff1c7", padx=8, pady=4)
-        self.sum.pack(fill="x", padx=10)
-        self.txt = tk.Text(self.root, font=("Consolas", 9), bg="#fbfbfb")
-        self.txt.pack(fill="both", expand=True, padx=10, pady=8)
+        data = tk.LabelFrame(self.root, text=" 2. ДАННЫЕ ", padx=6, pady=4)
+        data.pack(fill="both", expand=True, padx=10, pady=(0, 8))
+        self.sum = tk.Label(data, text="готовая база", anchor="w", bg="#fff1c7",
+                            padx=8, pady=4, justify="left")
+        self.sum.pack(fill="x")
+        self.txt = tk.Text(data, font=("Consolas", 9), bg="#fbfbfb")
+        self.txt.pack(fill="both", expand=True, pady=(4, 0))
+        self.root.bind("<Configure>", lambda e: self.sum.config(
+            wraplength=max(240, self.root.winfo_width() - 60)))   # текст не пропадает в узком окне
 
     def where(self):
         m = self.var_model.get().strip() or simpledialog.askstring("Модель", "Имя модели:", parent=self.root)
