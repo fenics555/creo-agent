@@ -1756,11 +1756,11 @@ def run_gui():
     _auto = {"done": False}
 
     def on_tab(ev=None):
-        """Дерево строится САМО при первом входе на вкладку — без нажатий."""
+        """При входе на вкладку — только список верхних сборок (без «развернуть всё»)."""
         try:
             if nb.index(nb.select()) == 1 and not _auto["done"]:
                 _auto["done"] = True
-                root.after(60, expand_all)
+                fill_tree_view()              # свёрнутый вид: корень + верхние сборки
         except Exception:
             pass
 
