@@ -1194,13 +1194,77 @@ def run_gui():
             _FOLDERS[n] = s
             tview.insert(n, "end", text="загрузка…")      # «плюсик» для раскрытия
 
-    def _vals(m, d, n, mat, v, rev, r, files, pars, qty=None):
-        return ("изделие", m, d or "", n or "", mat or "", ("%.0f" % v) if v else "", rev or "", r or "",
-                ("x%d · " % qty if qty else "") + "файлов %d · входит в %d" % (files, pars))
+    def _vals9(m, i, qty=""):
+        """Строка для дерева вкладки «Дерево» (9 колонок)."""
+        role = (i[5] or "") if len(i) > 5 else ""
+        kind = "оснастка" if role == "MFG" else ("изделие" if (i[6] or i[7]) else "деталь")
+        return (kind, m, i[0] or "", i[1] or "", i[2] or "",
+                ("%.0f" % i[3]) if (len(i) > 3 and i[3]) else "", i[4] or "", role, qty)
+
+    def _fill_node(tree_widget, node, model, with_up=True):
+        """ЕДИНЫЙ строитель ветки для обеих площадок.
+
+        состав (вниз) · ◄ отливка/заготовка · модельная оснастка (MFG) · [входит в (все сборки)].
+        Возвращает (заготовок, узлов вверх, детей состава).
+        """
+        reg = _MODELS if tree_widget is tview else _LTREE
+        vals = _vals9 if tree_widget is tview else _live_vals
+        down = eng.plm_down_data(model, 1)
+        der = eng.derived_bases(model)
+        mfg = eng.mfg_models(model)
+        up = eng.plm_up_data(model, 8) if with_up else {}
+        nodes = {model} | set(down) | set(up)
+        for v in list(down.values()) + list(up.values()):
+            nodes |= {x[0] for x in v}
+        info = eng.models_info(list(nodes))
+
+        def row(m, qty=""):
+            return vals(m, info.get(m, ("", "", "", 0, "", "", 0, 0)), qty)
+
+        for b, k in der:
+            dn0 = tree_widget.insert(
+                node, "end",
+                text=("◄ %s: имя не найдено (в файле только внутренний код)" % _kind(k))
+                     if not b else "◄ %s: %s" % (_kind(k), b),
+                values=("заготовка/отливка", b or "—", "", "", "", "", "", "", ""))
+            if b:
+                for name, how in eng.mfg_models(b, 30):
+                    tree_widget.insert(dn0, "end", text="оснастка: %s  (%s)" % (name, how),
+                                       values=("оснастка", name, "", "", "", "", "", "", ""))
+        if mfg:
+            mn = tree_widget.insert(node, "end", open=True, text="модельная оснастка (MFG):")
+            for name, how in mfg[:60]:
+                tree_widget.insert(mn, "end", text="%s  (%s)" % (name, how),
+                                   values=("оснастка", name, "", "", "", "", "", "", ""))
+        if with_up:
+            un = tree_widget.insert(node, "end", open=True, text="входит в (все сборки):")
+            if not up:
+                tree_widget.insert(un, "end",
+                                   text="— ни в одну сборку не входит (верхнее изделие или связей нет в базе)",
+                                   values=("—", "", "", "", "", "", "", "", ""))
+            else:
+                stack = [(un, model, 1)]
+                while stack:
+                    pn, m, depth = stack.pop()
+                    for p2, q in up.get(m, []):
+                        nn = tree_widget.insert(pn, "end", text="%s  ↑ x%d" % (p2, q), values=row(p2, "x%d" % q))
+                        if depth < 8:
+                            stack.append((nn, p2, depth + 1))
+        cn = tree_widget.insert(node, "end", open=True, text="состав:")
+        kids = down.get(model) or eng.plm_children(model)
+        if not kids:
+            tree_widget.insert(cn, "end", text="— в базе нет состава для этого изделия",
+                               values=("—", "", "", "", "", "", "", "", ""))
+        else:
+            for c, q in kids:
+                n = tree_widget.insert(cn, "end", text="%s  x%d" % (c, q), values=row(c, "x%d" % q))
+                reg[n] = c
+                tree_widget.insert(n, "end", text="загрузка…")
+        return len(der), sum(len(v) for v in up.values()), len(kids)
 
     def _model_values(m):
         i = eng.models_info([m]).get(m, ("", "", "", 0, "", "", 0, 0))
-        return _vals(m, *i)
+        return _vals9(m, i)
 
     def _kind(k):
         return {"наследование": "заготовка", "производная": "отливка",
@@ -1213,19 +1277,8 @@ def run_gui():
         return ""
 
     def node_add_model(node, model):
-        ch = eng.plm_children(model)
-        info = eng.models_info([c for c, _ in ch]) if ch else {}
-        for c, qty in ch:
-            v = info.get(c, ("", "", "", 0, "", "", 0, 0))
-            n = tview.insert(node, "end", text="%s  x%d" % (c, qty), values=_vals(c, *(v + (qty,))))
-            _MODELS[n] = c
-            tview.insert(n, "end", text="загрузка…")
-        for b, k in eng.derived_bases(model):               # заготовка/отливка
-            base = _resolve(b, eng.models_info([b + ".prt", b + ".asm"]) or {b: 1})
-            tview.insert(node, "end", text="◄ %s: %s" % (_kind(k), b),
-                         values=("заготовка", b, "", "", "", "", "", "", ""))
-            if base:
-                _MODELS[tview.get_children(node)[-1]] = b
+        """Вкладка «Дерево»: тот же строитель ветки, что и в нижнем окне (состав/отливки/оснастка/входит в)."""
+        return _fill_node(tview, node, model, with_up=True)
 
     def on_open(event=None):
         node = tview.focus()
@@ -1265,7 +1318,7 @@ def run_gui():
                                        % (len(tops), eng.count_tops()))
                 for m in tops:
                     v = info.get(m, ("", "", "", 0, "", "", 0, 0))
-                    n = tview.insert(rn, "end", text=m, values=_vals(m, *v))
+                    n = tview.insert(rn, "end", text=m, values=_vals9(m, v))
                     _MODELS[n] = m
                     tview.insert(n, "end", text="загрузка…")
                 tsum.config(text="верхних сборок %d · раскрывай узлы или жми РАЗВЕРНУТЬ ВСЁ" % len(tops))
@@ -1303,7 +1356,7 @@ def run_gui():
             stack = [(rn, m, 1, frozenset((m,)), "") for m in reversed(tops)]
             while stack and n < cap:
                 parent, model, depth, path, label = stack.pop()
-                v = _vals(model, *info.get(model, ("", "", "", 0, "", "", 0, 0)))
+                v = _vals9(model, info.get(model, ("", "", "", 0, "", "", 0, 0)))
                 node = tview.insert(parent, "end", text=label + model, values=v, open=True)
                 _MODELS[node] = model
                 n += 1
@@ -1625,58 +1678,8 @@ def run_gui():
     _LTREE = {}
 
     def _branch_updown(node, model):
-        """Ветка изделия: вверх — все сборки, вниз — состав, плюс заготовка/отливка."""
-        up = eng.plm_up_data(model, 8)
-        down = eng.plm_down_data(model, 1)
-        der = eng.derived_bases(model)
-        nodes = {model} | set(up) | set(down)
-        for v in list(up.values()) + list(down.values()):
-            nodes |= {x[0] for x in v}
-        info = eng.models_info(list(nodes))
-        if der:
-            for b, k in der:
-                dn0 = ltv.insert(node, "end",
-                                 text=("◄ %s: имя не найдено (в файле только внутренний код)" % _kind(k))
-                                 if not b else "◄ %s: %s" % (_kind(k), b),
-                                 values=("заготовка/отливка", b or "—", "", "", ""))
-                if not b:
-                    continue
-                for name, how in eng.mfg_models(b, 30):
-                    ltv.insert(dn0, "end", text="оснастка: %s  (%s)" % (name, how),
-                               values=("оснастка", name, "", "", ""))
-        mfg = eng.mfg_models(model)
-        if mfg:
-            mn = ltv.insert(node, "end", open=True, text="модельная оснастка (MFG):")
-            for name, how in mfg[:60]:
-                ltv.insert(mn, "end", text="%s  (%s)" % (name, how),
-                           values=("оснастка", name, "", "", ""))
-        un = ltv.insert(node, "end", open=True, text="входит в (все сборки):")
-        if not up:
-            ltv.insert(un, "end",
-                       text="— ни в одну сборку не входит (верхнее изделие или связей нет в базе)",
-                       values=("—", "", "", "", ""))
-        else:
-            stack = [(un, model, 1)]
-            while stack:
-                pn, m, depth = stack.pop()
-                for p2, q in up.get(m, []):
-                    nn = ltv.insert(pn, "end", text="%s  ↑ x%d" % (p2, q),
-                                    values=_live_vals(p2, info.get(p2, ("", "", "", 0, "", "", 0, 0)),
-                                                      "x%d" % q))
-                    if depth < 8:
-                        stack.append((nn, p2, depth + 1))
-        dn = ltv.insert(node, "end", open=True, text="состав:")
-        if not down.get(model):
-            ltv.insert(dn, "end", text="— в базе нет состава для этого изделия",
-                       values=("—", "", "", "", ""))
-        else:
-            for c, q in down.get(model, []):
-                cn = ltv.insert(dn, "end", text="%s  x%d" % (c, q),
-                                values=_live_vals(c, info.get(c, ("", "", "", 0, "", "", 0, 0)),
-                                                  "x%d" % q))
-                _LTREE[cn] = c
-                ltv.insert(cn, "end", text="загрузка…")
-        return len(der), sum(len(v) for v in up.values()), len(down.get(model, []))
+        """Ветка изделия в нижнем окне — тот же строитель, что и во вкладке «Дерево»."""
+        return _fill_node(ltv, node, model, with_up=True)
 
     def _ltv_model(node):
         """Модель узла нижнего дерева (если узел — изделие)."""
@@ -1690,24 +1693,7 @@ def run_gui():
         kids = ltv.get_children(node)
         if kids and ltv.item(kids[0], "text") == "загрузка…":
             ltv.delete(*kids)
-            tops, children, info, derived = _plm_data_ref()
-            for c, q in children.get(model, []):
-                n = ltv.insert(node, "end", text="%s  x%d" % (c, q),
-                               values=_live_vals(c, info.get(c, ("", "", "", 0, "", "", 0, 0)),
-                                                 "x%d" % q))
-                _LTREE[n] = c
-                ltv.insert(n, "end", text="загрузка…")
-            for b, k in derived.get(model, []):
-                base = _resolve(b, info)
-                lbl = "◄ %s: " % _kind(k)
-                if base:
-                    n = ltv.insert(node, "end", text=lbl + base,
-                                   values=_live_vals(base, info.get(base, ("", "", "", 0, "", "", 0, 0))))
-                    _LTREE[n] = base
-                    ltv.insert(n, "end", text="загрузка…")
-                else:
-                    ltv.insert(node, "end", text=lbl + b + "  (нет в базе)",
-                               values=("заготовка/отливка", b, "", "", ""))
+            _fill_node(ltv, node, model, with_up=True)      # тот же строитель, что и во вкладке «Дерево»
 
     _PLM = {"data": None}
 
