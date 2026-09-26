@@ -1603,7 +1603,14 @@ def run_gui():
                   "open_detail": open_detail, "engine": eng}   # для самопроверки
     fill_tree_view()                       # сразу показать верхние папки базы
 
-    flt = ttk.Frame(tab_table, padding=(6, 4))
+    pan = ttk.PanedWindow(tab_table, orient="vertical")
+    pan.pack(fill="both", expand=True, padx=6, pady=(0, 6))
+    top_part = ttk.Frame(pan)                 # сверху — фильтр + таблица
+    bot_part = ttk.Frame(pan)                 # снизу — дерево производства (можно тянуть разделитель)
+    pan.add(top_part, weight=3)
+    pan.add(bot_part, weight=2)
+
+    flt = ttk.Frame(top_part, padding=(6, 4))
     flt.pack(fill="x")
     ttk.Label(flt, text="Фильтр:").pack(side="left")
     e_filter = ttk.Entry(flt, width=44)
@@ -1631,7 +1638,7 @@ def run_gui():
         _ROWS[u] = r
         return u
 
-    body = ttk.Frame(tab_table)
+    body = ttk.Frame(top_part)
     body.pack(fill="both", expand=True, padx=6, pady=(0, 6))
     body.rowconfigure(0, weight=1)
     body.columnconfigure(0, weight=1)
@@ -1653,12 +1660,12 @@ def run_gui():
     tree.bind("<Double-1>", lambda e: show_history())
 
     # --- ОНЛАЙН: внизу сразу строится дерево производства по выбранной строке ---
-    liv = ttk.Frame(tab_table, padding=(6, 0))
-    liv.pack(fill="x", side="bottom", pady=(0, 6))
-    lsum = ttk.Label(liv, text="дерево производства (онлайн): выбери строку в таблице")
+    liv = ttk.LabelFrame(bot_part, text=" ДЕРЕВО ПРОИЗВОДСТВА (выбранное изделие) ", padding=4)
+    liv.pack(fill="both", expand=True)
+    lsum = ttk.Label(liv, text="выбери строку в таблице — дерево построится само")
     lsum.pack(anchor="w")
     LTCOLS = ("Тип", "Изделие/файл", "Обозначение", "Наименование", "Кол-во")
-    ltv = ttk.Treeview(liv, columns=LTCOLS, show="tree headings", height=9)
+    ltv = ttk.Treeview(liv, columns=LTCOLS, show="tree headings", height=12)
     ltv.heading("#0", text="дерево")
     ltv.column("#0", width=320, anchor="w")
     for c in LTCOLS:
@@ -1666,7 +1673,7 @@ def run_gui():
         ltv.column(c, width=150 if c != "Кол-во" else 70, anchor="w")
     lvs = ttk.Scrollbar(liv, orient="vertical", command=ltv.yview)
     ltv.configure(yscrollcommand=lvs.set)
-    ltv.pack(side="left", fill="x", expand=True)
+    ltv.pack(side="left", fill="both", expand=True)
     lvs.pack(side="left", fill="y")
     ltv.bind("<<TreeviewOpen>>", lambda ev: ltv_open())
 
@@ -1749,6 +1756,11 @@ def run_gui():
         info = eng.models_info([model]).get(model, ("", "", "", 0, "", "", 0, 0))
         rn = ltv.insert("", "end", open=True, text=model, values=_live_vals(model, info))
         der, ups, dn = _branch_updown(rn, model)
+        try:
+            ltv.yview_moveto(0)                 # показать начало дерева
+            ltv.see(rn)
+        except Exception:
+            pass
         lsum.config(text="онлайн: %s — состав %d · входит в сборок %d (все уровни) · заготовок/отливок %d"
                     % (model, dn, ups, der))
 
