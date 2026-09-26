@@ -689,17 +689,21 @@ def pick_latest(paths, latest_only=True):
     return out
 
 
-def scan_folder(folder, settings, progress=None, on_row=None, stop_cb=None, stats=None):
+def scan_folder(folder, settings, progress=None, on_row=None, stop_cb=None, stats=None, walk_cb=None):
     rows, paths = [], []
     if settings.get("recurse", True):
         for dp, _, files in os.walk(folder):
             for f in files:
                 if MODELFILE.search(f):
                     paths.append(os.path.join(dp, f))
+                    if walk_cb and len(paths) % 200 == 0:
+                        walk_cb(len(paths), False)
     else:
         for f in os.listdir(folder):
             if MODELFILE.search(f):
                 paths.append(os.path.join(folder, f))
+    if walk_cb:
+        walk_cb(len(paths), True)             # обход закончен: всего найдено N моделей
     chosen = pick_latest(sorted(paths), settings.get("latest_only", True))
     cache = load_cache()                      # ПОВТОРНЫЙ скан не читает неизменённое
     fresh, read_n, from_cache = {}, 0, 0
@@ -1013,8 +1017,8 @@ def run_gui():
 
     b_stop = ttk.Button(mid, text="Стоп", command=stop_scan, state="disabled")
     b_stop.pack(side="left", padx=(8, 0))
-    ttk.Button(mid, text="Из базы", command=lambda: load_base()).pack(side="left", padx=(8, 0))
     ttk.Button(mid, text="Актуально?", command=lambda: check_base()).pack(side="left", padx=(8, 0))
+    ttk.Button(mid, text="README", command=lambda: show_readme()).pack(side="left", padx=(8, 0))
     ttk.Button(mid, text="Выгрузить в CSV", command=lambda: export()).pack(side="left", padx=8)
     ttk.Button(mid, text="Столбцы и параметры…", command=lambda: choose_columns()).pack(side="left", padx=(0, 8))
     ttk.Button(mid, text="История выбранного", command=lambda: show_history()).pack(side="left", padx=8)
@@ -1114,6 +1118,21 @@ def run_gui():
         redraw()
 
     root._plm = {"redraw": redraw, "rebuild": rebuild_tree, "tree": lambda: tree}   # для самопроверки
+
+    def show_readme():
+        try:
+            with open(os.path.join(os.path.dirname(os.path.abspath(__file__)), "README.md"),
+                      "r", encoding="utf-8") as f:
+                text = f.read()
+        except Exception as e:
+            lbl.config(text="README не прочитан: %s" % e)
+            return
+        win = tk.Toplevel(root)
+        win.title("README — PLM Reader")
+        win.geometry("900x680")
+        t = tk.Text(win, wrap="word", font=("Consolas", 9))
+        t.pack(fill="both", expand=True)
+        t.insert("1.0", text)
 
     def check_base():
         """Быстро: актуальна база или нужен скан (обход+stat, БЕЗ чтения файлов)."""
@@ -1249,8 +1268,14 @@ def run_gui():
                     pat = e_filter.get().strip()
                     if match_filter(r, cols, pat):
                         tree.insert("", "end", values=[r.get(c, "") for c in cols])
+                elif msg[0] == "walk":
+                    _secs = time.time() - getattr(root, "_plm_t0", time.time())
+                    lbl.config(text="ищу файлы: найдено %d%s (%.0f с)"
+                               % (msg[1], " — обход готов, читаю изменённое…" if msg[2] else "", _secs))
                 elif msg[0] == "prog":
-                    lbl.config(text="%d / %d … %s" % (msg[1], msg[2], msg[3][:40]))
+                    _secs = time.time() - getattr(root, "_plm_t0", time.time())
+                    lbl.config(text="%d / %d · прочитано %d, из кэша %d · %.0f с · %s"
+                               % (msg[1], msg[2], msg[4], msg[5], _secs, msg[3][:40]))
                 else:
                     redraw()
                     _secs = time.time() - getattr(root, "_plm_t0", time.time())
@@ -1269,10 +1294,14 @@ def run_gui():
 
     def worker(folder, opts):
         stats = {}
-        rows = scan_folder(folder, opts,
-                           lambda i, total, p: q.put(("prog", i, total, os.path.basename(p))),
-                           lambda r: q.put(("row", r)),
-                           stop_cb=lambda: getattr(root, "_plm_stop", False), stats=stats)
+
+        def prog(i, total, p):
+            q.put(("prog", i, total, os.path.basename(p),
+                   stats.get("read", 0), stats.get("cache", 0)))
+
+        rows = scan_folder(folder, opts, prog, lambda r: q.put(("row", r)),
+                           stop_cb=lambda: getattr(root, "_plm_stop", False), stats=stats,
+                           walk_cb=lambda n, done=False: q.put(("walk", n, done)))
         q.put(("done", len(rows), stats))
 
     def go():
