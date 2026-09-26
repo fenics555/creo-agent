@@ -764,6 +764,55 @@ def plm_parents(model):
         return []
 
 
+def plm_up_data(model, depth=8):
+    """ВХОДИМОСТЬ ВВЕРХ одним заходом: {модель: [(родитель, кол-во)]} по всей цепочке сборок."""
+    out = {}
+    try:
+        con = connect()
+        frontier = [stem(model)]
+        seen = set(frontier)
+        for _ in range(depth):
+            if not frontier:
+                break
+            q = ",".join("?" * len(frontier))
+            rows = con.execute("SELECT child,parent,qty FROM links WHERE child IN (%s)" % q,
+                               frontier).fetchall()
+            nxt = []
+            for ch, par, qty in rows:
+                out.setdefault(ch, []).append((par, qty or 1))
+                if par not in seen:
+                    seen.add(par)
+                    nxt.append(par)
+            frontier = nxt
+        con.close()
+    except Exception:
+        return {}
+    return out
+
+
+def plm_down_data(model, depth=2):
+    """СОСТАВ вниз на N уровней: {модель: [(ребёнок, кол-во)]}."""
+    out = {}
+    try:
+        con = connect()
+        frontier = [stem(model)]
+        for _ in range(depth):
+            if not frontier:
+                break
+            q = ",".join("?" * len(frontier))
+            rows = con.execute("SELECT parent,child,qty FROM links WHERE parent IN (%s)" % q,
+                               frontier).fetchall()
+            nxt = []
+            for par, ch, qty in rows:
+                out.setdefault(par, []).append((ch, qty or 1))
+                nxt.append(ch)
+            frontier = nxt
+        con.close()
+    except Exception:
+        return {}
+    return out
+
+
 def find_plm_models(text, limit=400):
     """Модели по фильтру (все слова — в модели/обозначении/наименовании/материале/ревизии/роли)."""
     words = [w for w in (text or "").split() if w]
@@ -775,15 +824,12 @@ def find_plm_models(text, limit=400):
         models = [r[0] for r in con.execute(
             "SELECT DISTINCT model FROM snapshots WHERE %s ORDER BY model LIMIT ?" % where,
             params + [limit]).fetchall()]
-        out = []
-        for m in models:
-            n = con.execute("SELECT COUNT(*) FROM snapshots WHERE model=?", (m,)).fetchone()[0]
-            p = con.execute("SELECT COUNT(*) FROM links WHERE child=?", (m,)).fetchone()[0]
-            out.append((m, n, p))
         con.close()
-        return out
     except Exception:
         return []
+    info = models_info(models)                 # счётчики — ОДНИМ пакетом, без запроса на модель
+    return [(m, info.get(m, ("",) * 6 + (0, 0))[6], info.get(m, ("",) * 6 + (0, 0))[7])
+            for m in models]
 
 
 def do_tree_up(model, depth=4):

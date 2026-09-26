@@ -1105,13 +1105,24 @@ def run_gui():
 
     # --- ДЕРЕВО: фильтр по ВСЕЙ базе + иерархия папок (ленивая, из базы) ---
     import engine as eng
+    _deb = {"id": None}
+
+    def debounce(fn, ms=450):
+        """Простое решение от тормозов: запускать поиск через паузу после набора."""
+        if _deb["id"]:
+            try:
+                root.after_cancel(_deb["id"])
+            except Exception:
+                pass
+        _deb["id"] = root.after(ms, fn)
+
     TCOLS = ("Тип", "Файл", "Обозначение", "Наименование", "Материал", "Объём, мм³", "Ревизия", "Роль", "Путь")
     tflt = ttk.Frame(tab_tree, padding=(6, 4))
     tflt.pack(fill="x")
     ttk.Label(tflt, text="Фильтр по всей базе:").pack(side="left")
     e_tfilter = ttk.Entry(tflt, width=38)
     e_tfilter.pack(side="left", padx=4)
-    e_tfilter.bind("<KeyRelease>", lambda ev: fill_tree_view())
+    e_tfilter.bind("<KeyRelease>", lambda ev: debounce(fill_tree_view))
     ttk.Button(tflt, text="Сбросить",
                command=lambda: (e_tfilter.delete(0, "end"), fill_tree_view())).pack(side="left", padx=6)
 
@@ -1252,8 +1263,7 @@ def run_gui():
             rows = eng.search_files(text)
             for p, folder, desig, name, material, volume, rev, role in rows:
                 _file_row("", p, desig, name, material, volume, rev, role)
-            tsum.config(text="найдено %d из %d (показано %d)"
-                        % (eng.count_files(text), eng.count_files(""), len(rows)))
+            tsum.config(text="показано %d (фильтр по всем словам)" % len(rows))
         else:
             for r in eng.base_roots():
                 a, b = eng.folder_files_count(r)
@@ -1471,7 +1481,7 @@ def run_gui():
     e_filter.pack(side="left", padx=4)
     ttk.Label(flt, text="часть текста; пусто — показать всё").pack(side="left")
     ttk.Button(flt, text="Сбросить", command=lambda: (e_filter.delete(0, "end"), redraw())).pack(side="left", padx=8)
-    e_filter.bind("<KeyRelease>", lambda e: redraw())
+    e_filter.bind("<KeyRelease>", lambda e: debounce(redraw))
 
     cols = list(settings.get("columns", DEFAULT_SETTINGS["columns"]))
     if "Версий" not in cols:
@@ -1523,7 +1533,7 @@ def run_gui():
         return ("изделие" if (i[6] or i[7]) else "деталь", m, i[0] or "", i[1] or "", qty)
 
     def live_tree(event=None):
-        """ОНЛАЙН: по выбранной строке таблицы сразу строится дерево изделия."""
+        """ОНЛАЙН: по выбранной строке сразу строится дерево — состав ВНИЗ и ВСЕ сборки ВВЕРХ (без кнопок)."""
         ltv.delete(*ltv.get_children())
         sel = tree.selection()
         if not sel:
@@ -1536,29 +1546,58 @@ def run_gui():
         if not model:
             lsum.config(text="у выбранной строки нет модели")
             return
-        info = eng.models_info([model]).get(model, ("", "", "", 0, "", "", 0, 0))
-        rn = ltv.insert("", "end", open=True, text=model, values=_live_vals(model, info, ""))
-        kids = eng.plm_children(model)
-        for c, qty in kids:
-            ci = eng.models_info([c]).get(c, ("", "", "", 0, "", "", 0, 0))
-            n = ltv.insert(rn, "end", text="%s x%d" % (c, qty), values=_live_vals(c, ci, "x%d" % qty))
-            for c2, q2 in eng.plm_children(c):
-                c2i = eng.models_info([c2]).get(c2, ("", "", "", 0, "", "", 0, 0))
-                ltv.insert(n, "end", text="%s x%d" % (c2, q2), values=_live_vals(c2, c2i, "x%d" % q2))
+        down = eng.plm_down_data(model, 2)
+        up = eng.plm_up_data(model, 8)
+        nodes = {model} | set(down) | set(up)
+        for v in list(down.values()) + list(up.values()):
+            nodes |= {x[0] for x in v}
+        info = eng.models_info(list(nodes))
+
+        def mv(m, qty=""):
+            return _live_vals(m, info.get(m, ("", "", "", 0, "", "", 0, 0)), qty)
+
+        rn = ltv.insert("", "end", open=True, text=model, values=mv(model))
         der = eng.derived_bases(model)
         for b, k in der:
             ltv.insert(rn, "end", text="◄ %s: %s" % (_kind(k), b),
                        values=("заготовка/отливка", b, "", "", ""))
-        up = eng.plm_parents(model)
         if up:
-            un = ltv.insert("", "end", open=True, text="входит в:")
-            for pp, q in up:
-                ltv.insert(un, "end", text="%s x%d" % (pp, q))
-        lsum.config(text="онлайн: %s — состав %d, заготовок/отливок %d, входит в %d"
-                    % (model, len(kids), len(der), len(up)))
+            un = ltv.insert(rn, "end", open=True, text="входит в (все сборки):")
+            stack = [(un, model, 1)]
+            while stack:
+                parent_node, m, depth = stack.pop()
+                for p2, q in up.get(m, []):
+                    n = ltv.insert(parent_node, "end", text="%s  ↑ x%d" % (p2, q), values=mv(p2, "x%d" % q))
+                    if depth < 8:
+                        stack.append((n, p2, depth + 1))
+        if down:
+            dn = ltv.insert(rn, "end", open=True, text="состав:")
+            stack = [(dn, model, 1)]
+            while stack:
+                parent_node, m, depth = stack.pop()
+                for c, q in down.get(m, []):
+                    n = ltv.insert(parent_node, "end", text="%s  x%d" % (c, q), values=mv(c, "x%d" % q))
+                    if depth < 3:
+                        stack.append((n, c, depth + 1))
+        ups = sum(len(v) for v in up.values())
+        lsum.config(text="онлайн: %s — состав %d · входит в сборок %d (все уровни) · заготовок/отливок %d"
+                    % (model, len(down.get(model, [])), ups, len(der)))
 
     tree.bind("<<TreeviewSelect>>", live_tree)
     _plm_extra.update({"ltv": ltv, "live_tree": live_tree})     # для самопроверки
+
+    _auto = {"done": False}
+
+    def on_tab(ev=None):
+        """Дерево строится САМО при первом входе на вкладку — без нажатий."""
+        try:
+            if nb.index(nb.select()) == 1 and not _auto["done"]:
+                _auto["done"] = True
+                root.after(60, expand_all)
+        except Exception:
+            pass
+
+    nb.bind("<<NotebookTabChanged>>", on_tab)
 
     def sort_key(r, col):
         v = r.get(col, "")
