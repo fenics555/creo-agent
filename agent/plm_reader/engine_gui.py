@@ -85,7 +85,7 @@ class App:
             row=5, column=0, columnspan=2, sticky="w")
 
         bar = tk.Frame(self.root)
-        bar.pack(fill="x", padx=10, pady=(0, 4))
+        bar.pack(fill="x", padx=10, pady=(0, 2))
         tk.Label(bar, text="Модель:").pack(side="left")
         self.var_model = tk.StringVar(value="")
         tk.Entry(bar, textvariable=self.var_model, width=26).pack(side="left", padx=6)
@@ -93,13 +93,18 @@ class App:
         self.b_scan.pack(side="left", padx=4)
         self.b_stop = tk.Button(bar, text="СТОП", width=8, command=self.stop, state="disabled")
         self.b_stop.pack(side="left", padx=4)
-        tk.Button(bar, text="ДЕРЕВО", width=10, command=lambda: self.cap(eng.do_tree, self.var_model.get().strip(), 4)).pack(side="left", padx=4)
-        tk.Button(bar, text="ГДЕ ИСПОЛЬЗУЕТСЯ", width=17, command=self.where).pack(side="left", padx=4)
-        tk.Button(bar, text="ИЗМЕНЕНИЯ", width=11, command=lambda: self.cap(eng.do_changes, 40)).pack(side="left", padx=4)
-        tk.Button(bar, text="README", width=9, command=self.show_readme).pack(side="left", padx=4)
         tk.Button(bar, text="СЧИТАТЬ (строение)", width=17, command=self.count).pack(side="left", padx=4)
         tk.Button(bar, text="💾 СОХРАНИТЬ НАСТРОЙКИ", width=22,
                   command=self.save_settings).pack(side="left", padx=4)
+
+        bar2 = tk.Frame(self.root)
+        bar2.pack(fill="x", padx=10, pady=(0, 4))
+        tk.Button(bar2, text="ДЕРЕВО", width=10,
+                  command=lambda: self.cap(eng.do_tree, self.var_model.get().strip(), 4)).pack(side="left", padx=4)
+        tk.Button(bar2, text="ГДЕ ИСПОЛЬЗУЕТСЯ", width=17, command=self.where).pack(side="left", padx=4)
+        tk.Button(bar2, text="ИЗМЕНЕНИЯ", width=11,
+                  command=lambda: self.cap(eng.do_changes, 40)).pack(side="left", padx=4)
+        tk.Button(bar2, text="README", width=9, command=self.show_readme).pack(side="left", padx=4)
 
         self.sum = tk.Label(self.root, text="готов", anchor="w", bg="#fff1c7", padx=8, pady=4)
         self.sum.pack(fill="x", padx=10)

@@ -1,2 +1,3 @@
 plm_reader.db
 __pycache__/
+scan_cache.json

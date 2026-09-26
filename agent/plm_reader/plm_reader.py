@@ -30,6 +30,29 @@ import time
 APP_VERSION = "V2"
 APP_TITLE = "PLM Reader V2"
 SETTINGS_FILE = os.path.join(os.path.dirname(os.path.abspath(__file__)), "settings.json")
+CACHE_FILE = os.path.join(os.path.dirname(os.path.abspath(__file__)), "scan_cache.json")
+
+
+def load_cache():
+    """Кэш прочитанных паспортов: путь -> {size, mtime, row}. Пустое/битое = {}."""
+    try:
+        if os.path.getsize(CACHE_FILE) > 500 * 1024 * 1024:
+            return {}
+        with open(CACHE_FILE, "r", encoding="utf-8") as f:
+            return json.load(f)
+    except Exception:
+        return {}
+
+
+def save_cache(cache):
+    """Атомарная запись кэша (через .tmp + os.replace)."""
+    try:
+        tmp = CACHE_FILE + ".tmp"
+        with open(tmp, "w", encoding="utf-8") as f:
+            json.dump(cache, f, ensure_ascii=False)
+        os.replace(tmp, CACHE_FILE)
+    except Exception:
+        pass
 LOG_DIR = r"D:\AI\log\plm_reader"
 
 
@@ -601,7 +624,7 @@ def pick_latest(paths, latest_only=True):
     return out
 
 
-def scan_folder(folder, settings, progress=None, on_row=None):
+def scan_folder(folder, settings, progress=None, on_row=None, stop_cb=None, stats=None):
     rows, paths = [], []
     if settings.get("recurse", True):
         for dp, _, files in os.walk(folder):
@@ -613,18 +636,45 @@ def scan_folder(folder, settings, progress=None, on_row=None):
             if MODELFILE.search(f):
                 paths.append(os.path.join(folder, f))
     chosen = pick_latest(sorted(paths), settings.get("latest_only", True))
+    cache = load_cache()                      # ПОВТОРНЫЙ скан не читает неизменённое
+    fresh, read_n, from_cache = {}, 0, 0
     for n, (p, total) in enumerate(chosen, 1):
+        if stop_cb and stop_cb():
+            if stats is not None:
+                stats["stopped"] = True
+            break
         if progress:
             progress(n, len(chosen), p)
         try:
-            r = scan_file(p, settings)
-        except Exception:
-            r = None
+            st = os.stat(p)
+        except OSError:
+            continue
+        old = cache.get(p)
+        r = None
+        if old and int(old.get("size", -1)) == st.st_size and abs(float(old.get("mtime", 0)) - st.st_mtime) < 1.0:
+            r = old.get("row")                # НЕ изменился — берём из кэша, файл НЕ читаем
+            from_cache += 1
+        else:
+            try:
+                r = scan_file(p, settings)
+            except Exception:
+                r = None
+            if r:
+                fresh[p] = {"size": st.st_size, "mtime": st.st_mtime, "row": r}
+            read_n += 1
         if r:
+            r = dict(r)
             r["Версий"] = total
             rows.append(r)
             if on_row:
                 on_row(r)
+    if fresh:
+        cache.update(fresh)
+        save_cache(cache)
+    if stats is not None:
+        stats["read"] = read_n
+        stats["cache"] = from_cache
+        stats["rows"] = len(rows)
     return rows
 
 
@@ -891,6 +941,13 @@ def run_gui():
     mid.pack(fill="x")
     btn = ttk.Button(mid, text="Сканировать")
     btn.pack(side="left")
+
+    def stop_scan():
+        root._plm_stop = True
+        lbl.config(text="останавливаю…")
+
+    b_stop = ttk.Button(mid, text="Стоп", command=stop_scan, state="disabled")
+    b_stop.pack(side="left", padx=(8, 0))
     ttk.Button(mid, text="Выгрузить в CSV", command=lambda: export()).pack(side="left", padx=8)
     ttk.Button(mid, text="Столбцы и параметры…", command=lambda: choose_columns()).pack(side="left", padx=(0, 8))
     ttk.Button(mid, text="История выбранного", command=lambda: show_history()).pack(side="left", padx=8)
@@ -1094,20 +1151,26 @@ def run_gui():
                 else:
                     redraw()
                     _secs = time.time() - getattr(root, "_plm_t0", time.time())
-                    lbl.config(text="готово: %d моделей за %.1f с; показано %d" % (msg[1], _secs, len(shown)))
-                    log_line("scan: %s -> моделей %d за %.1f с (показано %d)"
-                             % (e_folder.get(), msg[1], _secs, len(shown)))
+                    st = msg[2] if len(msg) > 2 else {}
+                    lbl.config(text="готово: %d моделей за %.1f с (прочитано %d, из кэша %d)%s"
+                               % (msg[1], _secs, st.get("read", 0), st.get("cache", 0),
+                                  "; ОСТАНОВЛЕНО" if st.get("stopped") else ""))
+                    log_line("scan: %s -> моделей %d за %.1f с (прочитано %d, из кэша %d)"
+                             % (e_folder.get(), msg[1], _secs, st.get("read", 0), st.get("cache", 0)))
                     btn.config(state="normal")
+                    b_stop.config(state="disabled")
                     return
         except queue.Empty:
             pass
         root.after(120, poll_scan)
 
     def worker(folder, opts):
+        stats = {}
         rows = scan_folder(folder, opts,
                            lambda i, total, p: q.put(("prog", i, total, os.path.basename(p))),
-                           lambda r: q.put(("row", r)))
-        q.put(("done", len(rows)))
+                           lambda r: q.put(("row", r)),
+                           stop_cb=lambda: getattr(root, "_plm_stop", False), stats=stats)
+        q.put(("done", len(rows), stats))
 
     def go():
         folder = norm_path(e_folder.get())
@@ -1121,6 +1184,8 @@ def run_gui():
         opts = {"max_size_mb": float(e_max.get() or 0), "recurse": var_rec.get(),
                 "latest_only": var_lat.get()}
         btn.config(state="disabled")
+        b_stop.config(state="normal")
+        root._plm_stop = False
         root._plm_t0 = time.time()
         lbl.config(text="поиск файлов…")
         settings.update({"folder": folder, "max_size_mb": opts["max_size_mb"],
