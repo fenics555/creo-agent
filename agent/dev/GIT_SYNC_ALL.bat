@@ -2,15 +2,18 @@
 rem GIT_SYNC_ALL.bat - ONE updater for both house GitHub repos.
 rem   D:\AI\tools  -> github.com/fenics555/creo-agent   (code of the house)
 rem   D:\AI\repo   -> github.com/fenics555/creo-repo    (rules, skills, specs)
-rem Runs both autosave scripts, then prints final statuses and last commits.
+rem Usage: GIT_SYNC_ALL.bat ["commit message"]  - the text you give appears on GitHub,
+rem        with no text the commit is named "autosave <date> <time>".
 setlocal
+set "MSG=%~1"
 echo ============================================================
 echo  GIT SYNC ALL  %date% %time%
+echo  message: %MSG%
 echo ============================================================
 echo [1/2] tools - creo-agent ...
-call "D:\AI\tools\GIT_SYNC.bat"
+call "D:\AI\tools\GIT_SYNC.bat" "%MSG%"
 echo [2/2] repo  - creo-repo ...
-call "D:\AI\repo\GIT_SYNC_REPO.bat"
+call "D:\AI\repo\GIT_SYNC_REPO.bat" "%MSG%"
 
 echo.
 echo --- status: tools (creo-agent) ---
