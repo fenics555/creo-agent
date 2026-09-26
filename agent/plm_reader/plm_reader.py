@@ -2107,6 +2107,17 @@ def run_gui():
         check_base()
         root.after(500, live_auto)         # нижнее дерево ПЛМ строится само при открытии
 
+    # Порядок сверху вниз: инструменты → ОКНО (таблица/дерево) → настройки и галочки → данные
+    try:
+        for _w in (top, mid, data, nb):
+            _w.pack_forget()
+        data.pack(side="bottom", fill="x", padx=6, pady=(0, 6))    # самый низ — данные
+        top.pack(side="bottom", fill="x", padx=6, pady=(0, 4))     # выше — настройки и галочки
+        mid.pack(side="top", fill="x", padx=6, pady=(6, 4))        # верх — инструменты
+        nb.pack(side="top", fill="both", expand=True, padx=6, pady=(0, 0))   # окно — середина
+    except Exception:
+        pass
+
     try:                                   # окно не «прыгает» при переключении вкладок
         root.update_idletasks()
         root.geometry("1330x660")
