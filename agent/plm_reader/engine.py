@@ -351,6 +351,26 @@ def do_scan(roots, max_mb, limit, depth=None, progress_cb=None, stop_cb=None):
           % (done, total, new, mod, skipped, dt, " | ОСТАНОВЛЕНО" if stopped else "", DB))
 
 
+def summary():
+    """Сколько чего в базе (для окна при старте)."""
+    out = {}
+    try:
+        con = connect()
+        for t in ("snapshots", "links", "folders", "changes"):
+            try:
+                out[t] = con.execute("SELECT COUNT(*) FROM " + t).fetchone()[0]
+            except Exception:
+                out[t] = 0
+        try:
+            out["models"] = con.execute("SELECT COUNT(DISTINCT model) FROM snapshots").fetchone()[0]
+        except Exception:
+            out["models"] = 0
+        con.close()
+    except Exception:
+        out = {}
+    return out
+
+
 def do_where(model):
     con = connect()
     rows = con.execute("SELECT parent, qty FROM links WHERE child=? ORDER BY qty DESC",

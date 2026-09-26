@@ -27,6 +27,20 @@ class App:
         self.root.geometry("1140x720")
         self.s = self.load()
         self.build()
+        self.base_info()
+
+    def base_info(self):
+        """Окно при открытии сразу говорит, СКОЛЬКО ЧЕГО в базе."""
+        s = eng.summary()
+        self.log("=" * 100)
+        self.log("БАЗА: %s" % eng.DB)
+        self.log("файлов %d · моделей %d · связей %d · папок %d · изменений %d"
+                 % (s.get("snapshots", 0), s.get("models", 0), s.get("links", 0),
+                    s.get("folders", 0), s.get("changes", 0)))
+        self.log("ДЕРЕВО/ГДЕ ИСПОЛЬЗУЕТСЯ/ИЗМЕНЕНИЯ читают из этой базы — скан не нужен.")
+        self.log("=" * 100)
+        self.sum.config(text="в базе: файлов %d · моделей %d · изменений %d"
+                        % (s.get("snapshots", 0), s.get("models", 0), s.get("changes", 0)))
 
     def load(self):
         try:

@@ -53,6 +53,71 @@ def save_cache(cache):
         os.replace(tmp, CACHE_FILE)
     except Exception:
         pass
+
+
+DB_FILE = os.path.join(os.path.dirname(os.path.abspath(__file__)), "plm_reader.db")
+
+
+def db_conn():
+    import sqlite3
+    return sqlite3.connect(DB_FILE, timeout=15)
+
+
+def db_summary():
+    """Сколько чего в базе: файлов, моделей, связей, папок, изменений."""
+    try:
+        c = db_conn()
+        q = lambda s: c.execute(s).fetchone()[0]            # noqa: E731
+        out = {"files": q("SELECT COUNT(*) FROM snapshots"),
+               "models": q("SELECT COUNT(DISTINCT model) FROM snapshots"),
+               "links": q("SELECT COUNT(*) FROM links"),
+               "folders": q("SELECT COUNT(*) FROM folders"),
+               "changes": q("SELECT COUNT(*) FROM changes")}
+        c.close()
+        return out
+    except Exception:
+        return {}
+
+
+def db_total(folder=None):
+    try:
+        c = db_conn()
+        if folder:
+            n = c.execute("SELECT COUNT(*) FROM snapshots WHERE folder LIKE ?",
+                          (folder.rstrip("\\") + "%",)).fetchone()[0]
+        else:
+            n = c.execute("SELECT COUNT(*) FROM snapshots").fetchone()[0]
+        c.close()
+        return n
+    except Exception:
+        return 0
+
+
+def db_rows(folder=None, limit=2000):
+    """Строки паспортов ИЗ БАЗЫ (файлы не читаются)."""
+    try:
+        c = db_conn()
+        sql = ("SELECT path,volume,material,name,designation,rev,author,revdate,role "
+               "FROM snapshots %s ORDER BY model, path LIMIT ?")
+        if folder:
+            cur = c.execute(sql % "WHERE folder LIKE ?",
+                            (folder.rstrip("\\") + "%", limit))
+        else:
+            cur = c.execute(sql % "", (limit,))
+        rows = []
+        for p, volume, material, name, desig, rev, author, revdate, role in cur:
+            rows.append({
+                "Файл": os.path.basename(p), "Тип": "", "Обозначение": desig or "",
+                "Наименование": name or "", "Материал": material or "",
+                "Объём, мм³": ("%.0f" % volume) if volume else "", "Габарит, мм": "",
+                "Роль": role or "", "Родитель": "", "Ревизия": rev or "",
+                "Дата": revdate or "", "Пользователь": author or "",
+                "Записей": "", "Версий": "", "Версия Creo": "", "_path": p,
+            })
+        c.close()
+        return rows
+    except Exception:
+        return []
 LOG_DIR = r"D:\AI\log\plm_reader"
 
 
@@ -948,6 +1013,7 @@ def run_gui():
 
     b_stop = ttk.Button(mid, text="Стоп", command=stop_scan, state="disabled")
     b_stop.pack(side="left", padx=(8, 0))
+    ttk.Button(mid, text="Из базы", command=lambda: load_base()).pack(side="left", padx=(8, 0))
     ttk.Button(mid, text="Выгрузить в CSV", command=lambda: export()).pack(side="left", padx=8)
     ttk.Button(mid, text="Столбцы и параметры…", command=lambda: choose_columns()).pack(side="left", padx=(0, 8))
     ttk.Button(mid, text="История выбранного", command=lambda: show_history()).pack(side="left", padx=8)
@@ -1047,6 +1113,18 @@ def run_gui():
         redraw()
 
     root._plm = {"redraw": redraw, "rebuild": rebuild_tree, "tree": lambda: tree}   # для самопроверки
+
+    def load_base(limit=2000):
+        """Показать базу БЕЗ чтения файлов: строки паспортов из plm_reader.db."""
+        folder = norm_path(e_folder.get()) if e_folder.get().strip() else ""
+        rows_all.clear()
+        tree.delete(*tree.get_children())
+        rows_all.extend(db_rows(folder or None, limit))
+        redraw()
+        tot = db_total(folder or None)
+        lbl.config(text="из базы: показано %d из %d (папка %s)"
+                   % (len(rows_all), tot, folder or "вся база"))
+        log_line("base: показано %d из %d (папка %s)" % (len(rows_all), tot, folder or "вся база"))
 
     ALL_FIELDS = ["Файл", "Обозначение", "Наименование", "Материал", "Объём, мм³", "Тип",
                   "Роль", "Родитель", "Записей", "Версий", "Ревизия", "Дата", "Пользователь",
@@ -1204,6 +1282,14 @@ def run_gui():
             lbl.config(text="выгружено: %s" % os.path.basename(p))
 
     btn.config(command=go)
+    _bs = db_summary()
+    log_line("base: файлов %d, моделей %d, связей %d, папок %d, изменений %d"
+             % (_bs.get("files", 0), _bs.get("models", 0), _bs.get("links", 0),
+                _bs.get("folders", 0), _bs.get("changes", 0)))
+    if _bs.get("files"):
+        lbl.config(text="база: файлов %d · моделей %d · изменений %d — читаю из базы…"
+                   % (_bs.get("files", 0), _bs.get("models", 0), _bs.get("changes", 0)))
+        load_base()
     root.mainloop()
 
 
