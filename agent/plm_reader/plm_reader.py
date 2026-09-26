@@ -1180,16 +1180,29 @@ def run_gui():
         i = eng.models_info([m]).get(m, ("", "", "", 0, "", "", 0, 0))
         return _vals(m, *i)
 
+    def _kind(k):
+        return {"наследование": "заготовка", "производная": "отливка"}.get(k, "заготовка/отливка")
+
+    def _resolve(base, models):
+        for cand in (base, base + ".prt", base + ".asm"):
+            if cand in models:
+                return cand
+        return ""
+
     def node_add_model(node, model):
         ch = eng.plm_children(model)
-        if not ch:
-            return
-        info = eng.models_info([c for c, _ in ch])          # паспорта детей — ОДНИМ запросом
+        info = eng.models_info([c for c, _ in ch]) if ch else {}
         for c, qty in ch:
             v = info.get(c, ("", "", "", 0, "", "", 0, 0))
             n = tview.insert(node, "end", text="%s  x%d" % (c, qty), values=_vals(c, *(v + (qty,))))
             _MODELS[n] = c
             tview.insert(n, "end", text="загрузка…")
+        for b, k in eng.derived_bases(model):               # заготовка/отливка
+            base = _resolve(b, eng.models_info([b + ".prt", b + ".asm"]) or {b: 1})
+            tview.insert(node, "end", text="◄ %s: %s" % (_kind(k), b),
+                         values=("заготовка", b, "", "", "", "", "", "", ""))
+            if base:
+                _MODELS[tview.get_children(node)[-1]] = b
 
     def on_open(event=None):
         node = tview.focus()
@@ -1206,6 +1219,7 @@ def run_gui():
                 node_add_model(node, model)
 
     tview.bind("<<TreeviewOpen>>", on_open)
+    tview.bind("<Double-1>", lambda ev: open_detail())      # двойной щёлчок — карточка изделия
 
     def fill_tree_view():
         text = e_tfilter.get().strip()
@@ -1257,25 +1271,33 @@ def run_gui():
             return
         t0 = time.time()
         if tmode.get() == "plm":
-            tops, children, info = eng.plm_tree_data()
+            tops, children, info, derived = eng.plm_tree_data()
             tview.delete(*tview.get_children())
             _MODELS.clear()
             _FOLDERS.clear()
             cap, n = 60000, 0
             rn = tview.insert("", "end", open=True,
                               text="ВСЁ ПРОИЗВОДСТВО — верхних сборок %d" % len(tops))
-            stack = [(rn, m, 1, frozenset((m,))) for m in reversed(tops)]
+            stack = [(rn, m, 1, frozenset((m,)), "") for m in reversed(tops)]
             while stack and n < cap:
-                parent, model, depth, path = stack.pop()
+                parent, model, depth, path, label = stack.pop()
                 v = _vals(model, *info.get(model, ("", "", "", 0, "", "", 0, 0)))
-                node = tview.insert(parent, "end", text=model, values=v, open=True)
+                node = tview.insert(parent, "end", text=label + model, values=v, open=True)
                 _MODELS[node] = model
                 n += 1
                 if depth >= 12:                     # предел глубины
                     continue
                 for c, q in reversed(children.get(model, [])):
                     if n < cap and c not in path:   # защита от циклов по ветке
-                        stack.append((node, c, depth + 1, path | {c}))
+                        stack.append((node, c, depth + 1, path | {c}, ""))
+                for b, k in reversed(derived.get(model, [])):    # заготовка/отливка
+                    base = _resolve(b, info)
+                    lbl = "◄ %s: " % _kind(k)
+                    if not base:
+                        tview.insert(node, "end", text=lbl + b + "  (нет в базе)",
+                                     values=("заготовка", b, "", "", "", "", "", "", ""))
+                    elif base not in path and n < cap:
+                        stack.append((node, base, depth + 1, path | {base}, lbl))
             tsum.config(text="построено узлов: %d за %.1f с%s"
                         % (n, time.time() - t0, " (достигнут предел)" if stack else ""))
             return
@@ -1336,9 +1358,109 @@ def run_gui():
         m = _sel_model()
         say(eng.do_changes_model, m, 200) if m else tout.insert("end", "выбери строку-файл в дереве\n")
 
+    def open_detail(model=None):
+        """Карточка изделия (двойной щёлчок): паспорт + файлы; сбоку — история/входимость/состав/заготовка."""
+        model = (model or _sel_model()).strip()
+        if not model:
+            return
+        title = "Изделие %s" % model
+        w = _WINS.get(title)
+        if w is not None and w.winfo_exists():
+            w.deiconify()
+            w.lift()
+            w.focus_force()
+            return
+        win = tk.Toplevel(root)
+        _WINS[title] = win
+        win.title(title)
+        win.geometry("1000x580")
+        left = ttk.Frame(win, padding=8)
+        left.pack(side="left", fill="y")
+        (desig, name, mat, vol, rev, role), files, pars = eng.model_info(model)
+        ttk.Label(left, text=model, font=("Segoe UI", 11, "bold")).pack(anchor="w")
+        for k, v in (("Обозначение", desig), ("Наименование", name), ("Материал", mat),
+                     ("Объём, мм³", ("%.0f" % vol) if vol else ""), ("Ревизия", rev),
+                     ("Роль", role), ("Файлов", files), ("Входит в сборок", pars)):
+            ttk.Label(left, text="%s: %s" % (k, v if v not in ("", 0, None) else "—")).pack(anchor="w")
+        ttk.Separator(left).pack(fill="x", pady=4)
+        out = tk.Text(win, font=("Consolas", 9), bg="#fbfbfb")
+        btns = ttk.Frame(left)
+        btns.pack(fill="x", pady=2)
+
+        def put(text):
+            out.delete("1.0", "end")
+            out.insert("end", text)
+
+        def show(fn, *a):
+            import contextlib
+            import io
+            buf = io.StringIO()
+            try:
+                with contextlib.redirect_stdout(buf):
+                    fn(*a)
+            except Exception as e:
+                buf.write("ОШИБКА: %s" % e)
+            put(buf.getvalue().rstrip())
+
+        def show_files():
+            con = eng.connect()
+            rows = con.execute("SELECT path,size,rev,revdate,author FROM snapshots WHERE model=? "
+                               "ORDER BY path", (model,)).fetchall()
+            con.close()
+            lines = ["ФАЙЛЫ ИЗДЕЛИЯ: %d" % len(rows)]
+            for p, sz, r, rd, au in rows:
+                lines.append("%s | рев.%s | %s | %s | %.0f КБ"
+                             % (p, r or "-", rd or "-", au or "-", (sz or 0) / 1024.0))
+            put("\n".join(lines))
+
+        def show_hist():
+            con = eng.connect()
+            r = con.execute("SELECT path FROM snapshots WHERE model=? ORDER BY path LIMIT 1",
+                            (model,)).fetchone()
+            con.close()
+            if not r:
+                put("файл не найден")
+                return
+            rows = history_rows(r[0], {"max_size_mb": float(e_max.get() or 0)})
+            lines = ["ИСТОРИЯ ИЗМЕНЕНИЙ: %s — записей %d" % (os.path.basename(r[0]), len(rows))]
+            for x in sorted(rows, key=lambda z: z.get("_dt") or ""):
+                lines.append("%s | рев.%s | %s | %s | %s"
+                             % (x.get("Дата", ""), x.get("Ревизия", ""), x.get("Пользователь", ""),
+                                x.get("Компьютер", ""), x.get("Что изменено", "")))
+            put("\n".join(lines))
+
+        def show_derived():
+            lines = ["ЗАГОТОВКА / ОТЛИВКА (из чего сделано это изделие):"]
+            d = eng.derived_bases(model)
+            for b, k in d:
+                lines.append("   ◄ %s: %s" % (_kind(k), b))
+            if not d:
+                lines.append("   —")
+            con = eng.connect()
+            rows = con.execute("SELECT child, kind FROM derived WHERE base=? OR base=?",
+                               (model, eng.stem(model))).fetchall()
+            con.close()
+            lines.append("")
+            lines.append("ИЗ ЭТОГО СДЕЛАНО (производные):")
+            for c, k in rows:
+                lines.append("   ► %s (%s)" % (c, _kind(k or "")))
+            if not rows:
+                lines.append("   —")
+            put("\n".join(lines))
+
+        ttk.Button(btns, text="История изменений", command=show_hist).pack(fill="x", pady=2)
+        ttk.Button(btns, text="Сборки, куда входит",
+                   command=lambda: show(eng.do_tree_up, model, 5)).pack(fill="x", pady=2)
+        ttk.Button(btns, text="Состав (вниз)",
+                   command=lambda: show(eng.do_tree, model, 5)).pack(fill="x", pady=2)
+        ttk.Button(btns, text="Заготовка / отливка", command=show_derived).pack(fill="x", pady=2)
+        ttk.Button(btns, text="Файлы изделия", command=show_files).pack(fill="x", pady=2)
+        out.pack(side="left", fill="both", expand=True, padx=(8, 8), pady=8)
+        show_files()
+
     _plm_extra = {"nb": nb, "tab_tree": tab_tree, "tview": tview, "tfilter_entry": e_tfilter,
                   "tmode": tmode, "fill_tree_view": fill_tree_view, "expand_all": expand_all,
-                  "engine": eng}   # для самопроверки
+                  "open_detail": open_detail, "engine": eng}   # для самопроверки
     fill_tree_view()                       # сразу показать верхние папки базы
 
     flt = ttk.Frame(tab_table, padding=(6, 4))

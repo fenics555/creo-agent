@@ -26,6 +26,21 @@ LOG = r"D:\AI\log\plm_reader\engine.log"
 DEFAULT_ROOTS = [r"Z:\PTC\Work"]
 MODEL = re.compile(r"\.(prt|asm|drw)\.\d+$", re.IGNORECASE)
 HISTRE = re.compile(rb"\xf7(.)\xe3([0-9]{1,7})\x00\x00(.{0,220}?)\x00((?:Creo )?[0-9][0-9.]*)\x00", re.S)
+REF_PART = re.compile(rb"ref_part_tab\x00")
+NAME_N = re.compile(rb"name\x00([A-Za-z0-9_\-\.]{4,47})\x00")
+MERGE_BASE = re.compile(rb"MERGE_BASE_PART.{0,80}?([A-Za-z0-9_\-]{5,40})\x00", re.S)
+
+
+def derived_of(raw):
+    """Из какой модели сделана деталь (заготовка/отливка): (имя, вид) или ('', '')."""
+    m = MERGE_BASE.search(raw)
+    if m:
+        return m.group(1).decode("latin-1"), "наследование"
+    for mm in REF_PART.finditer(raw):
+        nm = NAME_N.search(raw[mm.end():mm.end() + 200])
+        if nm:
+            return nm.group(1).decode("latin-1"), "производная"
+    return "", ""
 VERSION = "V1"
 
 
@@ -213,12 +228,14 @@ def scan_item(s, path, stems, fstems=frozenset()):
     refs = {c: nm[c] for c in nm if c != s and c in stems and len(c) >= 5}
     h = last_hist(raw) or ("", "", "")
     hm = HISTRE.findall(raw)
+    base, dkind = derived_of(raw)
     return {"model": s, "path": path, "size": len(raw), "mtime": os.path.getmtime(path),
             "volume": vol or 0.0, "material": pr.get("PTC_MASTER_MATERIAL") or "",
             "name": pr.get("\u041d\u0410\u0418\u041c\u0415\u041d\u041e\u0412\u0410\u041d\u0418\u0415") or "",
             "designation": pr.get("\u041e\u0411\u041e\u0417\u041d\u0410\u0427\u0415\u041d\u0418\u0415") or "",
             "rev": h[0], "author": h[1], "revdate": h[2], "role": role(raw, fstems, s), "refs": refs,
-            "hist": len(hm), "creo": (hm[-1][3].decode("latin-1") if hm else "")}
+            "hist": len(hm), "creo": (hm[-1][3].decode("latin-1") if hm else ""),
+            "base": base, "dkind": dkind}
 
 
 # --- ЕДИНЫЙ ЧИТАТЕЛЬ из общей библиотеки дома (локальные копии выше — к удалению) ---
@@ -243,6 +260,8 @@ CREATE TABLE IF NOT EXISTS changes (
   who TEXT, ts TEXT);
 CREATE TABLE IF NOT EXISTS links (parent TEXT, child TEXT, qty INTEGER, source TEXT);
 CREATE INDEX IF NOT EXISTS ix_links_child ON links(child);
+CREATE TABLE IF NOT EXISTS derived (child TEXT, base TEXT, kind TEXT, source TEXT);
+CREATE INDEX IF NOT EXISTS ix_derived_child ON derived(child);
 CREATE TABLE IF NOT EXISTS folders (path TEXT PRIMARY KEY, parent TEXT, depth INTEGER,
   models INTEGER, files INTEGER, seen TEXT);
 """
@@ -359,6 +378,10 @@ def do_scan(roots, max_mb, limit, depth=None, progress_cb=None, stop_cb=None, fu
                     (it["path"], it["model"], os.path.dirname(path), it["size"], it["mtime"],
                      it["volume"], it["material"], it["name"], it["designation"], it["rev"],
                      it["author"], it["revdate"], it["role"], now, it.get("hist", 0), it.get("creo", "")))
+        if it.get("base"):                      # деталь ← заготовка/отливка
+            con.execute("DELETE FROM derived WHERE child=? AND source='plm_tree'", (s,))
+            con.execute("INSERT INTO derived VALUES (?,?,?,?)",
+                        (s, stem(it["base"]), it.get("dkind", ""), "plm_tree"))
         if s not in seen:                       # связи код-родителя чистим ОДИН раз
             con.execute("DELETE FROM links WHERE parent=? AND source='plm_tree'", (s,))
             seen.add(s)
@@ -590,9 +613,33 @@ def model_info(model):
         return ("", "", "", 0, "", ""), 0, 0
 
 
+def derived_bases(model):
+    """Заготовки/отливки, из которых сделана модель: [(base, kind)]."""
+    try:
+        con = connect()
+        rows = con.execute("SELECT base, kind FROM derived WHERE child=?", (stem(model),)).fetchall()
+        con.close()
+        return [(b, k or "") for b, k in rows]
+    except Exception:
+        return []
+
+
+def derived_map():
+    """Все связи «деталь ← заготовка/отливка»: {child: [(base, kind)]}."""
+    out = {}
+    try:
+        con = connect()
+        for c, b, k in con.execute("SELECT child, base, kind FROM derived"):
+            out.setdefault(c, []).append((b, k or ""))
+        con.close()
+    except Exception:
+        return {}
+    return out
+
+
 def plm_tree_data():
-    """ВСЁ дерево ПЛМ одним заходом: (верхние сборки, состав по моделям, паспорта+счётчики)."""
-    tops, children, info = [], {}, {}
+    """ВСЁ дерево ПЛМ одним заходом: (верхние сборки, состав, паспорта+счётчики, заготовки)."""
+    tops, children, info, derived = [], {}, {}, {}
     try:
         con = connect()
         rows = con.execute("SELECT parent, child, qty FROM links").fetchall()
@@ -601,6 +648,8 @@ def plm_tree_data():
             children.setdefault(p, []).append((c, q or 1))
             kids.add(c)
         tops = sorted(set(children) - kids)
+        for c, b, k in con.execute("SELECT child, base, kind FROM derived"):
+            derived.setdefault(c, []).append((b, k or ""))
         agg = {}
         for m, d, n, mat, v, rev, r in con.execute(
                 "SELECT model,designation,name,material,volume,rev,role FROM snapshots"):
@@ -610,11 +659,11 @@ def plm_tree_data():
         pcnt = dict(con.execute("SELECT child,COUNT(*) FROM links GROUP BY child"))
         con.close()
     except Exception:
-        return tops, children, info
-    for m in set(agg) | set(children):
+        return tops, children, info, derived
+    for m in set(agg) | set(children) | set(derived):
         a = agg.get(m, ("", "", "", 0, "", ""))
         info[m] = a + (fcnt.get(m, 0), pcnt.get(m, 0))
-    return tops, children, info
+    return tops, children, info, derived
 
 
 def count_tops():
