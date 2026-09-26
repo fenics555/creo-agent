@@ -226,7 +226,6 @@ def do_scan(roots, max_mb, limit):
         "SELECT model,volume,material,name,designation,rev,author,revdate,role,size FROM snapshots")}
     now = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
     done = new = mod = 0
-    con.execute("DELETE FROM links WHERE source='plm_tree'")
     for s, p in sorted(paths.items()):
         if time.time() - t0 > limit:
             break
@@ -257,11 +256,15 @@ def do_scan(roots, max_mb, limit):
                     (s, it["path"], it["size"], it["mtime"], it["volume"], it["material"],
                      it["name"], it["designation"], it["rev"], it["author"], it["revdate"],
                      it["role"], now))
+        con.execute("DELETE FROM links WHERE parent=? AND source='plm_tree'", (s,))
         for child, qty in it["refs"].items():
             con.execute("INSERT INTO links VALUES (?,?,?,?)", (s, child, qty, "plm_tree"))
         done += 1
         if done % 500 == 0:
-            con.commit()            # частичный коммит: база не заперта на весь прогон и не теряется при сбое
+            con.commit()            # частичный коммит: база не заперта на весь прогон
+            _p = "progress: %d/%d, %.1f s" % (done, len(paths), time.time() - t0)
+            print(_p, flush=True)
+            log(_p)
     con.commit()
     con.close()
     dt = time.time() - t0
