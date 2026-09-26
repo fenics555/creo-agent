@@ -175,6 +175,36 @@ def collect(roots, max_mb, max_depth=None):
     return files
 
 
+def collect_stat(roots, max_mb, max_depth=None):
+    """Файлы модели + их size/mtime ОДНИМ проходом (scandir/stat), без повторных stat."""
+    out = []
+    lim = max_mb * 1_000_000
+    for root in roots:
+        root = os.path.abspath(root)
+        if not os.path.isdir(root):
+            continue
+        for dp, dirs, fs in os.walk(root):
+            rel = os.path.relpath(dp, root)
+            d = 0 if rel == "." else rel.count(os.sep) + 1
+            if max_depth is not None and d > max_depth:
+                dirs[:] = []
+                continue
+            try:
+                for f in fs:
+                    if not MODEL.search(f):
+                        continue
+                    p = os.path.join(dp, f)
+                    try:
+                        st = os.stat(p)
+                    except OSError:
+                        continue
+                    if st.st_size <= lim:
+                        out.append((p, st.st_size, st.st_mtime))
+            except Exception:
+                pass
+    return out
+
+
 def scan_item(s, path, stems, fstems=frozenset()):
     raw = open(path, "rb").read()
     pr = params(raw, parse_toc(raw))
@@ -275,11 +305,11 @@ def inventory(roots, max_mb=8, store=True, max_depth=None):
 
 def do_scan(roots, max_mb, limit, depth=None, progress_cb=None, stop_cb=None, full=False):
     t0 = time.time()
-    files = collect(roots, max_mb, depth)
-    total = len(files)
-    codes = {stem(os.path.basename(p)) for p in files}
+    files_stat = collect_stat(roots, max_mb, depth)
+    total = len(files_stat)
+    codes = {stem(os.path.basename(p)) for p, _, _ in files_stat}
     fstems = defaultdict(set)
-    for p in files:
+    for p, _, _ in files_stat:
         fstems[os.path.dirname(p)].add(stem(os.path.basename(p)))
     con = connect()
     prev = {r[0]: r for r in con.execute(
@@ -289,7 +319,7 @@ def do_scan(roots, max_mb, limit, depth=None, progress_cb=None, stop_cb=None, fu
     seen = set()
     n = 0
     stopped = False
-    for path in sorted(files):
+    for path, size, mtime in files_stat:
         if time.time() - t0 > limit:
             break
         if stop_cb and stop_cb():
@@ -297,12 +327,8 @@ def do_scan(roots, max_mb, limit, depth=None, progress_cb=None, stop_cb=None, fu
             break
         n += 1
         s = stem(os.path.basename(path))
-        try:
-            st = os.stat(path)
-        except OSError:
-            continue
         old = prev.get(path)
-        if not full and old and int(old[9] or 0) == st.st_size and abs(float(old[10] or 0) - st.st_mtime) < 1.0:
+        if not full and old and int(old[9] or 0) == size and abs(float(old[10] or 0) - mtime) < 1.0:
             skipped += 1                     # НЕ изменился (размер+время) — НЕ читаем и не трогаем
             if progress_cb and n % 25 == 0:
                 progress_cb(n, total)
@@ -415,21 +441,17 @@ def do_check(roots=None, max_mb=8.0, depth=None):
             roots = json.loads(meta_get("roots") or "null") or DEFAULT_ROOTS
         except Exception:
             roots = DEFAULT_ROOTS
-    files = collect(roots, max_mb, depth)
+    files = collect_stat(roots, max_mb, depth)
     con = connect()
     prev = {r[0]: (r[1], r[2]) for r in con.execute("SELECT path,size,mtime FROM snapshots")}
     con.close()
     found, new, changed, same = set(), 0, 0, 0
-    for p in files:
+    for p, size, mtime in files:
         found.add(p)
-        try:
-            st = os.stat(p)
-        except OSError:
-            continue
         old = prev.get(p)
         if old is None:
             new += 1
-        elif int(old[0] or 0) == st.st_size and abs(float(old[1] or 0) - st.st_mtime) < 1.0:
+        elif int(old[0] or 0) == size and abs(float(old[1] or 0) - mtime) < 1.0:
             same += 1
         else:
             changed += 1
@@ -444,6 +466,48 @@ def do_check(roots=None, max_mb=8.0, depth=None):
     print(msg, flush=True)
     log(msg)
     return res
+
+
+def find_models(text="", limit=300):
+    """Список моделей из базы (для выбора в окне): фильтр по части имени."""
+    try:
+        con = connect()
+        if text:
+            rows = con.execute("SELECT DISTINCT model FROM snapshots WHERE model LIKE ? "
+                               "ORDER BY model LIMIT ?", ("%" + text + "%", limit)).fetchall()
+        else:
+            rows = con.execute("SELECT DISTINCT model FROM snapshots ORDER BY model LIMIT ?",
+                               (limit,)).fetchall()
+        con.close()
+        return [r[0] for r in rows]
+    except Exception:
+        return []
+
+
+def count_models(text=""):
+    try:
+        con = connect()
+        if text:
+            n = con.execute("SELECT COUNT(DISTINCT model) FROM snapshots WHERE model LIKE ?",
+                            ("%" + text + "%",)).fetchone()[0]
+        else:
+            n = con.execute("SELECT COUNT(DISTINCT model) FROM snapshots").fetchone()[0]
+        con.close()
+        return n
+    except Exception:
+        return 0
+
+
+def do_changes_model(model, n=200):
+    """Изменения по КОНКРЕТНОЙ модели (по её файлам)."""
+    m = stem(model)
+    con = connect()
+    rows = con.execute("SELECT ts,kind,rev,who,descr,item FROM changes WHERE item LIKE ? "
+                       "ORDER BY id DESC LIMIT ?", ("%" + m + "%", n)).fetchall()
+    con.close()
+    print("изменения «%s»: %d" % (m, len(rows)))
+    for ts, kind, rev, who, descr, item in rows:
+        print("   %s | %-6s | рев.%s | %-12s | %s" % (ts, kind, rev or "-", who or "-", descr or "-"))
 
 
 def do_where(model):

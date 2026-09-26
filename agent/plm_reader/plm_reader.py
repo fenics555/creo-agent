@@ -100,6 +100,9 @@ def _ver(p):
         return 0
 
 
+_WINS = {}                    # открытые окна историй: одно окно на название
+
+
 def db_rows_map(folder=None, latest_only=False):
     """Единая база: путь -> (size, mtime, строка). Подсчёт версий и, если надо, только последняя."""
     try:
@@ -846,7 +849,14 @@ def history_window(parent, tk, ttk, filedialog, title, load, columns=None,
     if not cols:
         cols = list(HIST_DEFAULT)
 
+    w = _WINS.get(title)                      # одно окно на название: повторный клик не плодит окна
+    if w is not None and w.winfo_exists():
+        w.deiconify()
+        w.lift()
+        w.focus_force()
+        return w
     win = tk.Toplevel(parent)
+    _WINS[title] = win
     win.title(title)
     win.geometry("1160x560")
     h0 = time.time()
@@ -1073,7 +1083,15 @@ def run_gui():
     ttk.Button(mid, text="История по папке", command=lambda: show_folder_history()).pack(side="left", padx=8)
     def open_plm():
         import engine_gui as _eg
-        _eg.App(tk.Toplevel(root))
+        win = getattr(root, "_plm_win", None)
+        if win is not None and win.winfo_exists():
+            win.deiconify()
+            win.lift()
+            win.focus_force()
+            return
+        win = tk.Toplevel(root)
+        root._plm_win = win
+        _eg.App(win)
     ttk.Button(mid, text="🌳 ПЛМ (дерево/входимость/изменения)", command=open_plm).pack(side="left", padx=8)
 
     data = ttk.Frame(root, padding=6)
@@ -1179,6 +1197,12 @@ def run_gui():
     root._plm = {"redraw": redraw, "rebuild": rebuild_tree, "tree": lambda: tree}   # для самопроверки
 
     def show_readme():
+        w = getattr(root, "_readme_win", None)
+        if w is not None and w.winfo_exists():
+            w.deiconify()
+            w.lift()
+            w.focus_force()
+            return
         try:
             with open(os.path.join(os.path.dirname(os.path.abspath(__file__)), "README.md"),
                       "r", encoding="utf-8") as f:
@@ -1187,6 +1211,7 @@ def run_gui():
             lbl.config(text="README не прочитан: %s" % e)
             return
         win = tk.Toplevel(root)
+        root._readme_win = win
         win.title("README — PLM Reader")
         win.geometry("900x680")
         t = tk.Text(win, wrap="word", font=("Consolas", 9))
