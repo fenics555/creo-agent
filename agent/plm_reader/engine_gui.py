@@ -23,8 +23,11 @@ SETTINGS = HERE / "gui_settings.json"
 class App:
     def __init__(self, root):
         self.root = root
-        self.root.title("PLM-ДЕРЕВО %s — ГОТОВАЯ БАЗА: дерево · входимость · изменения" % VERSION)
-        self.root.geometry("1140x720")
+        try:                                   # может быть окном ИЛИ вкладкой главного окна
+            self.root.title("PLM-ДЕРЕВО %s — ГОТОВАЯ БАЗА: дерево · входимость · изменения" % VERSION)
+            self.root.geometry("1140x720")
+        except Exception:
+            pass
         self.build()
         self.base_info()
 

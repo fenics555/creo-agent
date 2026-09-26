@@ -1082,17 +1082,17 @@ def run_gui():
     ttk.Button(mid, text="История выбранного", command=lambda: show_history()).pack(side="left", padx=8)
     ttk.Button(mid, text="История по папке", command=lambda: show_folder_history()).pack(side="left", padx=8)
     def open_plm():
-        import engine_gui as _eg
-        win = getattr(root, "_plm_win", None)
-        if win is not None and win.winfo_exists():
-            win.deiconify()
-            win.lift()
-            win.focus_force()
-            return
-        win = tk.Toplevel(root)
-        root._plm_win = win
-        _eg.App(win)
-    ttk.Button(mid, text="🌳 ПЛМ (дерево/входимость/изменения)", command=open_plm).pack(side="left", padx=8)
+        """Дерево — ВНУТРИ этого окна (вкладка), второго окна нет."""
+        if not getattr(root, "_plm_made", False):
+            try:
+                import engine_gui as _eg
+                _eg.App(tab_tree)
+                root._plm_made = True
+            except Exception as e:
+                lbl.config(text="дерево не открылось: %s" % e)
+                return
+        nb.select(tab_tree)
+    ttk.Button(mid, text="Дерево", command=open_plm).pack(side="left", padx=8)
 
     data = ttk.Frame(root, padding=6)
     data.pack(fill="x", padx=6, pady=(0, 4))
@@ -1107,7 +1107,15 @@ def run_gui():
 
     root.bind("<Configure>", _wrap_data)
 
-    flt = ttk.Frame(root, padding=(6, 4))
+    nb = ttk.Notebook(root)
+    nb.pack(fill="both", expand=True, padx=6, pady=(0, 6))
+    tab_table = ttk.Frame(nb)                 # таблица паспортов
+    tab_tree = ttk.Frame(nb)                  # ДЕРЕВО (внутри этого же окна)
+    nb.add(tab_table, text=" Таблица ")
+    nb.add(tab_tree, text=" Дерево ")
+    _plm_extra = {"open_tree": open_plm, "nb": nb, "tab_tree": tab_tree}   # для самопроверки
+
+    flt = ttk.Frame(tab_table, padding=(6, 4))
     flt.pack(fill="x")
     ttk.Label(flt, text="Фильтр:").pack(side="left")
     e_filter = ttk.Entry(flt, width=44)
@@ -1124,7 +1132,7 @@ def run_gui():
     sort_state = {"col": "Файл", "desc": False}
     rows_all, shown = [], []
 
-    body = ttk.Frame(root)
+    body = ttk.Frame(tab_table)
     body.pack(fill="both", expand=True, padx=6, pady=(0, 6))
     body.rowconfigure(0, weight=1)
     body.columnconfigure(0, weight=1)
@@ -1194,7 +1202,7 @@ def run_gui():
         tree.bind("<Double-1>", lambda e: show_history())
         redraw()
 
-    root._plm = {"redraw": redraw, "rebuild": rebuild_tree, "tree": lambda: tree}   # для самопроверки
+    root._plm = {"redraw": redraw, "rebuild": rebuild_tree, "tree": lambda: tree, **_plm_extra}
 
     def show_readme():
         w = getattr(root, "_readme_win", None)
