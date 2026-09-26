@@ -204,6 +204,8 @@ CREATE TABLE IF NOT EXISTS changes (
   who TEXT, ts TEXT);
 CREATE TABLE IF NOT EXISTS links (parent TEXT, child TEXT, qty INTEGER, source TEXT);
 CREATE INDEX IF NOT EXISTS ix_links_child ON links(child);
+CREATE TABLE IF NOT EXISTS folders (path TEXT PRIMARY KEY, parent TEXT, depth INTEGER,
+  models INTEGER, files INTEGER, seen TEXT);
 """
 
 
@@ -214,7 +216,37 @@ def connect():
     return con
 
 
-def do_scan(roots, max_mb, limit):
+def inventory(roots, max_mb=8, store=True):
+    """СТРОЕНИЕ СКЛАДА (быстро, секунды): папки/подпапки, файлы, модели — и сразу в базу `folders`."""
+    t0 = time.time()
+    rows, folders, files, models = [], 0, 0, 0
+    for root in roots:
+        root = os.path.abspath(root)
+        if not os.path.isdir(root):
+            continue
+        for dp, _dirs, fs in os.walk(root):
+            folders += 1
+            rel = os.path.relpath(dp, root)
+            depth = 0 if rel == "." else rel.count(os.sep) + 1
+            m = sum(1 for f in fs if MODEL.search(f))
+            models += m
+            files += len(fs)
+            rows.append((dp, os.path.dirname(dp), depth, m, len(fs)))
+    now = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+    if store:
+        con = connect()
+        con.execute("DELETE FROM folders")
+        con.executemany("INSERT INTO folders (path,parent,depth,models,files,seen) VALUES (?,?,?,?,?,?)",
+                        [(r[0], r[1], r[2], r[3], r[4], now) for r in rows])
+        con.commit()
+        con.close()
+    print("строение: папок %d, файлов %d, моделей %d (за %.1f с)%s"
+          % (folders, files, models, time.time() - t0, " → в базу folders" if store else ""),
+          flush=True)
+    return folders, files
+
+
+def do_scan(roots, max_mb, limit, progress_cb=None):
     t0 = time.time()
     paths = collect(roots, max_mb)
     stems = set(paths)
@@ -260,9 +292,13 @@ def do_scan(roots, max_mb, limit):
         for child, qty in it["refs"].items():
             con.execute("INSERT INTO links VALUES (?,?,?,?)", (s, child, qty, "plm_tree"))
         done += 1
+        if progress_cb:
+            progress_cb(done, len(paths))
         if done % 500 == 0:
             con.commit()            # частичный коммит: база не заперта на весь прогон
-            _p = "progress: %d/%d, %.1f s" % (done, len(paths), time.time() - t0)
+            _p = "progress: %d/%d (%.0f%%), %.1f s" % (done, len(paths),
+                                                       100.0 * done / max(len(paths), 1),
+                                                       time.time() - t0)
             print(_p, flush=True)
             log(_p)
     con.commit()
@@ -378,7 +414,7 @@ def main():
     except Exception:
         pass
     ap = argparse.ArgumentParser(description="plm_tree " + VERSION)
-    ap.add_argument("cmd", choices=["scan", "where", "changes", "tree", "rename-plan"])
+    ap.add_argument("cmd", choices=["scan", "count", "where", "changes", "tree", "rename-plan"])
     ap.add_argument("model", nargs="?")
     ap.add_argument("new", nargs="?")
     ap.add_argument("--roots", nargs="+", default=DEFAULT_ROOTS)
@@ -389,6 +425,8 @@ def main():
     a = ap.parse_args()
     if a.cmd == "scan":
         do_scan(a.roots, a.max_mb, a.limit)
+    elif a.cmd == "count":
+        inventory(a.roots, a.max_mb)
     elif a.cmd == "where":
         do_where(a.model or "")
     elif a.cmd == "tree":

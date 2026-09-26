@@ -85,9 +85,12 @@ class App:
         tk.Button(bar, text="ГДЕ ИСПОЛЬЗУЕТСЯ", width=17, command=self.where).pack(side="left", padx=4)
         tk.Button(bar, text="ИЗМЕНЕНИЯ", width=11, command=lambda: self.cap(eng.do_changes, 40)).pack(side="left", padx=4)
         tk.Button(bar, text="README", width=9, command=self.show_readme).pack(side="left", padx=4)
+        tk.Button(bar, text="СЧИТАТЬ (строение)", width=17, command=self.count).pack(side="left", padx=4)
 
         self.sum = tk.Label(self.root, text="готов", anchor="w", bg="#fff1c7", padx=8, pady=4)
         self.sum.pack(fill="x", padx=10)
+        self.pb = ttk.Progressbar(self.root, mode="determinate")
+        self.pb.pack(fill="x", padx=10, pady=(0, 6))
         self.txt = tk.Text(self.root, font=("Consolas", 9), bg="#fbfbfb")
         self.txt.pack(fill="both", expand=True, padx=10, pady=8)
 
@@ -108,7 +111,8 @@ class App:
             buf = io.StringIO()
             try:
                 with contextlib.redirect_stdout(buf):
-                    eng.do_scan(self.roots(), 8.0, float(self.var_limit.get() or 120))
+                    eng.do_scan(self.roots(), 8.0, float(self.var_limit.get() or 120),
+                                progress_cb=self.on_prog)
             except Exception as e:
                 buf.write("ОШИБКА: %s" % e)
             self.root.after(0, lambda: self.done_scan(buf.getvalue(), time.time() - t0))
@@ -123,6 +127,24 @@ class App:
         m = self.var_model.get().strip() or simpledialog.askstring("Модель", "Имя модели:", parent=self.root)
         if m:
             self.cap(eng.do_where, m)
+
+    def on_prog(self, done, total):
+        pct = 100.0 * done / max(total, 1)
+        self.root.after(0, lambda: (self.pb.config(maximum=max(total, 1), value=done),
+                                    self.sum.config(text="скан: %d/%d (%.0f%%)" % (done, total, pct))))
+
+    def count(self):
+        def work():
+            import contextlib
+            import io
+            buf = io.StringIO()
+            try:
+                with contextlib.redirect_stdout(buf):
+                    eng.inventory(self.roots())
+            except Exception as e:
+                buf.write("ОШИБКА: %s" % e)
+            self.root.after(0, lambda: self.log(buf.getvalue().rstrip()))
+        threading.Thread(target=work, daemon=True).start()
 
     def show_readme(self):
         try:
