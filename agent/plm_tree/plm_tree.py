@@ -22,8 +22,7 @@ HERE = os.path.dirname(os.path.abspath(__file__))
 sys.path.insert(0, os.path.dirname(HERE))     # общая библиотека дома (creo_read)
 DB = os.path.join(HERE, "plm_tree.db")
 LOG = r"D:\AI\log\plm_tree\plm_tree.log"
-DEFAULT_ROOTS = [r"Z:\PTC\Work\000_51 DF Держатели форм",
-                 r"Z:\PTC\Work\000_03 401-LIT Литейное производство"]
+DEFAULT_ROOTS = [r"Z:\PTC\Work"]
 MODEL = re.compile(r"\.(prt|asm|drw)\.\d+$", re.IGNORECASE)
 VERSION = "V1"
 
@@ -151,17 +150,17 @@ def names(raw):
 
 
 def collect(roots, max_mb):
+    """РЕКУРСИВНО по всем папкам корней (ключ — код модели; одинаковые коды в разных папках
+    схлопываются — это долг, см. §8.37)."""
     paths = {}
     for root in roots:
         if not os.path.isdir(root):
             continue
-        folders = [root] + [os.path.join(root, d) for d in sorted(os.listdir(root))
-                            if os.path.isdir(os.path.join(root, d))]
-        for folder in folders:
+        for dp, _dirs, files in os.walk(root):
             try:
-                for f in sorted(os.listdir(folder)):
+                for f in sorted(files):
                     if MODEL.search(f):
-                        p = os.path.join(folder, f)
+                        p = os.path.join(dp, f)
                         if os.path.getsize(p) <= max_mb * 1_000_000:
                             paths.setdefault(stem(f), p)
             except Exception:
@@ -261,6 +260,8 @@ def do_scan(roots, max_mb, limit):
         for child, qty in it["refs"].items():
             con.execute("INSERT INTO links VALUES (?,?,?,?)", (s, child, qty, "plm_tree"))
         done += 1
+        if done % 500 == 0:
+            con.commit()            # частичный коммит: база не заперта на весь прогон и не теряется при сбое
     con.commit()
     con.close()
     dt = time.time() - t0
