@@ -2113,14 +2113,14 @@ def run_gui():
         check_base()
         root.after(500, live_auto)         # нижнее дерево ПЛМ строится само при открытии
 
-    # Порядок сверху вниз: инструменты → ОКНО (таблица/дерево) → настройки и галочки → данные
+    # Порядок сверху вниз: Папка+Выбрать → Глубина и ПУРГЕ → кнопки (Сканировать и пр.) → ОКНО → данные
     try:
         for _w in (top, mid, data, nb):
             _w.pack_forget()
         data.pack(side="bottom", fill="x", padx=6, pady=(0, 6))    # самый низ — данные
-        top.pack(side="bottom", fill="x", padx=6, pady=(0, 4))     # выше — настройки и галочки
-        mid.pack(side="top", fill="x", padx=6, pady=(6, 4))        # верх — инструменты
-        nb.pack(side="top", fill="both", expand=True, padx=6, pady=(0, 0))   # окно — середина
+        top.pack(side="top", fill="x", padx=6, pady=(6, 4))        # сверху — папка, глубина, ПУРГЕ
+        mid.pack(side="top", fill="x", padx=6, pady=(0, 4))        # ниже — Сканировать и остальные
+        nb.pack(side="top", fill="both", expand=True, padx=6, pady=(0, 0))   # окно — под кнопками
     except Exception:
         pass
 
