@@ -324,6 +324,7 @@ def inventory(roots, max_mb=8, store=True, max_depth=None):
 
 def do_scan(roots, max_mb, limit, depth=None, progress_cb=None, stop_cb=None, full=False):
     t0 = time.time()
+    lim = float("inf") if (limit or 0) <= 0 else limit      # --limit 0 = без предела по времени
     files_stat = collect_stat(roots, max_mb, depth)
     total = len(files_stat)
     codes = {stem(os.path.basename(p)) for p, _, _ in files_stat}
@@ -339,7 +340,7 @@ def do_scan(roots, max_mb, limit, depth=None, progress_cb=None, stop_cb=None, fu
     n = 0
     stopped = False
     for path, size, mtime in files_stat:
-        if time.time() - t0 > limit:
+        if time.time() - t0 > lim:
             break
         if stop_cb and stop_cb():
             stopped = True
