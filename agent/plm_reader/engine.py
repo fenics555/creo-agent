@@ -693,15 +693,79 @@ def model_info(model):
         return ("", "", "", 0, "", ""), 0, 0
 
 
-def derived_bases(model):
-    """Заготовки/отливки, из которых сделана модель: [(base, kind)]."""
+def role_of(model):
+    """Роль модели: MFG = модельная оснастка; proizv.X/nasled.X = производная/наследование от X."""
     try:
         con = connect()
-        rows = con.execute("SELECT base, kind FROM derived WHERE child=?", (stem(model),)).fetchall()
+        r = con.execute("SELECT role FROM snapshots WHERE model=? AND role IS NOT NULL AND role<>'' "
+                        "LIMIT 1", (stem(model),)).fetchone()
         con.close()
-        return [(b, k or "") for b, k in rows]
+        return r[0] if r else ""
+    except Exception:
+        return ""
+
+
+def mfg_models(model, limit=60):
+    """МОДЕЛЬНАЯ ОСНАСТКА изделия: MFG-родители из связей + MFG-модели с тем же префиксом имени.
+
+    Возвращает [(модель, откуда)].
+    """
+    m = stem(model)
+    out = []
+    try:
+        con = connect()
+        for (p,) in con.execute("SELECT l.parent FROM links l JOIN snapshots s ON s.model=l.parent "
+                                "WHERE l.child=? AND s.role='MFG' GROUP BY l.parent", (m,)):
+            out.append((p, "связь"))
+        if "-" in m:
+            prefix = m.rsplit("-", 1)[0] + "-"
+            if len(prefix) >= 6:
+                for (s,) in con.execute(
+                        "SELECT DISTINCT model FROM snapshots WHERE role='MFG' AND model LIKE ? "
+                        "AND model<>? ORDER BY model LIMIT ?", (prefix + "%", m, limit)):
+                    if all(s != o[0] for o in out):
+                        out.append((s, "по имени"))
+        con.close()
+    except Exception:
+        return out
+    return out
+
+
+def _hash_like(n):
+    """Внутренний идентификатор Creo (длинная hex-строка) — не имя модели."""
+    return bool(n) and len(n) >= 28 and all(c in "0123456789ABCDEFabcdef" for c in n)
+
+
+def role_bases(model):
+    """Отливка/заготовка из РОЛИ (`proizv.X` / `nasled.X`) — там хранятся реальные имена."""
+    r = role_of(model)
+    out = []
+    for pref in ("proizv.", "nasled."):
+        if (r or "").startswith(pref):
+            nm = r[len(pref):]
+            if nm and not _hash_like(nm) and len(nm) <= 64:
+                out.append((nm, "наследование" if pref == "nasled." else "производная"))
+    return out
+
+
+def derived_bases(model):
+    """Заготовки/отливки модели: из таблицы `derived` + из роли; внутренние хеши отсекаем."""
+    m = stem(model)
+    out = []
+    try:
+        con = connect()
+        for b, k in con.execute("SELECT base, kind FROM derived WHERE child=?", (m,)):
+            if b and not _hash_like(b):
+                out.append((b, k or ""))
+            elif b:
+                out.append(("", "hash"))               # имя не найдено (в файле только код)
+        con.close()
     except Exception:
         return []
+    for b, k in role_bases(model):
+        if all(b != o[0] for o in out):
+            out.append((b, k))
+    return out
 
 
 def derived_map():

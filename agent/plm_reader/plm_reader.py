@@ -1203,7 +1203,8 @@ def run_gui():
         return _vals(m, *i)
 
     def _kind(k):
-        return {"наследование": "заготовка", "производная": "отливка"}.get(k, "заготовка/отливка")
+        return {"наследование": "заготовка", "производная": "отливка",
+                "hash": "заготовка/отливка"}.get(k, "заготовка/отливка")
 
     def _resolve(base, models):
         for cand in (base, base + ".prt", base + ".asm"):
@@ -1617,7 +1618,9 @@ def run_gui():
     ltv.bind("<<TreeviewOpen>>", lambda ev: ltv_open())
 
     def _live_vals(m, i, qty=""):
-        return ("изделие" if (i[6] or i[7]) else "деталь", m, i[0] or "", i[1] or "", qty)
+        role = (i[5] or "") if len(i) > 5 else ""
+        kind = "оснастка" if role == "MFG" else ("изделие" if (i[6] or i[7]) else "деталь")
+        return (kind, m, i[0] or "", i[1] or "", qty)
 
     _LTREE = {}
 
@@ -1632,8 +1635,21 @@ def run_gui():
         info = eng.models_info(list(nodes))
         if der:
             for b, k in der:
-                ltv.insert(node, "end", text="◄ %s: %s" % (_kind(k), b),
-                           values=("заготовка/отливка", b, "", "", ""))
+                dn0 = ltv.insert(node, "end",
+                                 text=("◄ %s: имя не найдено (в файле только внутренний код)" % _kind(k))
+                                 if not b else "◄ %s: %s" % (_kind(k), b),
+                                 values=("заготовка/отливка", b or "—", "", "", ""))
+                if not b:
+                    continue
+                for name, how in eng.mfg_models(b, 30):
+                    ltv.insert(dn0, "end", text="оснастка: %s  (%s)" % (name, how),
+                               values=("оснастка", name, "", "", ""))
+        mfg = eng.mfg_models(model)
+        if mfg:
+            mn = ltv.insert(node, "end", open=True, text="модельная оснастка (MFG):")
+            for name, how in mfg[:60]:
+                ltv.insert(mn, "end", text="%s  (%s)" % (name, how),
+                           values=("оснастка", name, "", "", ""))
         un = ltv.insert(node, "end", open=True, text="входит в (все сборки):")
         if not up:
             ltv.insert(un, "end",
