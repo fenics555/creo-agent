@@ -30,7 +30,8 @@ import time
 APP_VERSION = "V2"
 APP_TITLE = "PLM Reader V2"
 SETTINGS_FILE = os.path.join(os.path.dirname(os.path.abspath(__file__)), "settings.json")
-CACHE_FILE = os.path.join(os.path.dirname(os.path.abspath(__file__)), "scan_cache.json")
+DATA_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "db")   # все данные — в одном месте
+CACHE_FILE = os.path.join(DATA_DIR, "scan_cache.json")
 
 
 def load_cache():
@@ -47,6 +48,7 @@ def load_cache():
 def save_cache(cache):
     """Атомарная запись кэша (через .tmp + os.replace)."""
     try:
+        os.makedirs(os.path.dirname(CACHE_FILE), exist_ok=True)
         tmp = CACHE_FILE + ".tmp"
         with open(tmp, "w", encoding="utf-8") as f:
             json.dump(cache, f, ensure_ascii=False)
@@ -55,7 +57,7 @@ def save_cache(cache):
         pass
 
 
-DB_FILE = os.path.join(os.path.dirname(os.path.abspath(__file__)), "plm_reader.db")
+DB_FILE = os.path.join(DATA_DIR, "plm_reader.db")
 
 
 def db_conn():

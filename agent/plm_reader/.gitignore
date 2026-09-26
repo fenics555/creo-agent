@@ -1,4 +1,4 @@
-plm_reader.db
+db/
 __pycache__/
 scan_cache.json
 gui_settings.json

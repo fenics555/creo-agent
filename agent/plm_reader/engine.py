@@ -21,7 +21,7 @@ from collections import Counter, defaultdict
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 sys.path.insert(0, os.path.dirname(HERE))     # общая библиотека дома (creo_read)
-DB = os.environ.get("PLM_DB") or os.path.join(HERE, "plm_reader.db")   # своя база: PLM_DB=путь\другая.db
+DB = os.environ.get("PLM_DB") or os.path.join(HERE, "db", "plm_reader.db")   # данные — в подпапке db\ (её не делим)
 LOG = r"D:\AI\log\plm_reader\engine.log"
 DEFAULT_ROOTS = [r"Z:\PTC\Work"]
 MODEL = re.compile(r"\.(prt|asm|drw)\.\d+$", re.IGNORECASE)
@@ -268,6 +268,7 @@ CREATE TABLE IF NOT EXISTS folders (path TEXT PRIMARY KEY, parent TEXT, depth IN
 
 
 def connect():
+    os.makedirs(os.path.dirname(DB), exist_ok=True)      # подпапка данных db\ создаётся сама
     con = sqlite3.connect(DB, timeout=30)
     # миграция 25.09.2026: старый ключ (model) → ключ по ПУТИ; старые snapshots/links пересоздаём
     try:
