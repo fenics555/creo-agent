@@ -1634,8 +1634,12 @@ def run_gui():
             for b, k in der:
                 ltv.insert(node, "end", text="◄ %s: %s" % (_kind(k), b),
                            values=("заготовка/отливка", b, "", "", ""))
-        if up:
-            un = ltv.insert(node, "end", open=True, text="входит в (все сборки):")
+        un = ltv.insert(node, "end", open=True, text="входит в (все сборки):")
+        if not up:
+            ltv.insert(un, "end",
+                       text="— ни в одну сборку не входит (верхнее изделие или связей нет в базе)",
+                       values=("—", "", "", "", ""))
+        else:
             stack = [(un, model, 1)]
             while stack:
                 pn, m, depth = stack.pop()
@@ -1645,8 +1649,11 @@ def run_gui():
                                                       "x%d" % q))
                     if depth < 8:
                         stack.append((nn, p2, depth + 1))
-        if down:
-            dn = ltv.insert(node, "end", open=True, text="состав:")
+        dn = ltv.insert(node, "end", open=True, text="состав:")
+        if not down.get(model):
+            ltv.insert(dn, "end", text="— в базе нет состава для этого изделия",
+                       values=("—", "", "", "", ""))
+        else:
             for c, q in down.get(model, []):
                 cn = ltv.insert(dn, "end", text="%s  x%d" % (c, q),
                                 values=_live_vals(c, info.get(c, ("", "", "", 0, "", "", 0, 0)),

@@ -225,7 +225,7 @@ def scan_item(s, path, stems, fstems=frozenset()):
     pr = params(raw, parse_toc(raw))
     vol = real(raw, "volume") or real(raw, "mtrl_volume")
     nm = names(raw)
-    refs = {c: nm[c] for c in nm if c != s and c in stems and len(c) >= 5}
+    refs = {c: nm[c] for c in nm if c != s and c in stems and len(c) >= 2}
     h = last_hist(raw) or ("", "", "")
     hm = HISTRE.findall(raw)
     base, dkind = derived_of(raw)
