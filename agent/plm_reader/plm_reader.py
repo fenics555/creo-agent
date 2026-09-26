@@ -1127,6 +1127,7 @@ def run_gui():
                command=lambda: tree_up()).pack(side="left", padx=4)
     ttk.Button(tbar, text="ИЗМЕНЕНИЯ по изделию",
                command=lambda: changes_selected()).pack(side="left", padx=4)
+    ttk.Button(tbar, text="РАЗВЕРНУТЬ ВСЁ", command=lambda: expand_all()).pack(side="left", padx=4)
     tsum = ttk.Label(tbar, text="")
     tsum.pack(side="left", padx=10)
 
@@ -1171,16 +1172,23 @@ def run_gui():
             _FOLDERS[n] = s
             tview.insert(n, "end", text="загрузка…")      # «плюсик» для раскрытия
 
+    def _vals(m, d, n, mat, v, rev, r, files, pars, qty=None):
+        return ("изделие", m, d or "", n or "", mat or "", ("%.0f" % v) if v else "", rev or "", r or "",
+                ("x%d · " % qty if qty else "") + "файлов %d · входит в %d" % (files, pars))
+
     def _model_values(m):
-        (desig, name, material, volume, rev, role), files, pars = eng.model_info(m)
-        return ("изделие", m, desig or "", name or "", material or "",
-                ("%.0f" % volume) if volume else "", rev or "", role or "",
-                "файлов %d · входит в %d" % (files, pars))
+        i = eng.models_info([m]).get(m, ("", "", "", 0, "", "", 0, 0))
+        return _vals(m, *i)
 
     def node_add_model(node, model):
-        for ch, qty in eng.plm_children(model):
-            n = tview.insert(node, "end", text="%s  x%d" % (ch, qty), values=_model_values(ch))
-            _MODELS[n] = ch
+        ch = eng.plm_children(model)
+        if not ch:
+            return
+        info = eng.models_info([c for c, _ in ch])          # паспорта детей — ОДНИМ запросом
+        for c, qty in ch:
+            v = info.get(c, ("", "", "", 0, "", "", 0, 0))
+            n = tview.insert(node, "end", text="%s  x%d" % (c, qty), values=_vals(c, *(v + (qty,))))
+            _MODELS[n] = c
             tview.insert(n, "end", text="загрузка…")
 
     def on_open(event=None):
@@ -1213,12 +1221,17 @@ def run_gui():
                     tview.insert("", "end", text=m, values=v)
                 tsum.config(text="моделей по фильтру: %d" % len(rows))
             else:
-                tops = eng.plm_tops(500)
+                tops = eng.plm_tops(6000)
+                info = eng.models_info(tops)
+                rn = tview.insert("", "end", open=True,
+                                  text="ВСЁ ПРОИЗВОДСТВО — верхних сборок %d из %d"
+                                       % (len(tops), eng.count_tops()))
                 for m in tops:
-                    n = tview.insert("", "end", text=m, values=_model_values(m))
+                    v = info.get(m, ("", "", "", 0, "", "", 0, 0))
+                    n = tview.insert(rn, "end", text=m, values=_vals(m, *v))
                     _MODELS[n] = m
                     tview.insert(n, "end", text="загрузка…")
-                tsum.config(text="верхних изделий %d — раскрывай СОСТАВ; кнопка даёт ВХОДИМОСТЬ вверх" % len(tops))
+                tsum.config(text="верхних сборок %d · раскрывай узлы или жми РАЗВЕРНУТЬ ВСЁ" % len(tops))
             return
         if text:
             rows = eng.search_files(text)
@@ -1236,6 +1249,57 @@ def run_gui():
             s = eng.summary()
             tsum.config(text="в базе файлов %d · моделей %d · изменений %d"
                         % (s.get("snapshots", 0), s.get("models", 0), s.get("changes", 0)))
+
+    def expand_all():
+        """ПОЛНОЕ дерево: в режиме Входимость строится одним заходом из базы (быстро)."""
+        if e_tfilter.get().strip():
+            tsum.config(text="сначала сбрось фильтр — тогда разверну полное дерево")
+            return
+        t0 = time.time()
+        if tmode.get() == "plm":
+            tops, children, info = eng.plm_tree_data()
+            tview.delete(*tview.get_children())
+            _MODELS.clear()
+            _FOLDERS.clear()
+            cap, n = 60000, 0
+            rn = tview.insert("", "end", open=True,
+                              text="ВСЁ ПРОИЗВОДСТВО — верхних сборок %d" % len(tops))
+            stack = [(rn, m, 1, frozenset((m,))) for m in reversed(tops)]
+            while stack and n < cap:
+                parent, model, depth, path = stack.pop()
+                v = _vals(model, *info.get(model, ("", "", "", 0, "", "", 0, 0)))
+                node = tview.insert(parent, "end", text=model, values=v, open=True)
+                _MODELS[node] = model
+                n += 1
+                if depth >= 12:                     # предел глубины
+                    continue
+                for c, q in reversed(children.get(model, [])):
+                    if n < cap and c not in path:   # защита от циклов по ветке
+                        stack.append((node, c, depth + 1, path | {c}))
+            tsum.config(text="построено узлов: %d за %.1f с%s"
+                        % (n, time.time() - t0, " (достигнут предел)" if stack else ""))
+            return
+        limit_nodes = 6000
+        queue = list(tview.get_children(""))
+        cnt = 0
+        while queue and cnt < limit_nodes:
+            node = queue.pop(0)
+            if node in _FOLDERS:
+                kids = tview.get_children(node)
+                if kids and tview.item(kids[0], "text") == "загрузка…":
+                    tview.delete(*kids)
+                    node_add(node, _FOLDERS[node])
+            tview.item(node, open=True)
+            queue.extend(tview.get_children(node))
+            cnt += 1
+            if cnt % 40 == 0:
+                tsum.config(text="разворачиваю папки… узлов %d" % cnt)
+                try:
+                    root.update_idletasks()
+                except Exception:
+                    pass
+        tsum.config(text="развёрнуто узлов: %d за %.1f с%s"
+                    % (cnt, time.time() - t0, " (предел)" if queue else ""))
 
     def say(fn, *a):
         import contextlib
@@ -1273,7 +1337,8 @@ def run_gui():
         say(eng.do_changes_model, m, 200) if m else tout.insert("end", "выбери строку-файл в дереве\n")
 
     _plm_extra = {"nb": nb, "tab_tree": tab_tree, "tview": tview, "tfilter_entry": e_tfilter,
-                  "tmode": tmode, "fill_tree_view": fill_tree_view, "engine": eng}   # для самопроверки
+                  "tmode": tmode, "fill_tree_view": fill_tree_view, "expand_all": expand_all,
+                  "engine": eng}   # для самопроверки
     fill_tree_view()                       # сразу показать верхние папки базы
 
     flt = ttk.Frame(tab_table, padding=(6, 4))

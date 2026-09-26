@@ -590,6 +590,75 @@ def model_info(model):
         return ("", "", "", 0, "", ""), 0, 0
 
 
+def plm_tree_data():
+    """ВСЁ дерево ПЛМ одним заходом: (верхние сборки, состав по моделям, паспорта+счётчики)."""
+    tops, children, info = [], {}, {}
+    try:
+        con = connect()
+        rows = con.execute("SELECT parent, child, qty FROM links").fetchall()
+        kids = set()
+        for p, c, q in rows:
+            children.setdefault(p, []).append((c, q or 1))
+            kids.add(c)
+        tops = sorted(set(children) - kids)
+        agg = {}
+        for m, d, n, mat, v, rev, r in con.execute(
+                "SELECT model,designation,name,material,volume,rev,role FROM snapshots"):
+            if m not in agg:
+                agg[m] = (d or "", n or "", mat or "", v or 0, rev or "", r or "")
+        fcnt = dict(con.execute("SELECT model,COUNT(*) FROM snapshots GROUP BY model"))
+        pcnt = dict(con.execute("SELECT child,COUNT(*) FROM links GROUP BY child"))
+        con.close()
+    except Exception:
+        return tops, children, info
+    for m in set(agg) | set(children):
+        a = agg.get(m, ("", "", "", 0, "", ""))
+        info[m] = a + (fcnt.get(m, 0), pcnt.get(m, 0))
+    return tops, children, info
+
+
+def count_tops():
+    try:
+        con = connect()
+        n = con.execute("SELECT COUNT(*) FROM (SELECT DISTINCT parent FROM links WHERE parent NOT IN "
+                        "(SELECT DISTINCT child FROM links))").fetchone()[0]
+        con.close()
+        return n
+    except Exception:
+        return 0
+
+
+def models_info(models):
+    """Паспорта и счётчики для НАБОРА моделей одним запросом.
+
+    model -> (обозначение, наименование, материал, объём, ревизия, роль, файлов, входит в сборок)
+    """
+    out = {}
+    models = list(models)
+    if not models:
+        return out
+    q = ",".join("?" * len(models))
+    try:
+        con = connect()
+        agg = {}
+        for m, d, n, mat, v, rev, r in con.execute(
+                "SELECT model,designation,name,material,volume,rev,role FROM snapshots "
+                "WHERE model IN (%s)" % q, models):
+            if m not in agg:
+                agg[m] = (d or "", n or "", mat or "", v or 0, rev or "", r or "")
+        fcnt = dict(con.execute("SELECT model,COUNT(*) FROM snapshots WHERE model IN (%s) "
+                                "GROUP BY model" % q, models))
+        pcnt = dict(con.execute("SELECT child,COUNT(*) FROM links WHERE child IN (%s) "
+                                "GROUP BY child" % q, models))
+        con.close()
+    except Exception:
+        return out
+    for m in models:
+        a = agg.get(m, ("", "", "", 0, "", ""))
+        out[m] = (a[0], a[1], a[2], a[3], a[4], a[5], fcnt.get(m, 0), pcnt.get(m, 0))
+    return out
+
+
 def plm_tops(limit=500):
     """Верхние СБОРКИ: модели с составом, которые сами ни в одну сборку не входят."""
     try:
