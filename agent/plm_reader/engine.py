@@ -576,6 +576,96 @@ def count_files(text):
         return 0
 
 
+def model_info(model):
+    """Паспорт модели из базы + сколько файлов и в сколько сборок входит."""
+    try:
+        con = connect()
+        r = con.execute("SELECT designation,name,material,volume,rev,role FROM snapshots "
+                        "WHERE model=? ORDER BY path LIMIT 1", (model,)).fetchone()
+        files = con.execute("SELECT COUNT(*) FROM snapshots WHERE model=?", (model,)).fetchone()[0]
+        pars = con.execute("SELECT COUNT(*) FROM links WHERE child=?", (model,)).fetchone()[0]
+        con.close()
+        return (r or ("", "", "", 0, "", "")), files, pars
+    except Exception:
+        return ("", "", "", 0, "", ""), 0, 0
+
+
+def plm_tops(limit=500):
+    """Верхние СБОРКИ: модели с составом, которые сами ни в одну сборку не входят."""
+    try:
+        con = connect()
+        rows = con.execute("SELECT DISTINCT parent FROM links WHERE parent NOT IN "
+                           "(SELECT DISTINCT child FROM links) ORDER BY parent LIMIT ?",
+                           (limit,)).fetchall()
+        con.close()
+        return [r[0] for r in rows]
+    except Exception:
+        return []
+
+
+def plm_children(model):
+    """СОСТАВ изделия из базы: [(ребёнок, количество)]."""
+    m = stem(model)
+    try:
+        con = connect()
+        rows = con.execute("SELECT child, qty FROM links WHERE parent=? ORDER BY child",
+                           (m,)).fetchall()
+        con.close()
+        return [(c, q or 1) for c, q in rows]
+    except Exception:
+        return []
+
+
+def plm_parents(model):
+    """Куда ВХОДИТ изделие: [(родитель, количество)]."""
+    m = stem(model)
+    try:
+        con = connect()
+        rows = con.execute("SELECT parent, qty FROM links WHERE child=? ORDER BY parent",
+                           (m,)).fetchall()
+        con.close()
+        return [(p, q or 1) for p, q in rows]
+    except Exception:
+        return []
+
+
+def find_plm_models(text, limit=400):
+    """Модели по фильтру: [(модель, файлов, входит в сборок)]."""
+    like = "%" + text + "%"
+    try:
+        con = connect()
+        rows = con.execute("SELECT model, COUNT(*) FROM snapshots WHERE model LIKE ? "
+                           "GROUP BY model ORDER BY model LIMIT ?", (like, limit)).fetchall()
+        out = []
+        for m, n in rows:
+            p = con.execute("SELECT COUNT(*) FROM links WHERE child=?", (m,)).fetchone()[0]
+            out.append((m, n, p))
+        con.close()
+        return out
+    except Exception:
+        return []
+
+
+def do_tree_up(model, depth=4):
+    """Дерево ВХОДИМОСТИ вверх: в какие сборки входит изделие (рекурсивно)."""
+    m = stem(model)
+    print("ВХОДИМОСТЬ (вверх): «%s»" % m)
+    _up(m, depth, 1, set())
+
+
+def _up(m, depth, level, seen):
+    if depth <= 0 or m in seen:
+        return
+    seen.add(m)
+    par = plm_parents(m)
+    if not par:
+        print("   %s└─ %s  (выше нигде не используется)" % ("   " * level, m))
+        return
+    for p, q in par:
+        print("   %s↑ %s  x%d" % ("   " * level, p, q))
+        _up(p, depth - 1, level + 1, seen)
+
+
 def do_where(model):
     con = connect()
     rows = con.execute("SELECT parent, qty FROM links WHERE child=? ORDER BY qty DESC",

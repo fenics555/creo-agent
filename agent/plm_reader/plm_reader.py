@@ -1113,9 +1113,21 @@ def run_gui():
     e_tfilter.bind("<KeyRelease>", lambda ev: fill_tree_view())
     ttk.Button(tflt, text="Сбросить",
                command=lambda: (e_tfilter.delete(0, "end"), fill_tree_view())).pack(side="left", padx=6)
-    ttk.Button(tflt, text="ГДЕ ИСПОЛЬЗУЕТСЯ", command=lambda: where_selected()).pack(side="left", padx=6)
-    ttk.Button(tflt, text="ИЗМЕНЕНИЯ", command=lambda: changes_selected()).pack(side="left", padx=6)
-    tsum = ttk.Label(tflt, text="")
+
+    tmode = tk.StringVar(value="plm")
+    ttk.Radiobutton(tflt, text="Входимость (ПЛМ)", variable=tmode, value="plm",
+                    command=lambda: fill_tree_view()).pack(side="left", padx=(10, 0))
+    ttk.Radiobutton(tflt, text="Папки", variable=tmode, value="folders",
+                    command=lambda: fill_tree_view()).pack(side="left", padx=(8, 0))
+
+    tbar = ttk.Frame(tab_tree, padding=(6, 0))
+    tbar.pack(fill="x")
+    ttk.Button(tbar, text="СОСТАВ (вниз)", command=lambda: tree_down()).pack(side="left", padx=4)
+    ttk.Button(tbar, text="ГДЕ ИСПОЛЬЗУЕТСЯ (вверх)",
+               command=lambda: tree_up()).pack(side="left", padx=4)
+    ttk.Button(tbar, text="ИЗМЕНЕНИЯ по изделию",
+               command=lambda: changes_selected()).pack(side="left", padx=4)
+    tsum = ttk.Label(tbar, text="")
     tsum.pack(side="left", padx=10)
 
     tbody = ttk.Frame(tab_tree)
@@ -1137,7 +1149,7 @@ def run_gui():
     ths.grid(row=1, column=0, sticky="ew")
     tout = tk.Text(tbody, height=6, font=("Consolas", 9), bg="#fbfbfb")
     tout.grid(row=2, column=0, columnspan=2, sticky="nsew")
-    _FOLDERS = {}
+    _FOLDERS, _MODELS = {}, {}
 
     def _short(p):
         return p if len(p) <= 90 else "…" + p[-88:]
@@ -1159,14 +1171,31 @@ def run_gui():
             _FOLDERS[n] = s
             tview.insert(n, "end", text="загрузка…")      # «плюсик» для раскрытия
 
+    def _model_values(m):
+        (desig, name, material, volume, rev, role), files, pars = eng.model_info(m)
+        return ("изделие", m, desig or "", name or "", material or "",
+                ("%.0f" % volume) if volume else "", rev or "", role or "",
+                "файлов %d · входит в %d" % (files, pars))
+
+    def node_add_model(node, model):
+        for ch, qty in eng.plm_children(model):
+            n = tview.insert(node, "end", text="%s  x%d" % (ch, qty), values=_model_values(ch))
+            _MODELS[n] = ch
+            tview.insert(n, "end", text="загрузка…")
+
     def on_open(event=None):
         node = tview.focus()
         folder = _FOLDERS.get(node)
-        if folder:
-            kids = tview.get_children(node)
-            if kids and tview.item(kids[0], "text") == "загрузка…":
-                tview.delete(*kids)
+        model = _MODELS.get(node)
+        if not (folder or model):
+            return
+        kids = tview.get_children(node)
+        if kids and tview.item(kids[0], "text") == "загрузка…":
+            tview.delete(*kids)
+            if folder:
                 node_add(node, folder)
+            else:
+                node_add_model(node, model)
 
     tview.bind("<<TreeviewOpen>>", on_open)
 
@@ -1174,6 +1203,23 @@ def run_gui():
         text = e_tfilter.get().strip()
         tview.delete(*tview.get_children())
         _FOLDERS.clear()
+        _MODELS.clear()
+        if tmode.get() == "plm":                  # ДЕРЕВО ВХОДИМОСТИ (ПЛМ): состав вниз, входимость вверх
+            if text:
+                rows = eng.find_plm_models(text)
+                for m, files, pars in rows:
+                    v = list(_model_values(m))
+                    v[8] = "файлов %d · входит в %d" % (files, pars)
+                    tview.insert("", "end", text=m, values=v)
+                tsum.config(text="моделей по фильтру: %d" % len(rows))
+            else:
+                tops = eng.plm_tops(500)
+                for m in tops:
+                    n = tview.insert("", "end", text=m, values=_model_values(m))
+                    _MODELS[n] = m
+                    tview.insert(n, "end", text="загрузка…")
+                tsum.config(text="верхних изделий %d — раскрывай СОСТАВ; кнопка даёт ВХОДИМОСТЬ вверх" % len(tops))
+            return
         if text:
             rows = eng.search_files(text)
             for p, folder, desig, name, material, volume, rev, role in rows:
@@ -1188,7 +1234,7 @@ def run_gui():
                 _FOLDERS[n] = r
                 tview.insert(n, "end", text="загрузка…")
             s = eng.summary()
-            tsum.config(text="в базе файлов %d · моделей %d · изменений %d (раскрывай папки или фильтруй)"
+            tsum.config(text="в базе файлов %d · моделей %d · изменений %d"
                         % (s.get("snapshots", 0), s.get("models", 0), s.get("changes", 0)))
 
     def say(fn, *a):
@@ -1214,12 +1260,20 @@ def run_gui():
         m = _sel_model()
         say(eng.do_where, m) if m else tout.insert("end", "выбери строку-файл в дереве\n")
 
+    def tree_down():
+        m = _sel_model()
+        say(eng.do_tree, m, 4) if m else tout.insert("end", "выбери изделие в дереве\n")
+
+    def tree_up():
+        m = _sel_model()
+        say(eng.do_tree_up, m, 4) if m else tout.insert("end", "выбери изделие в дереве\n")
+
     def changes_selected():
         m = _sel_model()
         say(eng.do_changes_model, m, 200) if m else tout.insert("end", "выбери строку-файл в дереве\n")
 
     _plm_extra = {"nb": nb, "tab_tree": tab_tree, "tview": tview, "tfilter_entry": e_tfilter,
-                  "fill_tree_view": fill_tree_view, "engine": eng}   # для самопроверки
+                  "tmode": tmode, "fill_tree_view": fill_tree_view, "engine": eng}   # для самопроверки
     fill_tree_view()                       # сразу показать верхние папки базы
 
     flt = ttk.Frame(tab_table, padding=(6, 4))
