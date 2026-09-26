@@ -1140,6 +1140,8 @@ def run_gui():
     ttk.Button(tbar, text="ИЗМЕНЕНИЯ по изделию",
                command=lambda: changes_selected()).pack(side="left", padx=4)
     ttk.Button(tbar, text="РАЗВЕРНУТЬ ВСЁ", command=lambda: expand_all()).pack(side="left", padx=4)
+    ttk.Button(tbar, text="ПУРГЕ: ПЛАН", command=lambda: purge_show()).pack(side="left", padx=4)
+    ttk.Button(tbar, text="ПУРГЕ: в бэкап…", command=lambda: purge_run()).pack(side="left", padx=4)
     tsum = ttk.Label(tbar, text="")
     tsum.pack(side="left", padx=10)
 
@@ -1333,6 +1335,72 @@ def run_gui():
                     pass
         tsum.config(text="развёрнуто узлов: %d за %.1f с%s"
                     % (cnt, time.time() - t0, " (предел)" if queue else ""))
+
+    def purge_folder():
+        f = norm_path(e_folder.get()) if e_folder.get().strip() else ""
+        if not f:
+            roots = eng.base_roots()
+            f = roots[0] if roots else ""
+        return f
+
+    def purge_show():
+        """ПЛАН чистки версий ИЗ БАЗЫ (файлы НЕ трогаются) + отчёт в log\\reports."""
+        folder = purge_folder()
+        plan = eng.purge_plan(folder or None, 2)
+        txt = eng.purge_plan_text(plan)
+        tout.delete("1.0", "end")
+        tout.insert("end", txt)
+        tsum.config(text="ПУРГЕ-план: лишних версий %d · освободится %.1f МБ (папка %s)"
+                    % (plan["count"], plan["bytes"] / 1048576.0, folder or "вся база"))
+        log_line("purge plan: %s — лишних %d, %.1f МБ"
+                 % (folder or "вся база", plan["count"], plan["bytes"] / 1048576.0))
+        try:
+            rep = os.path.join(r"D:\AI\log\reports",
+                               "PURGE_plan_%s.txt" % datetime.datetime.now().strftime("%Y-%m-%d_%H%M"))
+            with open(rep, "w", encoding="utf-8") as f:
+                f.write(txt)
+            tsum.config(text=tsum.cget("text") + " · отчёт: %s" % os.path.basename(rep))
+        except Exception:
+            pass
+
+    def purge_run():
+        """Исполнение — инструментом дома `purge_versions` (перенос в БЭКАП, удаления нет)."""
+        from tkinter import messagebox as mb
+        folder = purge_folder()
+        plan = eng.purge_plan(folder or None, 2)
+        if not plan["count"]:
+            tsum.config(text="ПУРГЕ: чистить нечего — лишних версий нет")
+            return
+        if not mb.askyesno("ПУРГЕ",
+                           "Перенести в БЭКАП %d лишних версий (%.1f МБ) в\n%s?\n\n"
+                           "Удаления нет: файлы уедут в бэкап инструмента purge_versions."
+                           % (plan["count"], plan["bytes"] / 1048576.0, folder)):
+            tsum.config(text="ПУРГЕ: отменено")
+            return
+        exe = os.path.abspath(os.path.join(os.path.dirname(os.path.abspath(__file__)),
+                                           "..", "purge_versions", "engine.py"))
+        if not os.path.exists(exe):
+            tsum.config(text="ПУРГЕ: не найден %s" % exe)
+            return
+
+        def work():
+            import subprocess
+            try:
+                r = subprocess.run([sys.executable, "-X", "utf8", exe, "--root", folder,
+                                    "--keep", "2", "--execute"],
+                                   capture_output=True, text=True, encoding="utf-8",
+                                   cwd=os.path.dirname(exe))
+                out = ((r.stdout or "") + (r.stderr or "")).strip() or "готово (без вывода)"
+            except Exception as e:
+                out = "ОШИБКА: %s" % e
+            try:
+                root.after(0, lambda: (tout.delete("1.0", "end"), tout.insert("end", out),
+                                       tsum.config(text="ПУРГЕ: выполнено — см. вывод и лог инструмента")))
+            except Exception:
+                pass
+
+        threading.Thread(target=work, daemon=True).start()
+        tsum.config(text="ПУРГЕ: переношу лишние версии в бэкап…")
 
     def say(fn, *a):
         import contextlib

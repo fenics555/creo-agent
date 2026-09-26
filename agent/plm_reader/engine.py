@@ -454,6 +454,53 @@ def meta_get(k, default=None):
         return default
 
 
+def purge_plan(folder=None, keep=2):
+    """ПУРГЕ-план ИЗ БАЗЫ (файлы не трогаются): у каждого изделия оставить `keep` новейших версий.
+
+    Возвращает: candidates [(путь, байт, модель, версия)], count, bytes, models, keep, kept.
+    """
+    keep = max(1, int(keep or 1))
+    try:
+        con = connect()
+        if folder:
+            rows = con.execute("SELECT path,model,size,mtime FROM snapshots WHERE folder LIKE ?",
+                               (folder.rstrip("\\") + "%",)).fetchall()
+        else:
+            rows = con.execute("SELECT path,model,size,mtime FROM snapshots").fetchall()
+        con.close()
+    except Exception:
+        return {"candidates": [], "count": 0, "bytes": 0, "models": 0, "keep": keep, "kept": 0}
+    groups = {}
+    for p, model, size, mtime in rows:
+        try:
+            ver = int(p.rsplit(".", 1)[1])
+        except Exception:
+            continue
+        groups.setdefault(model, []).append((ver, p, size or 0))
+    cand, kept, free = [], 0, 0
+    for model, lst in groups.items():
+        lst.sort(key=lambda x: x[0], reverse=True)
+        kept += min(len(lst), keep)
+        for ver, p, size in lst[keep:]:
+            cand.append((p, size, model, ver))
+            free += size
+    cand.sort(key=lambda x: -x[1])
+    return {"candidates": cand, "count": len(cand), "bytes": free, "models": len(groups),
+            "keep": keep, "kept": kept}
+
+
+def purge_plan_text(plan, limit=400):
+    """Текст плана для окна."""
+    lines = ["ПУРГЕ (план из базы; файлы НЕ трогаются)",
+             "изделий %d · оставить по %d новейшие версии · лишних версий %d · освободится %.1f МБ"
+             % (plan["models"], plan["keep"], plan["count"], plan["bytes"] / 1048576.0), ""]
+    for path, size, model, ver in plan["candidates"][:limit]:
+        lines.append("%9.1f КБ | v%d | %s" % (size / 1024.0, ver, path))
+    if plan["count"] > limit:
+        lines.append("... ещё %d" % (plan["count"] - limit))
+    return "\n".join(lines)
+
+
 def do_check(roots=None, max_mb=8.0, depth=None):
     """БЫСТРАЯ проверка актуальности базы: обход + stat, БЕЗ чтения файлов.
 
