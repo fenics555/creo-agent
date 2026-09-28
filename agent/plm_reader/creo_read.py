@@ -77,7 +77,8 @@ def params(raw, toc):
     out = {}
     off, ln = toc.get("NeuPrtSld", (0, 0))
     for src in (raw[off:off + ln], raw):
-        for m in re.finditer(rb"([\x20-\xff]{3,32})\x00\xe2\x33(.{0,60}?)\x00", src, re.S):
+        for m in re.finditer(
+                rb"([\x20-\xff]{3,32})\x00(?:\xe2\x33|\x27\x88\x20\xe3\x33)(.{0,80}?)\x00", src, re.S):
             t = re.search(r"[\w]+$", m.group(1).decode("utf-8", "replace"))
             try:
                 v = m.group(2).decode("utf-8")
@@ -86,6 +87,47 @@ def params(raw, toc):
             if t and v and "\x00" not in v:
                 out.setdefault(t.group(0), " ".join(v.split()))
     return out
+
+
+VAL_TAGS = (b"\xe2\x33", b"\x27\x88\x20\xe3\x33")   # значение параметра | значение отношения
+
+
+def param(raw, names, default=""):
+    """Значение параметра по списку имён — ищем по ВСЕМУ файлу, в UTF-8 и cp1251, по всем тегам значения.
+    Параметр может быть задан и вручную, и уравнением — берём первое найденное НЕПУСТОЕ значение."""
+    for nm in names:
+        if not nm:
+            continue
+        for enc in ("utf-8", "cp1251"):
+            try:
+                nb = nm.encode(enc)
+            except Exception:
+                continue
+            pos = 0
+            while True:
+                i = raw.find(nb, pos)
+                if i < 0:
+                    break
+                pos = i + 1
+                h = raw[i + len(nb): i + len(nb) + 12]
+                for tag in VAL_TAGS:
+                    if h.startswith(b"\x00" + tag):
+                        v = raw[i + len(nb) + 1 + len(tag):]
+                        j = v.find(b"\x00")
+                        if j < 0:
+                            j = 48
+                        v = v[:j]
+                        try:
+                            s = v.decode("utf-8")
+                        except UnicodeDecodeError:
+                            try:
+                                s = v.decode("cp1251")
+                            except Exception:
+                                continue
+                        s = " ".join(s.split())
+                        if s and "\x00" not in s:
+                            return s
+    return default
 
 
 def role(raw, stems=frozenset(), me=""):

@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-r"""PLM Reader V13 — автономный просмотр данных изделий из файлов CAD (детали, сборки, чертежи).
+r"""PLM Reader V15 — автономный просмотр данных изделий из файлов CAD (детали, сборки, чертежи).
 
 Кнопка «Сканировать» обходит выбранную папку и показывает таблицу:
 Обозначение · Наименование · Материал · Объём (мм³) · Роль/родитель · Ревизия · Записей · Дата · Пользователь · Версия Creo · Файл.
@@ -26,8 +26,8 @@ import sys
 import threading
 import time
 
-APP_VERSION = "V13"
-APP_TITLE = "PLM Reader V13"
+APP_VERSION = "V15"
+APP_TITLE = "PLM Reader V15"
 SETTINGS_FILE = os.path.join(os.path.dirname(os.path.abspath(__file__)), "settings.json")
 DATA_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "db")   # все данные — в одном месте
 CACHE_FILE = os.path.join(DATA_DIR, "scan_cache.json")
@@ -2295,7 +2295,10 @@ def run_gui():
                                    (int(e_depth.get() or 0) or None),
                                    progress_cb=pc,
                                    stop_cb=lambda: getattr(root, "_plm_stop", False),
-                                   full=bool(opts.get("full"))) or {}
+                                   full=bool(opts.get("full")),
+                                   param_cfg={"pdes": settings.get("param_designation"),
+                                              "pname": settings.get("param_name"),
+                                              "pmat": settings.get("param_material")}) or {}
         except Exception as e:
             res = {"error": str(e)}
         q.put(("done", 0, res))

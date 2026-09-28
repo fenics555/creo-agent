@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-r"""PLM Reader V13 — движок ПЛМ «в лоб»: паспорт изделий, дерево производства, входимость и ИЗМЕНЕНИЯ.
+r"""PLM Reader V15 — движок ПЛМ «в лоб»: паспорт изделий, дерево производства, входимость и ИЗМЕНЕНИЯ.
 
 Creo не нужен. Своя база лежит РЯДОМ с инструментом (db\plm_reader.db) — легко перенести на другую машину.
 Корень склада ОДИН на все входы (окно, CLI, мета базы): Z:\PTC.
@@ -44,7 +44,7 @@ def derived_of(raw):
         if nm:
             return nm.group(1).decode("latin-1"), "производная"
     return "", ""
-VERSION = "V13"
+VERSION = "V15"
 
 
 def log(msg):
@@ -240,19 +240,36 @@ def _pfirst(pr, keys):
     return ""
 
 
-def scan_item(s, path, stems, fstems=frozenset()):
+def _des_from_rel(raw):
+    """Есть ли уравнение `ОБОЗНАЧЕНИЕ = rel_model_name` (тогда обозначение = имя модели)."""
+    for enc in ("utf-8", "cp1251"):
+        try:
+            nb = "\u041e\u0411\u041e\u0417\u041d\u0410\u0427\u0415\u041d\u0418\u0415".encode(enc)
+        except Exception:
+            continue
+        i = raw.find(nb)
+        if i >= 0 and b"rel_model_name" in raw[i:i + 220]:
+            return True
+    return False
+
+
+def scan_item(s, path, stems, fstems=frozenset(), pdes=None, pname=None, pmat=None):
     raw = open(path, "rb").read()
-    pr = params(raw, parse_toc(raw))
     vol = real(raw, "volume") or real(raw, "mtrl_volume")
+    des = param(raw, pdes or _PARAM_DES)
+    nmv = param(raw, pname or _PARAM_NAME)
+    mat = param(raw, pmat or _PARAM_MAT)
+    if not des and _des_from_rel(raw):
+        des = s                                  # ОБОЗНАЧЕНИЕ = rel_model_name → имя модели
     nm = names(raw)
     refs = {c: nm[c] for c in nm if c != s and c in stems and len(c) >= 2}
     h = last_hist(raw) or ("", "", "")
     hm = HISTRE.findall(raw)
     base, dkind = derived_of(raw)
     return {"model": s, "path": path, "size": len(raw), "mtime": os.path.getmtime(path),
-            "volume": vol or 0.0, "material": _pfirst(pr, _PARAM_MAT),
-            "name": _pfirst(pr, _PARAM_NAME),
-            "designation": _pfirst(pr, _PARAM_DES),
+            "volume": vol or 0.0, "material": mat,
+            "name": nmv,
+            "designation": des,
             "rev": h[0], "author": h[1], "revdate": h[2], "role": role(raw, fstems, s), "refs": refs,
             "hist": len(hm), "creo": (hm[-1][3].decode("latin-1") if hm else ""),
             "base": base, "dkind": dkind}
@@ -273,6 +290,7 @@ role = _CR.role
 user_time = _CR.user_time
 last_hist = _CR.last_hist
 names = _CR.names
+param = _CR.param
 
 SCHEMA = """
 CREATE TABLE IF NOT EXISTS snapshots (
@@ -453,7 +471,8 @@ def _publish(draft):
     return ver
 
 
-def scan_to_base(roots, max_mb=8, limit=120, depth=None, progress_cb=None, stop_cb=None, full=False):
+def scan_to_base(roots, max_mb=8, limit=120, depth=None, progress_cb=None, stop_cb=None, full=False,
+                 param_cfg=None):
     """СКАН С ЗАЩИТОЙ: замок → скан в ЛОКАЛЬНЫЙ черновик → публикация (бэкап + подмена).
 
     Боевая база не меняется до успешного завершения; при любом сбое остаётся прежней.
@@ -477,7 +496,8 @@ def scan_to_base(roots, max_mb=8, limit=120, depth=None, progress_cb=None, stop_
         src = active_db()
         if os.path.isfile(src):
             shutil.copy2(src, draft)                  # работаем на локальной копии активной базы
-        res = do_scan(roots, max_mb, limit, depth, progress_cb, stop_cb, full, db=draft)
+        res = do_scan(roots, max_mb, limit, depth, progress_cb, stop_cb, full, db=draft,
+                      param_cfg=param_cfg)
         _publish(draft)
         published = True
         res["published"] = True
@@ -533,7 +553,8 @@ def inventory(roots, max_mb=8, store=True, max_depth=None):
     return folders, files
 
 
-def do_scan(roots, max_mb, limit, depth=None, progress_cb=None, stop_cb=None, full=False, db=None):
+def do_scan(roots, max_mb, limit, depth=None, progress_cb=None, stop_cb=None, full=False, db=None,
+            param_cfg=None):
     """Скан в базу `db` (по умолчанию боевая). Обычно зовётся через scan_to_base — в черновик."""
     t0 = time.time()
     lim = float("inf") if (limit or 0) <= 0 else limit      # --limit 0 = без предела по времени
@@ -572,7 +593,8 @@ def do_scan(roots, max_mb, limit, depth=None, progress_cb=None, stop_cb=None, fu
                 progress_cb(n, total)
             continue
         try:
-            it = scan_item(s, path, codes, fstems.get(os.path.dirname(path), set()))
+            it = scan_item(s, path, codes, fstems.get(os.path.dirname(path), set()),
+                           **(param_cfg or {}))
         except Exception as e:
             log("ERROR %s: %s" % (path, e))
             continue
