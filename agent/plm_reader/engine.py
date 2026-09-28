@@ -1,12 +1,13 @@
 # -*- coding: utf-8 -*-
-r"""plm_tree V1 — ПЛМ «в лоб»: паспорт изделий, дерево производства, входимость и ИЗМЕНЕНИЯ.
+r"""PLM Reader V3 — движок ПЛМ «в лоб»: паспорт изделий, дерево производства, входимость и ИЗМЕНЕНИЯ.
 
-Creo не нужен. Своя база лежит РЯДОМ с инструментом (`plm_tree.db`) — легко перенести на другую машину.
+Creo не нужен. Своя база лежит РЯДОМ с инструментом (db\plm_reader.db) — легко перенести на другую машину.
+Корень склада ОДИН на все входы (окно, CLI, мета базы): Z:\PTC.
 
 CLI:
-  python plm_tree.py scan [--roots П1 П2] [--limit СЕК]
-  python plm_tree.py where МОДЕЛЬ        (в каких сборках и сколько раз)
-  python plm_tree.py changes [--n 40]    (журнал изменений: кто/когда/что)
+  python engine.py scan [--roots П1 П2] [--limit СЕК]
+  python engine.py where МОДЕЛЬ        (в каких сборках и сколько раз)
+  python engine.py changes [--n 40]    (журнал изменений: кто/когда/что)
 """
 import argparse
 import datetime
@@ -23,7 +24,7 @@ HERE = os.path.dirname(os.path.abspath(__file__))
 sys.path.insert(0, os.path.dirname(HERE))     # общая библиотека дома (creo_read)
 DB = os.environ.get("PLM_DB") or os.path.join(HERE, "db", "plm_reader.db")   # данные — в подпапке db\ (её не делим)
 LOG = r"D:\AI\log\plm_reader\engine.log"
-DEFAULT_ROOTS = [r"Z:\PTC\Work"]
+DEFAULT_ROOTS = [r"Z:\PTC"]      # единый корень склада: тот же, что в окне (settings.json) и в meta базы
 MODEL = re.compile(r"\.(prt|asm|drw)\.\d+$", re.IGNORECASE)
 HISTRE = re.compile(rb"\xf7(.)\xe3([0-9]{1,7})\x00\x00(.{0,220}?)\x00((?:Creo )?[0-9][0-9.]*)\x00", re.S)
 REF_PART = re.compile(rb"ref_part_tab\x00")
@@ -41,7 +42,7 @@ def derived_of(raw):
         if nm:
             return nm.group(1).decode("latin-1"), "производная"
     return "", ""
-VERSION = "V1"
+VERSION = "V3"
 
 
 def log(msg):
@@ -1084,7 +1085,7 @@ def main():
         sys.stdout.reconfigure(errors="replace")
     except Exception:
         pass
-    ap = argparse.ArgumentParser(description="plm_tree " + VERSION)
+    ap = argparse.ArgumentParser(description="PLM Reader " + VERSION)
     ap.add_argument("cmd", choices=["scan", "check", "count", "where", "changes", "tree", "rename-plan"])
     ap.add_argument("model", nargs="?")
     ap.add_argument("new", nargs="?")

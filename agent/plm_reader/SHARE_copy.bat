@@ -7,7 +7,7 @@ setlocal
 set "SRC=%~dp0"
 set "DST=%~1"
 if "%DST%"=="" echo Usage: SHARE_copy.bat "target folder" & pause & exit /b 1
-robocopy "%SRC%" "%DST%" /E /XD db _old __pycache__ /XF *.db *.pyc scan_cache.json gui_settings.json /NFL /NDL /NJH /NJS /NP
+robocopy "%SRC%" "%DST%" /E /XD db __pycache__ /XF *.db *.pyc scan_cache.json /NFL /NDL /NJH /NJS /NP
 echo.
 echo DONE. Database (db folder) was NOT copied - share stays code-only.
 echo Target: %DST%

@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-r"""PLM Reader — автономный просмотр данных изделий из файлов CAD (детали, сборки, чертежи).
+r"""PLM Reader V3 — автономный просмотр данных изделий из файлов CAD (детали, сборки, чертежи).
 
 Кнопка «Сканировать» обходит выбранную папку и показывает таблицу:
 Обозначение · Наименование · Материал · Объём (мм³) · Роль/родитель · Ревизия · Записей · Дата · Пользователь · Версия Creo · Файл.
@@ -27,8 +27,8 @@ import sys
 import threading
 import time
 
-APP_VERSION = "V2"
-APP_TITLE = "PLM Reader V2"
+APP_VERSION = "V3"
+APP_TITLE = "PLM Reader V3"
 SETTINGS_FILE = os.path.join(os.path.dirname(os.path.abspath(__file__)), "settings.json")
 DATA_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "db")   # все данные — в одном месте
 CACHE_FILE = os.path.join(DATA_DIR, "scan_cache.json")
