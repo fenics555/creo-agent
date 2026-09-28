@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-r"""PLM Reader V9 — автономный просмотр данных изделий из файлов CAD (детали, сборки, чертежи).
+r"""PLM Reader V13 — автономный просмотр данных изделий из файлов CAD (детали, сборки, чертежи).
 
 Кнопка «Сканировать» обходит выбранную папку и показывает таблицу:
 Обозначение · Наименование · Материал · Объём (мм³) · Роль/родитель · Ревизия · Записей · Дата · Пользователь · Версия Creo · Файл.
@@ -26,8 +26,8 @@ import sys
 import threading
 import time
 
-APP_VERSION = "V9"
-APP_TITLE = "PLM Reader V9"
+APP_VERSION = "V13"
+APP_TITLE = "PLM Reader V13"
 SETTINGS_FILE = os.path.join(os.path.dirname(os.path.abspath(__file__)), "settings.json")
 DATA_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "db")   # все данные — в одном месте
 CACHE_FILE = os.path.join(DATA_DIR, "scan_cache.json")
@@ -126,15 +126,24 @@ def _ver(p):
 _WINS = {}                    # открытые окна историй: одно окно на название
 
 
+def _fs_date(ts):
+    """Время файла (epoch) -> 'дд.мм.гггг чч:мм' (или пусто)."""
+    try:
+        return datetime.datetime.fromtimestamp(float(ts)).strftime("%d.%m.%Y %H:%M")
+    except Exception:
+        return ""
+
+
 def db_rows_map(folder=None, latest_only=False):
     """Единая база: путь -> (size, mtime, строка). Подсчёт версий и, если надо, только последняя."""
     try:
         c = db_conn()
+        has = any(r[1] == "created" for r in c.execute("PRAGMA table_info(snapshots)"))
         sql = ("SELECT path,model,size,mtime,volume,material,name,designation,rev,author,revdate,"
-               "role,hist,creo FROM snapshots %s")
+               "role,hist,creo%s FROM snapshots %%s" % (",created" if has else ""))
         cur = c.execute(sql % ("WHERE folder LIKE ?" if folder else ""),
                         ((folder.rstrip("\\") + "%",) if folder else ()))
-        data = list(cur)
+        data = [tuple(r) + ((None,) if not has else ()) for r in cur]
         c.close()
     except Exception:
         return {}
@@ -143,7 +152,7 @@ def db_rows_map(folder=None, latest_only=False):
         vers[d[1]] = vers.get(d[1], 0) + 1
     out, best = {}, {}
     for (p, model, size, mtime, volume, material, name, desig, rev, author, revdate,
-         role, hist, creo) in data:
+         role, hist, creo, created) in data:
         v = _ver(p)
         if latest_only:
             if model in best and v < best[model]:
@@ -155,6 +164,8 @@ def db_rows_map(folder=None, latest_only=False):
             "Объём, мм³": ("%.0f" % volume) if volume else "", "Габарит, мм": "",
             "Роль": role or "", "Родитель": "", "Ревизия": rev or "",
             "Дата": revdate or "", "Пользователь": author or "",
+            "Создан": _fs_date(created), "_created_ts": float(created or 0),
+            "Изменён": _fs_date(mtime), "_mtime_ts": float(mtime or 0),
             "Записей": str(hist or ""), "Версий": vers.get(model, 0),
             "Версия Creo": creo or "", "_path": p,
         })
@@ -165,22 +176,30 @@ def db_rows(folder=None, limit=2000, latest_only=False):
     """Строки паспортов ИЗ БАЗЫ (файлы не читаются)."""
     try:
         c = db_conn()
-        sql = ("SELECT path,volume,material,name,designation,rev,author,revdate,role,hist,creo "
-               "FROM snapshots %s ORDER BY model, path LIMIT ?")
+        has = any(r[1] == "created" for r in c.execute("PRAGMA table_info(snapshots)"))
+        sql = ("SELECT path,model,volume,material,name,designation,rev,author,revdate,role,hist,creo,"
+               "mtime%s FROM snapshots %%s ORDER BY model, path LIMIT ?" % (",created" if has else ""))
         if folder:
             cur = c.execute(sql % "WHERE folder LIKE ?",
                             (folder.rstrip("\\") + "%", limit))
+            vers = dict(c.execute("SELECT model, COUNT(*) FROM snapshots WHERE folder LIKE ? "
+                                  "GROUP BY model", (folder.rstrip("\\") + "%",)))
         else:
             cur = c.execute(sql % "", (limit,))
+            vers = dict(c.execute("SELECT model, COUNT(*) FROM snapshots GROUP BY model"))
+        data = [tuple(r) + ((None,) if not has else ()) for r in cur]
         rows = []
-        for p, volume, material, name, desig, rev, author, revdate, role, hist, creo in cur:
+        for (p, model, volume, material, name, desig, rev, author, revdate, role, hist, creo,
+             mtime, created) in data:
             rows.append({
                 "Файл": os.path.basename(p), "Тип": "", "Обозначение": desig or "",
                 "Наименование": name or "", "Материал": material or "",
                 "Объём, мм³": ("%.0f" % volume) if volume else "", "Габарит, мм": "",
                 "Роль": role or "", "Родитель": "", "Ревизия": rev or "",
                 "Дата": revdate or "", "Пользователь": author or "",
-                "Записей": str(hist or ""), "Версий": "", "Версия Creo": creo or "", "_path": p,
+                "Создан": _fs_date(created), "_created_ts": float(created or 0),
+                "Изменён": _fs_date(mtime), "_mtime_ts": float(mtime or 0),
+                "Записей": str(hist or ""), "Версий": vers.get(model, 0), "Версия Creo": creo or "", "_path": p,
             })
         c.close()
         return rows
@@ -209,7 +228,7 @@ DEFAULT_SETTINGS = {
     "auto_refresh": True,
     "columns": ["Файл", "Обозначение", "Наименование", "Материал", "Объём, мм³",
                 "Роль", "Родитель", "Ревизия", "Записей", "Версий", "Дата",
-                "Пользователь", "Версия Creo"],
+                "Создан", "Изменён", "Пользователь", "Версия Creo"],
     "param_designation": ["ОБОЗНАЧЕНИЕ", "OBOZNACHENIE", "DESIGNATION", "DESIGNATOR", "PART_NUMBER"],
     "param_name": ["НАИМЕНОВАНИЕ", "NAME", "PART_NAME", "DESCRIPTION", "TITLE"],
     "param_material": ["PTC_MASTER_MATERIAL", "MATERIAL", "МАТЕРИАЛ"],
@@ -403,7 +422,7 @@ def provenance(raw, is_part):
 
 COLS_WIDTH = {"Обозначение": 130, "Наименование": 210, "Материал": 110, "Объём, мм³": 100,
               "Роль": 110, "Родитель": 140, "Ревизия": 80, "Записей": 80, "Версий": 70, "Дата": 120,
-              "Пользователь": 100, "Версия Creo": 110, "Файл": 215}
+              "Создан": 125, "Изменён": 125, "Пользователь": 100, "Версия Creo": 110, "Файл": 215}
 
 
 def clean_computer(text):
@@ -1063,6 +1082,14 @@ def run_gui():
             settings.update(json.load(open(SETTINGS_FILE, encoding="utf-8")))
         except Exception:
             pass
+    _cols = settings.get("columns")                     # новые колонки дат — и для старых настроек
+    if isinstance(_cols, list):
+        _off = 0
+        for _c in ("Создан", "Изменён"):
+            if _c not in _cols:
+                _i = (_cols.index("Дата") + 1 + _off) if "Дата" in _cols else len(_cols)
+                _cols.insert(_i, _c)
+                _off += 1
 
     root = tk.Tk()
     root.title(APP_TITLE)
@@ -1117,6 +1144,8 @@ def run_gui():
     var_auto = tk.BooleanVar(value=settings.get("auto_refresh", True))
     ttk.Checkbutton(srow2, text="автообновление", variable=var_auto,
                     command=_auto_changed).pack(side="left", padx=(12, 0))
+    var_full = tk.BooleanVar(value=settings.get("full", False))
+    ttk.Checkbutton(srow2, text="перечитать всё", variable=var_full).pack(side="left", padx=(8, 0))
 
     mid = ttk.Frame(root, padding=(6, 0))
     mid.pack(fill="x", padx=6, pady=(0, 4))
@@ -1182,6 +1211,92 @@ def run_gui():
 
     # --- ДЕРЕВО: фильтр по ВСЕЙ базе + иерархия папок (ленивая, из базы) ---
     import engine as eng
+
+    # --- ПРОВОДНИК: папки склада иерархией (ленивая, из базы) — как в Проводнике Windows ---
+    tab_expl = ttk.Frame(nb)
+    nb.add(tab_expl, text=" Проводник ")
+    ebar = ttk.Frame(tab_expl, padding=(6, 4))
+    ebar.pack(fill="x")
+    ttk.Button(ebar, text="Обновить", command=lambda: fill_explorer()).pack(side="left", padx=4)
+    esum = ttk.Label(ebar, text="")
+    esum.pack(side="left", padx=10)
+    ebody = ttk.Frame(tab_expl)
+    ebody.pack(fill="both", expand=True, padx=6, pady=(0, 6))
+    ebody.rowconfigure(0, weight=1)
+    ebody.columnconfigure(0, weight=1)
+    ECOLS = ("Тип", "Файл", "Обозначение", "Наименование", "Материал", "Объём, мм³",
+             "Ревизия", "Роль", "Путь")
+    eview = ttk.Treeview(ebody, columns=ECOLS, show="tree headings", height=18)
+    eview.heading("#0", text="папка / файл")
+    eview.column("#0", width=300, anchor="w")
+    for c in ECOLS:
+        eview.heading(c, text=c)
+        eview.column(c, width=COLS_WIDTH.get(c, 130), anchor="w")
+    evs = ttk.Scrollbar(ebody, orient="vertical", command=eview.yview)
+    ehs = ttk.Scrollbar(ebody, orient="horizontal", command=eview.xview)
+    eview.configure(yscrollcommand=evs.set, xscrollcommand=ehs.set)
+    eview.grid(row=0, column=0, sticky="nsew")
+    evs.grid(row=0, column=1, sticky="ns")
+    ehs.grid(row=1, column=0, sticky="ew")
+    _EFOLD, _EFILE = {}, {}
+
+    def _e_short(p):
+        return p if len(p) <= 90 else "…" + p[-88:]
+
+    def _expl_node(parent, folder):
+        a, b = eng.folder_files_count(folder)
+        n = eview.insert(parent, "end",
+                         text="%s  [%d папок, %d файлов]" % (os.path.basename(folder) or folder, a, b),
+                         values=("папка", "", "", "", "", "", "", "", _e_short(folder)))
+        _EFOLD[n] = folder
+        eview.insert(n, "end", text="загрузка…")      # «плюсик» для раскрытия
+        return n
+
+    def _expl_fill(node):
+        folder = _EFOLD.get(node)
+        if folder is None:
+            return
+        for ch in eview.get_children(node):
+            eview.delete(ch)
+        subs, files = eng.folder_children(folder)
+        for p, desig, name, material, volume, rev, role in files:
+            n = eview.insert(node, "end", text=os.path.basename(p), values=(
+                "файл", os.path.basename(p), desig or "", name or "", material or "",
+                ("%.0f" % volume) if volume else "", rev or "", role or "", _e_short(p)))
+            _EFILE[n] = p
+        for s in subs:
+            _expl_node(node, s)
+
+    def fill_explorer():
+        eview.delete(*eview.get_children())
+        _EFOLD.clear()
+        _EFILE.clear()
+        try:
+            roots = eng.base_roots()
+        except Exception:
+            roots = []
+        if not roots:
+            try:
+                roots = json.loads(eng.meta_get("roots") or "null") or []
+            except Exception:
+                roots = []
+        for r in roots:
+            _expl_node("", r)
+        esum.config(text="корней: %d — раскрывай папки" % len(roots))
+
+    def _expl_dbl(event=None):
+        path = _EFILE.get(eview.focus())
+        if path and os.path.isfile(path):
+            history_window(root, tk, ttk, filedialog,
+                           "История изменений — %s" % os.path.basename(path),
+                           lambda: history_rows(path, hist_settings()),
+                           settings=settings, save_settings=save_settings,
+                           status=os.path.basename(path))
+
+    eview.bind("<<TreeviewOpen>>", lambda ev: _expl_fill(eview.focus()))
+    eview.bind("<Double-1>", _expl_dbl)
+    fill_explorer()
+
     _deb = {"id": None}
 
     def debounce(fn, ms=450):
@@ -1866,6 +1981,10 @@ def run_gui():
         if col == "Дата":
             d = parse_dt(v)
             return (0, d.timestamp()) if d else (1, 0)
+        if col == "Создан":
+            return (0, float(r.get("_created_ts") or 0))
+        if col == "Изменён":
+            return (0, float(r.get("_mtime_ts") or 0))
         return (0, str(v).lower())
 
     def set_sort(col):
@@ -2025,8 +2144,8 @@ def run_gui():
         root.after(15000, watch_db)
 
     ALL_FIELDS = ["Файл", "Обозначение", "Наименование", "Материал", "Объём, мм³", "Тип",
-                  "Роль", "Родитель", "Записей", "Версий", "Ревизия", "Дата", "Пользователь",
-                  "Версия Creo", "Габарит, мм"]
+                  "Роль", "Родитель", "Записей", "Версий", "Ревизия", "Дата",
+                  "Создан", "Изменён", "Пользователь", "Версия Creo", "Габарит, мм"]
 
     def save_settings():
         try:
@@ -2175,7 +2294,8 @@ def run_gui():
             res = eng.scan_to_base([folder], float(opts.get("max_size_mb") or 8), 3600.0,
                                    (int(e_depth.get() or 0) or None),
                                    progress_cb=pc,
-                                   stop_cb=lambda: getattr(root, "_plm_stop", False)) or {}
+                                   stop_cb=lambda: getattr(root, "_plm_stop", False),
+                                   full=bool(opts.get("full"))) or {}
         except Exception as e:
             res = {"error": str(e)}
         q.put(("done", 0, res))
@@ -2190,7 +2310,7 @@ def run_gui():
         tree.delete(*tree.get_children())
         rows_all.clear()
         opts = {"max_size_mb": float(e_max.get() or 0), "recurse": var_rec.get(),
-                "latest_only": var_lat.get()}
+                "latest_only": var_lat.get(), "full": var_full.get()}
         btn.config(state="disabled")
         b_stop.config(state="normal")
         root._plm_stop = False
@@ -2208,7 +2328,7 @@ def run_gui():
         settings.update({"folder": folder, "max_size_mb": opts["max_size_mb"],
                          "recurse": opts["recurse"], "latest_only": opts["latest_only"],
                          "depth": int(e_depth.get() or 0), "purge_keep": int(e_keep.get() or 2),
-                         "auto_refresh": var_auto.get()})
+                         "auto_refresh": var_auto.get(), "full": var_full.get()})
         save_settings()
         threading.Thread(target=worker, args=(folder, opts), daemon=True).start()
         root.after(120, poll_scan)

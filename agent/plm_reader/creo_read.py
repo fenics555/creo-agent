@@ -12,6 +12,7 @@ from collections import Counter
 
 TAIL = re.compile(rb"\xf7(.)\xe3([0-9]{1,7})\x00\x00(.{0,220}?)\x00((?:Creo )?[0-9][0-9.]*)\x00", re.S)
 STAMP = re.compile(rb"\xf7\x14([\x20-\x7e\xc0-\xff]{1,24}?)\x00\xe2(.)(.)(.)(.)(.)(.)", re.S)
+STAMP2 = re.compile(rb"\xe1\xf6\xe1([\x20-\x7e\xc0-\xff]{1,24}?)\x00\xe2(.)(.)(.)(.)(.)(.)", re.S)
 NAME_B = re.compile(rb"[\x00-\x1f\x80-\xff]([A-Za-z0-9][A-Za-z0-9_\-\.]{3,47}\.(?:PRT|ASM))",
                     re.IGNORECASE)
 
@@ -71,19 +72,19 @@ def real(raw, key):
 
 
 def params(raw, toc):
-    """Параметры изделия из NeuPrtSld (`<имя>\\0 e2 33 <текст>`)."""
+    """Параметры изделия `<имя>\\0 e2 33 <текст>`: сначала секция NeuPrtSld, затем — по ВСЕМУ файлу
+    (у .asm/.prt часть параметров лежит вне этой секции: МАТЕРИАЛ, PTC_MATERIAL_NAME, НАИМЕНОВАНИЕ…)."""
     out = {}
-    if "NeuPrtSld" not in toc:
-        return out
-    off, ln = toc["NeuPrtSld"][0], toc["NeuPrtSld"][1]
-    for m in re.finditer(rb"([\x20-\xff]{3,32})\x00\xe2\x33(.{0,60}?)\x00", raw[off:off + ln], re.S):
-        t = re.search(r"[\w]+$", m.group(1).decode("utf-8", "replace"))
-        try:
-            v = m.group(2).decode("utf-8")
-        except UnicodeDecodeError:
-            continue
-        if t and v and "\x00" not in v:
-            out.setdefault(t.group(0), " ".join(v.split()))
+    off, ln = toc.get("NeuPrtSld", (0, 0))
+    for src in (raw[off:off + ln], raw):
+        for m in re.finditer(rb"([\x20-\xff]{3,32})\x00\xe2\x33(.{0,60}?)\x00", src, re.S):
+            t = re.search(r"[\w]+$", m.group(1).decode("utf-8", "replace"))
+            try:
+                v = m.group(2).decode("utf-8")
+            except UnicodeDecodeError:
+                continue
+            if t and v and "\x00" not in v:
+                out.setdefault(t.group(0), " ".join(v.split()))
     return out
 
 
@@ -109,20 +110,22 @@ def role(raw, stems=frozenset(), me=""):
 
 
 def user_time(raw):
-    """Все пары (позиция, пользователь, дата) из истории — по убыванию позиции."""
+    """Все пары (позиция, пользователь, дата) из истории — по возрастанию позиции.
+    Две раскладки записи: `f7 14 <user> 00 e2 <6 байт>` и `e1 f6 e1 <user> 00 e2 <6 байт>`."""
     out = []
-    for m in STAMP.finditer(raw):
-        s, mi, h, d, mo, y = (b[0] for b in m.groups()[1:])
-        try:
-            dt = datetime.datetime(1900 + y, mo + 1, d, h, mi, s)
-        except ValueError:
-            continue
-        if 1990 <= dt.year <= 2030:
+    for rx in (STAMP, STAMP2):
+        for m in rx.finditer(raw):
+            s, mi, h, d, mo, y = (b[0] for b in m.groups()[1:])
             try:
-                who = m.group(1).decode("utf-8")
-            except UnicodeDecodeError:
-                who = m.group(1).decode("cp1251", "replace")
-            out.append((m.start(), who, dt))
+                dt = datetime.datetime(1900 + y, mo + 1, d, h, mi, s)
+            except ValueError:
+                continue
+            if 1990 <= dt.year <= 2030:
+                try:
+                    who = m.group(1).decode("utf-8")
+                except UnicodeDecodeError:
+                    who = m.group(1).decode("cp1251", "replace")
+                out.append((m.start(), who, dt))
     return sorted(set(out))
 
 

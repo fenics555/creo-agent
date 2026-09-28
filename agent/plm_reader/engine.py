@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-r"""PLM Reader V9 — движок ПЛМ «в лоб»: паспорт изделий, дерево производства, входимость и ИЗМЕНЕНИЯ.
+r"""PLM Reader V13 — движок ПЛМ «в лоб»: паспорт изделий, дерево производства, входимость и ИЗМЕНЕНИЯ.
 
 Creo не нужен. Своя база лежит РЯДОМ с инструментом (db\plm_reader.db) — легко перенести на другую машину.
 Корень склада ОДИН на все входы (окно, CLI, мета базы): Z:\PTC.
@@ -44,7 +44,7 @@ def derived_of(raw):
         if nm:
             return nm.group(1).decode("latin-1"), "производная"
     return "", ""
-VERSION = "V9"
+VERSION = "V13"
 
 
 def log(msg):
@@ -217,10 +217,27 @@ def collect_stat(roots, max_mb, max_depth=None):
                     except OSError:
                         continue
                     if st.st_size <= lim:
-                        out.append((p, st.st_size, st.st_mtime))
+                        out.append((p, st.st_size, st.st_mtime, st.st_ctime))
             except Exception:
                 pass
     return out
+
+
+_PARAM_DES = ("\u041e\u0411\u041e\u0417\u041d\u0410\u0427\u0415\u041d\u0418\u0415", "OBOZNACHENIE",
+              "DESIGNATION", "PART_NUMBER")
+_PARAM_NAME = ("\u041d\u0410\u0418\u041c\u0415\u041d\u041e\u0412\u0410\u041d\u0418\u0415", "NAIMENOVANIE",
+               "NAME", "PART_NAME", "TITLE")
+_PARAM_MAT = ("PTC_MASTER_MATERIAL", "PTC_MATERIAL_NAME", "PTC_MATERIAL_DESCRIPTION",
+              "\u041c\u0410\u0422\u0415\u0420\u0418\u0410\u041b", "MATERIAL")
+
+
+def _pfirst(pr, keys):
+    """Первое непустое значение параметра из списка ключей (по приоритету)."""
+    for k in keys:
+        v = pr.get(k)
+        if v:
+            return v
+    return ""
 
 
 def scan_item(s, path, stems, fstems=frozenset()):
@@ -233,9 +250,9 @@ def scan_item(s, path, stems, fstems=frozenset()):
     hm = HISTRE.findall(raw)
     base, dkind = derived_of(raw)
     return {"model": s, "path": path, "size": len(raw), "mtime": os.path.getmtime(path),
-            "volume": vol or 0.0, "material": pr.get("PTC_MASTER_MATERIAL") or "",
-            "name": pr.get("\u041d\u0410\u0418\u041c\u0415\u041d\u041e\u0412\u0410\u041d\u0418\u0415") or "",
-            "designation": pr.get("\u041e\u0411\u041e\u0417\u041d\u0410\u0427\u0415\u041d\u0418\u0415") or "",
+            "volume": vol or 0.0, "material": _pfirst(pr, _PARAM_MAT),
+            "name": _pfirst(pr, _PARAM_NAME),
+            "designation": _pfirst(pr, _PARAM_DES),
             "rev": h[0], "author": h[1], "revdate": h[2], "role": role(raw, fstems, s), "refs": refs,
             "hist": len(hm), "creo": (hm[-1][3].decode("latin-1") if hm else ""),
             "base": base, "dkind": dkind}
@@ -261,7 +278,7 @@ SCHEMA = """
 CREATE TABLE IF NOT EXISTS snapshots (
   path TEXT PRIMARY KEY, model TEXT, folder TEXT, size INTEGER, mtime REAL, volume REAL,
   material TEXT, name TEXT, designation TEXT, rev TEXT, author TEXT, revdate TEXT,
-  role TEXT, seen TEXT, hist INTEGER, creo TEXT);
+  role TEXT, seen TEXT, hist INTEGER, creo TEXT, created REAL);
 CREATE TABLE IF NOT EXISTS changes (
   id INTEGER PRIMARY KEY AUTOINCREMENT, item TEXT, rev TEXT, kind TEXT, descr TEXT,
   who TEXT, ts TEXT);
@@ -328,6 +345,9 @@ def connect(ro=False, db=None):
         elif cols and "hist" not in cols:                 # 25.09: добавили число записей и версию Creo
             con.execute("ALTER TABLE snapshots ADD COLUMN hist INTEGER")
             con.execute("ALTER TABLE snapshots ADD COLUMN creo TEXT")
+            con.commit()
+        if cols and "created" not in cols:                # 28.09: дата создания файла (ОС)
+            con.execute("ALTER TABLE snapshots ADD COLUMN created REAL")
             con.commit()
     except Exception:
         pass
@@ -519,19 +539,20 @@ def do_scan(roots, max_mb, limit, depth=None, progress_cb=None, stop_cb=None, fu
     lim = float("inf") if (limit or 0) <= 0 else limit      # --limit 0 = без предела по времени
     files_stat = collect_stat(roots, max_mb, depth)
     total = len(files_stat)
-    codes = {stem(os.path.basename(p)) for p, _, _ in files_stat}
+    codes = {stem(os.path.basename(p)) for p, _, _, _ in files_stat}
     fstems = defaultdict(set)
-    for p, _, _ in files_stat:
+    for p, _, _, _ in files_stat:
         fstems[os.path.dirname(p)].add(stem(os.path.basename(p)))
     con = connect(db=db)
     prev = {r[0]: r for r in con.execute(
-        "SELECT path,volume,material,name,designation,rev,author,revdate,role,size,mtime FROM snapshots")}
+        "SELECT path,volume,material,name,designation,rev,author,revdate,role,size,mtime,created "
+        "FROM snapshots")}
     now = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
     done = new = mod = skipped = 0
     seen = set()
     n = 0
     stopped = False
-    for path, size, mtime in files_stat:
+    for path, size, mtime, ctime in files_stat:
         if time.time() - t0 > lim:
             break
         if stop_cb and stop_cb():
@@ -542,6 +563,11 @@ def do_scan(roots, max_mb, limit, depth=None, progress_cb=None, stop_cb=None, fu
         old = prev.get(path)
         if not full and old and int(old[9] or 0) == size and abs(float(old[10] or 0) - mtime) < 1.0:
             skipped += 1                     # НЕ изменился (размер+время) — НЕ читаем и не трогаем
+            if old[11] is None or float(old[11] or 0) <= 0:   # дозаполнить «Создан» (без чтения файла)
+                try:
+                    con.execute("UPDATE snapshots SET created=? WHERE path=?", (ctime, path))
+                except Exception:
+                    pass
             if progress_cb and n % 25 == 0:
                 progress_cb(n, total)
             continue
@@ -567,10 +593,11 @@ def do_scan(roots, max_mb, limit, depth=None, progress_cb=None, stop_cb=None, fu
             con.execute("INSERT INTO changes (item,rev,kind,descr,who,ts) VALUES (?,?,?,?,?,?)",
                         (path, it["rev"], "new", "первая запись паспорта", it["author"], now))
             new += 1
-        con.execute("INSERT OR REPLACE INTO snapshots VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)",
+        con.execute("INSERT OR REPLACE INTO snapshots VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)",
                     (it["path"], it["model"], os.path.dirname(path), it["size"], it["mtime"],
                      it["volume"], it["material"], it["name"], it["designation"], it["rev"],
-                     it["author"], it["revdate"], it["role"], now, it.get("hist", 0), it.get("creo", "")))
+                     it["author"], it["revdate"], it["role"], now, it.get("hist", 0),
+                     it.get("creo", ""), ctime))
         if it.get("base"):                      # деталь ← заготовка/отливка
             con.execute("DELETE FROM derived WHERE child=? AND source='plm_tree'", (s,))
             con.execute("INSERT INTO derived VALUES (?,?,?,?)",
@@ -776,7 +803,7 @@ def do_check(roots=None, max_mb=8.0, depth=None):
     prev = {r[0]: (r[1], r[2]) for r in con.execute("SELECT path,size,mtime FROM snapshots")}
     con.close()
     found, new, changed, same = set(), 0, 0, 0
-    for p, size, mtime in files:
+    for p, size, mtime, _ctime in files:
         found.add(p)
         old = prev.get(p)
         if old is None:
