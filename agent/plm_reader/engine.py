@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-r"""PLM Reader V5 — движок ПЛМ «в лоб»: паспорт изделий, дерево производства, входимость и ИЗМЕНЕНИЯ.
+r"""PLM Reader V8 — движок ПЛМ «в лоб»: паспорт изделий, дерево производства, входимость и ИЗМЕНЕНИЯ.
 
 Creo не нужен. Своя база лежит РЯДОМ с инструментом (db\plm_reader.db) — легко перенести на другую машину.
 Корень склада ОДИН на все входы (окно, CLI, мета базы): Z:\PTC.
@@ -44,7 +44,7 @@ def derived_of(raw):
         if nm:
             return nm.group(1).decode("latin-1"), "производная"
     return "", ""
-VERSION = "V5"
+VERSION = "V8"
 
 
 def log(msg):
@@ -274,9 +274,50 @@ CREATE TABLE IF NOT EXISTS folders (path TEXT PRIMARY KEY, parent TEXT, depth IN
 """
 
 
-def connect():
-    os.makedirs(os.path.dirname(DB), exist_ok=True)      # подпапка данных db\ создаётся сама
-    con = sqlite3.connect(DB, timeout=30)
+# --- АКТИВНАЯ БАЗА: свежайший опубликованный файл — замены файла не требуется (обходит блокировку по сети) ---
+def _base_dir():
+    return os.path.dirname(DB)
+
+
+def _versioned(dbdir=None):
+    """Опубликованные versioned-базы plm_reader_ГГГГММДД_ЧЧММСС.db, по возрастанию имени."""
+    d = dbdir or _base_dir()
+    try:
+        return sorted(f for f in os.listdir(d)
+                      if re.match(r"^plm_reader_\d{8}_\d{6}\.db$", f))
+    except Exception:
+        return []
+
+
+def active_db():
+    """Путь к АКТИВНОЙ базе: свежайший versioned-файл, иначе legacy `plm_reader.db`."""
+    v = _versioned()
+    if v:
+        return os.path.join(_base_dir(), v[-1])
+    return DB
+
+
+def _rotate(keep=3):
+    """Оставить последние `keep` versioned-баз; старые удалить (best-effort — блокировка не мешает)."""
+    for name in _versioned()[:-keep]:
+        try:
+            os.remove(os.path.join(_base_dir(), name))
+        except Exception:
+            pass
+
+
+def connect(ro=False, db=None):
+    """Соединение с базой. ro=True — ТОЛЬКО ЧТЕНИЕ (PRAGMA query_only): просмотрщик ничего не пишет.
+    db — путь базы (для черновика скана); по умолчанию боевая."""
+    path = db or active_db()
+    os.makedirs(os.path.dirname(path), exist_ok=True)
+    con = sqlite3.connect(path, timeout=30)
+    if ro:                                   # просмотр: без миграции/схемы и без записи вовсе
+        try:
+            con.execute("PRAGMA query_only=ON")
+        except Exception:
+            pass
+        return con
     # миграция 25.09.2026: старый ключ (model) → ключ по ПУТИ; старые snapshots/links пересоздаём
     try:
         cols = [r[1] for r in con.execute("PRAGMA table_info(snapshots)")]
@@ -293,6 +334,148 @@ def connect():
     con.executescript(SCHEMA)
     con.commit()
     return con
+
+
+# --- ЗАМОК СКАНА: один писатель на общую базу (файл рядом с базой) ---
+LOCK_FILE = os.path.join(os.path.dirname(DB), "plm.lock")
+LOCK_STALE_SEC = 180
+
+
+def _lock_owner():
+    import socket
+    return {"machine": os.environ.get("COMPUTERNAME") or socket.gethostname(),
+            "user": os.environ.get("USERNAME") or os.environ.get("USER") or "?",
+            "pid": os.getpid(), "ts": time.time()}
+
+
+def lock_status():
+    """(занят, текст). Нет/битый/протухший замок = свободно."""
+    try:
+        with open(LOCK_FILE, "r", encoding="utf-8") as f:
+            info = json.load(f)
+    except Exception:
+        return False, ""
+    ts = float(info.get("ts") or 0)
+    if time.time() - ts > LOCK_STALE_SEC:
+        return False, ""                        # протух — владелец, похоже, упал
+    return True, "идёт скан на %s с %s (пользователь %s)" % (
+        info.get("machine", "?"), time.strftime("%H:%M", time.localtime(ts)), info.get("user", "?"))
+
+
+def lock_acquire():
+    """Атомарно занять замок. (True,'') либо (False, текст «занято»)."""
+    try:
+        os.makedirs(os.path.dirname(LOCK_FILE), exist_ok=True)
+    except Exception:
+        pass
+    for _ in range(2):
+        try:
+            with open(LOCK_FILE, "x", encoding="utf-8") as f:
+                json.dump(_lock_owner(), f)
+            return True, ""
+        except FileExistsError:
+            busy, txt = lock_status()
+            if busy:
+                return False, txt
+            try:
+                os.remove(LOCK_FILE)            # забрать протухший и повторить
+            except Exception:
+                return False, "замок занят: не удалось отобрать протухший"
+        except Exception as e:
+            return False, "нет доступа к замку: %s" % e
+    return False, "замок занят"
+
+
+def lock_heartbeat():
+    try:
+        with open(LOCK_FILE, "w", encoding="utf-8") as f:
+            json.dump(_lock_owner(), f)
+    except Exception:
+        pass
+
+
+def lock_release():
+    try:
+        with open(LOCK_FILE, "r", encoding="utf-8") as f:
+            mine = int(json.load(f).get("pid") or -1) == os.getpid()
+    except Exception:
+        mine = True
+    if mine:
+        try:
+            os.remove(LOCK_FILE)
+        except Exception:
+            pass
+
+
+# --- ПУБЛИКАЦИЯ: боевая база меняется только целиком и атомарно ---
+def _backup_dir():
+    return os.path.join(os.path.dirname(DB), "backup")
+
+
+def _publish(draft):
+    """Публикация БЕЗ замены файла: пишем НОВЫЙ versioned-файл — открытые файлы на шаре не мешают."""
+    import shutil
+    ts = datetime.datetime.now().strftime("%Y%m%d_%H%M%S")
+    d = _base_dir()
+    os.makedirs(d, exist_ok=True)
+    try:                                         # бэкап текущей активной базы
+        prev = active_db()
+        if os.path.isfile(prev):
+            bdir = _backup_dir()
+            os.makedirs(bdir, exist_ok=True)
+            shutil.copy2(prev, os.path.join(bdir, "plm_reader_%s.db" % ts))
+    except Exception as e:
+        log("backup fail: %s" % e)
+    ver = os.path.join(d, "plm_reader_%s.db" % ts)
+    shutil.copy2(draft, ver)                     # НОВЫЙ файл — существующее не заменяем
+    log("publish: новая база %s" % ver)
+    _rotate(3)
+    return ver
+
+
+def scan_to_base(roots, max_mb=8, limit=120, depth=None, progress_cb=None, stop_cb=None, full=False):
+    """СКАН С ЗАЩИТОЙ: замок → скан в ЛОКАЛЬНЫЙ черновик → публикация (бэкап + подмена).
+
+    Боевая база не меняется до успешного завершения; при любом сбое остаётся прежней.
+    """
+    import shutil
+    import tempfile
+    import threading
+    ok, info = lock_acquire()
+    if not ok:
+        return {"error": info, "busy": True}          # окно покажет «Занято: …»
+    stop_hb = threading.Event()
+
+    def _hb():
+        while not stop_hb.wait(30):
+            lock_heartbeat()
+
+    threading.Thread(target=_hb, daemon=True).start()
+    draft = os.path.join(tempfile.gettempdir(), "plm_reader_draft_%d.db" % os.getpid())
+    published = False
+    try:
+        src = active_db()
+        if os.path.isfile(src):
+            shutil.copy2(src, draft)                  # работаем на локальной копии активной базы
+        res = do_scan(roots, max_mb, limit, depth, progress_cb, stop_cb, full, db=draft)
+        _publish(draft)
+        published = True
+        res["published"] = True
+        return res
+    except Exception as e:
+        log("scan_to_base ERROR: %s" % e)
+        return {"error": str(e), "published": False}
+    finally:
+        stop_hb.set()
+        lock_release()
+        if published:
+            try:
+                if os.path.isfile(draft):
+                    os.remove(draft)
+            except Exception:
+                pass
+        else:
+            log("draft kept (publish failed): %s" % draft)   # скан не потерян
 
 
 def inventory(roots, max_mb=8, store=True, max_depth=None):
@@ -330,7 +513,8 @@ def inventory(roots, max_mb=8, store=True, max_depth=None):
     return folders, files
 
 
-def do_scan(roots, max_mb, limit, depth=None, progress_cb=None, stop_cb=None, full=False):
+def do_scan(roots, max_mb, limit, depth=None, progress_cb=None, stop_cb=None, full=False, db=None):
+    """Скан в базу `db` (по умолчанию боевая). Обычно зовётся через scan_to_base — в черновик."""
     t0 = time.time()
     lim = float("inf") if (limit or 0) <= 0 else limit      # --limit 0 = без предела по времени
     files_stat = collect_stat(roots, max_mb, depth)
@@ -339,7 +523,7 @@ def do_scan(roots, max_mb, limit, depth=None, progress_cb=None, stop_cb=None, fu
     fstems = defaultdict(set)
     for p, _, _ in files_stat:
         fstems[os.path.dirname(p)].add(stem(os.path.basename(p)))
-    con = connect()
+    con = connect(db=db)
     prev = {r[0]: r for r in con.execute(
         "SELECT path,volume,material,name,designation,rev,author,revdate,role,size,mtime FROM snapshots")}
     now = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
@@ -419,7 +603,7 @@ def do_scan(roots, max_mb, limit, depth=None, progress_cb=None, stop_cb=None, fu
     log("scan: файлов %d, новых %d, изменённых %d, пропущено %d, за %.1f с"
         % (done, new, mod, skipped, dt))
     print("scan: обработано %d из %d | новых %d | изменённых %d | пропущено (без изменений) %d | за %.1f с%s | база %s"
-          % (done, total, new, mod, skipped, dt, " | ОСТАНОВЛЕНО" if stopped else "", DB))
+          % (done, total, new, mod, skipped, dt, " | ОСТАНОВЛЕНО" if stopped else "", db or DB))
     return {"done": done, "total": total, "new": new, "mod": mod, "skipped": skipped,
             "stopped": stopped, "secs": round(dt, 1)}
 
@@ -1171,7 +1355,7 @@ def main():
     ap.add_argument("--full", action="store_true", help="перечитать все файлы заново (дозаполнить поля)")
     a = ap.parse_args()
     if a.cmd == "scan":
-        do_scan(a.roots, a.max_mb, a.limit, (a.max_depth or None), full=a.full)
+        scan_to_base(a.roots, a.max_mb, a.limit, (a.max_depth or None), full=a.full)
     elif a.cmd == "check":
         do_check(a.roots if a.roots != DEFAULT_ROOTS else None, a.max_mb, (a.max_depth or None))
     elif a.cmd == "count":

@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-r"""PLM Reader V5 — автономный просмотр данных изделий из файлов CAD (детали, сборки, чертежи).
+r"""PLM Reader V8 — автономный просмотр данных изделий из файлов CAD (детали, сборки, чертежи).
 
 Кнопка «Сканировать» обходит выбранную папку и показывает таблицу:
 Обозначение · Наименование · Материал · Объём (мм³) · Роль/родитель · Ревизия · Записей · Дата · Пользователь · Версия Creo · Файл.
@@ -26,8 +26,8 @@ import sys
 import threading
 import time
 
-APP_VERSION = "V5"
-APP_TITLE = "PLM Reader V5"
+APP_VERSION = "V8"
+APP_TITLE = "PLM Reader V8"
 SETTINGS_FILE = os.path.join(os.path.dirname(os.path.abspath(__file__)), "settings.json")
 DATA_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "db")   # все данные — в одном месте
 CACHE_FILE = os.path.join(DATA_DIR, "scan_cache.json")
@@ -59,9 +59,31 @@ def save_cache(cache):
 DB_FILE = os.path.join(DATA_DIR, "plm_reader.db")
 
 
-def db_conn():
+def _active_db_file():
+    """Свежайшая опубликованная база plm_reader_ГГГГММДД_ЧЧММСС.db, иначе legacy plm_reader.db."""
+    try:
+        cand = sorted(f for f in os.listdir(DATA_DIR)
+                      if re.match(r"^plm_reader_\d{8}_\d{6}\.db$", f))
+        if cand:
+            return os.path.join(DATA_DIR, cand[-1])
+    except Exception:
+        pass
+    return DB_FILE
+
+
+def db_conn(ro=True):
+    """Соединение с базой для ПРОСМОТРА: только чтение (PRAGMA query_only), ничего не пишет."""
     import sqlite3
-    return sqlite3.connect(DB_FILE, timeout=15)
+    path = _active_db_file()
+    if ro and not os.path.isfile(path):
+        raise FileNotFoundError(path)          # не создаём пустую базу при просмотре
+    c = sqlite3.connect(path, timeout=15)
+    if ro:
+        try:
+            c.execute("PRAGMA query_only=ON")
+        except Exception:
+            pass
+    return c
 
 
 def db_summary():
@@ -1104,8 +1126,32 @@ def run_gui():
 
     data = ttk.Frame(root, padding=6)
     data.pack(fill="x", padx=6, pady=(0, 4))
+
+    def _copy_status():
+        """Скопировать нижнюю строку в буфер (удобно переслать ошибку целиком)."""
+        try:
+            txt = lbl.cget("text")
+            root.clipboard_clear()
+            root.clipboard_append(str(txt))
+            lbl.config(text="✓ строку скопировано — вставь в чат/письмо (Ctrl+V)")
+            root.after(1500, lambda: lbl.config(text=txt))
+        except Exception:
+            pass
+
+    btn_copy = ttk.Button(data, text="Копировать", width=12, command=_copy_status)
+    btn_copy.pack(side="right", padx=(6, 0))
     lbl = ttk.Label(data, text="готов", anchor="w", justify="left")
-    lbl.pack(fill="x")
+    lbl.pack(side="left", fill="x", expand=True)
+
+    def _status_menu(event):
+        m = tk.Menu(root, tearoff=0)
+        m.add_command(label="Копировать строку", command=_copy_status)
+        try:
+            m.tk_popup(event.x_root, event.y_root)
+        finally:
+            m.grab_release()
+
+    lbl.bind("<Button-3>", _status_menu)          # ПКМ по строке = меню «Копировать»
 
     def _wrap_data(event=None):
         try:
@@ -2026,7 +2072,9 @@ def run_gui():
                 else:
                     st = msg[2] if len(msg) > 2 else {}
                     _secs = time.time() - getattr(root, "_plm_t0", time.time())
-                    if st.get("error"):
+                    if st.get("busy"):
+                        lbl.config(text="Занято: %s" % st["error"])
+                    elif st.get("error"):
                         lbl.config(text="скан не удался: %s" % st["error"])
                     else:
                         folder = norm_path(e_folder.get())
@@ -2058,10 +2106,10 @@ def run_gui():
             q.put(("prog", n, total, "", 0, 0))
 
         try:
-            res = eng.do_scan([folder], float(opts.get("max_size_mb") or 8), 3600.0,
-                              (int(e_depth.get() or 0) or None),
-                              progress_cb=pc,
-                              stop_cb=lambda: getattr(root, "_plm_stop", False)) or {}
+            res = eng.scan_to_base([folder], float(opts.get("max_size_mb") or 8), 3600.0,
+                                   (int(e_depth.get() or 0) or None),
+                                   progress_cb=pc,
+                                   stop_cb=lambda: getattr(root, "_plm_stop", False)) or {}
         except Exception as e:
             res = {"error": str(e)}
         q.put(("done", 0, res))
