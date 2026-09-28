@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-r"""PLM Reader V8 — автономный просмотр данных изделий из файлов CAD (детали, сборки, чертежи).
+r"""PLM Reader V9 — автономный просмотр данных изделий из файлов CAD (детали, сборки, чертежи).
 
 Кнопка «Сканировать» обходит выбранную папку и показывает таблицу:
 Обозначение · Наименование · Материал · Объём (мм³) · Роль/родитель · Ревизия · Записей · Дата · Пользователь · Версия Creo · Файл.
@@ -26,8 +26,8 @@ import sys
 import threading
 import time
 
-APP_VERSION = "V8"
-APP_TITLE = "PLM Reader V8"
+APP_VERSION = "V9"
+APP_TITLE = "PLM Reader V9"
 SETTINGS_FILE = os.path.join(os.path.dirname(os.path.abspath(__file__)), "settings.json")
 DATA_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "db")   # все данные — в одном месте
 CACHE_FILE = os.path.join(DATA_DIR, "scan_cache.json")
@@ -206,6 +206,7 @@ DEFAULT_SETTINGS = {
     "folder": "",
     "max_size_mb": 24,
     "recurse": True,
+    "auto_refresh": True,
     "columns": ["Файл", "Обозначение", "Наименование", "Материал", "Объём, мм³",
                 "Роль", "Родитель", "Ревизия", "Записей", "Версий", "Дата",
                 "Пользователь", "Версия Creo"],
@@ -1106,6 +1107,17 @@ def run_gui():
     e_keep.pack(side="left", padx=4)
     ttk.Label(srow2, text="(старые версии — в бэкап, удаления нет)", foreground="#666").pack(side="left", padx=(8, 0))
 
+    def _auto_changed():
+        try:
+            settings["auto_refresh"] = bool(var_auto.get())
+            save_settings()
+        except Exception:
+            pass
+
+    var_auto = tk.BooleanVar(value=settings.get("auto_refresh", True))
+    ttk.Checkbutton(srow2, text="автообновление", variable=var_auto,
+                    command=_auto_changed).pack(side="left", padx=(12, 0))
+
     mid = ttk.Frame(root, padding=(6, 0))
     mid.pack(fill="x", padx=6, pady=(0, 4))
     btn = ttk.Button(mid, text="Сканировать")
@@ -1963,6 +1975,55 @@ def run_gui():
                    % (len(rows_all), tot, folder or "вся база"))
         log_line("base: показано %d из %d (папка %s)" % (len(rows_all), tot, folder or "вся база"))
 
+    def _active_stamp():
+        """Отпечаток активной базы (имя+время) — по нему замечаем публикацию другого ПК."""
+        try:
+            p = _active_db_file()
+            return "%s|%d" % (os.path.basename(p), int(os.path.getmtime(p)))
+        except Exception:
+            return ""
+
+    def refresh_from_db(reason=None, stamp=None):
+        """Перечитать таблицу из СВЕЖАЙШЕЙ базы (фильтр и выделение сохраняются)."""
+        if getattr(root, "_plm_scan_active", False) or getattr(root, "_plm_refreshing", False):
+            return
+        root._plm_refreshing = True
+        try:
+            sel = tree.selection()
+            keep = sel[0] if sel else ""
+            load_base()
+            if keep and keep in tree.get_children():
+                try:
+                    tree.selection_set(keep)
+                except Exception:
+                    pass
+            root._plm_db_stamp = stamp if stamp is not None else _active_stamp()
+            if reason:
+                lbl.config(text=reason)
+        finally:
+            root._plm_refreshing = False
+
+    def watch_db():
+        """Раз в 15 с: не появилась ли на складе более свежая база (её опубликовал другой ПК)."""
+        try:
+            enabled = bool(var_auto.get())
+        except Exception:
+            enabled = True
+        if enabled and not getattr(root, "_plm_scan_active", False):
+            def work():
+                st = _active_stamp()
+                if st and st != getattr(root, "_plm_db_stamp", None):
+                    try:
+                        root.after(0, lambda: refresh_from_db(
+                            "база обновлена на другой машине — таблица перечитана", st))
+                    except Exception:
+                        pass
+            try:
+                threading.Thread(target=work, daemon=True).start()
+            except Exception:
+                pass
+        root.after(15000, watch_db)
+
     ALL_FIELDS = ["Файл", "Обозначение", "Наименование", "Материал", "Объём, мм³", "Тип",
                   "Роль", "Родитель", "Записей", "Версий", "Ревизия", "Дата", "Пользователь",
                   "Версия Creo", "Габарит, мм"]
@@ -2091,6 +2152,11 @@ def run_gui():
                         log_line("scan: %s -> новых %d, изменённых %d, пропущено %d за %.1f с"
                                  % (folder or "вся база", st.get("new", 0), st.get("mod", 0),
                                     st.get("skipped", 0), _secs))
+                    root._plm_scan_active = False
+                    try:
+                        root._plm_db_stamp = _active_stamp()
+                    except Exception:
+                        pass
                     btn.config(state="normal")
                     b_stop.config(state="disabled")
                     return
@@ -2128,6 +2194,7 @@ def run_gui():
         btn.config(state="disabled")
         b_stop.config(state="normal")
         root._plm_stop = False
+        root._plm_scan_active = True          # пока скан идёт — автообновление не мешает
         root._plm_t0 = time.time()
         _hint = ""
         try:
@@ -2140,7 +2207,8 @@ def run_gui():
         lbl.config(text="ищу файлы…" + _hint)
         settings.update({"folder": folder, "max_size_mb": opts["max_size_mb"],
                          "recurse": opts["recurse"], "latest_only": opts["latest_only"],
-                         "depth": int(e_depth.get() or 0), "purge_keep": int(e_keep.get() or 2)})
+                         "depth": int(e_depth.get() or 0), "purge_keep": int(e_keep.get() or 2),
+                         "auto_refresh": var_auto.get()})
         save_settings()
         threading.Thread(target=worker, args=(folder, opts), daemon=True).start()
         root.after(120, poll_scan)
@@ -2163,8 +2231,11 @@ def run_gui():
         lbl.config(text="база: файлов %d · моделей %d · изменений %d — читаю из базы…"
                    % (_bs.get("files", 0), _bs.get("models", 0), _bs.get("changes", 0)))
         load_base()
+        root._plm_db_stamp = _active_stamp()
         check_base()
         root.after(500, live_auto)         # нижнее дерево ПЛМ строится само при открытии
+
+    root.after(15000, watch_db)            # автообновление: если базу обновил другой ПК
 
     # Порядок сверху вниз: Папка+Выбрать → Глубина и ПУРГЕ → кнопки (Сканировать и пр.) → ОКНО → данные
     try:
