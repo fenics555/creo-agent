@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-r"""PLM Reader V3 — автономный просмотр данных изделий из файлов CAD (детали, сборки, чертежи).
+r"""PLM Reader V5 — автономный просмотр данных изделий из файлов CAD (детали, сборки, чертежи).
 
 Кнопка «Сканировать» обходит выбранную папку и показывает таблицу:
 Обозначение · Наименование · Материал · Объём (мм³) · Роль/родитель · Ревизия · Записей · Дата · Пользователь · Версия Creo · Файл.
@@ -22,13 +22,12 @@ import os
 import queue
 import re
 import struct
-import subprocess
 import sys
 import threading
 import time
 
-APP_VERSION = "V3"
-APP_TITLE = "PLM Reader V3"
+APP_VERSION = "V5"
+APP_TITLE = "PLM Reader V5"
 SETTINGS_FILE = os.path.join(os.path.dirname(os.path.abspath(__file__)), "settings.json")
 DATA_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "db")   # все данные — в одном месте
 CACHE_FILE = os.path.join(DATA_DIR, "scan_cache.json")
@@ -165,7 +164,11 @@ def db_rows(folder=None, limit=2000, latest_only=False):
         return rows
     except Exception:
         return []
-LOG_DIR = r"D:\AI\log\plm_reader"
+# Логи: дома — в общий D:\AI\log, на чужой машине — рядом с инструментом (переносимость)
+LOG_DIR = os.environ.get("PLM_LOG") or (
+    r"D:\AI\log\plm_reader" if os.path.isdir(r"D:\AI\log")
+    else os.path.join(os.path.dirname(os.path.abspath(__file__)), "log"))
+REPORTS_DIR = os.path.join(os.path.dirname(LOG_DIR), "reports")
 
 
 def log_line(text):
@@ -1425,8 +1428,9 @@ def run_gui():
         log_line("purge plan: %s — лишних %d, %.1f МБ"
                  % (folder or "вся база", plan["count"], plan["bytes"] / 1048576.0))
         try:
-            rep = os.path.join(r"D:\AI\log\reports",
+            rep = os.path.join(REPORTS_DIR,
                                "PURGE_plan_%s.txt" % datetime.datetime.now().strftime("%Y-%m-%d_%H%M"))
+            os.makedirs(REPORTS_DIR, exist_ok=True)
             with open(rep, "w", encoding="utf-8") as f:
                 f.write(txt)
             tsum.config(text=tsum.cget("text") + " · отчёт: %s" % os.path.basename(rep))
@@ -1434,35 +1438,36 @@ def run_gui():
             pass
 
     def purge_run():
-        """Исполнение — инструментом дома `purge_versions` (перенос в БЭКАП, удаления нет)."""
+        """Перенос лишних версий в БЭКАП — встроенным движком ПЛМ (внешний purge_versions не нужен)."""
         from tkinter import messagebox as mb
         folder = purge_folder()
         plan = eng.purge_plan(folder or None, int(e_keep.get() or 2))
         if not plan["count"]:
             tsum.config(text="ПУРГЕ: чистить нечего — лишних версий нет")
             return
-        if not mb.askyesno("ПУРГЕ",
-                           "Перенести в БЭКАП %d лишних версий (%.1f МБ) в\n%s?\n\n"
-                           "Удаления нет: файлы уедут в бэкап инструмента purge_versions."
-                           % (plan["count"], plan["bytes"] / 1048576.0, folder)):
-            tsum.config(text="ПУРГЕ: отменено")
+        if not folder or not os.path.isdir(folder):
+            tsum.config(text="ПУРГЕ: выбери существующую папку")
             return
-        exe = os.path.abspath(os.path.join(os.path.dirname(os.path.abspath(__file__)),
-                                           "..", "purge_versions", "engine.py"))
-        if not os.path.exists(exe):
-            tsum.config(text="ПУРГЕ: не найден %s" % exe)
+        keep = int(e_keep.get() or 2)
+        bdir = os.path.join(folder, "_purge_backup")
+        if not mb.askyesno("ПУРГЕ",
+                           "Перенести в БЭКАП %d лишних версий (%.1f МБ)?\n%s\n\n"
+                           "Удаления нет: файлы уедут в %s"
+                           % (plan["count"], plan["bytes"] / 1048576.0, folder, bdir)):
+            tsum.config(text="ПУРГЕ: отменено")
             return
 
         def work():
-            import subprocess
             try:
-                r = subprocess.run([sys.executable, "-X", "utf8", exe, "--root", folder,
-                                    "--keep", "2", "--execute"],
-                                   capture_output=True, text=True, encoding="utf-8",
-                                   cwd=os.path.dirname(exe))
-                out = ((r.stdout or "") + (r.stderr or "")).strip() or "готово (без вывода)"
+                rep = eng.purge_execute(folder, keep, None)
+                out = ("перенесено %d версий, освобождено %.1f МБ, за %.1f с\nбэкап: %s"
+                       % (len(rep["перенесено"]), rep["освобождено_байт"] / 1048576.0,
+                          rep["seconds"], bdir))
+                if rep["пропущено_с_причиной"]:
+                    out += "\nпропущено: " + "; ".join(rep["пропущено_с_причиной"][:20])
             except Exception as e:
                 out = "ОШИБКА: %s" % e
+            log_line("purge execute: %s -> %s" % (folder, out.split("\n")[0]))
             try:
                 root.after(0, lambda: (tout.delete("1.0", "end"), tout.insert("end", out),
                                        tsum.config(text="ПУРГЕ: выполнено — см. вывод и лог инструмента")))

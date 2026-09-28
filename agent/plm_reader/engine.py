@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-r"""PLM Reader V3 — движок ПЛМ «в лоб»: паспорт изделий, дерево производства, входимость и ИЗМЕНЕНИЯ.
+r"""PLM Reader V5 — движок ПЛМ «в лоб»: паспорт изделий, дерево производства, входимость и ИЗМЕНЕНИЯ.
 
 Creo не нужен. Своя база лежит РЯДОМ с инструментом (db\plm_reader.db) — легко перенести на другую машину.
 Корень склада ОДИН на все входы (окно, CLI, мета базы): Z:\PTC.
@@ -21,9 +21,11 @@ import time
 from collections import Counter, defaultdict
 
 HERE = os.path.dirname(os.path.abspath(__file__))
-sys.path.insert(0, os.path.dirname(HERE))     # общая библиотека дома (creo_read)
+sys.path.insert(0, HERE)          # сначала СВОЯ папка (вложенный читатель creo_read — переносимость)
 DB = os.environ.get("PLM_DB") or os.path.join(HERE, "db", "plm_reader.db")   # данные — в подпапке db\ (её не делим)
-LOG = r"D:\AI\log\plm_reader\engine.log"
+# Логи: дома — в общий D:\AI\log, на чужой машине — рядом с инструментом (переносимость)
+LOG = os.environ.get("PLM_LOG") or (
+    r"D:\AI\log\plm_reader\engine.log" if os.path.isdir(r"D:\AI\log") else os.path.join(HERE, "log", "engine.log"))
 DEFAULT_ROOTS = [r"Z:\PTC"]      # единый корень склада: тот же, что в окне (settings.json) и в meta базы
 MODEL = re.compile(r"\.(prt|asm|drw)\.\d+$", re.IGNORECASE)
 HISTRE = re.compile(rb"\xf7(.)\xe3([0-9]{1,7})\x00\x00(.{0,220}?)\x00((?:Creo )?[0-9][0-9.]*)\x00", re.S)
@@ -42,7 +44,7 @@ def derived_of(raw):
         if nm:
             return nm.group(1).decode("latin-1"), "производная"
     return "", ""
-VERSION = "V3"
+VERSION = "V5"
 
 
 def log(msg):
@@ -239,8 +241,12 @@ def scan_item(s, path, stems, fstems=frozenset()):
             "base": base, "dkind": dkind}
 
 
-# --- ЕДИНЫЙ ЧИТАТЕЛЬ из общей библиотеки дома (локальные копии выше — к удалению) ---
-import creo_read as _CR  # noqa: E402
+# --- ЕДИНЫЙ ЧИТАТЕЛЬ: своя вложенная копия creo_read (папка самодостаточна) ---
+try:
+    import creo_read as _CR          # своя копия рядом с engine.py (переносимость)
+except ImportError:                  # запасной путь: общая библиотека дома
+    sys.path.insert(0, os.path.dirname(HERE))
+    import creo_read as _CR  # noqa: E402
 
 stem = _CR.stem
 parse_toc = _CR.parse_toc
@@ -501,6 +507,73 @@ def purge_plan_text(plan, limit=400):
     if plan["count"] > limit:
         lines.append("... ещё %d" % (plan["count"] - limit))
     return "\n".join(lines)
+
+
+# --- ПУРГЕ: перенос лишних версий в БЭКАП (встроено; внешний purge_versions не нужен) ---
+PURGE_EXTS = {".prt", ".asm", ".drw", ".frm", ".lay", ".sec"}
+
+
+def version_groups(root):
+    """Группы версий Creo-файлов в папке: ({базовое имя: [файлы по возрастанию версии]}, одиночки)."""
+    from pathlib import Path
+    root = Path(root)
+    if not root.exists():
+        return {}, []
+    fs = sorted([f for f in root.iterdir() if f.is_file()])
+    grps, sings, ass = {}, [], set()
+    for f in fs:
+        if not (re.match(r".+\.\d+$", f.name) or f.suffix.lower() in PURGE_EXTS):
+            continue
+        if re.search(r"[-_](01|v2|v3)$", f.stem, re.IGNORECASE):
+            if f.name not in ass:
+                sings.append(f)
+                ass.add(f.name)
+            continue
+        m = re.match(r"^(.*)\.(\d+)$", f.name)
+        if m:
+            base = m.group(1)
+            base_path = root / base
+            if base_path.is_file() and base_path.suffix.lower() in PURGE_EXTS:
+                grps.setdefault(base, [base_path]).append(f)
+            else:
+                grps.setdefault(base, []).append(f)
+                if f.name not in ass:
+                    sings.append(f)
+            ass.add(f.name)
+            ass.add(base)
+    return grps, sings
+
+
+def purge_execute(root, keep=2, backup_dir=None):
+    """ПЕРЕНЕСЕНИЕ лишних версий в backup_dir (только move, БЕЗ удаления).
+
+    Возвращает отчёт: перенесено, освобождено_байт, пропущено_с_причиной, seconds.
+    """
+    import shutil
+    from pathlib import Path
+    keep = max(1, int(keep or 1))
+    root = Path(root)
+    backup_dir = Path(backup_dir) if backup_dir else (
+        root / "_purge_backup" / datetime.datetime.now().strftime("%Y%m%d"))
+    grps, _ = version_groups(root)
+    rep = {"root": str(root), "keep": keep, "было_версий": 0, "перенесено": [],
+           "пропущено_с_причиной": [], "освобождено_байт": 0, "seconds": 0.0}
+    t0 = time.time()
+    for base, members in grps.items():
+        rep["было_версий"] += len(members)
+        for x in members[:-keep]:
+            try:
+                sz = x.stat().st_size
+                backup_dir.mkdir(parents=True, exist_ok=True)
+                shutil.move(str(x), str(backup_dir / x.name))
+                rep["перенесено"].append("%s->%s" % (x.name, (backup_dir / x.name).name))
+                rep["освобождено_байт"] += sz
+            except Exception as e:
+                rep["пропущено_с_причиной"].append("%s: %s" % (x.name, e))
+    rep["seconds"] = round(time.time() - t0, 2)
+    log("purge: %s — перенесено %d, %.1f МБ, за %.1f с"
+        % (root, len(rep["перенесено"]), rep["освобождено_байт"] / 1048576.0, rep["seconds"]))
+    return rep
 
 
 def do_check(roots=None, max_mb=8.0, depth=None):
