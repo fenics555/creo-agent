@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-r"""PLM Reader V18 — автономный просмотр данных изделий из файлов CAD (детали, сборки, чертежи).
+r"""PLM Reader — автономный просмотр данных изделий из файлов CAD (детали, сборки, чертежи).
 
 Кнопка «Сканировать» обходит выбранную папку и показывает таблицу:
 Обозначение · Наименование · Материал · Объём (мм³) · Роль/родитель · Ревизия · Записей · Дата · Пользователь · Версия Creo · Файл.
@@ -27,7 +27,7 @@ import threading
 import time
 
 APP_VERSION = "V21"
-APP_TITLE = "PLM Reader V18"
+APP_TITLE = "PLM Reader " + APP_VERSION          # версия ОДНА: заголовок берёт её из константы
 SETTINGS_FILE = os.path.join(os.path.dirname(os.path.abspath(__file__)), "settings.json")
 DATA_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "db")   # все данные — в одном месте
 CACHE_FILE = os.path.join(DATA_DIR, "scan_cache.json")
@@ -2273,8 +2273,11 @@ def run_gui():
         prev = tree.selection()
         keep = prev[0] if prev else ""
         if pat:                       # ФИЛЬТР — по ВСЕЙ БАЗЕ, а не по загруженной странице
-            rows, hits, mode = db_search_rows(pat.split(), 5000)
-            tail = " · по фильтру %d в базе %d (слова: %s)" % (hits, db_total(None), mode)
+            rows, hits, mode = db_search_rows(pat.split(), 20000)
+            rts = [r for r in roots_of(e_folder.get(), e_folder2.get()) if os.path.isdir(r)]
+            in_r = sum(1 for r in rows if path_under(r["_path"], rts)) if rts else len(rows)
+            tail = (" · по фильтру %d в базе %d (слова: %s) · в папках окна %d, вне папок %d"
+                    % (hits, db_total(None), mode, in_r, len(rows) - in_r))
         else:
             rows = list(rows_all)
             tail = " из %d загруженных" % len(rows_all)
