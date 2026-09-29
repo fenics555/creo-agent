@@ -27,6 +27,28 @@ DB = os.environ.get("PLM_DB") or os.path.join(HERE, "db", "plm_reader.db")   # �
 LOG = os.environ.get("PLM_LOG") or (
     r"D:\AI\log\plm_reader\engine.log" if os.path.isdir(r"D:\AI\log") else os.path.join(HERE, "log", "engine.log"))
 DEFAULT_ROOTS = [r"Z:\PTC"]      # единый корень склада: тот же, что в окне (settings.json) и в meta базы
+
+
+def as_roots(x):
+    """Корни скана ВСЕГДА списком. Строка = ОДИН корень, а не набор символов:
+    иначе `for root in roots` бежит по буквам, символ '\\' становится корнем диска
+    и скан уходит обходить весь D: (грабля 29.09.2026, скилл §8.78)."""
+    if x is None:
+        return list(DEFAULT_ROOTS)
+    if isinstance(x, (str, bytes, os.PathLike)):
+        x = [x]
+    out = []
+    for r in x:
+        try:
+            r = os.fspath(r)
+        except Exception:
+            r = str(r)
+        if isinstance(r, bytes):
+            r = r.decode("utf-8", "ignore")
+        r = r.strip()
+        if r and r not in out:
+            out.append(r)
+    return out
 MODEL = re.compile(r"\.(prt|asm|drw)\.\d+$", re.IGNORECASE)
 HISTRE = re.compile(rb"\xf7(.)\xe3([0-9]{1,7})\x00\x00(.{0,220}?)\x00((?:Creo )?[0-9][0-9.]*)\x00", re.S)
 REF_PART = re.compile(rb"ref_part_tab\x00")
@@ -44,7 +66,8 @@ def derived_of(raw):
         if nm:
             return nm.group(1).decode("latin-1"), "производная"
     return "", ""
-VERSION = "V18"
+VERSION = "V20"
+PARSER_TAG = "p19"      # меняй при ЛЮБОМ изменении правил разбора — форсирует полный пересчёт
 
 
 def log(msg):
@@ -172,7 +195,7 @@ def names(raw):
 def collect(roots, max_mb, max_depth=None):
     """ВСЕ файлы моделей рекурсивно (ключ — путь). max_depth — предел вложенности (None = без предела)."""
     files = []
-    for root in roots:
+    for root in as_roots(roots):
         root = os.path.abspath(root)
         if not os.path.isdir(root):
             continue
@@ -197,7 +220,7 @@ def collect_stat(roots, max_mb, max_depth=None):
     """Файлы модели + их size/mtime ОДНИМ проходом (scandir/stat), без повторных stat."""
     out = []
     lim = max_mb * 1_000_000
-    for root in roots:
+    for root in as_roots(roots):
         root = os.path.abspath(root)
         if not os.path.isdir(root):
             continue
@@ -510,7 +533,7 @@ def scan_to_base(roots, max_mb=8, limit=120, depth=None, progress_cb=None, stop_
         if os.path.isfile(src):
             shutil.copy2(src, draft)                  # работаем на локальной копии активной базы
         # правила параметров изменились → принудительно ПЕРЕЧИТАТЬ всё и запомнить подпись
-        sig = json.dumps(param_cfg or {}, sort_keys=True, ensure_ascii=False)
+        sig = json.dumps(param_cfg or {}, sort_keys=True, ensure_ascii=False) + "|" + PARSER_TAG
         eff_full = bool(full)
         try:
             c0 = connect(db=draft)
@@ -588,6 +611,7 @@ def do_scan(roots, max_mb, limit, depth=None, progress_cb=None, stop_cb=None, fu
             param_cfg=None):
     """Скан в базу `db` (по умолчанию боевая). Обычно зовётся через scan_to_base — в черновик."""
     t0 = time.time()
+    roots = as_roots(roots)               # строка-корень = ОДИН корень (иначе обход всего диска)
     lim = float("inf") if (limit or 0) <= 0 else limit      # --limit 0 = без предела по времени
     files_stat = collect_stat(roots, max_mb, depth)
     total = len(files_stat)
@@ -851,6 +875,7 @@ def do_check(roots=None, max_mb=8.0, depth=None):
             roots = json.loads(meta_get("roots") or "null") or DEFAULT_ROOTS
         except Exception:
             roots = DEFAULT_ROOTS
+    roots = as_roots(roots)          # в базе корни могут лежать СТРОКОЙ — лечим (грабля 29.09)
     files = collect_stat(roots, max_mb, depth)
     con = connect()
     prev = {r[0]: (r[1], r[2]) for r in con.execute("SELECT path,size,mtime FROM snapshots")}
@@ -865,14 +890,21 @@ def do_check(roots=None, max_mb=8.0, depth=None):
             same += 1
         else:
             changed += 1
-    gone = len(set(prev) - found)
+    gone_paths = set(prev) - found
+    live_models = {stem(os.path.basename(p)) for p in found}
+    really_gone = [p for p in gone_paths if stem(os.path.basename(p)) not in live_models]
+    purged = len(gone_paths) - len(really_gone)      # старые версии после ПУРГЕ — норма, не тревога
+    gone = len(really_gone)
     need = bool(new or changed or gone)
     verdict = ("НУЖЕН СКАН: новых %d, изменённых %d, пропало %d" % (new, changed, gone)) if need \
         else "АКТУАЛЬНО (скан не нужен)"
+    if purged:
+        verdict += " · старые версии после ПУРГЕ: %d (норма)" % purged
     res = {"total": len(files), "same": same, "new": new, "changed": changed, "gone": gone,
-           "need": need, "verdict": verdict, "secs": round(time.time() - t0, 1)}
+           "purged": purged, "need": need, "verdict": verdict, "secs": round(time.time() - t0, 1)}
     msg = ("проверка: файлов %d | без изменений %d | новых %d | изменённых %d | пропало %d"
-           " | за %.1f с → %s" % (res["total"], same, new, changed, gone, res["secs"], verdict))
+           " | старые версии после ПУРГЕ %d | за %.1f с → %s"
+           % (res["total"], same, new, changed, gone, purged, res["secs"], verdict))
     print(msg, flush=True)
     log(msg)
     return res

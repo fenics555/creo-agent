@@ -26,7 +26,7 @@ import sys
 import threading
 import time
 
-APP_VERSION = "V18"
+APP_VERSION = "V20"
 APP_TITLE = "PLM Reader V18"
 SETTINGS_FILE = os.path.join(os.path.dirname(os.path.abspath(__file__)), "settings.json")
 DATA_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "db")   # все данные — в одном месте
@@ -103,11 +103,17 @@ def db_summary():
 
 
 def db_total(folder=None):
+    """Сколько строк паспортов (folder — путь ИЛИ список путей: основная + «Доп. папка»)."""
+    roots = [f for f in ([folder] if isinstance(folder, str) else list(folder or [])) if f]
     try:
         c = db_conn()
-        if folder:
-            n = c.execute("SELECT COUNT(*) FROM snapshots WHERE folder LIKE ?",
-                          (folder.rstrip("\\") + "%",)).fetchone()[0]
+        if roots:
+            n = c.execute("SELECT COUNT(*) FROM snapshots WHERE "
+                          + " OR ".join(["folder LIKE ?"] * len(roots)),
+                          tuple(r.rstrip("\\") + "%" for r in roots)).fetchone()[0]
+            if not n:                        # регистр/слэши не совпали — считаем в питоне
+                n = sum(1 for (p,) in c.execute("SELECT path FROM snapshots")
+                        if path_under(p, roots))
         else:
             n = c.execute("SELECT COUNT(*) FROM snapshots").fetchone()[0]
         c.close()
@@ -135,15 +141,23 @@ def _fs_date(ts):
 
 
 def db_rows_map(folder=None, latest_only=False):
-    """Единая база: путь -> (size, mtime, строка). Подсчёт версий и, если надо, только последняя."""
+    """Единая база: путь -> (size, mtime, строка). Подсчёт версий и, если надо, только последняя.
+    `folder` — путь ИЛИ СПИСОК путей (основная + «Доп. папка»); фильтр без учёта регистра."""
+    roots = [f for f in ([folder] if isinstance(folder, str) else list(folder or [])) if f]
     try:
         c = db_conn()
         has = any(r[1] == "created" for r in c.execute("PRAGMA table_info(snapshots)"))
         sql = ("SELECT path,model,size,mtime,volume,material,name,designation,rev,author,revdate,"
                "role,hist,creo%s FROM snapshots %%s" % (",created" if has else ""))
-        cur = c.execute(sql % ("WHERE folder LIKE ?" if folder else ""),
-                        ((folder.rstrip("\\") + "%",) if folder else ()))
-        data = [tuple(r) + ((None,) if not has else ()) for r in cur]
+        if roots:
+            cur = c.execute(sql % ("WHERE " + " OR ".join(["folder LIKE ?"] * len(roots))),
+                            tuple(r.rstrip("\\") + "%" for r in roots))
+            data = [tuple(r) + ((None,) if not has else ()) for r in cur]
+            if not data:                    # регистр/слэши не совпали — фильтруем в питоне
+                data = [tuple(r) + ((None,) if not has else ()) for r in c.execute(sql % "")]
+                data = [d for d in data if path_under(d[0], roots)]
+        else:
+            data = [tuple(r) + ((None,) if not has else ()) for r in c.execute(sql % "")]
         c.close()
     except Exception:
         return {}
@@ -173,21 +187,30 @@ def db_rows_map(folder=None, latest_only=False):
 
 
 def db_rows(folder=None, limit=2000, latest_only=False):
-    """Строки паспортов ИЗ БАЗЫ (файлы не читаются)."""
+    """Строки паспортов ИЗ БАЗЫ (файлы не читаются).
+    `folder` — путь ИЛИ СПИСОК путей (основная + «Доп. папка»)."""
+    roots = [f for f in ([folder] if isinstance(folder, str) else list(folder or [])) if f]
     try:
         c = db_conn()
         has = any(r[1] == "created" for r in c.execute("PRAGMA table_info(snapshots)"))
         sql = ("SELECT path,model,volume,material,name,designation,rev,author,revdate,role,hist,creo,"
                "mtime%s FROM snapshots %%s ORDER BY model, path LIMIT ?" % (",created" if has else ""))
-        if folder:
-            cur = c.execute(sql % "WHERE folder LIKE ?",
-                            (folder.rstrip("\\") + "%", limit))
-            vers = dict(c.execute("SELECT model, COUNT(*) FROM snapshots WHERE folder LIKE ? "
-                                  "GROUP BY model", (folder.rstrip("\\") + "%",)))
+        if roots:
+            cond = "WHERE " + " OR ".join(["folder LIKE ?"] * len(roots))
+            args = tuple(r.rstrip("\\") + "%" for r in roots)
+            data = [tuple(r) + ((None,) if not has else ())
+                    for r in c.execute(sql % cond, args + (limit,))]
+            vers = dict(c.execute("SELECT model, COUNT(*) FROM snapshots " + cond +
+                                  " GROUP BY model", args))
+            if not data:                  # регистр/слэши не совпали — фильтруем в питоне
+                allr = [tuple(r) + ((None,) if not has else ())
+                        for r in c.execute(sql % "", (10 ** 9,))]
+                data = [d for d in allr if path_under(d[0], roots)][:limit]
+                vers = dict(c.execute("SELECT model, COUNT(*) FROM snapshots GROUP BY model"))
         else:
-            cur = c.execute(sql % "", (limit,))
+            data = [tuple(r) + ((None,) if not has else ())
+                    for r in c.execute(sql % "", (limit,))]
             vers = dict(c.execute("SELECT model, COUNT(*) FROM snapshots GROUP BY model"))
-        data = [tuple(r) + ((None,) if not has else ()) for r in cur]
         rows = []
         for (p, model, volume, material, name, desig, rev, author, revdate, role, hist, creo,
              mtime, created) in data:
@@ -223,6 +246,7 @@ def log_line(text):
 
 DEFAULT_SETTINGS = {
     "folder": "",
+    "folder2": "",
     "max_size_mb": 24,
     "recurse": True,
     "auto_refresh": True,
@@ -896,6 +920,72 @@ def norm_path(s):
     return s
 
 
+def path_under(path, roots):
+    """Путь внутри одного из корней (без учёта регистра, по границе папки).
+    roots — путь ИЛИ список путей; безопасен к кривым строкам."""
+    if isinstance(roots, str):
+        roots = [roots]
+    try:
+        p = os.path.normcase(os.path.abspath(path))
+    except Exception:
+        return False
+    for r in roots or []:
+        try:
+            rn = os.path.normcase(os.path.abspath(r)).rstrip("\\/")
+        except Exception:
+            continue
+        if not rn:
+            continue
+        if p == rn or p.startswith(rn + "\\"):
+            return True
+    return False
+
+
+def roots_of(folder, folder2=""):
+    """Корни окна: основная папка + «Доп. папка» — только существующие, без дублей."""
+    out = []
+    for x in (folder, folder2):
+        x = norm_path(x) if x else ""
+        if x and x not in out:
+            out.append(x)
+    return out
+
+
+def load_settings_file(path=None):
+    """Настройки окна (файл рядом с инструментом). Битый файл не роняет окно — берём умолчания."""
+    path = path or SETTINGS_FILE
+    out = dict(DEFAULT_SETTINGS)
+    try:
+        if os.path.isfile(path):
+            with open(path, encoding="utf-8") as f:
+                data = json.load(f)
+            if isinstance(data, dict):
+                out.update(data)
+    except Exception as e:
+        log_line("settings: чтение не удалось (%s) — работаю на умолчаниях" % e)
+    return out
+
+
+def save_settings_file(settings, path=None):
+    """Запись настроек: сначала во временный файл, потом замена (файл не бьётся при сбое).
+    Ошибка пишется в лог, а не глотается молча."""
+    path = path or SETTINGS_FILE
+    tmp = path + ".tmp"
+    try:
+        with open(tmp, "w", encoding="utf-8") as f:
+            json.dump(settings, f, ensure_ascii=False, indent=1)
+        os.replace(tmp, path)
+        return True
+    except Exception as e:
+        log_line("settings: НЕ СОХРАНЕНО (%s): %s" % (path, e))
+        try:
+            if os.path.isfile(tmp):
+                os.remove(tmp)
+        except Exception:
+            pass
+        return False
+
+
 def save_csv(rows, path):
     if not rows:
         return
@@ -1115,12 +1205,7 @@ def run_gui():
     import tkinter as tk
     from tkinter import ttk, filedialog, messagebox
 
-    settings = dict(DEFAULT_SETTINGS)
-    if os.path.isfile(SETTINGS_FILE):
-        try:
-            settings.update(json.load(open(SETTINGS_FILE, encoding="utf-8")))
-        except Exception:
-            pass
+    settings = load_settings_file()                     # битый/чужой файл не роняет окно
     _cols = settings.get("columns")                     # новые колонки дат — и для старых настроек
     if isinstance(_cols, list):
         _off = 0
@@ -1153,10 +1238,12 @@ def run_gui():
         if d:
             e_folder.delete(0, "end")
             e_folder.insert(0, d)
+            settings["folder"] = norm_path(d)           # сохраняем СРАЗУ, а не только по «Сканировать»
+            save_settings()
 
     ttk.Button(srow1, text="Выбрать…", command=pick).pack(side="left")
 
-    ttk.Label(srow3, text="Доп. папка:").pack(side="left")
+    ttk.Label(srow3, text="Папка2:").pack(side="left")
     e_folder2 = ttk.Entry(srow3, width=52)
     e_folder2.insert(0, settings.get("folder2", ""))
     e_folder2.pack(side="left", padx=4)
@@ -1166,9 +1253,11 @@ def run_gui():
         if d:
             e_folder2.delete(0, "end")
             e_folder2.insert(0, d)
+            settings["folder2"] = norm_path(d)          # «Папка2» сохраняется сразу
+            save_settings()
 
     ttk.Button(srow3, text="Выбрать…", command=pick2).pack(side="left")
-    ttk.Label(srow3, text="(где библиотечные изделия и шаблоны; скан обходит ОБЕ папки)",
+    ttk.Label(srow3, text="(библиотеки, шаблоны, каталоги; скан обходит обе папки)",
               foreground="#666").pack(side="left", padx=(8, 0))
 
     ttk.Label(srow1, text="Пропускать > МБ:").pack(side="left", padx=(10, 2))
@@ -2203,25 +2292,27 @@ def run_gui():
         threading.Thread(target=work, daemon=True).start()
 
     def show_check(r):
+        _p = r.get("purged", 0)
+        _tail = ("  ·  старые версии после ПУРГЕ: %d — норма" % _p) if _p else ""
         if r.get("need"):
-            lbl.config(text="НУЖЕН СКАН: новых %d · изменённых %d · пропало %d (%.1f с)"
-                       % (r["new"], r["changed"], r["gone"], r["secs"]))
+            lbl.config(text="НУЖЕН СКАН: новых %d · изменённых %d · пропало %d (%.1f с)%s"
+                       % (r["new"], r["changed"], r["gone"], r["secs"], _tail))
         else:
-            lbl.config(text="БАЗА АКТУАЛЬНА: файлов %d, изменений нет (%.1f с)"
-                       % (r["total"], r["secs"]))
+            lbl.config(text="БАЗА АКТУАЛЬНА: файлов %d, изменений нет (%.1f с)%s"
+                       % (r["total"], r["secs"], _tail))
         log_line("check: %s" % r.get("verdict", ""))
 
     def load_base(limit=2000):
         """Показать базу БЕЗ чтения файлов: строки паспортов из plm_reader.db."""
-        folder = norm_path(e_folder.get()) if e_folder.get().strip() else ""
+        roots = [r for r in roots_of(e_folder.get(), e_folder2.get()) if os.path.isdir(r)]
         rows_all.clear()
         tree.delete(*tree.get_children())
-        rows_all.extend(db_rows(folder or None, limit))
+        rows_all.extend(db_rows(roots or None, limit))
         redraw()
-        tot = db_total(folder or None)
-        lbl.config(text="из базы: показано %d из %d (папка %s)"
-                   % (len(rows_all), tot, folder or "вся база"))
-        log_line("base: показано %d из %d (папка %s)" % (len(rows_all), tot, folder or "вся база"))
+        tot = db_total(roots or None)
+        where = " + ".join(roots) if roots else "вся база"
+        lbl.config(text="из базы: показано %d из %d (%s)" % (len(rows_all), tot, where))
+        log_line("base: показано %d из %d (%s)" % (len(rows_all), tot, where))
 
     def _active_stamp():
         """Отпечаток активной базы (имя+время) — по нему замечаем публикацию другого ПК."""
@@ -2277,10 +2368,29 @@ def run_gui():
                   "Создан", "Изменён", "Пользователь", "Версия Creo", "Габарит, мм"]
 
     def save_settings():
+        save_settings_file(settings)                    # атомарная запись; ошибка — в лог
+
+    def save_ui():
+        """Собрать в настройки то, что на экране, и сохранить (зовётся при закрытии окна)."""
         try:
-            json.dump(settings, open(SETTINGS_FILE, "w", encoding="utf-8"), ensure_ascii=False, indent=1)
+            settings.update({"folder": norm_path(e_folder.get()),
+                             "folder2": norm_path(e_folder2.get()),
+                             "max_size_mb": float(e_max.get() or 0),
+                             "recurse": var_rec.get(), "latest_only": var_lat.get(),
+                             "depth": int(e_depth.get() or 0), "purge_keep": int(e_keep.get() or 2),
+                             "auto_refresh": var_auto.get(), "full": var_full.get()})
         except Exception:
             pass
+        save_settings_file(settings)
+
+    def on_close():
+        save_ui()
+        try:
+            root.destroy()
+        except Exception:
+            pass
+
+    root.protocol("WM_DELETE_WINDOW", on_close)
 
     def split_list(s):
         return [x.strip() for x in (s or "").replace(";", ",").split(",") if x.strip()]
@@ -2391,9 +2501,10 @@ def run_gui():
                     elif st.get("error"):
                         lbl.config(text="скан не удался: %s" % st["error"])
                     else:
-                        folder = norm_path(e_folder.get())
-                        rows = db_rows(folder or None, 5000)
-                        total = db_total(folder or None)
+                        roots_now = [r for r in roots_of(e_folder.get(), e_folder2.get())
+                                     if os.path.isdir(r)]
+                        rows = db_rows(roots_now or None, 5000)
+                        total = db_total(roots_now or None)
                         rows_all.clear()
                         tree.delete(*tree.get_children())
                         rows_all.extend(rows)
@@ -2403,8 +2514,8 @@ def run_gui():
                                    % (_secs, st.get("new", 0), st.get("mod", 0), st.get("skipped", 0),
                                       total, len(rows), "; ОСТАНОВЛЕНО" if st.get("stopped") else ""))
                         log_line("scan: %s -> новых %d, изменённых %d, пропущено %d за %.1f с"
-                                 % (folder or "вся база", st.get("new", 0), st.get("mod", 0),
-                                    st.get("skipped", 0), _secs))
+                                 % (" + ".join(roots_now) or "вся база", st.get("new", 0),
+                                    st.get("mod", 0), st.get("skipped", 0), _secs))
                     root._plm_scan_active = False
                     try:
                         root._plm_db_stamp = _active_stamp()
@@ -2444,6 +2555,9 @@ def run_gui():
             return
         folder2 = norm_path(e_folder2.get()) if e_folder2.get().strip() else ""
         roots = [folder] + ([folder2] if folder2 and os.path.isdir(folder2) else [])
+        if folder2 and not os.path.isdir(folder2):
+            messagebox.showwarning(APP_TITLE, "Папка2 не найдена — скан её пропустит,\n"
+                                              "но путь я сохраню:\n%s" % folder2)
         e_folder.delete(0, "end")
         e_folder.insert(0, folder)
         tree.delete(*tree.get_children())
@@ -2464,12 +2578,12 @@ def run_gui():
         except Exception:
             pass
         lbl.config(text="ищу файлы…" + _hint)
-        settings.update({"folder": folder, "max_size_mb": opts["max_size_mb"],
+        settings.update({"folder": folder, "folder2": folder2, "max_size_mb": opts["max_size_mb"],
                          "recurse": opts["recurse"], "latest_only": opts["latest_only"],
                          "depth": int(e_depth.get() or 0), "purge_keep": int(e_keep.get() or 2),
                          "auto_refresh": var_auto.get(), "full": var_full.get()})
         save_settings()
-        threading.Thread(target=worker, args=(folder, opts), daemon=True).start()
+        threading.Thread(target=worker, args=(roots, opts), daemon=True).start()
         root.after(120, poll_scan)
 
     def export():
