@@ -2273,11 +2273,12 @@ def run_gui():
         prev = tree.selection()
         keep = prev[0] if prev else ""
         if pat:                       # ФИЛЬТР — по ВСЕЙ БАЗЕ, а не по загруженной странице
-            rows, hits, mode = db_search_rows(pat.split(), 20000)
+            rows, hits, mode = db_search_rows(pat.split(), 50000)
             rts = [r for r in roots_of(e_folder.get(), e_folder2.get()) if os.path.isdir(r)]
             in_r = sum(1 for r in rows if path_under(r["_path"], rts)) if rts else len(rows)
-            tail = (" · по фильтру %d в базе %d (слова: %s) · в папках окна %d, вне папок %d"
-                    % (hits, db_total(None), mode, in_r, len(rows) - in_r))
+            tail = (" · по фильтру %d в базе %d (слова: %s) · в папках окна %d, вне папок %d%s"
+                    % (hits, db_total(None), mode, in_r, len(rows) - in_r,
+                       (" · показаны первые %d — уточните слова" % len(rows)) if hits > len(rows) else ""))
         else:
             rows = list(rows_all)
             tail = " из %d загруженных" % len(rows_all)
