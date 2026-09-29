@@ -103,7 +103,7 @@ def db_summary():
 
 
 def db_total(folder=None):
-    """Сколько строк паспортов (folder — путь ИЛИ список путей: основная + «Доп. папка»)."""
+    """Сколько строк паспортов (folder — путь ИЛИ список путей: основная + «Папка2»)."""
     roots = [f for f in ([folder] if isinstance(folder, str) else list(folder or [])) if f]
     try:
         c = db_conn()
@@ -142,7 +142,7 @@ def _fs_date(ts):
 
 def db_rows_map(folder=None, latest_only=False):
     """Единая база: путь -> (size, mtime, строка). Подсчёт версий и, если надо, только последняя.
-    `folder` — путь ИЛИ СПИСОК путей (основная + «Доп. папка»); фильтр без учёта регистра."""
+    `folder` — путь ИЛИ СПИСОК путей (основная + «Папка2»); фильтр без учёта регистра."""
     roots = [f for f in ([folder] if isinstance(folder, str) else list(folder or [])) if f]
     try:
         c = db_conn()
@@ -188,7 +188,7 @@ def db_rows_map(folder=None, latest_only=False):
 
 def db_rows(folder=None, limit=2000, latest_only=False):
     """Строки паспортов ИЗ БАЗЫ (файлы не читаются).
-    `folder` — путь ИЛИ СПИСОК путей (основная + «Доп. папка»)."""
+    `folder` — путь ИЛИ СПИСОК путей (основная + «Папка2»)."""
     roots = [f for f in ([folder] if isinstance(folder, str) else list(folder or [])) if f]
     try:
         c = db_conn()
@@ -942,7 +942,7 @@ def path_under(path, roots):
 
 
 def roots_of(folder, folder2=""):
-    """Корни окна: основная папка + «Доп. папка» — только существующие, без дублей."""
+    """Корни окна: основная папка + «Папка2» — только существующие, без дублей."""
     out = []
     for x in (folder, folder2):
         x = norm_path(x) if x else ""
@@ -1226,7 +1226,7 @@ def run_gui():
     srow1.pack(fill="x")
     srow2 = ttk.Frame(top)                 # строка 2: глубина и ПУРГЕ (не уезжают за край)
     srow2.pack(fill="x", pady=(4, 0))
-    srow3 = ttk.Frame(top)                 # строка 3: ДОП. папка (библиотеки, стартовые шаблоны)
+    srow3 = ttk.Frame(top)                 # строка 3: ПАПКА2 (библиотеки, каталоги, шаблоны)
     srow3.pack(fill="x", pady=(4, 0))
     ttk.Label(srow1, text="Папка:").pack(side="left")
     e_folder = ttk.Entry(srow1, width=52)

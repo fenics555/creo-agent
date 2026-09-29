@@ -192,6 +192,19 @@ def names(raw):
     return c
 
 
+def under_roots(path, roots):
+    """Путь внутри одного из корней (без учёта регистра, по границе папки). roots — список."""
+    try:
+        p = os.path.normcase(os.path.abspath(path))
+    except Exception:
+        return False
+    for r in as_roots(roots):
+        rn = os.path.normcase(os.path.abspath(r)).rstrip("\\/")
+        if rn and (p == rn or p.startswith(rn + "\\")):
+            return True
+    return False
+
+
 def collect(roots, max_mb, max_depth=None):
     """ВСЕ файлы моделей рекурсивно (ключ — путь). max_depth — предел вложенности (None = без предела)."""
     files = []
@@ -880,6 +893,8 @@ def do_check(roots=None, max_mb=8.0, depth=None):
     con = connect()
     prev = {r[0]: (r[1], r[2]) for r in con.execute("SELECT path,size,mtime FROM snapshots")}
     con.close()
+    prev = {p: v for p, v in prev.items() if under_roots(p, roots)}
+    # ^ строки ВНЕ текущих корней — не «пропало»: база могла собираться по более широкой папке
     found, new, changed, same = set(), 0, 0, 0
     for p, size, mtime, _ctime in files:
         found.add(p)
