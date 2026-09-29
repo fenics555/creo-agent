@@ -130,6 +130,47 @@ def param(raw, names, default=""):
     return default
 
 
+def compose(raw, rule):
+    """Собрать значение по ПРАВИЛУ-шаблону:
+      `{ИМЯ}`  — значение параметра;  `"текст"` — литерал (КАВЫЧКИ НЕ ВЫВОДЯТСЯ);
+      `+` и пробелы между частями — только склейка (в значение не попадают).
+    Пустые параметры отбрасываются, лишние пробелы сжимаются.
+    Правило без `{` и `"` — просто имя параметра.
+    """
+    rule = rule or ""
+    if "{" not in rule and '"' not in rule:
+        return param(raw, [rule.strip()])
+    out, i, n = [], 0, len(rule)
+    while i < n:
+        c = rule[i]
+        if c == "{":
+            j = rule.find("}", i)
+            if j < 0:
+                break
+            v = param(raw, [rule[i + 1:j].strip()])
+            if v:
+                out.append(v)
+            i = j + 1
+        elif c == '"':
+            j = rule.find('"', i + 1)
+            if j < 0:
+                break
+            out.append(rule[i + 1:j])
+            i = j + 1
+        elif c == "+":
+            i += 1
+        elif c.isspace():
+            out.append(" ")                    # пробел в правиле = пробел в выводе
+            i += 1
+        else:
+            j = i
+            while j < n and rule[j] not in '{+"':
+                j += 1
+            out.append(rule[i:j])
+            i = j
+    return " ".join("".join(out).split())
+
+
 def role(raw, stems=frozenset(), me=""):
     """Роль изделия по правилам §8.5 (имя файла НЕ признак):
     `MFG` — сборка `ASSEM_MFG`; `nasled.<база>` — `MERGE_BASE_PART` (отражение/отливка);

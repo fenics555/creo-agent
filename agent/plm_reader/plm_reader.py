@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-r"""PLM Reader V15 — автономный просмотр данных изделий из файлов CAD (детали, сборки, чертежи).
+r"""PLM Reader V16 — автономный просмотр данных изделий из файлов CAD (детали, сборки, чертежи).
 
 Кнопка «Сканировать» обходит выбранную папку и показывает таблицу:
 Обозначение · Наименование · Материал · Объём (мм³) · Роль/родитель · Ревизия · Записей · Дата · Пользователь · Версия Creo · Файл.
@@ -26,8 +26,8 @@ import sys
 import threading
 import time
 
-APP_VERSION = "V15"
-APP_TITLE = "PLM Reader V15"
+APP_VERSION = "V16"
+APP_TITLE = "PLM Reader V16"
 SETTINGS_FILE = os.path.join(os.path.dirname(os.path.abspath(__file__)), "settings.json")
 DATA_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "db")   # все данные — в одном месте
 CACHE_FILE = os.path.join(DATA_DIR, "scan_cache.json")
@@ -706,15 +706,54 @@ def match_filter(row, cols, pattern):
     return all(w in blob for w in words)
 
 
+def _compose_par(par, rule):
+    """Шаблон по словарю параметров: `{ИМЯ}` — значение, `"текст"` — литерал (кавычки не выводятся)."""
+    out, i, n = [], 0, len(rule)
+    while i < n:
+        c = rule[i]
+        if c == "{":
+            j = rule.find("}", i)
+            if j < 0:
+                break
+            v = first_param(par, [rule[i + 1:j].strip()])
+            if v:
+                out.append(str(v))
+            i = j + 1
+        elif c == '"':
+            j = rule.find('"', i + 1)
+            if j < 0:
+                break
+            out.append(rule[i + 1:j])
+            i = j + 1
+        elif c == "+":
+            i += 1
+        elif c.isspace():
+            out.append(" ")                    # пробел в правиле = пробел в выводе
+            i += 1
+        else:
+            j = i
+            while j < n and rule[j] not in '{+"':
+                j += 1
+            out.append(rule[i:j])
+            i = j
+    return " ".join("".join(out).split())
+
+
 def first_param(par, keys):
-    """Первое найденное значение из списка имён параметров (проверка без учёта регистра имени)."""
-    for k in keys:
-        if par.get(k):
-            return par[k]
+    """Первое непустое: имя параметра ИЛИ ШАБЛОН `{ИМЯ} "текст" +` (кавычки не выводятся)."""
     upper = {str(k).upper(): v for k, v in par.items()}
     for k in keys:
-        if upper.get(str(k).upper()):
-            return upper[str(k).upper()]
+        k = (k or "").strip()
+        if not k:
+            continue
+        if "{" in k or '"' in k:
+            v = _compose_par(par, k)
+            if v:
+                return v
+            continue
+        v = par.get(k) or upper.get(k.upper())
+        if v:
+            return str(v)
     return ""
 
 

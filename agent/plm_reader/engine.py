@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-r"""PLM Reader V15 — движок ПЛМ «в лоб»: паспорт изделий, дерево производства, входимость и ИЗМЕНЕНИЯ.
+r"""PLM Reader V16 — движок ПЛМ «в лоб»: паспорт изделий, дерево производства, входимость и ИЗМЕНЕНИЯ.
 
 Creo не нужен. Своя база лежит РЯДОМ с инструментом (db\plm_reader.db) — легко перенести на другую машину.
 Корень склада ОДИН на все входы (окно, CLI, мета базы): Z:\PTC.
@@ -44,7 +44,7 @@ def derived_of(raw):
         if nm:
             return nm.group(1).decode("latin-1"), "производная"
     return "", ""
-VERSION = "V15"
+VERSION = "V16"
 
 
 def log(msg):
@@ -240,6 +240,18 @@ def _pfirst(pr, keys):
     return ""
 
 
+def _by_rules(raw, rules):
+    """Первое НЕПУСТОЕ по списку правил: имя параметра ИЛИ шаблон `{ИМЯ} "текст" +` (кавычки не выводятся)."""
+    for rule in (rules or []):
+        r = (rule or "").strip()
+        if not r:
+            continue
+        v = compose(raw, r) if ("{" in r or '"' in r) else param(raw, [r])
+        if v:
+            return v
+    return ""
+
+
 def _des_from_rel(raw):
     """Есть ли уравнение `ОБОЗНАЧЕНИЕ = rel_model_name` (тогда обозначение = имя модели)."""
     for enc in ("utf-8", "cp1251"):
@@ -256,9 +268,9 @@ def _des_from_rel(raw):
 def scan_item(s, path, stems, fstems=frozenset(), pdes=None, pname=None, pmat=None):
     raw = open(path, "rb").read()
     vol = real(raw, "volume") or real(raw, "mtrl_volume")
-    des = param(raw, pdes or _PARAM_DES)
-    nmv = param(raw, pname or _PARAM_NAME)
-    mat = param(raw, pmat or _PARAM_MAT)
+    des = _by_rules(raw, pdes or _PARAM_DES)
+    nmv = _by_rules(raw, pname or _PARAM_NAME)
+    mat = _by_rules(raw, pmat or _PARAM_MAT)
     if not des and _des_from_rel(raw):
         des = s                                  # ОБОЗНАЧЕНИЕ = rel_model_name → имя модели
     nm = names(raw)
@@ -291,6 +303,7 @@ user_time = _CR.user_time
 last_hist = _CR.last_hist
 names = _CR.names
 param = _CR.param
+compose = _CR.compose
 
 SCHEMA = """
 CREATE TABLE IF NOT EXISTS snapshots (
