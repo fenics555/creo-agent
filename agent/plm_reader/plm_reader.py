@@ -26,7 +26,7 @@ import sys
 import threading
 import time
 
-APP_VERSION = "V23"
+APP_VERSION = "V24"
 APP_TITLE = "PLM Reader " + APP_VERSION          # версия ОДНА: заголовок берёт её из константы
 SETTINGS_FILE = os.path.join(os.path.dirname(os.path.abspath(__file__)), "settings.json")
 DATA_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "db")   # все данные — в одном месте
@@ -1392,12 +1392,24 @@ def run_gui():
 
     top = ttk.Frame(root, padding=6)
     top.pack(fill="x", padx=6, pady=(6, 4))
-    spath = ttk.Frame(top)                 # блок ПАПОК: Папка1, под ней Папка2
-    spath.pack(fill="x")
-    srow1 = ttk.Frame(top)                 # предохранители: размер, подпапки, версии
-    srow1.pack(fill="x", pady=(4, 0))
-    srow2 = ttk.Frame(top)                 # глубина и ПУРГЕ (не уезжают за край)
-    srow2.pack(fill="x", pady=(4, 0))
+    row1 = ttk.Frame(top)                  # строка групп 1: ПАПКИ · СКАН · ПОКАЗ
+    row1.pack(fill="x")
+    row2 = ttk.Frame(top)                  # строка групп 2: ПУРГЕ · СКАНИРОВАНИЕ · ИНСТРУМЕНТЫ
+    row2.pack(fill="x", pady=(6, 0))
+    grp_paths = ttk.LabelFrame(row1, text=" ПАПКИ ", padding=8)
+    grp_paths.pack(side="left", fill="both")
+    grp_scan = ttk.LabelFrame(row1, text=" СКАН ", padding=8)
+    grp_scan.pack(side="left", fill="both", padx=(8, 0))
+    grp_show = ttk.LabelFrame(row1, text=" ПОКАЗ ", padding=8)
+    grp_show.pack(side="left", fill="both", padx=(8, 0))
+    grp_purge = ttk.LabelFrame(row2, text=" ПУРГЕ — старые версии в бэкап, удаления нет ", padding=8)
+    grp_purge.pack(side="left", fill="both")
+    grp_do = ttk.LabelFrame(row2, text=" СКАНИРОВАНИЕ ", padding=8)
+    grp_do.pack(side="left", fill="both", padx=(8, 0))
+    grp_tools = ttk.LabelFrame(row2, text=" ИНСТРУМЕНТЫ ", padding=8)
+    grp_tools.pack(side="left", fill="both", padx=(8, 0))
+    spath = grp_paths                      # панель путей живёт в группе «ПАПКИ»
+    _hidden = ttk.Frame(top)               # невидимый держатель (совместимость разметки)
     class _Field:
         """Поле-путь БЕЗ виджета: ввод путей живёт в окне «Пути и исключения…», тут только значение."""
 
@@ -1416,7 +1428,7 @@ def run_gui():
     e_folder = _Field(settings.get("folder", ""))
     e_folder2 = _Field(settings.get("folder2", ""))
 
-    def _short(items, n=140):
+    def _short(items, n=110):
         s = " ; ".join(items)
         return s if len(s) <= n else s[:n] + " …"
 
@@ -1440,15 +1452,15 @@ def run_gui():
     def open_paths():
         PathsWindow(root, settings, tk, ttk, filedialog, on_save=pull_paths)
 
-    ttk.Button(spath, text="Пути и исключения…", command=open_paths, width=24).grid(
-        row=0, column=0, columnspan=2, sticky="w")
-    btn_paths = spath.grid_slaves(row=0, column=0)[0]
-    ttk.Label(spath, text="Показывать строк:").grid(row=0, column=2, sticky="e", padx=(16, 4))
-    sp_limit = ttk.Spinbox(spath, from_=1000, to=1000000, increment=5000, width=9)
+    btn_paths = ttk.Button(spath, text="Пути и исключения…", command=open_paths, width=26)
+    btn_paths.grid(row=0, column=0, sticky="w")
+    lim = ttk.Frame(grp_show)
+    lim.pack(fill="x")
+    ttk.Label(lim, text="строк в таблице:").pack(side="left")
+    sp_limit = ttk.Spinbox(lim, from_=1000, to=1000000, increment=5000, width=9)
     sp_limit.set(int(settings.get("show_limit") or 50000))
-    sp_limit.grid(row=0, column=3, sticky="w")
-    ttk.Label(spath, text="(сколько строк отдавать таблице и поиску)", foreground="#666").grid(
-        row=0, column=4, sticky="w", padx=(8, 0))
+    sp_limit.pack(side="left", padx=4)
+    ttk.Label(grp_show, text="(этим же числом ограничен поиск)", foreground="#666").pack(anchor="w")
 
     def limit_changed(*_):
         try:
@@ -1459,30 +1471,43 @@ def run_gui():
 
     sp_limit.bind("<FocusOut>", limit_changed)
     sp_limit.bind("<Return>", limit_changed)
-    lbl_p = ttk.Label(spath, text="", foreground="#666", justify="left", wraplength=1240)
-    lbl_p.grid(row=1, column=0, columnspan=5, sticky="w", pady=(4, 0))
-    lbl_e = ttk.Label(spath, text="", foreground="#666", justify="left", wraplength=1240)
-    lbl_e.grid(row=2, column=0, columnspan=5, sticky="w")
+    lbl_p = ttk.Label(spath, text="", foreground="#666", justify="left", wraplength=560)
+    lbl_p.grid(row=1, column=0, sticky="w", pady=(4, 0))
+    lbl_e = ttk.Label(spath, text="", foreground="#666", justify="left", wraplength=560)
+    lbl_e.grid(row=2, column=0, sticky="w")
     show_paths()
 
-    ttk.Label(srow1, text="Пропускать > МБ:").pack(side="left", padx=(10, 2))
-    e_max = ttk.Entry(srow1, width=5)
-    e_max.insert(0, str(settings.get("max_size_mb", 24)))
-    e_max.pack(side="left")
-    var_rec = tk.BooleanVar(value=settings.get("recurse", True))
-    ttk.Checkbutton(srow1, text="с подпапками", variable=var_rec).pack(side="left", padx=8)
-    var_lat = tk.BooleanVar(value=settings.get("latest_only", True))
-    ttk.Checkbutton(srow1, text="только последние версии", variable=var_lat).pack(side="left", padx=8)
+    def _row(parent, label, width=5):
+        """Строка «подпись + поле» внутри группы."""
+        f = ttk.Frame(parent)
+        f.pack(fill="x", pady=1)
+        ttk.Label(f, text=label).pack(side="left")
+        e = ttk.Entry(f, width=width)
+        e.pack(side="left", padx=4)
+        return e
 
-    ttk.Label(srow2, text="Глубина папок (0=все):").pack(side="left")
-    e_depth = ttk.Entry(srow2, width=4)
+    e_depth = _row(grp_scan, "Глубина папок (0 = все):", 5)
+    e_depth.delete(0, "end")
     e_depth.insert(0, str(settings.get("depth", 0)))
-    e_depth.pack(side="left", padx=4)
-    ttk.Label(srow2, text="ПУРГЕ: оставить версий:").pack(side="left", padx=(14, 2))
-    e_keep = ttk.Entry(srow2, width=4)
+    e_max = _row(grp_scan, "Пропускать файлы > МБ:", 5)
+    e_max.delete(0, "end")
+    e_max.insert(0, str(settings.get("max_size_mb", 24)))
+    var_rec = tk.BooleanVar(value=settings.get("recurse", True))
+    ttk.Checkbutton(grp_scan, text="с подпапками", variable=var_rec).pack(anchor="w")
+    var_lat = tk.BooleanVar(value=settings.get("latest_only", True))
+    ttk.Checkbutton(grp_scan, text="только последние версии", variable=var_lat).pack(anchor="w")
+
+    e_keep = _row(grp_purge, "оставить версий:", 4)
+    e_keep.delete(0, "end")
     e_keep.insert(0, str(settings.get("purge_keep", 2)))
-    e_keep.pack(side="left", padx=4)
-    ttk.Label(srow2, text="(старые версии — в бэкап, удаления нет)", foreground="#666").pack(side="left", padx=(8, 0))
+    ttk.Label(grp_purge, text="ПЛАН — что уйдёт; «в бэкап» — перенести",
+              foreground="#666").pack(anchor="w", pady=(2, 3))
+    b_purge_plan = ttk.Button(grp_purge, text="ПУРГЕ: ПЛАН", width=20,
+                              command=lambda: purge_show())
+    b_purge_plan.pack(anchor="w", pady=1)
+    b_purge_run = ttk.Button(grp_purge, text="ПУРГЕ: в бэкап…", width=20,
+                             command=lambda: purge_run())
+    b_purge_run.pack(anchor="w", pady=1)
 
     def _auto_changed():
         try:
@@ -1492,28 +1517,33 @@ def run_gui():
             pass
 
     var_auto = tk.BooleanVar(value=settings.get("auto_refresh", True))
-    ttk.Checkbutton(srow2, text="автообновление", variable=var_auto,
-                    command=_auto_changed).pack(side="left", padx=(12, 0))
+    ttk.Checkbutton(grp_show, text="автообновление", variable=var_auto,
+                    command=_auto_changed).pack(anchor="w", pady=(4, 0))
     var_full = tk.BooleanVar(value=settings.get("full", False))
-    ttk.Checkbutton(srow2, text="перечитать всё", variable=var_full).pack(side="left", padx=(8, 0))
+    ttk.Checkbutton(grp_show, text="перечитать всё", variable=var_full).pack(anchor="w")
 
-    mid = ttk.Frame(root, padding=(6, 0))
-    mid.pack(fill="x", padx=6, pady=(0, 4))
-    btn = ttk.Button(mid, text="Сканировать")
+    btn = ttk.Button(grp_do, text="Сканировать", width=14)
     btn.pack(side="left")
 
     def stop_scan():
         root._plm_stop = True
         lbl.config(text="останавливаю…")
 
-    b_stop = ttk.Button(mid, text="Стоп", command=stop_scan, state="disabled")
-    b_stop.pack(side="left", padx=(8, 0))
-    ttk.Button(mid, text="Актуально?", command=lambda: check_base()).pack(side="left", padx=(8, 0))
-    ttk.Button(mid, text="README", command=lambda: show_readme()).pack(side="left", padx=(8, 0))
-    ttk.Button(mid, text="Выгрузить в CSV", command=lambda: export()).pack(side="left", padx=8)
-    ttk.Button(mid, text="Столбцы и параметры…", command=lambda: choose_columns()).pack(side="left", padx=(0, 8))
-    ttk.Button(mid, text="История выбранного", command=lambda: show_history()).pack(side="left", padx=8)
-    ttk.Button(mid, text="История по папке", command=lambda: show_folder_history()).pack(side="left", padx=8)
+    b_stop = ttk.Button(grp_do, text="Стоп", command=stop_scan, state="disabled", width=8)
+    b_stop.pack(side="left", padx=(6, 0))
+    b_check = ttk.Button(grp_do, text="Актуально?", width=12, command=lambda: check_base())
+    b_check.pack(side="left", padx=(6, 0))
+
+    ttk.Button(grp_tools, text="История выбранного", width=18,
+               command=lambda: show_history()).pack(side="left")
+    ttk.Button(grp_tools, text="История по папке", width=18,
+               command=lambda: show_folder_history()).pack(side="left", padx=(6, 0))
+    ttk.Button(grp_tools, text="Столбцы и параметры…", width=20,
+               command=lambda: choose_columns()).pack(side="left", padx=(6, 0))
+    ttk.Button(grp_tools, text="Выгрузить в CSV", width=16,
+               command=lambda: export()).pack(side="left", padx=(6, 0))
+    ttk.Button(grp_tools, text="README", width=10,
+               command=lambda: show_readme()).pack(side="left", padx=(6, 0))
 
     data = ttk.Frame(root, padding=6)
     data.pack(fill="x", padx=6, pady=(0, 4))
@@ -1765,8 +1795,6 @@ def run_gui():
     ttk.Button(tbar, text="ИЗМЕНЕНИЯ по изделию",
                command=lambda: changes_selected()).pack(side="left", padx=4)
     ttk.Button(tbar, text="РАЗВЕРНУТЬ ВСЁ", command=lambda: expand_all()).pack(side="left", padx=4)
-    ttk.Button(tbar, text="ПУРГЕ: ПЛАН", command=lambda: purge_show()).pack(side="left", padx=4)
-    ttk.Button(tbar, text="ПУРГЕ: в бэкап…", command=lambda: purge_run()).pack(side="left", padx=4)
     tsum = ttk.Label(tbar, text="")
     tsum.pack(side="left", padx=10)
 
@@ -2616,18 +2644,25 @@ def run_gui():
 
     root.protocol("WM_DELETE_WINDOW", on_close)
 
-    if os.environ.get("PLM_SELFCHECK"):        # самопроверка вида: видна ли кнопка «Пути…» и что в подписях
+    if os.environ.get("PLM_SELFCHECK"):        # самопроверка вида: ключевые кнопки видны и внутри окна
         def _selfcheck():
             try:
                 root.update_idletasks()
-                x = btn_paths.winfo_rootx() - root.winfo_rootx()
-                y = btn_paths.winfo_rooty() - root.winfo_rooty()
-                log_line("selfcheck: кнопка «Пути…» видна=%s, x=%d y=%d, окно %dx%d, лимит=%s"
-                         % (btn_paths.winfo_ismapped(), x, y,
-                            root.winfo_width(), root.winfo_height(), sp_limit.get()))
-                log_line("selfcheck: %s / %s"
-                         % (lbl_p.cget("text").replace("\n", " | ")[:90],
-                            lbl_e.cget("text").replace("\n", " | ")[:90]))
+                w, h = root.winfo_width(), root.winfo_height()
+                bad = []
+                for name, wdg in (("Пути…", btn_paths), ("Показывать", sp_limit), ("Сканировать", btn),
+                                  ("Стоп", b_stop), ("Актуально?", b_check),
+                                  ("ПУРГЕ-ПЛАН", b_purge_plan), ("ПУРГЕ-бэкап", b_purge_run)):
+                    vis = wdg.winfo_ismapped()
+                    x = wdg.winfo_rootx() - root.winfo_rootx()
+                    y = wdg.winfo_rooty() - root.winfo_rooty()
+                    if not vis or not (0 <= x < w and 0 <= y < h):
+                        bad.append("%s(vis=%s,%d,%d)" % (name, vis, x, y))
+                log_line("selfcheck: окно %dx%d, проверено виджетов 7, скрыто/вне окна: %s"
+                         % (w, h, ", ".join(bad) if bad else "нет"))
+                log_line("selfcheck: лимит=%s | %s | %s"
+                         % (sp_limit.get(), lbl_p.cget("text").replace("\n", " | ")[:80],
+                            lbl_e.cget("text").replace("\n", " | ")[:80]))
             except Exception as e:
                 log_line("selfcheck: ошибка %s" % e)
         root.after(1500, _selfcheck)
