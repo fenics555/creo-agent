@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-r"""PLM Reader V16 — движок ПЛМ «в лоб»: паспорт изделий, дерево производства, входимость и ИЗМЕНЕНИЯ.
+r"""PLM Reader V18 — движок ПЛМ «в лоб»: паспорт изделий, дерево производства, входимость и ИЗМЕНЕНИЯ.
 
 Creo не нужен. Своя база лежит РЯДОМ с инструментом (db\plm_reader.db) — легко перенести на другую машину.
 Корень склада ОДИН на все входы (окно, CLI, мета базы): Z:\PTC.
@@ -44,7 +44,7 @@ def derived_of(raw):
         if nm:
             return nm.group(1).decode("latin-1"), "производная"
     return "", ""
-VERSION = "V16"
+VERSION = "V18"
 
 
 def log(msg):
@@ -509,7 +509,25 @@ def scan_to_base(roots, max_mb=8, limit=120, depth=None, progress_cb=None, stop_
         src = active_db()
         if os.path.isfile(src):
             shutil.copy2(src, draft)                  # работаем на локальной копии активной базы
-        res = do_scan(roots, max_mb, limit, depth, progress_cb, stop_cb, full, db=draft,
+        # правила параметров изменились → принудительно ПЕРЕЧИТАТЬ всё и запомнить подпись
+        sig = json.dumps(param_cfg or {}, sort_keys=True, ensure_ascii=False)
+        eff_full = bool(full)
+        try:
+            c0 = connect(db=draft)
+            try:
+                r0 = c0.execute("SELECT v FROM meta WHERE k='param_sig'").fetchone()
+            except Exception:
+                r0 = None
+            if (r0[0] if r0 else None) != sig:
+                eff_full = True
+                log("param_sig changed → полный скан")
+            c0.execute("CREATE TABLE IF NOT EXISTS meta (k TEXT PRIMARY KEY, v TEXT)")
+            c0.execute("INSERT OR REPLACE INTO meta VALUES ('param_sig', ?)", (sig,))
+            c0.commit()
+            c0.close()
+        except Exception:
+            pass
+        res = do_scan(roots, max_mb, limit, depth, progress_cb, stop_cb, eff_full, db=draft,
                       param_cfg=param_cfg)
         _publish(draft)
         published = True

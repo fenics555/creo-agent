@@ -109,10 +109,16 @@ def param(raw, names, default=""):
                 if i < 0:
                     break
                 pos = i + 1
+                if i > 0:                        # не хвост длинного имени (…_NAME, PTC_MATERIAL_NAME)
+                    pb = raw[i - 1]
+                    if pb == 0x5F or 0x30 <= pb <= 0x39 or 0x41 <= pb <= 0x5A or 0x61 <= pb <= 0x7A:
+                        continue
                 h = raw[i + len(nb): i + len(nb) + 12]
                 for tag in VAL_TAGS:
                     if h.startswith(b"\x00" + tag):
                         v = raw[i + len(nb) + 1 + len(tag):]
+                        if v[:1] == b"\xf7":     # служебный префикс записи: f7 + байт-флаг
+                            v = v[2:]
                         j = v.find(b"\x00")
                         if j < 0:
                             j = 48

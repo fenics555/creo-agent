@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-r"""PLM Reader V16 — автономный просмотр данных изделий из файлов CAD (детали, сборки, чертежи).
+r"""PLM Reader V18 — автономный просмотр данных изделий из файлов CAD (детали, сборки, чертежи).
 
 Кнопка «Сканировать» обходит выбранную папку и показывает таблицу:
 Обозначение · Наименование · Материал · Объём (мм³) · Роль/родитель · Ревизия · Записей · Дата · Пользователь · Версия Creo · Файл.
@@ -26,8 +26,8 @@ import sys
 import threading
 import time
 
-APP_VERSION = "V16"
-APP_TITLE = "PLM Reader V16"
+APP_VERSION = "V18"
+APP_TITLE = "PLM Reader V18"
 SETTINGS_FILE = os.path.join(os.path.dirname(os.path.abspath(__file__)), "settings.json")
 DATA_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "db")   # все данные — в одном месте
 CACHE_FILE = os.path.join(DATA_DIR, "scan_cache.json")
@@ -1141,6 +1141,8 @@ def run_gui():
     srow1.pack(fill="x")
     srow2 = ttk.Frame(top)                 # строка 2: глубина и ПУРГЕ (не уезжают за край)
     srow2.pack(fill="x", pady=(4, 0))
+    srow3 = ttk.Frame(top)                 # строка 3: ДОП. папка (библиотеки, стартовые шаблоны)
+    srow3.pack(fill="x", pady=(4, 0))
     ttk.Label(srow1, text="Папка:").pack(side="left")
     e_folder = ttk.Entry(srow1, width=52)
     e_folder.insert(0, settings.get("folder", ""))
@@ -1153,6 +1155,21 @@ def run_gui():
             e_folder.insert(0, d)
 
     ttk.Button(srow1, text="Выбрать…", command=pick).pack(side="left")
+
+    ttk.Label(srow3, text="Доп. папка:").pack(side="left")
+    e_folder2 = ttk.Entry(srow3, width=52)
+    e_folder2.insert(0, settings.get("folder2", ""))
+    e_folder2.pack(side="left", padx=4)
+
+    def pick2():
+        d = filedialog.askdirectory(initialdir=e_folder2.get() or e_folder.get() or os.path.expanduser("~"))
+        if d:
+            e_folder2.delete(0, "end")
+            e_folder2.insert(0, d)
+
+    ttk.Button(srow3, text="Выбрать…", command=pick2).pack(side="left")
+    ttk.Label(srow3, text="(где библиотечные изделия и шаблоны; скан обходит ОБЕ папки)",
+              foreground="#666").pack(side="left", padx=(8, 0))
 
     ttk.Label(srow1, text="Пропускать > МБ:").pack(side="left", padx=(10, 2))
     e_max = ttk.Entry(srow1, width=5)
@@ -1277,51 +1294,124 @@ def run_gui():
     eview.grid(row=0, column=0, sticky="nsew")
     evs.grid(row=0, column=1, sticky="ns")
     ehs.grid(row=1, column=0, sticky="ew")
-    _EFOLD, _EFILE = {}, {}
+    _EFOLD, _EFILE, _EDONE = {}, {}, set()
 
     def _e_short(p):
         return p if len(p) <= 90 else "…" + p[-88:]
 
-    def _expl_node(parent, folder):
-        a, b = eng.folder_files_count(folder)
+    def _expl_root_paths():
+        """Корни базы — лёгким чтением (без тяжёлого connect() движка)."""
+        try:
+            c = db_conn()
+            rows = [r[0] for r in c.execute(
+                "SELECT path FROM folders WHERE parent NOT IN (SELECT path FROM folders) ORDER BY path")]
+            c.close()
+            if rows:
+                return rows
+        except Exception:
+            pass
+        try:
+            import engine as _e
+            return json.loads(_e.meta_get("roots") or "null") or []
+        except Exception:
+            return []
+
+    def _expl_data(parent):
+        """Подпапки (с числами) и файлы папки — ОДНИМ соединением (без COUNT на каждую подпапку)."""
+        c = db_conn()
+        try:
+            subs = c.execute(
+                "SELECT f.path,"
+                " (SELECT COUNT(*) FROM folders g WHERE g.parent=f.path),"
+                " (SELECT COUNT(*) FROM snapshots s WHERE s.folder=f.path)"
+                " FROM folders f WHERE f.parent=? ORDER BY f.path", (parent,)).fetchall()
+            files = c.execute("SELECT path,designation,name FROM snapshots WHERE folder=? "
+                              "ORDER BY path", (parent,)).fetchall()
+        finally:
+            c.close()
+        return subs, files
+
+    def _expl_node(parent, folder, subs_n=0, files_n=0):
         n = eview.insert(parent, "end",
-                         text="%s  [%d папок, %d файлов]" % (os.path.basename(folder) or folder, a, b),
+                         text="%s  [%d папок, %d файлов]" % (os.path.basename(folder) or folder,
+                                                              subs_n, files_n),
                          values=("папка", "", "", "", "", "", "", "", _e_short(folder)))
         _EFOLD[n] = folder
-        eview.insert(n, "end", text="загрузка…")      # «плюсик» для раскрытия
+        eview.insert(n, "end", text="…")          # «плюсик»: дети читаются при раскрытии
         return n
 
-    def _expl_fill(node):
+    def _expl_file_row(node, p, desig, name):
+        n = eview.insert(node, "end", text=os.path.basename(p), values=(
+            "файл", os.path.basename(p), desig or "", name or "", "", "", "", "", _e_short(p)))
+        _EFILE[n] = p
+        return n
+
+    def _expl_more(node, rest, subs):
+        """Порциями по 150 — окно не замирает, строки появляются по мере чтения."""
+        for p, desig, name in rest[:150]:
+            _expl_file_row(node, p, desig, name)
+        if len(rest) > 150:
+            root.after(1, lambda: _expl_more(node, rest[150:], subs))
+        else:
+            for s, sc, fc in subs:
+                _expl_node(node, s, sc, fc)
+            _EDONE.add(node)
+
+    def _expl_fill(node, res=None):
+        """ЛЕНИВО: показали «читаю…» → фоном читаем → рисуем порциями. Повтор не перечитывает."""
         folder = _EFOLD.get(node)
         if folder is None:
             return
+        if res is None:
+            if node in _EDONE:
+                return
+            for ch in eview.get_children(node):
+                eview.delete(ch)
+            eview.insert(node, "end", text="… читаю")
+
+            def work():
+                try:
+                    data = _expl_data(folder)
+                except Exception:
+                    data = ([], [])
+                try:
+                    root.after(0, lambda: _expl_fill(node, data))
+                except Exception:
+                    pass
+            threading.Thread(target=work, daemon=True).start()
+            return
+        subs, files = res
         for ch in eview.get_children(node):
-            eview.delete(ch)
-        subs, files = eng.folder_children(folder)
-        for p, desig, name, material, volume, rev, role in files:
-            n = eview.insert(node, "end", text=os.path.basename(p), values=(
-                "файл", os.path.basename(p), desig or "", name or "", material or "",
-                ("%.0f" % volume) if volume else "", rev or "", role or "", _e_short(p)))
-            _EFILE[n] = p
-        for s in subs:
-            _expl_node(node, s)
+            try:
+                if eview.item(ch, "text") == "… читаю":
+                    eview.delete(ch)
+            except Exception:
+                pass
+        _expl_more(node, files, subs)
 
     def fill_explorer():
         eview.delete(*eview.get_children())
         _EFOLD.clear()
         _EFILE.clear()
-        try:
-            roots = eng.base_roots()
-        except Exception:
-            roots = []
-        if not roots:
+        _EDONE.clear()
+        roots = _expl_root_paths()
+        cnt = {}
+        if roots:
+            c = db_conn()
             try:
-                roots = json.loads(eng.meta_get("roots") or "null") or []
+                cnt = dict((r[0], (r[1], r[2])) for r in c.execute(
+                    "SELECT f.path,"
+                    " (SELECT COUNT(*) FROM folders g WHERE g.parent=f.path),"
+                    " (SELECT COUNT(*) FROM snapshots s WHERE s.folder=f.path)"
+                    " FROM folders f WHERE f.path IN (%s)" % ",".join("?" * len(roots)), roots))
             except Exception:
-                roots = []
+                cnt = {}
+            finally:
+                c.close()
         for r in roots:
-            _expl_node("", r)
-        esum.config(text="корней: %d — раскрывай папки" % len(roots))
+            sc, fc = cnt.get(r, (0, 0))
+            _expl_node("", r, sc, fc)
+        esum.config(text="корней: %d — раскрывай папки (дети читаются при раскрытии)" % len(roots))
 
     def _expl_dbl(event=None):
         path = _EFILE.get(eview.focus())
@@ -2223,8 +2313,13 @@ def run_gui():
         e_mat = ttk.Entry(pf, width=92)
         e_mat.insert(0, ", ".join(settings.get("param_material", DEFAULT_SETTINGS["param_material"])))
         e_mat.pack(fill="x")
-        ttk.Label(win, text="Список проверяется по порядку — берётся первый найденный параметр. "
-                            "Так подойдут любые имена, в т.ч. английские.").pack(anchor="w", padx=8, pady=(0, 8))
+        ttk.Label(win, text="Список проверяется по порядку — берётся первое НЕПУСТОЕ.\n"
+                            "Разделитель правил — ЗАПЯТАЯ. Правило = имя параметра ИЛИ шаблон:\n"
+                            "  {NAME_1} {NAME_2}      → склеит в одну строку: M5x20 ГОСТ 11738-72\n"
+                            "  {ИМЯ} — значение; \"текст\" — вставить текст (кавычки НЕ выводятся);\n"
+                            "  + — склейка без пробела; обычный пробел = пробел; пустые части отбрасываются.\n"
+                            "Пример:  NAME_1, NAME_2, НАИМЕНОВАНИЕ    или    {NAME_1} {NAME_2}, НАИМЕНОВАНИЕ",
+                  justify="left").pack(anchor="w", padx=8, pady=(0, 8))
 
         def apply():
             cols[:] = ["Файл"] + [f for f in ALL_FIELDS if f != "Файл" and vars_[f].get()]
@@ -2322,7 +2417,7 @@ def run_gui():
             pass
         root.after(120, poll_scan)
 
-    def worker(folder, opts):
+    def worker(roots, opts):
         import engine as eng
         res = {}
 
@@ -2330,7 +2425,7 @@ def run_gui():
             q.put(("prog", n, total, "", 0, 0))
 
         try:
-            res = eng.scan_to_base([folder], float(opts.get("max_size_mb") or 8), 3600.0,
+            res = eng.scan_to_base(roots, float(opts.get("max_size_mb") or 8), 3600.0,
                                    (int(e_depth.get() or 0) or None),
                                    progress_cb=pc,
                                    stop_cb=lambda: getattr(root, "_plm_stop", False),
@@ -2347,6 +2442,8 @@ def run_gui():
         if not os.path.isdir(folder):
             messagebox.showwarning(APP_TITLE, "Выберите папку.")
             return
+        folder2 = norm_path(e_folder2.get()) if e_folder2.get().strip() else ""
+        roots = [folder] + ([folder2] if folder2 and os.path.isdir(folder2) else [])
         e_folder.delete(0, "end")
         e_folder.insert(0, folder)
         tree.delete(*tree.get_children())
@@ -2383,6 +2480,90 @@ def run_gui():
         if p:
             save_csv(shown or rows_all, p)
             lbl.config(text="выгружено: %s" % os.path.basename(p))
+
+    # --- КОПИРОВАТЬ / ВСТАВИТЬ: Ctrl+C/V/X/A и ПКМ во всех полях и таблицах ---
+    def _foc():
+        try:
+            return root.focus_get()
+        except Exception:
+            return None
+
+    def _clip_ev(seq, ev=None):
+        w = _foc()
+        try:
+            if w is not None:
+                w.event_generate(seq)
+        except Exception:
+            pass
+        return "break"
+
+    def _on_copy(ev=None):
+        w = _foc()
+        try:
+            if isinstance(w, ttk.Treeview):
+                txt = "\n".join("\t".join(str(x) for x in w.item(i, "values")) for i in w.selection())
+                root.clipboard_clear()
+                root.clipboard_append(txt)
+                return "break"
+        except Exception:
+            pass
+        return _clip_ev("<<Copy>>")
+
+    def _sel_all(ev=None):
+        w = _foc()
+        try:
+            if isinstance(w, tk.Text):
+                w.tag_add("sel", "1.0", "end-1c")
+            elif w is not None:
+                w.selection_range(0, "end")
+                w.icursor("end")
+        except Exception:
+            pass
+        return "break"
+
+    def _menu_pop(ev):
+        w = ev.widget
+        m = tk.Menu(root, tearoff=0)
+        try:
+            if isinstance(w, ttk.Treeview):
+                m.add_command(label="Копировать строку(и)", command=_on_copy)
+            else:
+                m.add_command(label="Вырезать", command=lambda: w.event_generate("<<Cut>>"))
+                m.add_command(label="Копировать", command=lambda: w.event_generate("<<Copy>>"))
+                m.add_command(label="Вставить", command=lambda: w.event_generate("<<Paste>>"))
+                m.add_separator()
+                m.add_command(label="Выделить всё", command=lambda: _sel_all())
+            m.tk_popup(ev.x_root, ev.y_root)
+        finally:
+            m.grab_release()
+
+    def _bind_clip(w):
+        try:
+            w.bind("<Button-3>", _menu_pop, add="+")
+        except Exception:
+            pass
+
+    def _bind_clip_all():
+        def walk(w):
+            for ch in w.winfo_children():
+                try:
+                    if isinstance(ch, (tk.Entry, ttk.Entry, tk.Text, ttk.Treeview)):
+                        _bind_clip(ch)
+                except Exception:
+                    pass
+                walk(ch)
+        try:
+            walk(root)
+        except Exception:
+            pass
+
+    root.bind_all("<Control-c>", _on_copy)
+    root.bind_all("<Control-v>", lambda e: _clip_ev("<<Paste>>"))
+    root.bind_all("<Control-x>", lambda e: _clip_ev("<<Cut>>"))
+    root.bind_all("<Control-a>", _sel_all)
+    root.bind_all("<Control-Insert>", _on_copy)
+    root.bind_all("<Shift-Insert>", lambda e: _clip_ev("<<Paste>>"))
+    root.after(700, _bind_clip_all)                 # ПКМ-меню в существующих полях
 
     btn.config(command=go)
     _bs = db_summary()
