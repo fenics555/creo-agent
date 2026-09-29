@@ -66,7 +66,7 @@ def derived_of(raw):
         if nm:
             return nm.group(1).decode("latin-1"), "производная"
     return "", ""
-VERSION = "V21"
+VERSION = "V22"
 PARSER_TAG = "p21"      # меняй при ЛЮБОМ изменении правил разбора — форсирует полный пересчёт
 
 
@@ -646,12 +646,12 @@ def inventory(roots, max_mb=8, store=True, max_depth=None):
 
 
 def do_scan(roots, max_mb, limit, depth=None, progress_cb=None, stop_cb=None, full=False, db=None,
-            param_cfg=None):
+            param_cfg=None, exclude=None):
     """Скан в базу `db` (по умолчанию боевая). Обычно зовётся через scan_to_base — в черновик."""
     t0 = time.time()
     roots = as_roots(roots)               # строка-корень = ОДИН корень (иначе обход всего диска)
     lim = float("inf") if (limit or 0) <= 0 else limit      # --limit 0 = без предела по времени
-    files_stat = collect_stat(roots, max_mb, depth)
+    files_stat = collect_stat(roots, max_mb, depth, exclude)
     total = len(files_stat)
     codes = {stem(os.path.basename(p)) for p, _, _, _ in files_stat}
     fstems = defaultdict(set)
@@ -737,6 +737,7 @@ def do_scan(roots, max_mb, limit, depth=None, progress_cb=None, stop_cb=None, fu
     try:                        # корни скана — чтобы «проверка актуальности» знала, что обходить
         con.execute("CREATE TABLE IF NOT EXISTS meta (k TEXT PRIMARY KEY, v TEXT)")
         con.execute("INSERT OR REPLACE INTO meta VALUES ('roots', ?)", (json.dumps(roots),))
+        con.execute("INSERT OR REPLACE INTO meta VALUES ('exclude', ?)", (json.dumps(exclude or []),))
     except Exception:
         pass
     con.commit()
@@ -902,10 +903,11 @@ def purge_execute(root, keep=2, backup_dir=None):
     return rep
 
 
-def do_check(roots=None, max_mb=8.0, depth=None):
+def do_check(roots=None, max_mb=8.0, depth=None, exclude=None):
     """БЫСТРАЯ проверка актуальности базы: обход + stat, БЕЗ чтения файлов.
 
-    Отвечает на вопрос владельца «актуально / нужен скан?».
+    Отвечает на вопрос владельца «актуально / нужен скан?». Исключённые папки не обходятся
+    и не считаются «пропавшими».
     """
     t0 = time.time()
     if not roots:
@@ -913,12 +915,17 @@ def do_check(roots=None, max_mb=8.0, depth=None):
             roots = json.loads(meta_get("roots") or "null") or DEFAULT_ROOTS
         except Exception:
             roots = DEFAULT_ROOTS
+    if exclude is None:
+        try:
+            exclude = json.loads(meta_get("exclude") or "null") or []
+        except Exception:
+            exclude = []
     roots = as_roots(roots)          # в базе корни могут лежать СТРОКОЙ — лечим (грабля 29.09)
-    files = collect_stat(roots, max_mb, depth)
+    files = collect_stat(roots, max_mb, depth, exclude)
     con = connect()
     prev = {r[0]: (r[1], r[2]) for r in con.execute("SELECT path,size,mtime FROM snapshots")}
     con.close()
-    prev = {p: v for p, v in prev.items() if under_roots(p, roots)}
+    prev = {p: v for p, v in prev.items() if under_roots(p, roots) and not excluded(p, exclude)}
     # ^ строки ВНЕ текущих корней — не «пропало»: база могла собираться по более широкой папке
     found, new, changed, same = set(), 0, 0, 0
     for p, size, mtime, _ctime in files:

@@ -26,7 +26,7 @@ import sys
 import threading
 import time
 
-APP_VERSION = "V21"
+APP_VERSION = "V22"
 APP_TITLE = "PLM Reader " + APP_VERSION          # версия ОДНА: заголовок берёт её из константы
 SETTINGS_FILE = os.path.join(os.path.dirname(os.path.abspath(__file__)), "settings.json")
 DATA_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "db")   # все данные — в одном месте
@@ -302,6 +302,9 @@ DEFAULT_SETTINGS = {
     "param_designation": ["ОБОЗНАЧЕНИЕ", "OBOZNACHENIE", "DESIGNATION", "DESIGNATOR", "PART_NUMBER"],
     "param_name": ["НАИМЕНОВАНИЕ", "NAME", "PART_NAME", "DESCRIPTION", "TITLE"],
     "param_material": ["PTC_MASTER_MATERIAL", "MATERIAL", "МАТЕРИАЛ"],
+    "folders": [],          # полный список папок сканирования (первые две = поля «Папка1»/«Папка2»)
+    "exclude": [],          # папки-исключения: НЕ читать вовсе
+    "show_limit": 50000,    # сколько строк показывать за раз (крутилка на главной панели)
 }
 
 MODELFILE = re.compile(r"\.([a-z_]{2,4})\.\d+$", re.IGNORECASE)
@@ -997,6 +1000,127 @@ def roots_of(folder, folder2=""):
     return out
 
 
+def scan_roots(folder, folder2="", extra=None):
+    """Корни СКАНА: поля окна («Папка1», «Папка2») + добавочные пути из настроек, без дублей."""
+    out = roots_of(folder, folder2)
+    for x in (extra or []):
+        x = norm_path(x) if x else ""
+        if x and x not in out:
+            out.append(x)
+    return out
+
+
+def exclude_list(paths=None):
+    """Папки-исключения в рабочем виде (нормализованные пути, без пустых)."""
+    out = []
+    for p in (paths or []):
+        p = norm_path(str(p)) if str(p or "").strip() else ""
+        if p and p not in out:
+            out.append(p)
+    return out
+
+
+class PathsWindow:
+    """Окно «Пути и исключения…»: папки сканирования и папки-исключения, по строке на путь.
+
+    «＋» добавляет строку, «−» удаляет; пустые строки и дубли отбрасываются при сохранении
+    (поэтому запятые в именах папок ничему не мешают)."""
+
+    def __init__(self, parent, settings, tk, ttk, filedialog, on_save=None):
+        self.tk, self.ttk, self.filedialog = tk, ttk, filedialog
+        self.settings = settings
+        self.on_save = on_save
+        self.win = tk.Toplevel(parent)
+        self.win.title("Пути и исключения — папки сканирования и исключения")
+        self.win.geometry("860x520")
+        self.win.transient(parent)
+        self.rows = {"folders": [], "exclude": []}
+        box = ttk.Frame(self.win, padding=10)
+        box.pack(fill="both", expand=True)
+        ttk.Label(box, text="Папки сканирования (одна строка = один путь):",
+                  font=("", 10, "bold")).pack(anchor="w")
+        self.sec_scan = self._section(box, "folders")
+        ttk.Label(box, text="Папки исключений — НЕ читать вовсе (одна строка = один путь):",
+                  font=("", 10, "bold")).pack(anchor="w", pady=(14, 0))
+        self.sec_exc = self._section(box, "exclude")
+        foot = ttk.Frame(box)
+        foot.pack(fill="x", pady=(12, 0))
+        ttk.Button(foot, text="Сохранить", command=self.save).pack(side="left")
+        ttk.Button(foot, text="Закрыть", command=self.win.destroy).pack(side="left", padx=6)
+        self.msg = ttk.Label(foot, text="", foreground="#555")
+        self.msg.pack(side="left", padx=10)
+        p_folders = settings.get("folders") or roots_of(settings.get("folder", ""),
+                                                        settings.get("folder2", ""))
+        for p in p_folders:
+            self.add_row("folders", p)
+        for p in (settings.get("exclude") or []):
+            self.add_row("exclude", p)
+        if not self.rows["folders"]:
+            self.add_row("folders", "")
+        if not self.rows["exclude"]:
+            self.add_row("exclude", "")
+
+    def _section(self, parent, key):
+        fr = self.ttk.Frame(parent)
+        fr.pack(fill="x", pady=(4, 0))
+        self.ttk.Button(fr, text="＋ папка", width=12,
+                        command=lambda: self.add_row(key, "")).pack(anchor="w", pady=(0, 2))
+        holder = self.ttk.Frame(fr)
+        holder.pack(fill="x")
+        return holder
+
+    def add_row(self, key, path):
+        holder = self.sec_scan if key == "folders" else self.sec_exc
+        line = self.ttk.Frame(holder)
+        line.pack(fill="x", pady=1)
+        ent = self.ttk.Entry(line)
+        ent.insert(0, path or "")
+        ent.pack(side="left", fill="x", expand=True)
+        self.ttk.Button(line, text="Выбрать…", width=10,
+                        command=lambda e=ent: self._pick(e)).pack(side="left", padx=4)
+        self.ttk.Button(line, text="−", width=3,
+                        command=lambda l=line, k=key: self.del_row(k, l)).pack(side="left")
+        self.rows[key].append((line, ent))
+
+    def del_row(self, key, line):
+        self.rows[key] = [(l, e) for (l, e) in self.rows[key] if l is not line]
+        line.destroy()
+
+    def _pick(self, ent):
+        d = self.filedialog.askdirectory(initialdir=ent.get() or os.path.expanduser("~"))
+        if d:
+            ent.delete(0, "end")
+            ent.insert(0, d.replace("/", "\\"))
+
+    def collect(self):
+        """Списки путей: пустые строки и дубли (без учёта регистра) отбрасываются."""
+        out = {}
+        for key in ("folders", "exclude"):
+            seen, vals = set(), []
+            for _line, ent in self.rows[key]:
+                v = norm_path(ent.get())
+                if v and v.lower() not in seen:
+                    seen.add(v.lower())
+                    vals.append(v)
+            out[key] = vals
+        return out
+
+    def save(self):
+        d = self.collect()
+        self.settings["folders"] = d["folders"]
+        self.settings["exclude"] = d["exclude"]
+        self.settings["folder"] = d["folders"][0] if d["folders"] else ""
+        self.settings["folder2"] = d["folders"][1] if len(d["folders"]) > 1 else ""
+        save_settings_file(self.settings)
+        self.msg.config(text="сохранено: папок %d, исключений %d"
+                             % (len(d["folders"]), len(d["exclude"])))
+        if self.on_save:
+            try:
+                self.on_save()
+            except Exception:
+                pass
+
+
 def load_settings_file(path=None):
     """Настройки окна (файл рядом с инструментом). Битый файл не роняет окно — берём умолчания."""
     path = path or SETTINGS_FILE
@@ -1268,16 +1392,16 @@ def run_gui():
 
     top = ttk.Frame(root, padding=6)
     top.pack(fill="x", padx=6, pady=(6, 4))
-    srow1 = ttk.Frame(top)                 # строка 1: папка и предохранители
-    srow1.pack(fill="x")
-    srow2 = ttk.Frame(top)                 # строка 2: глубина и ПУРГЕ (не уезжают за край)
+    spath = ttk.Frame(top)                 # блок ПАПОК: Папка1, под ней Папка2
+    spath.pack(fill="x")
+    srow1 = ttk.Frame(top)                 # предохранители: размер, подпапки, версии
+    srow1.pack(fill="x", pady=(4, 0))
+    srow2 = ttk.Frame(top)                 # глубина и ПУРГЕ (не уезжают за край)
     srow2.pack(fill="x", pady=(4, 0))
-    srow3 = ttk.Frame(top)                 # строка 3: ПАПКА2 (библиотеки, каталоги, шаблоны)
-    srow3.pack(fill="x", pady=(4, 0))
-    ttk.Label(srow1, text="Папка:").pack(side="left")
-    e_folder = ttk.Entry(srow1, width=52)
+    ttk.Label(spath, text="Папка1:").grid(row=0, column=0, sticky="w")
+    e_folder = ttk.Entry(spath, width=56)
     e_folder.insert(0, settings.get("folder", ""))
-    e_folder.pack(side="left", padx=4)
+    e_folder.grid(row=0, column=1, sticky="w", padx=4, pady=2)
 
     def pick():
         d = filedialog.askdirectory(initialdir=e_folder.get() or os.path.expanduser("~"))
@@ -1287,12 +1411,12 @@ def run_gui():
             settings["folder"] = norm_path(d)           # сохраняем СРАЗУ, а не только по «Сканировать»
             save_settings()
 
-    ttk.Button(srow1, text="Выбрать…", command=pick).pack(side="left")
+    ttk.Button(spath, text="Выбрать…", command=pick).grid(row=0, column=2, sticky="w")
 
-    ttk.Label(srow3, text="Папка2:").pack(side="left")
-    e_folder2 = ttk.Entry(srow3, width=52)
+    ttk.Label(spath, text="Папка2:").grid(row=1, column=0, sticky="w")
+    e_folder2 = ttk.Entry(spath, width=56)
     e_folder2.insert(0, settings.get("folder2", ""))
-    e_folder2.pack(side="left", padx=4)
+    e_folder2.grid(row=1, column=1, sticky="w", padx=4, pady=2)
 
     def pick2():
         d = filedialog.askdirectory(initialdir=e_folder2.get() or e_folder.get() or os.path.expanduser("~"))
@@ -1302,9 +1426,50 @@ def run_gui():
             settings["folder2"] = norm_path(d)          # «Папка2» сохраняется сразу
             save_settings()
 
-    ttk.Button(srow3, text="Выбрать…", command=pick2).pack(side="left")
-    ttk.Label(srow3, text="(библиотеки, шаблоны, каталоги; скан обходит обе папки)",
-              foreground="#666").pack(side="left", padx=(8, 0))
+    ttk.Button(spath, text="Выбрать…", command=pick2).grid(row=1, column=2, sticky="w")
+
+    def show_paths():
+        """Подписи под полями: сколько папок в скане и какие исключены."""
+        flds = scan_roots(e_folder.get(), e_folder2.get(), settings.get("folders"))
+        extra = len(flds) - 2 if len(flds) > 2 else 0
+        lbl_p.config(text="папок скана: %d%s"
+                          % (len(flds), ("  ·  ещё из списка: %d" % extra) if extra else ""))
+        exc = exclude_list(settings.get("exclude"))
+        lbl_e.config(text=("исключено: " + "; ".join(exc)) if exc else "исключений нет")
+
+    def pull_paths():
+        """После окна «Пути…»: подставить первые две папки в поля и обновить подписи."""
+        flds = settings.get("folders") or []
+        e_folder.delete(0, "end")
+        e_folder.insert(0, flds[0] if flds else "")
+        e_folder2.delete(0, "end")
+        e_folder2.insert(0, flds[1] if len(flds) > 1 else "")
+        show_paths()
+
+    def open_paths():
+        PathsWindow(root, settings, tk, ttk, filedialog, on_save=pull_paths)
+
+    ttk.Button(spath, text="Пути и исключения…", command=open_paths).grid(row=0, column=3,
+                                                                         sticky="w", padx=(14, 0))
+    ttk.Label(spath, text="Показывать строк:").grid(row=1, column=3, sticky="w", padx=(14, 0))
+    sp_limit = ttk.Spinbox(spath, from_=1000, to=1000000, increment=5000, width=9)
+    sp_limit.set(int(settings.get("show_limit") or 50000))
+    sp_limit.grid(row=1, column=4, sticky="w", padx=4)
+
+    def limit_changed(*_):
+        try:
+            settings["show_limit"] = max(1000, min(1000000, int(sp_limit.get() or 50000)))
+            save_settings()
+        except Exception:
+            pass
+
+    sp_limit.bind("<FocusOut>", limit_changed)
+    sp_limit.bind("<Return>", limit_changed)
+    lbl_p = ttk.Label(spath, text="", foreground="#666")
+    lbl_p.grid(row=2, column=1, sticky="w", padx=4)
+    lbl_e = ttk.Label(spath, text="", foreground="#666")
+    lbl_e.grid(row=3, column=1, columnspan=3, sticky="w", padx=4)
+    show_paths()
 
     ttk.Label(srow1, text="Пропускать > МБ:").pack(side="left", padx=(10, 2))
     e_max = ttk.Entry(srow1, width=5)
@@ -2273,7 +2438,7 @@ def run_gui():
         prev = tree.selection()
         keep = prev[0] if prev else ""
         if pat:                       # ФИЛЬТР — по ВСЕЙ БАЗЕ, а не по загруженной странице
-            rows, hits, mode = db_search_rows(pat.split(), 50000)
+            rows, hits, mode = db_search_rows(pat.split(), int(settings.get("show_limit") or 50000))
             rts = [r for r in roots_of(e_folder.get(), e_folder2.get()) if os.path.isdir(r)]
             in_r = sum(1 for r in rows if path_under(r["_path"], rts)) if rts else len(rows)
             tail = (" · по фильтру %d в базе %d (слова: %s) · в папках окна %d, вне папок %d%s"
@@ -2342,7 +2507,7 @@ def run_gui():
         def work():
             try:
                 import engine as eng
-                r = eng.do_check()
+                r = eng.do_check(exclude=exclude_list(settings.get("exclude")))
             except Exception as e:
                 try:
                     root.after(0, lambda: lbl.config(text="проверка не удалась: %s" % e))
@@ -2575,9 +2740,10 @@ def run_gui():
                         rows_all.extend(rows)
                         redraw()
                         lbl.config(text="скан базы за %.1f с: новых %d · изменённых %d · "
-                                        "пропущено (уже в базе) %d · в базе %d, показано %d%s"
+                                        "пропущено (уже в базе) %d · в базе %d, показано %d · исключено папок %d%s"
                                    % (_secs, st.get("new", 0), st.get("mod", 0), st.get("skipped", 0),
-                                      total, len(rows), "; ОСТАНОВЛЕНО" if st.get("stopped") else ""))
+                                      total, len(rows), len(exclude_list(settings.get("exclude"))),
+                                      "; ОСТАНОВЛЕНО" if st.get("stopped") else ""))
                         log_line("scan: %s -> новых %d, изменённых %d, пропущено %d за %.1f с"
                                  % (" + ".join(roots_now) or "вся база", st.get("new", 0),
                                     st.get("mod", 0), st.get("skipped", 0), _secs))
@@ -2608,7 +2774,8 @@ def run_gui():
                                    full=bool(opts.get("full")),
                                    param_cfg={"pdes": settings.get("param_designation"),
                                               "pname": settings.get("param_name"),
-                                              "pmat": settings.get("param_material")}) or {}
+                                              "pmat": settings.get("param_material")},
+                                   exclude=exclude_list(settings.get("exclude"))) or {}
         except Exception as e:
             res = {"error": str(e)}
         q.put(("done", 0, res))
@@ -2619,10 +2786,18 @@ def run_gui():
             messagebox.showwarning(APP_TITLE, "Выберите папку.")
             return
         folder2 = norm_path(e_folder2.get()) if e_folder2.get().strip() else ""
-        roots = [folder] + ([folder2] if folder2 and os.path.isdir(folder2) else [])
+        roots = [r for r in scan_roots(folder, folder2, settings.get("folders")) if os.path.isdir(r)]
         if folder2 and not os.path.isdir(folder2):
             messagebox.showwarning(APP_TITLE, "Папка2 не найдена — скан её пропустит,\n"
                                               "но путь я сохраню:\n%s" % folder2)
+        # список путей держим согласным с полями: первые две — Папка1 и Папка2, дальше — из «Путей…»
+        rest = [x for x in (settings.get("folders") or [])
+                if norm_path(x) not in (folder, folder2)]
+        settings["folders"] = ([folder] if folder else []) + ([folder2] if folder2 else []) + rest
+        try:
+            show_paths()
+        except Exception:
+            pass
         e_folder.delete(0, "end")
         e_folder.insert(0, folder)
         tree.delete(*tree.get_children())
@@ -2646,7 +2821,8 @@ def run_gui():
         settings.update({"folder": folder, "folder2": folder2, "max_size_mb": opts["max_size_mb"],
                          "recurse": opts["recurse"], "latest_only": opts["latest_only"],
                          "depth": int(e_depth.get() or 0), "purge_keep": int(e_keep.get() or 2),
-                         "auto_refresh": var_auto.get(), "full": var_full.get()})
+                         "auto_refresh": var_auto.get(), "full": var_full.get(),
+                         "show_limit": max(1000, min(1000000, int(sp_limit.get() or 50000)))})
         save_settings()
         threading.Thread(target=worker, args=(roots, opts), daemon=True).start()
         root.after(120, poll_scan)
