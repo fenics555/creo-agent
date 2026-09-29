@@ -228,6 +228,52 @@ def db_rows(folder=None, limit=2000, latest_only=False):
         return rows
     except Exception:
         return []
+
+
+def db_search_rows(words=None, limit=5000):
+    """ПОИСК ПО ВСЕЙ БАЗЕ (а не по загруженной странице): наименование/обозначение/материал/путь/ревизия/роль.
+    Сначала «ВСЕ слова» (И); если так пусто — «ЛЮБОЕ слово» (ИЛИ) и это видно в строке состояния.
+    Возвращает (строки, найдено_всего, режим)."""
+    ws = [w.casefold() for w in (words or []) if w]
+    try:
+        c = db_conn()
+        has = any(r[1] == "created" for r in c.execute("PRAGMA table_info(snapshots)"))
+        sql = ("SELECT path,model,volume,material,name,designation,rev,author,revdate,role,hist,creo,"
+               "mtime%s FROM snapshots" % (",created" if has else ""))
+        data = [tuple(r) + ((None,) if not has else ()) for r in c.execute(sql)]
+        vers = dict(c.execute("SELECT model, COUNT(*) FROM snapshots GROUP BY model"))
+        c.close()
+    except Exception:
+        return [], 0, ""
+    cache = {}
+
+    def blob(d):
+        b = cache.get(d[0])
+        if b is None:
+            b = " ".join(str(x or "") for x in (d[3], d[4], d[5], d[6], d[7], d[8], d[0])).casefold()
+            cache[d[0]] = b
+        return b
+
+    mode = "И"
+    hits = [d for d in data if all(w in blob(d) for w in ws)] if ws else list(data)
+    if ws and not hits:
+        hits = [d for d in data if any(w in blob(d) for w in ws)]
+        mode = "ИЛИ"
+    out = []
+    for (p, model, volume, material, name, desig, rev, author, revdate, role, hist, creo,
+         mtime, created) in hits[:limit]:
+        out.append({
+            "Файл": os.path.basename(p), "Тип": "", "Обозначение": desig or "",
+            "Наименование": name or "", "Материал": material or "",
+            "Объём, мм³": ("%.0f" % volume) if volume else "", "Габарит, мм": "",
+            "Роль": role or "", "Родитель": "", "Ревизия": rev or "",
+            "Дата": revdate or "", "Пользователь": author or "",
+            "Создан": _fs_date(created), "_created_ts": float(created or 0),
+            "Изменён": _fs_date(mtime), "_mtime_ts": float(mtime or 0),
+            "Записей": str(hist or ""), "Версий": vers.get(model, 0),
+            "Версия Creo": creo or "", "_path": p,
+        })
+    return out, len(hits), mode
 # Логи: дома — в общий D:\AI\log, на чужой машине — рядом с инструментом (переносимость)
 LOG_DIR = os.environ.get("PLM_LOG") or (
     r"D:\AI\log\plm_reader" if os.path.isdir(r"D:\AI\log")
@@ -1389,7 +1435,17 @@ def run_gui():
         return p if len(p) <= 90 else "…" + p[-88:]
 
     def _expl_root_paths():
-        """Корни базы — лёгким чтением (без тяжёлого connect() движка)."""
+        """Корни ПРОВОДНИКА: сначала папки окна (основная + Папка2), затем корни базы."""
+        win = [r for r in roots_of(e_folder.get(), e_folder2.get()) if os.path.isdir(r)]
+        if win:
+            try:
+                c = db_conn()
+                have = set(r[0] for r in c.execute("SELECT path FROM folders"))
+                c.close()
+                known = [r for r in win if r in have]
+                return known or win
+            except Exception:
+                return win
         try:
             c = db_conn()
             rows = [r[0] for r in c.execute(
@@ -2118,8 +2174,8 @@ def run_gui():
         ltv.delete(*ltv.get_children())
         _LTREE.clear()
         pat = e_filter.get().strip()
-        if pat:                                   # есть фильтр в таблице — деревья по найденным изделиям
-            rows = [r for r in rows_all if match_filter(r, cols, pat)]
+        if pat:                                   # фильтр — деревья по найденным во ВСЕЙ базе
+            rows = list(shown) if shown else db_search_rows(pat.split(), 25)[0]
             shown = 0
             for r in rows[:25]:
                 m = eng.stem(os.path.basename(r.get("_path") or ""))
@@ -2213,10 +2269,15 @@ def run_gui():
         redraw()
 
     def redraw():
-        pat = e_filter.get().strip().lower()
+        pat = e_filter.get().strip()
         prev = tree.selection()
         keep = prev[0] if prev else ""
-        rows = [r for r in rows_all if match_filter(r, cols, pat)]
+        if pat:                       # ФИЛЬТР — по ВСЕЙ БАЗЕ, а не по загруженной странице
+            rows, hits, mode = db_search_rows(pat.split(), 5000)
+            tail = " · по фильтру %d в базе %d (слова: %s)" % (hits, db_total(None), mode)
+        else:
+            rows = list(rows_all)
+            tail = " из %d загруженных" % len(rows_all)
         rows.sort(key=lambda r: sort_key(r, sort_state["col"]), reverse=sort_state["desc"])
         shown[:] = rows
         tree.delete(*tree.get_children())
@@ -2226,7 +2287,7 @@ def run_gui():
             mark = "  ▼" if (sort_state["col"] == c and sort_state["desc"]) else \
                    ("  ▲" if sort_state["col"] == c else "")
             tree.heading(c, text=c + mark)
-        lbl.config(text="показано %d из %d" % (len(rows), len(rows_all)))
+        lbl.config(text="показано %d%s" % (len(rows), tail))
         if keep and keep in tree.get_children():
             tree.selection_set(keep)          # выбор сохраняется при сортировке/фильтре
         try:

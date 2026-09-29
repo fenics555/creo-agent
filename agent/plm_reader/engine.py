@@ -67,7 +67,7 @@ def derived_of(raw):
             return nm.group(1).decode("latin-1"), "производная"
     return "", ""
 VERSION = "V20"
-PARSER_TAG = "p19"      # меняй при ЛЮБОМ изменении правил разбора — форсирует полный пересчёт
+PARSER_TAG = "p21"      # меняй при ЛЮБОМ изменении правил разбора — форсирует полный пересчёт
 
 
 def log(msg):
