@@ -26,7 +26,7 @@ import sys
 import threading
 import time
 
-APP_VERSION = "V22"
+APP_VERSION = "V23"
 APP_TITLE = "PLM Reader " + APP_VERSION          # версия ОДНА: заголовок берёт её из константы
 SETTINGS_FILE = os.path.join(os.path.dirname(os.path.abspath(__file__)), "settings.json")
 DATA_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "db")   # все данные — в одном месте
@@ -1398,63 +1398,57 @@ def run_gui():
     srow1.pack(fill="x", pady=(4, 0))
     srow2 = ttk.Frame(top)                 # глубина и ПУРГЕ (не уезжают за край)
     srow2.pack(fill="x", pady=(4, 0))
-    ttk.Label(spath, text="Папка1:").grid(row=0, column=0, sticky="w")
-    e_folder = ttk.Entry(spath, width=56)
-    e_folder.insert(0, settings.get("folder", ""))
-    e_folder.grid(row=0, column=1, sticky="w", padx=4, pady=2)
+    class _Field:
+        """Поле-путь БЕЗ виджета: ввод путей живёт в окне «Пути и исключения…», тут только значение."""
 
-    def pick():
-        d = filedialog.askdirectory(initialdir=e_folder.get() or os.path.expanduser("~"))
-        if d:
-            e_folder.delete(0, "end")
-            e_folder.insert(0, d)
-            settings["folder"] = norm_path(d)           # сохраняем СРАЗУ, а не только по «Сканировать»
-            save_settings()
+        def __init__(self, value=""):
+            self.v = value or ""
 
-    ttk.Button(spath, text="Выбрать…", command=pick).grid(row=0, column=2, sticky="w")
+        def get(self):
+            return self.v
 
-    ttk.Label(spath, text="Папка2:").grid(row=1, column=0, sticky="w")
-    e_folder2 = ttk.Entry(spath, width=56)
-    e_folder2.insert(0, settings.get("folder2", ""))
-    e_folder2.grid(row=1, column=1, sticky="w", padx=4, pady=2)
+        def delete(self, *_a):
+            self.v = ""
 
-    def pick2():
-        d = filedialog.askdirectory(initialdir=e_folder2.get() or e_folder.get() or os.path.expanduser("~"))
-        if d:
-            e_folder2.delete(0, "end")
-            e_folder2.insert(0, d)
-            settings["folder2"] = norm_path(d)          # «Папка2» сохраняется сразу
-            save_settings()
+        def insert(self, _i, val):
+            self.v = str(val)
 
-    ttk.Button(spath, text="Выбрать…", command=pick2).grid(row=1, column=2, sticky="w")
+    e_folder = _Field(settings.get("folder", ""))
+    e_folder2 = _Field(settings.get("folder2", ""))
+
+    def _short(items, n=140):
+        s = " ; ".join(items)
+        return s if len(s) <= n else s[:n] + " …"
 
     def show_paths():
-        """Подписи под полями: сколько папок в скане и какие исключены."""
+        """Что настроено: сколько папок в скане (по порядку) и какие исключены — коротко, с обрезкой."""
         flds = scan_roots(e_folder.get(), e_folder2.get(), settings.get("folders"))
-        extra = len(flds) - 2 if len(flds) > 2 else 0
-        lbl_p.config(text="папок скана: %d%s"
-                          % (len(flds), ("  ·  ещё из списка: %d" % extra) if extra else ""))
         exc = exclude_list(settings.get("exclude"))
-        lbl_e.config(text=("исключено: " + "; ".join(exc)) if exc else "исключений нет")
+        lbl_p.config(text="Папок скана: %d%s\n%s"
+                          % (len(flds),
+                             ("  (в списке ещё %d)" % (len(flds) - 2)) if len(flds) > 2 else "",
+                             _short(flds) or "—"))
+        lbl_e.config(text="Исключено: %d\n%s" % (len(exc), _short(exc) or "—"))
 
     def pull_paths():
-        """После окна «Пути…»: подставить первые две папки в поля и обновить подписи."""
+        """После окна «Пути и исключения…»: значения — в поля-держатели, подписи — на панель."""
         flds = settings.get("folders") or []
-        e_folder.delete(0, "end")
-        e_folder.insert(0, flds[0] if flds else "")
-        e_folder2.delete(0, "end")
-        e_folder2.insert(0, flds[1] if len(flds) > 1 else "")
+        e_folder.v = flds[0] if flds else ""
+        e_folder2.v = flds[1] if len(flds) > 1 else ""
         show_paths()
 
     def open_paths():
         PathsWindow(root, settings, tk, ttk, filedialog, on_save=pull_paths)
 
-    ttk.Button(spath, text="Пути и исключения…", command=open_paths).grid(row=0, column=3,
-                                                                         sticky="w", padx=(14, 0))
-    ttk.Label(spath, text="Показывать строк:").grid(row=1, column=3, sticky="w", padx=(14, 0))
+    ttk.Button(spath, text="Пути и исключения…", command=open_paths, width=24).grid(
+        row=0, column=0, columnspan=2, sticky="w")
+    btn_paths = spath.grid_slaves(row=0, column=0)[0]
+    ttk.Label(spath, text="Показывать строк:").grid(row=0, column=2, sticky="e", padx=(16, 4))
     sp_limit = ttk.Spinbox(spath, from_=1000, to=1000000, increment=5000, width=9)
     sp_limit.set(int(settings.get("show_limit") or 50000))
-    sp_limit.grid(row=1, column=4, sticky="w", padx=4)
+    sp_limit.grid(row=0, column=3, sticky="w")
+    ttk.Label(spath, text="(сколько строк отдавать таблице и поиску)", foreground="#666").grid(
+        row=0, column=4, sticky="w", padx=(8, 0))
 
     def limit_changed(*_):
         try:
@@ -1465,10 +1459,10 @@ def run_gui():
 
     sp_limit.bind("<FocusOut>", limit_changed)
     sp_limit.bind("<Return>", limit_changed)
-    lbl_p = ttk.Label(spath, text="", foreground="#666")
-    lbl_p.grid(row=2, column=1, sticky="w", padx=4)
-    lbl_e = ttk.Label(spath, text="", foreground="#666")
-    lbl_e.grid(row=3, column=1, columnspan=3, sticky="w", padx=4)
+    lbl_p = ttk.Label(spath, text="", foreground="#666", justify="left", wraplength=1240)
+    lbl_p.grid(row=1, column=0, columnspan=5, sticky="w", pady=(4, 0))
+    lbl_e = ttk.Label(spath, text="", foreground="#666", justify="left", wraplength=1240)
+    lbl_e.grid(row=2, column=0, columnspan=5, sticky="w")
     show_paths()
 
     ttk.Label(srow1, text="Пропускать > МБ:").pack(side="left", padx=(10, 2))
@@ -2621,6 +2615,22 @@ def run_gui():
             pass
 
     root.protocol("WM_DELETE_WINDOW", on_close)
+
+    if os.environ.get("PLM_SELFCHECK"):        # самопроверка вида: видна ли кнопка «Пути…» и что в подписях
+        def _selfcheck():
+            try:
+                root.update_idletasks()
+                x = btn_paths.winfo_rootx() - root.winfo_rootx()
+                y = btn_paths.winfo_rooty() - root.winfo_rooty()
+                log_line("selfcheck: кнопка «Пути…» видна=%s, x=%d y=%d, окно %dx%d, лимит=%s"
+                         % (btn_paths.winfo_ismapped(), x, y,
+                            root.winfo_width(), root.winfo_height(), sp_limit.get()))
+                log_line("selfcheck: %s / %s"
+                         % (lbl_p.cget("text").replace("\n", " | ")[:90],
+                            lbl_e.cget("text").replace("\n", " | ")[:90]))
+            except Exception as e:
+                log_line("selfcheck: ошибка %s" % e)
+        root.after(1500, _selfcheck)
 
     def split_list(s):
         return [x.strip() for x in (s or "").replace(";", ",").split(",") if x.strip()]
