@@ -205,7 +205,24 @@ def under_roots(path, roots):
     return False
 
 
-def collect(roots, max_mb, max_depth=None):
+def excluded(path, excl):
+    """Путь под одной из папок-исключений (без учёта регистра, по границе папки)."""
+    if isinstance(excl, str):
+        excl = [excl]
+    if not excl:
+        return False
+    try:
+        p = os.path.normcase(os.path.abspath(path))
+    except Exception:
+        return False
+    for r in excl:
+        rn = os.path.normcase(os.path.abspath(r)).rstrip("\\/")
+        if rn and (p == rn or p.startswith(rn + "\\")):
+            return True
+    return False
+
+
+def collect(roots, max_mb, max_depth=None, exclude=None):
     """ВСЕ файлы моделей рекурсивно (ключ — путь). max_depth — предел вложенности (None = без предела)."""
     files = []
     for root in as_roots(roots):
@@ -213,6 +230,8 @@ def collect(roots, max_mb, max_depth=None):
         if not os.path.isdir(root):
             continue
         for dp, dirs, fs in os.walk(root):
+            if exclude:                       # исключённые папки не обходим вовсе — скан чище и быстрее
+                dirs[:] = [d for d in dirs if not excluded(os.path.join(dp, d), exclude)]
             rel = os.path.relpath(dp, root)
             d = 0 if rel == "." else rel.count(os.sep) + 1
             if max_depth is not None and d > max_depth:
@@ -222,6 +241,8 @@ def collect(roots, max_mb, max_depth=None):
                 for f in sorted(fs):
                     if MODEL.search(f):
                         p = os.path.join(dp, f)
+                        if exclude and excluded(p, exclude):
+                            continue
                         if os.path.getsize(p) <= max_mb * 1_000_000:
                             files.append(p)
             except Exception:
@@ -229,7 +250,7 @@ def collect(roots, max_mb, max_depth=None):
     return files
 
 
-def collect_stat(roots, max_mb, max_depth=None):
+def collect_stat(roots, max_mb, max_depth=None, exclude=None):
     """Файлы модели + их size/mtime ОДНИМ проходом (scandir/stat), без повторных stat."""
     out = []
     lim = max_mb * 1_000_000
@@ -238,6 +259,8 @@ def collect_stat(roots, max_mb, max_depth=None):
         if not os.path.isdir(root):
             continue
         for dp, dirs, fs in os.walk(root):
+            if exclude:                       # исключённые папки не обходим вовсе
+                dirs[:] = [d for d in dirs if not excluded(os.path.join(dp, d), exclude)]
             rel = os.path.relpath(dp, root)
             d = 0 if rel == "." else rel.count(os.sep) + 1
             if max_depth is not None and d > max_depth:
@@ -248,6 +271,8 @@ def collect_stat(roots, max_mb, max_depth=None):
                     if not MODEL.search(f):
                         continue
                     p = os.path.join(dp, f)
+                    if exclude and excluded(p, exclude):
+                        continue
                     try:
                         st = os.stat(p)
                     except OSError:
@@ -521,7 +546,7 @@ def _publish(draft):
 
 
 def scan_to_base(roots, max_mb=8, limit=120, depth=None, progress_cb=None, stop_cb=None, full=False,
-                 param_cfg=None):
+                 param_cfg=None, exclude=None):
     """СКАН С ЗАЩИТОЙ: замок → скан в ЛОКАЛЬНЫЙ черновик → публикация (бэкап + подмена).
 
     Боевая база не меняется до успешного завершения; при любом сбое остаётся прежней.
@@ -564,7 +589,7 @@ def scan_to_base(roots, max_mb=8, limit=120, depth=None, progress_cb=None, stop_
         except Exception:
             pass
         res = do_scan(roots, max_mb, limit, depth, progress_cb, stop_cb, eff_full, db=draft,
-                      param_cfg=param_cfg)
+                      param_cfg=param_cfg, exclude=exclude)
         _publish(draft)
         published = True
         res["published"] = True
