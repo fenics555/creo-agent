@@ -26,7 +26,7 @@ import sys
 import threading
 import time
 
-APP_VERSION = "V24"
+APP_VERSION = "V25"
 APP_TITLE = "PLM Reader " + APP_VERSION          # версия ОДНА: заголовок берёт её из константы
 SETTINGS_FILE = os.path.join(os.path.dirname(os.path.abspath(__file__)), "settings.json")
 DATA_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "db")   # все данные — в одном месте
@@ -1428,19 +1428,21 @@ def run_gui():
     e_folder = _Field(settings.get("folder", ""))
     e_folder2 = _Field(settings.get("folder2", ""))
 
-    def _short(items, n=110):
-        s = " ; ".join(items)
-        return s if len(s) <= n else s[:n] + " …"
+    def _lines(items, n_lines=2, maxlen=34):
+        """Не больше n_lines строк: каждый путь укорочен, лишние пути — строкой «…и ещё K»."""
+        if not items:
+            return "—"
+        out = [(p if len(p) <= maxlen else "…" + p[-(maxlen - 1):]) for p in items[:n_lines]]
+        if len(items) > n_lines:
+            out.append("…и ещё %d" % (len(items) - n_lines))
+        return "\n".join(out)
 
     def show_paths():
-        """Что настроено: сколько папок в скане (по порядку) и какие исключены — коротко, с обрезкой."""
+        """Что настроено: до двух строк папок скана и до двух строк исключений (коротко, с обрезкой)."""
         flds = scan_roots(e_folder.get(), e_folder2.get(), settings.get("folders"))
         exc = exclude_list(settings.get("exclude"))
-        lbl_p.config(text="Папок скана: %d%s\n%s"
-                          % (len(flds),
-                             ("  (в списке ещё %d)" % (len(flds) - 2)) if len(flds) > 2 else "",
-                             _short(flds) or "—"))
-        lbl_e.config(text="Исключено: %d\n%s" % (len(exc), _short(exc) or "—"))
+        lbl_p.config(text="Папок скана: %d\n%s" % (len(flds), _lines(flds)))
+        lbl_e.config(text="Исключено: %d\n%s" % (len(exc), _lines(exc)))
 
     def pull_paths():
         """После окна «Пути и исключения…»: значения — в поля-держатели, подписи — на панель."""
@@ -1456,11 +1458,11 @@ def run_gui():
     btn_paths.grid(row=0, column=0, sticky="w")
     lim = ttk.Frame(grp_show)
     lim.pack(fill="x")
-    ttk.Label(lim, text="строк в таблице:").pack(side="left")
+    ttk.Label(lim, text="строк в таблице и в фильтре:").pack(side="left")
     sp_limit = ttk.Spinbox(lim, from_=1000, to=1000000, increment=5000, width=9)
     sp_limit.set(int(settings.get("show_limit") or 50000))
     sp_limit.pack(side="left", padx=4)
-    ttk.Label(grp_show, text="(этим же числом ограничен поиск)", foreground="#666").pack(anchor="w")
+    ttk.Label(grp_show, text="(столько же строк отдаёт поиск по фильтру)", foreground="#666").pack(anchor="w")
 
     def limit_changed(*_):
         try:
@@ -1471,9 +1473,9 @@ def run_gui():
 
     sp_limit.bind("<FocusOut>", limit_changed)
     sp_limit.bind("<Return>", limit_changed)
-    lbl_p = ttk.Label(spath, text="", foreground="#666", justify="left", wraplength=560)
+    lbl_p = ttk.Label(spath, text="", foreground="#666", justify="left", wraplength=250)
     lbl_p.grid(row=1, column=0, sticky="w", pady=(4, 0))
-    lbl_e = ttk.Label(spath, text="", foreground="#666", justify="left", wraplength=560)
+    lbl_e = ttk.Label(spath, text="", foreground="#666", justify="left", wraplength=250)
     lbl_e.grid(row=2, column=0, sticky="w")
     show_paths()
 
@@ -1522,28 +1524,32 @@ def run_gui():
     var_full = tk.BooleanVar(value=settings.get("full", False))
     ttk.Checkbutton(grp_show, text="перечитать всё", variable=var_full).pack(anchor="w")
 
-    btn = ttk.Button(grp_do, text="Сканировать", width=14)
-    btn.pack(side="left")
+    btn = ttk.Button(grp_do, text="Сканировать", width=18)
+    btn.pack(anchor="w", pady=1)
 
     def stop_scan():
         root._plm_stop = True
         lbl.config(text="останавливаю…")
 
-    b_stop = ttk.Button(grp_do, text="Стоп", command=stop_scan, state="disabled", width=8)
-    b_stop.pack(side="left", padx=(6, 0))
-    b_check = ttk.Button(grp_do, text="Актуально?", width=12, command=lambda: check_base())
-    b_check.pack(side="left", padx=(6, 0))
+    b_stop = ttk.Button(grp_do, text="Стоп", command=stop_scan, state="disabled", width=18)
+    b_stop.pack(anchor="w", pady=1)
+    b_check = ttk.Button(grp_do, text="Актуально?", width=18, command=lambda: check_base())
+    b_check.pack(anchor="w", pady=1)
 
-    ttk.Button(grp_tools, text="История выбранного", width=18,
-               command=lambda: show_history()).pack(side="left")
-    ttk.Button(grp_tools, text="История по папке", width=18,
-               command=lambda: show_folder_history()).pack(side="left", padx=(6, 0))
-    ttk.Button(grp_tools, text="Столбцы и параметры…", width=20,
-               command=lambda: choose_columns()).pack(side="left", padx=(6, 0))
-    ttk.Button(grp_tools, text="Выгрузить в CSV", width=16,
-               command=lambda: export()).pack(side="left", padx=(6, 0))
-    ttk.Button(grp_tools, text="README", width=10,
-               command=lambda: show_readme()).pack(side="left", padx=(6, 0))
+    def _vgrid(parent, items, per_col=4, width=20):
+        """Кнопки ВЕРТИКАЛЬНО: не больше per_col в столбик, дальше — следующий столбец правее."""
+        for i, (text, cmd) in enumerate(items):
+            col, row = divmod(i, per_col)
+            ttk.Button(parent, text=text, width=width, command=cmd).grid(
+                row=row, column=col, sticky="ew", padx=(0 if col == 0 else 8, 0), pady=1)
+
+    _vgrid(grp_tools, [
+        ("История выбранного", lambda: show_history()),
+        ("История по папке", lambda: show_folder_history()),
+        ("Столбцы и параметры…", lambda: choose_columns()),
+        ("Выгрузить в CSV", lambda: export()),
+        ("README", lambda: show_readme()),
+    ], per_col=4)
 
     data = ttk.Frame(root, padding=6)
     data.pack(fill="x", padx=6, pady=(0, 4))
@@ -1563,6 +1569,10 @@ def run_gui():
     btn_copy.pack(side="right", padx=(6, 0))
     lbl = ttk.Label(data, text="готов", anchor="w", justify="left")
     lbl.pack(side="left", fill="x", expand=True)
+
+    # НИЖНЯЯ ПОЛОСА (дерево производства) — прижата к низу окна, видна на ЛЮБОЙ вкладке
+    lpane = ttk.Frame(root)
+    lpane.pack(side="bottom", fill="x", padx=6, pady=(0, 6))
 
     def _status_menu(event):
         m = tk.Menu(root, tearoff=0)
@@ -2050,26 +2060,51 @@ def run_gui():
             f = roots[0] if roots else ""
         return f
 
+    def _text_window(title, head, text, note=""):
+        """Окно с текстом (план ПУРГЕ, итоги): видно с ЛЮБОЙ вкладки, можно скопировать целиком."""
+        win = tk.Toplevel(root)
+        win.title(title)
+        win.geometry("920x520")
+        ttk.Label(win, text=head, padding=(8, 6)).pack(anchor="w")
+        box = ttk.Frame(win, padding=6)
+        box.pack(fill="both", expand=True)
+        t = tk.Text(box, wrap="none")
+        sb = ttk.Scrollbar(box, orient="vertical", command=t.yview)
+        t.configure(yscrollcommand=sb.set)
+        t.pack(side="left", fill="both", expand=True)
+        sb.pack(side="left", fill="y")
+        t.insert("end", text)
+        foot = ttk.Frame(win, padding=6)
+        foot.pack(fill="x")
+        ttk.Button(foot, text="Копировать всё",
+                   command=lambda: (root.clipboard_clear(),
+                                    root.clipboard_append(text))).pack(side="left")
+        ttk.Button(foot, text="Закрыть", command=win.destroy).pack(side="left", padx=6)
+        if note:
+            ttk.Label(foot, text=note, foreground="#666").pack(side="left", padx=10)
+        return win
+
     def purge_show():
-        """ПЛАН чистки версий ИЗ БАЗЫ (файлы НЕ трогаются) + отчёт в log\\reports."""
+        """ПЛАН чистки версий (файлы НЕ трогаются): отдельное окно + статус + отчёт в log\\reports."""
         folder = purge_folder()
         plan = eng.purge_plan(folder or None, int(e_keep.get() or 2))
         txt = eng.purge_plan_text(plan)
-        tout.delete("1.0", "end")
-        tout.insert("end", txt)
-        tsum.config(text="ПУРГЕ-план: лишних версий %d · освободится %.1f МБ (папка %s)"
-                    % (plan["count"], plan["bytes"] / 1048576.0, folder or "вся база"))
+        head = ("ПУРГЕ-план: лишних версий %d · освободится %.1f МБ · папка %s"
+                % (plan["count"], plan["bytes"] / 1048576.0, folder or "вся база"))
         log_line("purge plan: %s — лишних %d, %.1f МБ"
                  % (folder or "вся база", plan["count"], plan["bytes"] / 1048576.0))
+        rep = ""
         try:
             rep = os.path.join(REPORTS_DIR,
                                "PURGE_plan_%s.txt" % datetime.datetime.now().strftime("%Y-%m-%d_%H%M"))
             os.makedirs(REPORTS_DIR, exist_ok=True)
             with open(rep, "w", encoding="utf-8") as f:
                 f.write(txt)
-            tsum.config(text=tsum.cget("text") + " · отчёт: %s" % os.path.basename(rep))
         except Exception:
             pass
+        lbl.config(text=head + (" · отчёт: %s" % os.path.basename(rep) if rep else ""))
+        _text_window("ПУРГЕ: ПЛАН (файлы не трогаются)", head, txt,
+                     "отчёт: %s" % (os.path.basename(rep) if rep else "не сохранён"))
 
     def purge_run():
         """Перенос лишних версий в БЭКАП — встроенным движком ПЛМ (внешний purge_versions не нужен)."""
@@ -2077,10 +2112,10 @@ def run_gui():
         folder = purge_folder()
         plan = eng.purge_plan(folder or None, int(e_keep.get() or 2))
         if not plan["count"]:
-            tsum.config(text="ПУРГЕ: чистить нечего — лишних версий нет")
+            lbl.config(text="ПУРГЕ: чистить нечего — лишних версий нет")
             return
         if not folder or not os.path.isdir(folder):
-            tsum.config(text="ПУРГЕ: выбери существующую папку")
+            lbl.config(text="ПУРГЕ: выбери существующую папку (кнопка «Пути и исключения…»)")
             return
         keep = int(e_keep.get() or 2)
         bdir = os.path.join(folder, "_purge_backup")
@@ -2088,7 +2123,7 @@ def run_gui():
                            "Перенести в БЭКАП %d лишних версий (%.1f МБ)?\n%s\n\n"
                            "Удаления нет: файлы уедут в %s"
                            % (plan["count"], plan["bytes"] / 1048576.0, folder, bdir)):
-            tsum.config(text="ПУРГЕ: отменено")
+            lbl.config(text="ПУРГЕ: отменено")
             return
 
         def work():
@@ -2102,14 +2137,19 @@ def run_gui():
             except Exception as e:
                 out = "ОШИБКА: %s" % e
             log_line("purge execute: %s -> %s" % (folder, out.split("\n")[0]))
+
+            def done():
+                head = "ПУРГЕ: %s" % out.split("\n")[0]
+                lbl.config(text=head)
+                _text_window("ПУРГЕ: перенос в бэкап — результат", head, out, bdir)
+
             try:
-                root.after(0, lambda: (tout.delete("1.0", "end"), tout.insert("end", out),
-                                       tsum.config(text="ПУРГЕ: выполнено — см. вывод и лог инструмента")))
+                root.after(0, done)
             except Exception:
                 pass
 
         threading.Thread(target=work, daemon=True).start()
-        tsum.config(text="ПУРГЕ: переношу лишние версии в бэкап…")
+        lbl.config(text="ПУРГЕ: переношу лишние версии в бэкап…")
 
     def say(fn, *a):
         import contextlib
@@ -2250,14 +2290,8 @@ def run_gui():
                   "open_detail": open_detail, "engine": eng}   # для самопроверки
     fill_tree_view()                       # сразу показать верхние папки базы
 
-    pan = ttk.PanedWindow(tab_table, orient="vertical")
-    pan.pack(fill="both", expand=True, padx=6, pady=(0, 6))
-    top_part = ttk.Frame(pan)                 # сверху — фильтр + таблица
-    bot_part = ttk.Frame(pan)                 # снизу — дерево производства (можно тянуть разделитель)
-    pan.add(top_part, weight=3)
-    pan.add(bot_part, weight=2)
-
-    flt = ttk.Frame(top_part, padding=(6, 4))
+    # нижнее дерево производства живёт ВНЕ вкладок (полоса lpane прижата к низу окна)
+    flt = ttk.Frame(tab_table, padding=(6, 4))
     flt.pack(fill="x")
     ttk.Label(flt, text="Фильтр:").pack(side="left")
     e_filter = ttk.Entry(flt, width=44)
@@ -2285,13 +2319,13 @@ def run_gui():
         _ROWS[u] = r
         return u
 
-    body = ttk.Frame(top_part)
+    body = ttk.Frame(tab_table)
     body.pack(fill="both", expand=True, padx=6, pady=(0, 6))
     body.rowconfigure(0, weight=1)
     body.columnconfigure(0, weight=1)
 
     def make_tree():
-        tv = ttk.Treeview(body, columns=cols, show="headings", height=20)
+        tv = ttk.Treeview(body, columns=cols, show="headings", height=12)
         for c in cols:
             tv.heading(c, text=c, command=lambda c=c: set_sort(c))
             tv.column(c, width=COLS_WIDTH.get(c, 108), anchor="w")
@@ -2307,12 +2341,12 @@ def run_gui():
     tree.bind("<Double-1>", lambda e: show_history())
 
     # --- ОНЛАЙН: внизу сразу строится дерево производства по выбранной строке ---
-    liv = ttk.LabelFrame(bot_part, text=" ДЕРЕВО ПРОИЗВОДСТВА (выбранное изделие) ", padding=4)
-    liv.pack(fill="both", expand=True)
+    liv = ttk.LabelFrame(lpane, text=" ДЕРЕВО ПРОИЗВОДСТВА (выбранное изделие) ", padding=4)
+    liv.pack(fill="x")
     lsum = ttk.Label(liv, text="выбери строку в таблице — дерево построится само")
     lsum.pack(anchor="w")
     LTCOLS = ("Тип", "Изделие/файл", "Обозначение", "Наименование", "Кол-во")
-    ltv = ttk.Treeview(liv, columns=LTCOLS, show="tree headings", height=12)
+    ltv = ttk.Treeview(liv, columns=LTCOLS, show="tree headings", height=8)
     ltv.heading("#0", text="дерево")
     ltv.column("#0", width=320, anchor="w")
     for c in LTCOLS:
@@ -2663,6 +2697,27 @@ def run_gui():
                 log_line("selfcheck: лимит=%s | %s | %s"
                          % (sp_limit.get(), lbl_p.cget("text").replace("\n", " | ")[:80],
                             lbl_e.cget("text").replace("\n", " | ")[:80]))
+                tabs = nb.tabs()
+                bad_tabs = []
+                for t in tabs:
+                    nb.select(t)
+                    root.update_idletasks()
+                    if not ltv.winfo_ismapped():
+                        bad_tabs.append(nb.tab(t, "text").strip())
+                log_line("selfcheck: нижнее дерево производства видно на вкладках: %s"
+                         % (("НЕТ на: " + ", ".join(bad_tabs)) if bad_tabs
+                            else "все %d" % len(tabs)))
+                log_line("selfcheck: полоса низа — lpane(%s,h=%d) liv(%s,h=%d) ltv(%s,h=%d)"
+                         % (lpane.winfo_ismapped(), lpane.winfo_height(),
+                            liv.winfo_ismapped(), liv.winfo_height(),
+                            ltv.winfo_ismapped(), ltv.winfo_height()))
+                if os.environ.get("PLM_SELFCHECK") == "2":     # проверка кнопки ПУРГЕ: ПЛАН целиком
+                    try:
+                        purge_show()
+                        log_line("selfcheck: ПУРГЕ ПЛАН выполнен — окно плана открыто")
+                    except Exception as e:
+                        log_line("selfcheck: ПУРГЕ ПЛАН упал: %s" % e)
+                nb.select(tabs[0])
             except Exception as e:
                 log_line("selfcheck: ошибка %s" % e)
         root.after(1500, _selfcheck)
