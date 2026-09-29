@@ -26,7 +26,7 @@ import sys
 import threading
 import time
 
-APP_VERSION = "V20"
+APP_VERSION = "V21"
 APP_TITLE = "PLM Reader V18"
 SETTINGS_FILE = os.path.join(os.path.dirname(os.path.abspath(__file__)), "settings.json")
 DATA_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "db")   # все данные — в одном месте
