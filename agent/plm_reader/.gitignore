@@ -1,5 +1,6 @@
 db/
 settings/
+log/
 __pycache__/
 scan_cache.json
 settings.json
