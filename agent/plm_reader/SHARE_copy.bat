@@ -1,15 +1,16 @@
 @echo off
-rem SHARE_copy.bat - copy PLM Reader for sharing WITHOUT the database.
-rem The "db" folder (plm_reader.db + scan_cache.json) is skipped on purpose:
-rem the base is your data, it is not shared. The receiver builds its own base by scanning.
+rem SHARE_copy.bat - copy PLM Reader for sharing WITHOUT data and settings.
+rem "db" (database + cache) is skipped: the base is your data, not shared.
+rem "settings" (settings.json + backup_settings) is skipped: each machine keeps its own.
+rem The receiver gets code only and configures paths on first run.
 rem Usage:  SHARE_copy.bat "D:\where\to\share\plm_reader"
 setlocal
 set "SRC=%~dp0"
 set "DST=%~1"
 if "%DST%"=="" echo Usage: SHARE_copy.bat "target folder" & pause & exit /b 1
-robocopy "%SRC%" "%DST%" /E /XD db __pycache__ /XF *.db *.pyc scan_cache.json /NFL /NDL /NJH /NJS /NP
+robocopy "%SRC%" "%DST%" /E /XD db settings __pycache__ /XF *.db *.pyc *.bak settings.json scan_cache.json /NFL /NDL /NJH /NJS /NP
 echo.
-echo DONE. Database (db folder) was NOT copied - share stays code-only.
+echo DONE. "db" and "settings" were NOT copied - share stays code-only.
 echo Target: %DST%
 pause
 endlocal

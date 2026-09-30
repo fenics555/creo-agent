@@ -26,11 +26,13 @@ import sys
 import threading
 import time
 
-APP_VERSION = "V26"
+APP_VERSION = "V28"
 APP_TITLE = "PLM Reader " + APP_VERSION          # версия ОДНА: заголовок берёт её из константы
-SETTINGS_FILE = os.path.join(os.path.dirname(os.path.abspath(__file__)), "settings.json")
-DATA_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "db")   # все данные — в одном месте
+DATA_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "db")          # данные — в подпапке db\
+SETTINGS_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "settings")  # настройки — в подпапке settings\
+SETTINGS_FILE = os.path.join(SETTINGS_DIR, "settings.json")                          # (не затираются при обновлении кода)
 CACHE_FILE = os.path.join(DATA_DIR, "scan_cache.json")
+CURRENT_SETTINGS_VERSION = 2   # увеличивать при КАЖДОМ структурном изменении настроек (см. _settings_migrations)
 
 
 def load_cache():
@@ -291,8 +293,6 @@ def log_line(text):
         pass
 
 DEFAULT_SETTINGS = {
-    "folder": "",
-    "folder2": "",
     "max_size_mb": 24,
     "recurse": True,
     "auto_refresh": True,
@@ -1049,8 +1049,7 @@ class PathsWindow:
         ttk.Button(foot, text="Закрыть", command=self.win.destroy).pack(side="left", padx=6)
         self.msg = ttk.Label(foot, text="", foreground="#555")
         self.msg.pack(side="left", padx=10)
-        p_folders = settings.get("folders") or roots_of(settings.get("folder", ""),
-                                                        settings.get("folder2", ""))
+        p_folders = settings.get("folders") or []
         for p in p_folders:
             self.add_row("folders", p)
         for p in (settings.get("exclude") or []):
@@ -1109,8 +1108,6 @@ class PathsWindow:
         d = self.collect()
         self.settings["folders"] = d["folders"]
         self.settings["exclude"] = d["exclude"]
-        self.settings["folder"] = d["folders"][0] if d["folders"] else ""
-        self.settings["folder2"] = d["folders"][1] if len(d["folders"]) > 1 else ""
         save_settings_file(self.settings)
         self.msg.config(text="сохранено: папок %d, исключений %d"
                              % (len(d["folders"]), len(d["exclude"])))
@@ -1121,18 +1118,100 @@ class PathsWindow:
                 pass
 
 
+def _settings_migrations():
+    """Цепочка миграций: {версия_назначения: функция(данные) -> данные}.
+    Добавляй сюда шаг при КАЖДОМ структурном изменении (переименование/смена типа/смысла)."""
+    def v1_to_v2(d):
+        # v1: отдельные folder/folder2 -> v2: единый список folders
+        if not d.get("folders"):
+            legacy = []
+            if d.get("folder"):
+                legacy.append(d["folder"])
+            if d.get("folder2") and d["folder2"] not in legacy:
+                legacy.append(d["folder2"])
+            if legacy:
+                d["folders"] = legacy
+        d.pop("folder", None)
+        d.pop("folder2", None)
+        return d
+    return {2: v1_to_v2}
+
+
+def _validate_settings(out):
+    """Мягкая проверка типов: что не число — умолчание + строка в лог (битый файл не роняет окно)."""
+    def _num(key, caster):
+        try:
+            out[key] = caster(out.get(key, DEFAULT_SETTINGS[key]))
+        except Exception:
+            out[key] = DEFAULT_SETTINGS[key]
+            log_line("settings: ключ «%s» не число — беру умолчание" % key)
+    _num("max_size_mb", float)
+    _num("show_limit", int)
+    _num("depth", int)
+    _num("purge_keep", int)
+    return out
+
+
+def _archive_old_settings(src):
+    """Старый файл настроек убираем в settings\\backup_settings\\ (не плодим файлы в корне)."""
+    try:
+        import shutil
+        bak_dir = os.path.join(SETTINGS_DIR, "backup_settings")
+        os.makedirs(bak_dir, exist_ok=True)
+        where = "root" if os.path.dirname(os.path.abspath(src)) == os.path.dirname(os.path.abspath(__file__)) else "db"
+        stamp = datetime.datetime.now().strftime("%Y%m%d_%H%M%S")
+        dst = os.path.join(bak_dir, "settings_from_%s_%s.json" % (where, stamp))
+        shutil.move(src, dst)          # ПЕРЕНОС, а не копия
+        log_line("settings: старый файл убран в %s" % dst)
+        return dst
+    except Exception as e:
+        log_line("settings: не удалось убрать старый файл (%s): %s" % (src, e))
+        return ""
+
+
 def load_settings_file(path=None):
-    """Настройки окна (файл рядом с инструментом). Битый файл не роняет окно — берём умолчания."""
+    r"""Настройки окна (файл в settings\). Битый файл не роняет окно — берём умолчания.
+    Ищет по старшинству: settings\settings.json -> db\settings.json -> settings.json рядом;
+    прогоняет цепочку миграций; старый файл убирает в settings\backup_settings\."""
     path = path or SETTINGS_FILE
+    src, is_old = "", False
+    candidates = [path]
+    if path == SETTINGS_FILE:
+        candidates.append(os.path.join(DATA_DIR, "settings.json"))
+        candidates.append(os.path.join(os.path.dirname(os.path.abspath(__file__)), "settings.json"))
+    for c in candidates:
+        if os.path.isfile(c):
+            src = c
+            is_old = (os.path.abspath(c) != os.path.abspath(SETTINGS_FILE))
+            break
     out = dict(DEFAULT_SETTINGS)
     try:
-        if os.path.isfile(path):
-            with open(path, encoding="utf-8") as f:
+        if src:
+            with open(src, encoding="utf-8") as f:
                 data = json.load(f)
             if isinstance(data, dict):
                 out.update(data)
     except Exception as e:
         log_line("settings: чтение не удалось (%s) — работаю на умолчаниях" % e)
+
+    # Миграция структуры: от версии файла к текущей
+    try:
+        v = int(out.get("settings_version", 1))
+    except Exception:
+        v = 1
+    migs = _settings_migrations()
+    while v < CURRENT_SETTINGS_VERSION:
+        v += 1
+        if v in migs:
+            out = migs[v](out)
+            log_line("settings: миграция до версии %d (источник %s)" % (v, src or "умолчания"))
+    out["settings_version"] = CURRENT_SETTINGS_VERSION
+    out = _validate_settings(out)
+
+    # Перенос из старого места: сохраняем в settings\ и убираем старый файл в backup_settings\
+    if is_old and src:
+        if save_settings_file(out):
+            _archive_old_settings(src)
     return out
 
 
@@ -1142,8 +1221,13 @@ def save_settings_file(settings, path=None):
     path = path or SETTINGS_FILE
     tmp = path + ".tmp"
     try:
+        out = dict(settings)
+        out.pop("folder", None)      # единый источник — folders
+        out.pop("folder2", None)
+        out["settings_version"] = CURRENT_SETTINGS_VERSION
+        os.makedirs(os.path.dirname(path), exist_ok=True)
         with open(tmp, "w", encoding="utf-8") as f:
-            json.dump(settings, f, ensure_ascii=False, indent=1)
+            json.dump(out, f, ensure_ascii=False, indent=1)
         os.replace(tmp, path)
         return True
     except Exception as e:
@@ -1425,8 +1509,9 @@ def run_gui():
         def insert(self, _i, val):
             self.v = str(val)
 
-    e_folder = _Field(settings.get("folder", ""))
-    e_folder2 = _Field(settings.get("folder2", ""))
+    _flds = settings.get("folders") or []
+    e_folder = _Field(_flds[0] if len(_flds) > 0 else "")
+    e_folder2 = _Field(_flds[1] if len(_flds) > 1 else "")
 
     def _paths_text(items, max_chars=64):
         """Все пути СЛИТНО через запятую; если длинно — обрезка с «…» (не больше 2 строк)."""
@@ -2659,9 +2744,7 @@ def run_gui():
     def save_ui():
         """Собрать в настройки то, что на экране, и сохранить (зовётся при закрытии окна)."""
         try:
-            settings.update({"folder": norm_path(e_folder.get()),
-                             "folder2": norm_path(e_folder2.get()),
-                             "max_size_mb": float(e_max.get() or 0),
+            settings.update({"max_size_mb": float(e_max.get() or 0),
                              "recurse": var_rec.get(), "latest_only": var_lat.get(),
                              "depth": int(e_depth.get() or 0), "purge_keep": int(e_keep.get() or 2),
                              "auto_refresh": var_auto.get(), "full": var_full.get()})
@@ -2918,7 +3001,7 @@ def run_gui():
         except Exception:
             pass
         lbl.config(text="ищу файлы…" + _hint)
-        settings.update({"folder": folder, "folder2": folder2, "max_size_mb": opts["max_size_mb"],
+        settings.update({"max_size_mb": opts["max_size_mb"],
                          "recurse": opts["recurse"], "latest_only": opts["latest_only"],
                          "depth": int(e_depth.get() or 0), "purge_keep": int(e_keep.get() or 2),
                          "auto_refresh": var_auto.get(), "full": var_full.get(),

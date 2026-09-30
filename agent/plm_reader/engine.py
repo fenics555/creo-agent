@@ -72,7 +72,7 @@ def derived_of(raw):
         if nm:
             return nm.group(1).decode("latin-1"), "производная"
     return "", ""
-VERSION = "V26"
+VERSION = "V28"
 PARSER_TAG = "p21"      # меняй при ЛЮБОМ изменении правил разбора — форсирует полный пересчёт
 
 
@@ -384,6 +384,7 @@ CREATE TABLE IF NOT EXISTS links (parent TEXT, child TEXT, qty INTEGER, source T
 CREATE INDEX IF NOT EXISTS ix_links_child ON links(child);
 CREATE TABLE IF NOT EXISTS derived (child TEXT, base TEXT, kind TEXT, source TEXT);
 CREATE INDEX IF NOT EXISTS ix_derived_child ON derived(child);
+CREATE INDEX IF NOT EXISTS ix_derived_base ON derived(base);
 CREATE TABLE IF NOT EXISTS folders (path TEXT PRIMARY KEY, parent TEXT, depth INTEGER,
   models INTEGER, files INTEGER, seen TEXT);
 """
@@ -1190,6 +1191,21 @@ def derived_bases(model):
         if all(b != o[0] for o in out):
             out.append((b, k))
     return out
+
+
+def derived_children(base, limit=500):
+    """Кто сделан ИЗ этой модели (обратная связь): список (child, kind).
+    Строится из уже готовой таблицы derived — без чтения Creo-файлов."""
+    m = stem(base)
+    try:
+        con = connect()
+        rows = con.execute(
+            "SELECT child, kind FROM derived WHERE base=? ORDER BY child LIMIT ?",
+            (m, limit)).fetchall()
+        con.close()
+        return [(r[0], r[1] or "") for r in rows]
+    except Exception:
+        return []
 
 
 def derived_map():
