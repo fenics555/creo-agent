@@ -1576,19 +1576,29 @@ def _ver_num(v):
 
 def check_updates(timeout=10):
     """Проверить обновление в репозитории. Возвращает dict:
-    {ok, local, remote, available, notes, files} или {ok:False, error}."""
+    {ok, local, remote, available, notes, files} или {ok:False, error}.
+    Манифест берём через API (ВСЕГДА свежий), raw — резерв: его CDN кэширует надолго."""
     import urllib.request
-    try:
-        req = urllib.request.Request(UPDATE_MANIFEST, headers={"User-Agent": "PLM-Reader"})
-        with urllib.request.urlopen(req, timeout=timeout) as r:
-            data = json.loads(r.read().decode("utf-8"))
-        remote = str(data.get("version") or "")
-        return {"ok": True, "local": VERSION, "remote": remote,
-                "available": _ver_num(remote) > _ver_num(VERSION),
-                "notes": (data.get("notes") or "").strip(),
-                "files": data.get("files") or {}}
-    except Exception as e:
-        return {"ok": False, "error": str(e), "local": VERSION}
+    data, last = None, ""
+    for url, accept in ((UPDATE_API + "version.json" + UPDATE_REF, "application/vnd.github.raw"),
+                        (UPDATE_MANIFEST, "")):
+        try:
+            headers = {"User-Agent": "PLM-Reader"}
+            if accept:
+                headers["Accept"] = accept
+            req = urllib.request.Request(url, headers=headers)
+            with urllib.request.urlopen(req, timeout=timeout) as r:
+                data = json.loads(r.read().decode("utf-8"))
+            break
+        except Exception as e:
+            last = str(e)
+    if data is None:
+        return {"ok": False, "error": last, "local": VERSION}
+    remote = str(data.get("version") or "")
+    return {"ok": True, "local": VERSION, "remote": remote,
+            "available": _ver_num(remote) > _ver_num(VERSION),
+            "notes": (data.get("notes") or "").strip(),
+            "files": data.get("files") or {}}
 
 
 def _download(url, timeout=15):
