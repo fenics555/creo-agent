@@ -26,7 +26,7 @@ import sys
 import threading
 import time
 
-APP_VERSION = "V25"
+APP_VERSION = "V26"
 APP_TITLE = "PLM Reader " + APP_VERSION          # версия ОДНА: заголовок берёт её из константы
 SETTINGS_FILE = os.path.join(os.path.dirname(os.path.abspath(__file__)), "settings.json")
 DATA_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "db")   # все данные — в одном месте
@@ -1428,21 +1428,21 @@ def run_gui():
     e_folder = _Field(settings.get("folder", ""))
     e_folder2 = _Field(settings.get("folder2", ""))
 
-    def _lines(items, n_lines=2, maxlen=34):
-        """Не больше n_lines строк: каждый путь укорочен, лишние пути — строкой «…и ещё K»."""
+    def _paths_text(items, max_chars=64):
+        """Все пути СЛИТНО через запятую; если длинно — обрезка с «…» (не больше 2 строк)."""
         if not items:
             return "—"
-        out = [(p if len(p) <= maxlen else "…" + p[-(maxlen - 1):]) for p in items[:n_lines]]
-        if len(items) > n_lines:
-            out.append("…и ещё %d" % (len(items) - n_lines))
-        return "\n".join(out)
+        joined = ", ".join(items)
+        if len(joined) > max_chars:
+            return joined[:max_chars - 1] + "…"
+        return joined
 
     def show_paths():
-        """Что настроено: до двух строк папок скана и до двух строк исключений (коротко, с обрезкой)."""
+        """Что настроено: папки скана и исключения — слитно через запятую, максимум в 2 строки."""
         flds = scan_roots(e_folder.get(), e_folder2.get(), settings.get("folders"))
         exc = exclude_list(settings.get("exclude"))
-        lbl_p.config(text="Папок скана: %d\n%s" % (len(flds), _lines(flds)))
-        lbl_e.config(text="Исключено: %d\n%s" % (len(exc), _lines(exc)))
+        lbl_p.config(text="Папок скана: %d. %s" % (len(flds), _paths_text(flds)))
+        lbl_e.config(text="Исключено: %d. %s" % (len(exc), _paths_text(exc)))
 
     def pull_paths():
         """После окна «Пути и исключения…»: значения — в поля-держатели, подписи — на панель."""
@@ -1473,9 +1473,9 @@ def run_gui():
 
     sp_limit.bind("<FocusOut>", limit_changed)
     sp_limit.bind("<Return>", limit_changed)
-    lbl_p = ttk.Label(spath, text="", foreground="#666", justify="left", wraplength=250)
+    lbl_p = ttk.Label(spath, text="", foreground="#666", justify="left", wraplength=300)
     lbl_p.grid(row=1, column=0, sticky="w", pady=(4, 0))
-    lbl_e = ttk.Label(spath, text="", foreground="#666", justify="left", wraplength=250)
+    lbl_e = ttk.Label(spath, text="", foreground="#666", justify="left", wraplength=300)
     lbl_e.grid(row=2, column=0, sticky="w")
     show_paths()
 
