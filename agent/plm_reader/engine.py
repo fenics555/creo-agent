@@ -1546,6 +1546,8 @@ def do_rename_plan(old, new):
 # --- АВТООБНОВЛЕНИЕ ЧЕРЕЗ РЕПОЗИТОРИЙ (V31) ---
 UPDATE_REPO = "https://raw.githubusercontent.com/fenics555/creo-agent/master/agent/plm_reader/"
 UPDATE_MANIFEST = UPDATE_REPO + "version.json"
+UPDATE_API = "https://api.github.com/repos/fenics555/creo-agent/contents/agent/plm_reader/"
+UPDATE_REF = "?ref=master"
 BACKUP_UPDATE_DIR = os.path.join(HERE, "settings", "backup_update")
 UPDATE_KEEP = 3
 
@@ -1576,10 +1578,24 @@ def check_updates(timeout=10):
 
 
 def _download(url, timeout=15):
+    """Скачать: файлы инструмента — сначала через API (ВСЕГДА свежий), затем raw (кэш CDN)."""
     import urllib.request
-    req = urllib.request.Request(url, headers={"User-Agent": "PLM-Reader"})
-    with urllib.request.urlopen(req, timeout=timeout) as r:
-        return r.read()
+    urls = [(url, "")]
+    if url.startswith(UPDATE_REPO):
+        name = url[len(UPDATE_REPO):]
+        urls.insert(0, (UPDATE_API + name + UPDATE_REF, "application/vnd.github.raw"))
+    last = ""
+    for u, accept in urls:
+        try:
+            headers = {"User-Agent": "PLM-Reader"}
+            if accept:
+                headers["Accept"] = accept
+            req = urllib.request.Request(u, headers=headers)
+            with urllib.request.urlopen(req, timeout=timeout) as r:
+                return r.read()
+        except Exception as e:
+            last = str(e)
+    raise RuntimeError("не удалось скачать %s: %s" % (url, last))
 
 
 def _sha256_file(path):
