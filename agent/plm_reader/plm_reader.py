@@ -26,7 +26,7 @@ import sys
 import threading
 import time
 
-APP_VERSION = "V30"
+APP_VERSION = "V31"
 APP_TITLE = "PLM Reader " + APP_VERSION          # версия ОДНА: заголовок берёт её из константы
 DATA_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "db")          # данные — в подпапке db\
 SETTINGS_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "settings")  # настройки — в подпапке settings\
@@ -1158,6 +1158,25 @@ def _validate_settings(out):
     return out
 
 
+def _rotate_settings_backups(keep=5):
+    """Оставить последние `keep` файлов в settings\\backup_settings; старые удалить."""
+    try:
+        bak_dir = os.path.join(SETTINGS_DIR, "backup_settings")
+        if not os.path.isdir(bak_dir):
+            return 0
+        files = sorted(f for f in os.listdir(bak_dir) if f.endswith(".json"))
+        removed = 0
+        for old in files[:max(0, len(files) - keep)]:
+            try:
+                os.remove(os.path.join(bak_dir, old))
+                removed += 1
+            except Exception:
+                pass
+        return removed
+    except Exception:
+        return 0
+
+
 def _archive_old_settings(src):
     """Старый файл настроек убираем в settings\\backup_settings\\ (не плодим файлы в корне)."""
     try:
@@ -1168,6 +1187,7 @@ def _archive_old_settings(src):
         stamp = datetime.datetime.now().strftime("%Y%m%d_%H%M%S")
         dst = os.path.join(bak_dir, "settings_from_%s_%s.json" % (where, stamp))
         shutil.move(src, dst)          # ПЕРЕНОС, а не копия
+        _rotate_settings_backups()     # окно последних 5 (не копим бесконечно)
         log_line("settings: старый файл убран в %s" % dst)
         return dst
     except Exception as e:

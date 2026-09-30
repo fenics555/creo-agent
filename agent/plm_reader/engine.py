@@ -72,8 +72,9 @@ def derived_of(raw):
         if nm:
             return nm.group(1).decode("latin-1"), "производная"
     return "", ""
-VERSION = "V30"
+VERSION = "V31"
 PARSER_TAG = "p21"      # меняй при ЛЮБОМ изменении правил разбора — форсирует полный пересчёт
+BACKUP_KEEP = int(os.environ.get("PLM_BACKUP_KEEP") or 3)   # сколько бэкапов базы держать в db\backup\
 
 
 def log(msg):
@@ -531,6 +532,29 @@ def _backup_dir():
     return os.path.join(os.path.dirname(DB), "backup")
 
 
+def _rotate_backups(keep=BACKUP_KEEP):
+    """Оставить последние `keep` бэкапов базы в db\\backup; старые удалить (best-effort).
+    Бэкапы больше не копятся бесконечно (грабля 30.09.2026: db\\backup дорос до 2 ГБ)."""
+    try:
+        bdir = _backup_dir()
+        if not os.path.isdir(bdir):
+            return 0
+        files = sorted(f for f in os.listdir(bdir)
+                       if f.startswith("plm_reader_") and f.endswith(".db"))
+        removed = 0
+        for old in files[:max(0, len(files) - keep)]:
+            try:
+                os.remove(os.path.join(bdir, old))
+                removed += 1
+            except Exception:
+                pass
+        if removed:
+            log("backup: удалено старых копий %d, оставлено %d" % (removed, keep))
+        return removed
+    except Exception:
+        return 0
+
+
 def _publish(draft):
     """Публикация БЕЗ замены файла: пишем НОВЫЙ versioned-файл — открытые файлы на шаре не мешают."""
     import shutil
@@ -545,6 +569,7 @@ def _publish(draft):
             shutil.copy2(prev, os.path.join(bdir, "plm_reader_%s.db" % ts))
     except Exception as e:
         log("backup fail: %s" % e)
+    _rotate_backups()                            # окно последних N бэкапов (не копим бесконечно)
     ver = os.path.join(d, "plm_reader_%s.db" % ts)
     shutil.copy2(draft, ver)                     # НОВЫЙ файл — существующее не заменяем
     log("publish: новая база %s" % ver)
