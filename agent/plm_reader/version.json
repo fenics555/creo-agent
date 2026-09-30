@@ -2,7 +2,7 @@
  "version": "V32",
  "version_num": 32,
  "date": "30.09.2026",
- "notes": "V32: nizhnee okno = Notebook (2 vkladki: proizvodstvo + svyazi); Derevo svyazey napolnено/polno; srednee okno ubrano",
+ "notes": "V32: bottom pane = Notebook (2 tabs: production tree + links tree); links tree filled; middle output window removed",
  "files": {
   "engine.py": "2b139cb905af863cead09470f8465f92351681080c0a65c60f257495fb5330a8",
   "plm_reader.py": "70b2d99a85f81c299c004d2217788abb7b3e69b4ae7f2972461ef6a152134cfc",
