@@ -1543,6 +1543,129 @@ def do_rename_plan(old, new):
     print("  ИСПОЛНЕНИЕ — только при запущенном Creo (CREO-START) + CREOSON, под щитом согласования.")
 
 
+# --- АВТООБНОВЛЕНИЕ ЧЕРЕЗ РЕПОЗИТОРИЙ (V31) ---
+UPDATE_REPO = "https://raw.githubusercontent.com/fenics555/creo-agent/master/agent/plm_reader/"
+UPDATE_MANIFEST = UPDATE_REPO + "version.json"
+BACKUP_UPDATE_DIR = os.path.join(HERE, "settings", "backup_update")
+UPDATE_KEEP = 3
+
+
+def _ver_num(v):
+    """'V31' -> 31 (0, если не разобрать)."""
+    try:
+        return int(re.sub(r"[^0-9]", "", str(v)) or 0)
+    except Exception:
+        return 0
+
+
+def check_updates(timeout=10):
+    """Проверить обновление в репозитории. Возвращает dict:
+    {ok, local, remote, available, notes, files} или {ok:False, error}."""
+    import urllib.request
+    try:
+        req = urllib.request.Request(UPDATE_MANIFEST, headers={"User-Agent": "PLM-Reader"})
+        with urllib.request.urlopen(req, timeout=timeout) as r:
+            data = json.loads(r.read().decode("utf-8"))
+        remote = str(data.get("version") or "")
+        return {"ok": True, "local": VERSION, "remote": remote,
+                "available": _ver_num(remote) > _ver_num(VERSION),
+                "notes": (data.get("notes") or "").strip(),
+                "files": data.get("files") or {}}
+    except Exception as e:
+        return {"ok": False, "error": str(e), "local": VERSION}
+
+
+def _download(url, timeout=15):
+    import urllib.request
+    req = urllib.request.Request(url, headers={"User-Agent": "PLM-Reader"})
+    with urllib.request.urlopen(req, timeout=timeout) as r:
+        return r.read()
+
+
+def _sha256_file(path):
+    import hashlib
+    h = hashlib.sha256()
+    with open(path, "rb") as f:
+        for chunk in iter(lambda: f.read(65536), b""):
+            h.update(chunk)
+    return h.hexdigest()
+
+
+def _rotate_update_backups(keep=UPDATE_KEEP):
+    """Оставить последние `keep` снимков кода в settings\\backup_update; старые удалить."""
+    import shutil
+    try:
+        if not os.path.isdir(BACKUP_UPDATE_DIR):
+            return 0
+        dirs = sorted(d for d in os.listdir(BACKUP_UPDATE_DIR)
+                      if os.path.isdir(os.path.join(BACKUP_UPDATE_DIR, d)))
+        removed = 0
+        for old in dirs[:max(0, len(dirs) - keep)]:
+            try:
+                shutil.rmtree(os.path.join(BACKUP_UPDATE_DIR, old))
+                removed += 1
+            except Exception:
+                pass
+        if removed:
+            log("update: удалено старых снимков %d" % removed)
+        return removed
+    except Exception:
+        return 0
+
+
+def sync_by_manifest(files, timeout=15):
+    """Привести папку к состоянию манифеста: скачать/заменить файлы, лишние — в obsolete\\.
+    Возвращает {ok, updated, obsolete, error}. Перед заменой — снимок кода в settings\\backup_update\\<дата>\\."""
+    import shutil
+    stamp = datetime.datetime.now().strftime("%Y%m%d_%H%M%S")
+    snap = os.path.join(BACKUP_UPDATE_DIR, stamp)
+    obsolete_dir = os.path.join(snap, "obsolete")
+    result = {"ok": False, "updated": [], "obsolete": [], "error": ""}
+    try:
+        os.makedirs(snap, exist_ok=True)
+        tmp_dir = os.path.join(snap, "_new")
+        os.makedirs(tmp_dir, exist_ok=True)
+        for name, want in (files or {}).items():
+            if os.path.basename(name) != name:          # без путей — только имена файлов
+                continue
+            raw = _download(UPDATE_REPO + name, timeout=timeout)
+            tmp = os.path.join(tmp_dir, name)
+            with open(tmp, "wb") as f:
+                f.write(raw)
+            if want and _sha256_file(tmp).lower() != str(want).lower():
+                result["error"] = "SHA256 не совпал: %s" % name
+                return result
+        for name in (files or {}):
+            if os.path.basename(name) != name:
+                continue
+            target = os.path.join(HERE, name)
+            if os.path.isfile(target):
+                shutil.copy2(target, os.path.join(snap, name))
+            shutil.move(os.path.join(tmp_dir, name), target)
+            result["updated"].append(name)
+        known = set(files or {})
+        keep = {"settings", "db", "log", "__pycache__", "version.json"}
+        for f in os.listdir(HERE):
+            if f in known or f in keep:
+                continue
+            if not (f.endswith(".py") or f.endswith(".bat") or f.endswith(".md")):
+                continue
+            os.makedirs(obsolete_dir, exist_ok=True)
+            shutil.move(os.path.join(HERE, f), os.path.join(obsolete_dir, f))
+            result["obsolete"].append(f)
+        shutil.rmtree(tmp_dir, ignore_errors=True)
+        _rotate_update_backups()
+        log("update: обновлено %d, устаревших %d, снимок %s"
+            % (len(result["updated"]), len(result["obsolete"]), snap))
+        result["ok"] = True
+        return result
+    except Exception as e:
+        result["error"] = str(e)
+        log("update: ОШИБКА %s" % e)
+        return result
+
+
+
 def main():
     try:
         sys.stdout.reconfigure(errors="replace")

@@ -1663,7 +1663,57 @@ def run_gui():
         ("Столбцы и параметры…", lambda: choose_columns()),
         ("Выгрузить в CSV", lambda: export()),
         ("README", lambda: show_readme()),
+        ("Проверить обновление", lambda: check_updates_ui(True)),
     ], per_col=4)
+    def _upd_status(text):
+        try:
+            root.after(0, lambda: lbl.config(text=text))
+        except Exception:
+            pass
+
+    def _apply_update(files, remote):
+        def work():
+            _upd_status("обновление: качаю файлы…")
+            res = eng.sync_by_manifest(files)
+            if res.get("ok"):
+                _upd_status("обновлено до %s — перезапустите программу" % remote)
+                root.after(0, lambda: messagebox.showinfo(
+                    "Обновление",
+                    "Обновлено до %s.\nФайлов: %d, устаревших убрано: %d.\n\n"
+                    "Перезапустите программу." % (remote, len(res.get("updated", [])),
+                                                  len(res.get("obsolete", [])))))
+            else:
+                _upd_status("обновление не удалось: %s" % res.get("error"))
+                root.after(0, lambda: messagebox.showwarning(
+                    "Обновление", "Не удалось: %s" % res.get("error")))
+        threading.Thread(target=work, daemon=True).start()
+
+    def check_updates_ui(manual=False):
+        def work():
+            _upd_status("проверяю обновления…")
+            r = eng.check_updates()
+            if not r.get("ok"):
+                _upd_status("проверка обновлений: %s" % r.get("error"))
+                if manual:
+                    root.after(0, lambda: messagebox.showwarning(
+                        "Обновление", "Не удалось проверить: %s" % r.get("error")))
+                return
+            if r.get("available"):
+                _upd_status("есть обновление: %s" % r.get("remote"))
+                msg = ("Доступна версия %s (у вас %s).\n\n%s\n\nОбновить сейчас?"
+                       % (r.get("remote"), r.get("local"), r.get("notes") or ""))
+                def ask():
+                    if messagebox.askyesno("Есть обновление", msg):
+                        _apply_update(r.get("files") or {}, r.get("remote"))
+                root.after(0, ask)
+            else:
+                _upd_status("обновлений нет (версия %s)" % r.get("local"))
+                if manual:
+                    root.after(0, lambda: messagebox.showinfo(
+                        "Обновление", "У вас последняя версия: %s" % r.get("local")))
+        threading.Thread(target=work, daemon=True).start()
+
+
 
     data = ttk.Frame(root, padding=6)
     data.pack(fill="x", padx=6, pady=(0, 4))
@@ -3161,6 +3211,10 @@ def run_gui():
     try:                                   # окно не «прыгает» при переключении вкладок
         root.update_idletasks()
         root.geometry("1330x660")
+    except Exception:
+        pass
+    try:                                   # тихая проверка обновлений при старте (есть — предложит)
+        root.after(2500, lambda: check_updates_ui(False))
     except Exception:
         pass
     root.mainloop()
