@@ -1758,17 +1758,17 @@ def run_gui():
 
     nb = ttk.Notebook(root)
     nb.pack(fill="both", expand=True, padx=6, pady=(0, 6))
-    tab_table = ttk.Frame(nb)                 # Таблица — плоский вид данных базы
-    tab_tree = ttk.Frame(nb)                  # Дерево — иерархия ТЕХ ЖЕ данных (папки → файлы)
-    nb.add(tab_table, text=" Таблица ")
+    tab_table = ttk.Frame(nb)                 # Таблица — плоский вид данных базы (третья вкладка)
+    tab_tree = ttk.Frame(nb)                  # Дерево — иерархия ТЕХ ЖЕ данных (папки → файлы) (вторая)
     nb.add(tab_tree, text=" Дерево ")
+    nb.add(tab_table, text=" Таблица ")
 
     # --- ДЕРЕВО: фильтр по ВСЕЙ базе + иерархия папок (ленивая, из базы) ---
     import engine as eng
 
     # --- ПРОВОДНИК: папки склада иерархией (ленивая, из базы) — как в Проводнике Windows ---
     tab_expl = ttk.Frame(nb)
-    nb.add(tab_expl, text=" Проводник ")
+    nb.insert(0, tab_expl, text=" Проводник ")     # Проводник — ПЕРВАЯ вкладка
     ebar = ttk.Frame(tab_expl, padding=(6, 4))
     ebar.pack(fill="x")
     ttk.Button(ebar, text="Обновить", command=lambda: fill_explorer()).pack(side="left", padx=4)

@@ -2,10 +2,10 @@
  "version": "V31",
  "version_num": 31,
  "date": "30.09.2026",
- "notes": "V31: avtoupdate via API (fresh) + raw fallback; retention bekapov",
+ "notes": "V31: poryadok vkladok Provodnik-Derevo-Tablica",
  "files": {
   "engine.py": "d386b9df0df9e3073bb1bed24d82e33c4635fd2a271137369f4335318ec0eebd",
-  "plm_reader.py": "1e12ef5bd23ad42df79df614a4799f7c2d38a925001048d4bd33ccaa2f5fb176",
+  "plm_reader.py": "2b7133999ff87fca1f6851a5d1ee95d91bb30b90739ecf3e202802a7f6d24205",
   "creo_read.py": "5e027a85d6297c90f98c5435a3451bc94ed40dfc26fbe856aaf9d1b9c3f21d8d",
   "README.md": "20f3401ecee649676b48a87f9dfa8494031dbea509c52fd2069817c8f17fcfde",
   "SHARE_copy.bat": "d61e6354d66e0078014e2e80e1085fee7d6b880003bc458b65e767776a116167",
