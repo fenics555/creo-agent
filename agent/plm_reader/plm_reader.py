@@ -2505,9 +2505,11 @@ def run_gui():
     tree.bind("<Double-1>", lambda e: show_history())
 
     # --- ОНЛАЙН: внизу сразу строится дерево производства по выбранной строке ---
-    liv = ttk.LabelFrame(lpane, text=" ДЕРЕВО ПРОИЗВОДСТВА (выбранное изделие) ", padding=4)
-    liv.pack(fill="x")
-    lsum = ttk.Label(liv, text="выбери строку в таблице — дерево построится само")
+    lnb = ttk.Notebook(lpane)                  # НИЖНЕЕ окно — ноутбук со своими режимами-вкладками
+    lnb.pack(fill="both", expand=True)
+    liv = ttk.Frame(lnb, padding=4)
+    lnb.add(liv, text=" Дерево производства ")
+    lsum = ttk.Label(liv, text="выбери что-либо в ЛЮБОЙ вкладке сверху — дерево построится само")
     lsum.pack(anchor="w")
     LTCOLS = ("Тип", "Изделие/файл", "Обозначение", "Наименование", "Кол-во")
     ltv = ttk.Treeview(liv, columns=LTCOLS, show="tree headings", height=8)
@@ -2521,6 +2523,14 @@ def run_gui():
     ltv.pack(side="left", fill="both", expand=True)
     lvs.pack(side="left", fill="y")
     ltv.bind("<<TreeviewOpen>>", lambda ev: ltv_open())
+
+    llinks = ttk.Frame(lnb, padding=4)         # вторая вкладка нижнего окна — «Дерево связей»
+    lnb.add(llinks, text=" Дерево связей ")
+    ttk.Label(llinks, justify="left", text=(
+        "Дерево связей (в работе):\n"
+        "   ▲ вверх — где используется (все сборки, все уровни)\n"
+        "   ▼ вниз  — состав + отражения + наследованная геометрия"
+    )).pack(anchor="w")
 
     def _live_vals(m, i, qty=""):
         role = (i[5] or "") if len(i) > 5 else ""

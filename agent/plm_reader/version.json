@@ -2,10 +2,10 @@
  "version": "V31",
  "version_num": 31,
  "date": "30.09.2026",
- "notes": "V31: shire okno 1560x820; nizhnee okno reagiruet na vse 3 vkladki (_bottom_show)",
+ "notes": "V31: nizhnee okno = Notebook (Derevo proizvodstva + Derevo svyazey placeholder)",
  "files": {
   "engine.py": "2b139cb905af863cead09470f8465f92351681080c0a65c60f257495fb5330a8",
-  "plm_reader.py": "115cea07a5bc5107f4eaefffba0c31b76c03d04ca851ec2efe696c8547cd04a2",
+  "plm_reader.py": "8d3df56cafcece84d6ed921505235ed56a90f4b2dbf2496fdf76fbd974670c09",
   "creo_read.py": "5e027a85d6297c90f98c5435a3451bc94ed40dfc26fbe856aaf9d1b9c3f21d8d",
   "README.md": "234002e3412b7b4788f5c68b876c0c389b6f9edc57731605fe100ec3518e195f",
   "SHARE_copy.bat": "d61e6354d66e0078014e2e80e1085fee7d6b880003bc458b65e767776a116167",
