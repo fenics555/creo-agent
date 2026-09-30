@@ -1500,7 +1500,7 @@ def run_gui():
 
     root = tk.Tk()
     root.title(APP_TITLE)
-    root.geometry("1330x660")
+    root.geometry("1560x820")         # стартовое окно шире: панель вкладок видна сразу
     root.minsize(760, 420)            # три уровня видны и в небольшом окне
 
     top = ttk.Frame(root, padding=6)
@@ -2585,16 +2585,11 @@ def run_gui():
         lsum.config(text="дерево ПЛМ: верхних сборок %d · раскрывай узлы (состав / заготовка-отливка) — строится само"
                     % len(tops))
 
-    def live_tree(event=None):
-        """ОНЛАЙН по выбранной строке: состав ВНИЗ и ВСЕ сборки ВВЕРХ."""
-        sel = tree.selection()
-        row = _ROWS.get(sel[0]) if sel else None
-        if not row:
-            live_auto()
-            return
-        p = row.get("_path") or ""
-        model = eng.stem(os.path.basename(p)) if p else ""
+    def _bottom_show(model):
+        """Показать в НИЖНЕМ окне связи модели (состав вниз + входимость вверх). Зовут все вкладки."""
+        model = eng.stem(model or "")
         if not model:
+            live_auto()
             return
         ltv.delete(*ltv.get_children())
         _LTREE.clear()
@@ -2609,7 +2604,37 @@ def run_gui():
         lsum.config(text="онлайн: %s — состав %d · входит в сборок %d (все уровни) · заготовок/отливок %d"
                     % (model, dn, ups, der))
 
+    def live_tree(event=None):
+        """ОНЛАЙН по выбранной строке ТАБЛИЦЫ: состав ВНИЗ и ВСЕ сборки ВВЕРХ."""
+        sel = tree.selection()
+        row = _ROWS.get(sel[0]) if sel else None
+        if not row:
+            live_auto()
+            return
+        p = row.get("_path") or ""
+        _bottom_show(eng.stem(os.path.basename(p)) if p else "")
+
     tree.bind("<<TreeviewSelect>>", live_tree)
+
+    def expl_live(event=None):
+        """Выбор в ПРОВОДНИКЕ → нижнее окно (выбран файл → связи его модели)."""
+        p = _EFILE.get(eview.focus())
+        if p:
+            _bottom_show(eng.stem(os.path.basename(p)))
+
+    eview.bind("<<TreeviewSelect>>", expl_live)
+
+    def tree_live(event=None):
+        """Выбор в ДЕРЕВЕ → нижнее окно (узел → связи его модели)."""
+        sel = tview.focus()
+        if not sel:
+            return
+        txt = (tview.item(sel, "text") or "").strip()
+        m = eng.stem(txt.split()[0]) if txt else ""
+        if m:
+            _bottom_show(m)
+
+    tview.bind("<<TreeviewSelect>>", tree_live)
     _plm_extra.update({"ltv": ltv, "live_tree": live_tree, "live_auto": live_auto})   # для самопроверки
 
     _auto = {"done": False}
@@ -3210,7 +3235,7 @@ def run_gui():
 
     try:                                   # окно не «прыгает» при переключении вкладок
         root.update_idletasks()
-        root.geometry("1330x660")
+        root.geometry("1560x820")          # шире и выше: верхняя панель вкладок видна сразу
     except Exception:
         pass
     try:                                   # тихая проверка обновлений при старте (есть — предложит)
