@@ -72,7 +72,21 @@ def derived_of(raw):
         if nm:
             return nm.group(1).decode("latin-1"), "производная"
     return "", ""
-VERSION = "V31"
+def _app_version():
+    """Версия — ЕДИНЫЙ источник: APP_VERSION в plm_reader.py.
+    Иначе engine.VERSION расходится с шапкой окна, и check_updates вечно просит обновление (V31 vs V32)."""
+    try:
+        with open(os.path.join(HERE, "plm_reader.py"), encoding="utf-8") as f:
+            for line in f:
+                m = re.match(r'\s*APP_VERSION\s*=\s*"(V\d+)"', line)
+                if m:
+                    return m.group(1)
+    except Exception:
+        pass
+    return "V0"
+
+
+VERSION = _app_version()
 PARSER_TAG = "p21"      # меняй при ЛЮБОМ изменении правил разбора — форсирует полный пересчёт
 BACKUP_KEEP = int(os.environ.get("PLM_BACKUP_KEEP") or 3)   # сколько бэкапов базы держать в db\backup\
 
