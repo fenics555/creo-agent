@@ -1047,10 +1047,12 @@ def folder_children(parent):
 
 
 def folder_files_count(folder):
+    """Возвращает (всего_папок_рекурсивно, всего_файлов_рекурсивно) для указанной папки."""
     try:
         con = connect()
-        a = con.execute("SELECT COUNT(*) FROM folders WHERE parent=?", (folder,)).fetchone()[0]
-        b = con.execute("SELECT COUNT(*) FROM snapshots WHERE folder=?", (folder,)).fetchone()[0]
+        like = folder + "\\%"
+        a = con.execute("SELECT COUNT(*) FROM folders WHERE path LIKE ?", (like,)).fetchone()[0]
+        b = con.execute("SELECT COUNT(*) FROM snapshots WHERE path LIKE ?", (like,)).fetchone()[0]
         con.close()
         return a, b
     except Exception:

@@ -1666,8 +1666,8 @@ def run_gui():
         try:
             subs = c.execute(
                 "SELECT f.path,"
-                " (SELECT COUNT(*) FROM folders g WHERE g.parent=f.path),"
-                " (SELECT COUNT(*) FROM snapshots s WHERE s.folder=f.path)"
+                " (SELECT COUNT(*) FROM folders g WHERE g.path LIKE f.path || '\\%'),"
+                " (SELECT COUNT(*) FROM snapshots s WHERE s.path LIKE f.path || '\\%')"
                 " FROM folders f WHERE f.parent=? ORDER BY f.path", (parent,)).fetchall()
             files = c.execute("SELECT path,designation,name FROM snapshots WHERE folder=? "
                               "ORDER BY path", (parent,)).fetchall()
@@ -1745,8 +1745,8 @@ def run_gui():
             try:
                 cnt = dict((r[0], (r[1], r[2])) for r in c.execute(
                     "SELECT f.path,"
-                    " (SELECT COUNT(*) FROM folders g WHERE g.parent=f.path),"
-                    " (SELECT COUNT(*) FROM snapshots s WHERE s.folder=f.path)"
+                    " (SELECT COUNT(*) FROM folders g WHERE g.path LIKE f.path || '\\%%'),"
+                    " (SELECT COUNT(*) FROM snapshots s WHERE s.path LIKE f.path || '\\%%')"
                     " FROM folders f WHERE f.path IN (%s)" % ",".join("?" * len(roots)), roots))
             except Exception:
                 cnt = {}
@@ -1984,7 +1984,7 @@ def run_gui():
                 _file_row("", p, desig, name, material, volume, rev, role)
             tsum.config(text="показано %d (фильтр по всем словам)" % len(rows))
         else:
-            for r in eng.base_roots():
+            for r in scan_roots(e_folder.get(), e_folder2.get(), settings.get("folders")):
                 a, b = eng.folder_files_count(r)
                 n = tview.insert("", "end", text="%s  [%d папок, %d файлов]" % (r, a, b),
                                  values=("корень", "", "", "", "", "", "", "", ""))
