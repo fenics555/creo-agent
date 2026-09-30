@@ -26,7 +26,7 @@ import sys
 import threading
 import time
 
-APP_VERSION = "V29"
+APP_VERSION = "V30"
 APP_TITLE = "PLM Reader " + APP_VERSION          # версия ОДНА: заголовок берёт её из константы
 DATA_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "db")          # данные — в подпапке db\
 SETTINGS_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "settings")  # настройки — в подпапке settings\
@@ -1214,10 +1214,13 @@ def load_settings_file(path=None):
     out["settings_version"] = CURRENT_SETTINGS_VERSION
     out = _validate_settings(out)
 
-    # Перенос из старого места: сохраняем в settings\ и убираем старый файл в backup_settings\
+    # Перенос из старого места: сохраняем в settings\
     if is_old and src:
-        if save_settings_file(out):
-            _archive_old_settings(src)
+        save_settings_file(out)
+    # Подчистка: ЛЮБОЙ старый файл (кроме текущего settings\settings.json) уезжает в backup_settings\
+    for c in candidates:
+        if os.path.isfile(c) and os.path.abspath(c) != os.path.abspath(SETTINGS_FILE):
+            _archive_old_settings(c)
     return out
 
 
@@ -2673,7 +2676,7 @@ def run_gui():
         _tail = ("  ·  старые версии после ПУРГЕ: %d — норма" % _p) if _p else ""
         if r.get("need"):
             lbl.config(text="НУЖЕН СКАН: новых %d · изменённых %d · пропало %d (%.1f с)%s"
-                       % (r["new"], r["changed"], r["gone"], r["secs"], _tail))
+                       % (r["new"], r["mod"], r["gone"], r["secs"], _tail))
         else:
             lbl.config(text="БАЗА АКТУАЛЬНА: файлов %d, изменений нет (%.1f с)%s"
                        % (r["total"], r["secs"], _tail))

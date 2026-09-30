@@ -72,7 +72,7 @@ def derived_of(raw):
         if nm:
             return nm.group(1).decode("latin-1"), "производная"
     return "", ""
-VERSION = "V29"
+VERSION = "V30"
 PARSER_TAG = "p21"      # меняй при ЛЮБОМ изменении правил разбора — форсирует полный пересчёт
 
 
