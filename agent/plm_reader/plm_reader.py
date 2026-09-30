@@ -26,7 +26,7 @@ import sys
 import threading
 import time
 
-APP_VERSION = "V31"
+APP_VERSION = "V32"
 APP_TITLE = "PLM Reader " + APP_VERSION          # версия ОДНА: заголовок берёт её из константы
 DATA_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "db")          # данные — в подпапке db\
 SETTINGS_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "settings")  # настройки — в подпапке settings\
@@ -1974,8 +1974,7 @@ def run_gui():
 
     tbody = ttk.Frame(tab_tree)
     tbody.pack(fill="both", expand=True, padx=6, pady=(0, 6))
-    tbody.rowconfigure(0, weight=3)
-    tbody.rowconfigure(2, weight=1)
+    tbody.rowconfigure(0, weight=1)
     tbody.columnconfigure(0, weight=1)
     tview = ttk.Treeview(tbody, columns=TCOLS, show="tree headings", height=16)
     tview.heading("#0", text="папка / узел")
@@ -1989,8 +1988,6 @@ def run_gui():
     tview.grid(row=0, column=0, sticky="nsew")
     tvs.grid(row=0, column=1, sticky="ns")
     ths.grid(row=1, column=0, sticky="ew")
-    tout = tk.Text(tbody, height=6, font=("Consolas", 9), bg="#fbfbfb")
-    tout.grid(row=2, column=0, columnspan=2, sticky="nsew")
     _FOLDERS, _MODELS = {}, {}
 
     def _short(p):
@@ -2315,6 +2312,15 @@ def run_gui():
         threading.Thread(target=work, daemon=True).start()
         lbl.config(text="ПУРГЕ: переношу лишние версии в бэкап…")
 
+    def _lout(text):
+        """Окно вывода кнопок вкладки «Дерево» — перенесено в «Дерево связей» (среднее окно убрано)."""
+        try:
+            lout.delete("1.0", "end")
+            lout.insert("end", text)
+            lnb.select(llinks)
+        except Exception:
+            pass
+
     def say(fn, *a):
         import contextlib
         import io
@@ -2324,8 +2330,7 @@ def run_gui():
                 fn(*a)
         except Exception as e:
             buf.write("ОШИБКА: %s" % e)
-        tout.delete("1.0", "end")
-        tout.insert("end", buf.getvalue().rstrip())
+        _lout(buf.getvalue().rstrip())
 
     def _sel_model():
         sel = tview.selection()
@@ -2336,19 +2341,19 @@ def run_gui():
 
     def where_selected():
         m = _sel_model()
-        say(eng.do_where, m) if m else tout.insert("end", "выбери строку-файл в дереве\n")
+        say(eng.do_where, m) if m else _lout("выбери строку-файл в дереве")
 
     def tree_down():
         m = _sel_model()
-        say(eng.do_tree, m, 4) if m else tout.insert("end", "выбери изделие в дереве\n")
+        say(eng.do_tree, m, 4) if m else _lout("выбери изделие в дереве")
 
     def tree_up():
         m = _sel_model()
-        say(eng.do_tree_up, m, 4) if m else tout.insert("end", "выбери изделие в дереве\n")
+        say(eng.do_tree_up, m, 4) if m else _lout("выбери изделие в дереве")
 
     def changes_selected():
         m = _sel_model()
-        say(eng.do_changes_model, m, 200) if m else tout.insert("end", "выбери строку-файл в дереве\n")
+        say(eng.do_changes_model, m, 200) if m else _lout("выбери строку-файл в дереве")
 
     def open_detail(model=None):
         """Карточка изделия (двойной щёлчок): паспорт + файлы; сбоку — история/входимость/состав/заготовка."""
@@ -2526,11 +2531,23 @@ def run_gui():
 
     llinks = ttk.Frame(lnb, padding=4)         # вторая вкладка нижнего окна — «Дерево связей»
     lnb.add(llinks, text=" Дерево связей ")
-    ttk.Label(llinks, justify="left", text=(
-        "Дерево связей (в работе):\n"
-        "   ▲ вверх — где используется (все сборки, все уровни)\n"
-        "   ▼ вниз  — состав + отражения + наследованная геометрия"
-    )).pack(anchor="w")
+    lsum2 = ttk.Label(llinks, text="выбери что-либо в ЛЮБОЙ вкладке сверху — связи построятся сами")
+    lsum2.pack(anchor="w")
+    lbox = ttk.Frame(llinks)
+    lbox.pack(fill="both", expand=True)
+    ltv2 = ttk.Treeview(lbox, columns=LTCOLS, show="tree headings", height=8)
+    ltv2.heading("#0", text="связи   ▲ вверх / ▼ вниз")
+    ltv2.column("#0", width=320, anchor="w")
+    for c in LTCOLS:
+        ltv2.heading(c, text=c)
+        ltv2.column(c, width=150 if c != "Кол-во" else 70, anchor="w")
+    lvs2 = ttk.Scrollbar(lbox, orient="vertical", command=ltv2.yview)
+    ltv2.configure(yscrollcommand=lvs2.set)
+    ltv2.pack(side="left", fill="both", expand=True)
+    lvs2.pack(side="left", fill="y")
+    ltv2.bind("<<TreeviewOpen>>", lambda ev: ltv2_open())
+    lout = tk.Text(llinks, height=4, font=("Consolas", 9), bg="#fbfbfb")   # вывод кнопок (перенесено из «Дерева»)
+    lout.pack(fill="x")
 
     def _live_vals(m, i, qty=""):
         role = (i[5] or "") if len(i) > 5 else ""
@@ -2538,6 +2555,7 @@ def run_gui():
         return (kind, m, i[0] or "", i[1] or "", qty)
 
     _LTREE = {}
+    _LLINKS = {}                               # узел нижнего «дерева связей» -> (модель, режим down/up)
 
     def _branch_updown(node, model):
         """Ветка изделия в нижнем окне — тот же строитель, что и во вкладке «Дерево»."""
@@ -2595,12 +2613,10 @@ def run_gui():
         lsum.config(text="дерево ПЛМ: верхних сборок %d · раскрывай узлы (состав / заготовка-отливка) — строится само"
                     % len(tops))
 
-    def _bottom_show(model):
-        """Показать в НИЖНЕМ окне связи модели (состав вниз + входимость вверх). Зовут все вкладки."""
-        model = eng.stem(model or "")
-        if not model:
-            live_auto()
-            return
+    _last = {"model": ""}                      # выбранная модель — общая для обеих вкладок низа
+
+    def _prod_show(model):
+        """Вкладка «Дерево производства»: состав вниз + заготовка/отливка + входимость вверх."""
         ltv.delete(*ltv.get_children())
         _LTREE.clear()
         info = eng.models_info([model]).get(model, ("", "", "", 0, "", "", 0, 0))
@@ -2613,6 +2629,129 @@ def run_gui():
             pass
         lsum.config(text="онлайн: %s — состав %d · входит в сборок %d (все уровни) · заготовок/отливок %d"
                     % (model, dn, ups, der))
+
+    def _links_show(model):
+        """Вкладка «Дерево связей»: ▲ вверх — где используется; ▼ вниз — состав + отражения + наследование."""
+        ltv2.delete(*ltv2.get_children())
+        _LLINKS.clear()
+        kids = eng.plm_children(model)
+        refl = eng.derived_children(model)
+        bases = eng.derived_bases(model)
+        up = eng.plm_up_data(model, 8)
+        rel = {model} | {c for c, _ in kids} | {c for c, _ in refl} | {b for b, _ in bases if b}
+        for v in up.values():
+            rel |= {x[0] for x in v}
+        info = eng.models_info(list(rel))
+
+        def iv(m, q=""):
+            return _live_vals(m, info.get(m, ("", "", "", 0, "", "", 0, 0)), q)
+
+        rn = ltv2.insert("", "end", open=True, text=model, values=iv(model))
+
+        # ▼ вниз — СОСТАВ (ленивая загрузка уровней)
+        dn = ltv2.insert(rn, "end", open=False, text="▼ состав (вниз)")
+        if not kids:
+            ltv2.insert(dn, "end", text="— в базе нет состава")
+        for c, q in kids:
+            nn = ltv2.insert(dn, "end", text="%s  x%d" % (c, q), values=iv(c, "x%d" % q))
+            _LLINKS[nn] = (c, "down")
+            ltv2.insert(nn, "end", text="загрузка…")
+
+        # ▼ вниз — ОТРАЖЕНИЯ (кто сделан ИЗ этой модели)
+        ref = ltv2.insert(rn, "end", open=bool(refl), text="▼ отражения (сделано из неё): %d" % len(refl))
+        if not refl:
+            ltv2.insert(ref, "end", text="— обратных связей нет")
+        for c, k in refl:
+            kd = {"наследование": "заготовка", "производная": "отливка"}.get(k, "заготовка/отливка")
+            ltv2.insert(ref, "end", text="%s: %s" % (kd, c), values=("отражение", c, "", "", ""))
+
+        # ▼ вниз — НАСЛЕДОВАННАЯ ГЕОМЕТРИЯ (заготовки/отливки этой модели)
+        inh = ltv2.insert(rn, "end", open=bool(bases),
+                          text="▼ наследованная геометрия (заготовки/отливки): %d" % len(bases))
+        if not bases:
+            ltv2.insert(inh, "end", text="— наследования нет")
+        for b, k in bases:
+            kd = {"наследование": "заготовка", "производная": "отливка",
+                  "hash": "заготовка/отливка"}.get(k, "заготовка/отливка")
+            ltv2.insert(inh, "end", text="◄ %s: %s" % (kd, b or "имя не найдено (в файле только код)"),
+                        values=(kd, b or "—", "", "", ""))
+
+        # ▲ вверх — ГДЕ ИСПОЛЬЗУЕТСЯ (все сборки, все уровни)
+        n_up = len(up)
+        un = ltv2.insert(rn, "end", open=True, text="▲ где используется (вверх): сборок в цепочке %d" % n_up)
+        if not up:
+            ltv2.insert(un, "end", text="— ни в одну сборку не входит (верхнее изделие)")
+        else:
+            _fill_up(un, model, up, info, 1, frozenset((model,)))
+
+        try:
+            ltv2.yview_moveto(0)
+            ltv2.see(rn)
+        except Exception:
+            pass
+        lsum2.config(text="связи: %s — состав %d · отражений %d · заготовок/отливок %d · сборок вверх %d"
+                     % (model, len(kids), len(refl), len(bases), n_up))
+
+    def _fill_up(parent_node, model, up, info, depth, seen):
+        """Ветка «где используется»: рекурсивно по карте plm_up_data (все сборки, все уровни)."""
+        for p, q in up.get(model, []):
+            if p in seen:
+                continue
+            nn = ltv2.insert(parent_node, "end", text="%s  ↑ x%d" % (p, q),
+                             values=_live_vals(p, info.get(p, ("", "", "", 0, "", "", 0, 0)), "x%d" % q))
+            _LLINKS[nn] = (p, "up")
+            if depth < 8:
+                _fill_up(nn, p, up, info, depth + 1, seen | {p})
+
+    def ltv2_open(event=None):
+        """Раскрытие узла «Дерева связей»: ленивая достройка состава/входимости по базе."""
+        node = ltv2.focus()
+        rec = _LLINKS.get(node)
+        if not rec:
+            return
+        c_model, mode = rec
+        kids = ltv2.get_children(node)
+        if not (kids and ltv2.item(kids[0], "text") == "загрузка…"):
+            return
+        ltv2.delete(*kids)
+        info = eng.models_info([c_model]).get(c_model, ("", "", "", 0, "", "", 0, 0))
+        if mode == "down":
+            pairs = [(c, q, "%s  x%d" % (c, q), "x%d" % q) for c, q in eng.plm_children(c_model)]
+        else:
+            pairs = [(p, q, "%s  ↑ x%d" % (p, q), "↑ x%d" % q) for p, q in eng.plm_parents(c_model)]
+        for nm, q, label, qv in pairs:
+            nn = ltv2.insert(node, "end", text=label,
+                             values=_live_vals(nm, info.get(nm, ("", "", "", 0, "", "", 0, 0)), qv))
+            _LLINKS[nn] = (nm, mode)
+            ltv2.insert(nn, "end", text="загрузка…")
+
+    def _bottom_render():
+        """Наполнить АКТИВНУЮ вкладку нижнего окна выбранной моделью (или автосводкой)."""
+        model = _last["model"]
+        try:
+            active = lnb.index(lnb.select())
+        except Exception:
+            active = 0
+        if not model:
+            if active == 1:
+                ltv2.delete(*ltv2.get_children())
+                _LLINKS.clear()
+                lsum2.config(text="выбери что-либо в ЛЮБОЙ вкладке сверху — связи построятся сами")
+            else:
+                live_auto()
+            return
+        if active == 1:
+            _links_show(model)
+        else:
+            _prod_show(model)
+
+    def _bottom_show(model):
+        """Показать в НИЖНЕМ окне связи модели. Зовут все вкладки. Вид решает активная вкладка низа."""
+        model = eng.stem(model or "")
+        _last["model"] = model
+        _bottom_render()
+
+    lnb.bind("<<NotebookTabChanged>>", lambda ev: _bottom_render())
 
     def live_tree(event=None):
         """ОНЛАЙН по выбранной строке ТАБЛИЦЫ: состав ВНИЗ и ВСЕ сборки ВВЕРХ."""
@@ -2645,7 +2784,8 @@ def run_gui():
             _bottom_show(m)
 
     tview.bind("<<TreeviewSelect>>", tree_live)
-    _plm_extra.update({"ltv": ltv, "live_tree": live_tree, "live_auto": live_auto})   # для самопроверки
+    _plm_extra.update({"ltv": ltv, "ltv2": ltv2, "lnb": lnb, "live_tree": live_tree,
+                       "live_auto": live_auto, "bottom_show": _bottom_show})   # для самопроверки
 
     _auto = {"done": False}
 
@@ -2908,6 +3048,9 @@ def run_gui():
                          % (lpane.winfo_ismapped(), lpane.winfo_height(),
                             liv.winfo_ismapped(), liv.winfo_height(),
                             ltv.winfo_ismapped(), ltv.winfo_height()))
+                log_line("selfcheck: нижний ноутбук — вкладок %d, активна «%s», ltv2(h=%d)"
+                         % (len(lnb.tabs()), lnb.tab(lnb.select(), "text").strip(),
+                            ltv2.winfo_height()))
                 if os.environ.get("PLM_SELFCHECK") == "2":     # проверка кнопки ПУРГЕ: ПЛАН целиком
                     try:
                         purge_show()

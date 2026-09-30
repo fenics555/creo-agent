@@ -1,13 +1,13 @@
 {
- "version": "V31",
- "version_num": 31,
+ "version": "V32",
+ "version_num": 32,
  "date": "30.09.2026",
- "notes": "V31: nizhnee okno = Notebook (Derevo proizvodstva + Derevo svyazey placeholder)",
+ "notes": "V32: nizhnee okno = Notebook (2 vkladki: proizvodstvo + svyazi); Derevo svyazey napolnено/polno; srednee okno ubrano",
  "files": {
   "engine.py": "2b139cb905af863cead09470f8465f92351681080c0a65c60f257495fb5330a8",
-  "plm_reader.py": "8d3df56cafcece84d6ed921505235ed56a90f4b2dbf2496fdf76fbd974670c09",
+  "plm_reader.py": "70b2d99a85f81c299c004d2217788abb7b3e69b4ae7f2972461ef6a152134cfc",
   "creo_read.py": "5e027a85d6297c90f98c5435a3451bc94ed40dfc26fbe856aaf9d1b9c3f21d8d",
-  "README.md": "234002e3412b7b4788f5c68b876c0c389b6f9edc57731605fe100ec3518e195f",
+  "README.md": "d173cebba0dc9e5f0fb43710ede38938c753b7618bc90630260e1f438b74883c",
   "SHARE_copy.bat": "d61e6354d66e0078014e2e80e1085fee7d6b880003bc458b65e767776a116167",
   "plm_reader.bat": "bdd125397db3ac7e7432dbdb078a6a811ed4913fca02b062edb27907032fca3d",
   "plm_reader_gui.bat": "ec44437a53a196ad9b1d678ef6db4ff28917c6e12a9a1793c01bd4e3d51bc398",
