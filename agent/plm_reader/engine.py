@@ -30,13 +30,19 @@ DEFAULT_ROOTS = [r"Z:\PTC"]      # единый корень склада: то�
 
 
 def as_roots(x):
-    """Корни скана ВСЕГДА списком. Строка = ОДИН корень, а не набор символов:
-    иначе `for root in roots` бежит по буквам, символ '\\' становится корнем диска
-    и скан уходит обходить весь D: (грабля 29.09.2026, скилл §8.78)."""
+    """Корни скана ВСЕГДА списком. Поддерживает строку с разделителем ';'."""
     if x is None:
         return list(DEFAULT_ROOTS)
+    
+    # Если это строка, пробуем разбить её по ';'
     if isinstance(x, (str, bytes, os.PathLike)):
-        x = [x]
+        if isinstance(x, bytes):
+            x = x.decode("utf-8", "ignore")
+        if isinstance(x, str) and ";" in x:
+            x = [part.strip() for part in x.split(";")]
+        else:
+            x = [x]
+            
     out = []
     for r in x:
         try:
@@ -66,7 +72,7 @@ def derived_of(raw):
         if nm:
             return nm.group(1).decode("latin-1"), "производная"
     return "", ""
-VERSION = "V24"
+VERSION = "V25"
 PARSER_TAG = "p21"      # меняй при ЛЮБОМ изменении правил разбора — форсирует полный пересчёт
 
 
@@ -747,8 +753,7 @@ def do_scan(roots, max_mb, limit, depth=None, progress_cb=None, stop_cb=None, fu
         % (done, new, mod, skipped, dt))
     print("scan: обработано %d из %d | новых %d | изменённых %d | пропущено (без изменений) %d | за %.1f с%s | база %s"
           % (done, total, new, mod, skipped, dt, " | ОСТАНОВЛЕНО" if stopped else "", db or DB))
-    return {"done": done, "total": total, "new": new, "mod": mod, "skipped": skipped,
-            "stopped": stopped, "secs": round(dt, 1)}
+    return {"done": done, "total": total, "new": new, "mod": mod, "skipped": skipped, "stopped": stopped, "secs": round(dt, 1), "gone": 0, "purged": 0, "need": False, "verdict": ""}
 
 
 def summary():
@@ -947,8 +952,7 @@ def do_check(roots=None, max_mb=8.0, depth=None, exclude=None):
         else "АКТУАЛЬНО (скан не нужен)"
     if purged:
         verdict += " · старые версии после ПУРГЕ: %d (норма)" % purged
-    res = {"total": len(files), "same": same, "new": new, "changed": changed, "gone": gone,
-           "purged": purged, "need": need, "verdict": verdict, "secs": round(time.time() - t0, 1)}
+    res = {"total": len(files), "mod": changed, "new": new, "skipped": same, "gone": gone, "purged": purged, "need": need, "verdict": verdict, "secs": round(time.time() - t0, 1)}
     msg = ("проверка: файлов %d | без изменений %d | новых %d | изменённых %d | пропало %d"
            " | старые версии после ПУРГЕ %d | за %.1f с → %s"
            % (res["total"], same, new, changed, gone, purged, res["secs"], verdict))
