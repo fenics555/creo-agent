@@ -1633,6 +1633,7 @@ def sync_by_manifest(files, timeout=15):
                 f.write(raw)
             if want and _sha256_file(tmp).lower() != str(want).lower():
                 result["error"] = "SHA256 не совпал: %s" % name
+                shutil.rmtree(snap, ignore_errors=True)   # ничего не заменено — снимок не нужен
                 return result
         for name in (files or {}):
             if os.path.basename(name) != name:

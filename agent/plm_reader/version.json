@@ -2,9 +2,9 @@
  "version": "V31",
  "version_num": 31,
  "date": "30.09.2026",
- "notes": "V31: retention + settings v2 + avtoupdate (manifest normalized CRLF->LF)",
+ "notes": "V31: avtoupdate via API (fresh) + raw fallback; retention bekapov",
  "files": {
-  "engine.py": "690123599ed3284bfb097101796cc5d0acd910ee6a9f90a0134d33f229fe65d8",
+  "engine.py": "d386b9df0df9e3073bb1bed24d82e33c4635fd2a271137369f4335318ec0eebd",
   "plm_reader.py": "1e12ef5bd23ad42df79df614a4799f7c2d38a925001048d4bd33ccaa2f5fb176",
   "creo_read.py": "5e027a85d6297c90f98c5435a3451bc94ed40dfc26fbe856aaf9d1b9c3f21d8d",
   "README.md": "20f3401ecee649676b48a87f9dfa8494031dbea509c52fd2069817c8f17fcfde",
