@@ -26,7 +26,7 @@ import sys
 import threading
 import time
 
-APP_VERSION = "V28"
+APP_VERSION = "V29"
 APP_TITLE = "PLM Reader " + APP_VERSION          # версия ОДНА: заголовок берёт её из константы
 DATA_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "db")          # данные — в подпапке db\
 SETTINGS_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "settings")  # настройки — в подпапке settings\
@@ -295,7 +295,11 @@ def log_line(text):
 DEFAULT_SETTINGS = {
     "max_size_mb": 24,
     "recurse": True,
+    "latest_only": True,
+    "depth": 0,
+    "purge_keep": 2,
     "auto_refresh": True,
+    "full": False,
     "columns": ["Файл", "Обозначение", "Наименование", "Материал", "Объём, мм³",
                 "Роль", "Родитель", "Ревизия", "Записей", "Версий", "Дата",
                 "Создан", "Изменён", "Пользователь", "Версия Creo"],
@@ -305,6 +309,8 @@ DEFAULT_SETTINGS = {
     "folders": [],          # полный список папок сканирования (первые две = поля «Папка1»/«Папка2»)
     "exclude": [],          # папки-исключения: НЕ читать вовсе
     "show_limit": 50000,    # сколько строк показывать за раз (крутилка на главной панели)
+    "history_columns": ["Файл", "Путь", "Тип", "Ревизия", "Дата",
+                        "Пользователь", "Компьютер", "Версия Creo", "Что изменено"],
 }
 
 MODELFILE = re.compile(r"\.([a-z_]{2,4})\.\d+$", re.IGNORECASE)
@@ -1139,16 +1145,16 @@ def _settings_migrations():
 
 def _validate_settings(out):
     """Мягкая проверка типов: что не число — умолчание + строка в лог (битый файл не роняет окно)."""
-    def _num(key, caster):
+    def _num(key, caster, fallback):
         try:
-            out[key] = caster(out.get(key, DEFAULT_SETTINGS[key]))
+            out[key] = caster(out.get(key, fallback))
         except Exception:
-            out[key] = DEFAULT_SETTINGS[key]
+            out[key] = fallback
             log_line("settings: ключ «%s» не число — беру умолчание" % key)
-    _num("max_size_mb", float)
-    _num("show_limit", int)
-    _num("depth", int)
-    _num("purge_keep", int)
+    _num("max_size_mb", float, 24)
+    _num("show_limit", int, 50000)
+    _num("depth", int, 0)
+    _num("purge_keep", int, 2)
     return out
 
 
