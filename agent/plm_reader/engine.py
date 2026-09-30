@@ -1583,12 +1583,11 @@ def _download(url, timeout=15):
 
 
 def _sha256_file(path):
+    """SHA256 НОРМАЛИЗОВАННОГО содержимого (CRLF->LF) — не зависит от переводов строк."""
     import hashlib
-    h = hashlib.sha256()
     with open(path, "rb") as f:
-        for chunk in iter(lambda: f.read(65536), b""):
-            h.update(chunk)
-    return h.hexdigest()
+        data = f.read().replace(b"\r\n", b"\n")
+    return hashlib.sha256(data).hexdigest()
 
 
 def _rotate_update_backups(keep=UPDATE_KEEP):

@@ -23,11 +23,10 @@ CODE_FILES = [
 
 
 def sha256(path):
-    h = hashlib.sha256()
+    """SHA256 НОРМАЛИЗОВАННОГО содержимого (CRLF->LF) — хеш не зависит от переводов строк."""
     with open(path, "rb") as f:
-        for chunk in iter(lambda: f.read(65536), b""):
-            h.update(chunk)
-    return h.hexdigest()
+        data = f.read().replace(b"\r\n", b"\n")
+    return hashlib.sha256(data).hexdigest()
 
 
 def current_version():

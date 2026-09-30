@@ -2,16 +2,16 @@
  "version": "V31",
  "version_num": 31,
  "date": "30.09.2026",
- "notes": "V31: retention bekapov (db/backup), settings v2, avtoupdate (check_updates + sync_by_manifest)",
+ "notes": "V31: retention + settings v2 + avtoupdate (manifest normalized CRLF->LF)",
  "files": {
-  "engine.py": "5bba300480ca0a98dda33a2e27df5447a09ad48db14fbaf1375db026309ba92f",
-  "plm_reader.py": "5abf8b52981b3bff690160703b48dbe2c05eee50d9358160bd5b9f4237094640",
-  "creo_read.py": "c0c37bb722a9a3f16064b7b1b7660d77a7bd1b608dfd9f3f79278e6f96473247",
-  "README.md": "0183549592f76dc39fd91a3f378f3fe34667dc5507ab914525bc9ea22e377708",
-  "SHARE_copy.bat": "3fea3ed191c88ea2ae42a806f0ff6fe8dec6194be1b826e3ef3938ffea3e4d09",
-  "plm_reader.bat": "b3beaf687ebace4d204d07f516db580494ce43f7f3e89652e7354bafdde9cc58",
-  "plm_reader_gui.bat": "cd0a12db1bb580705b01a3f543dfff73fb17230e61fe3195bbfd4cec8752fc6f",
-  "make_version_json.py": "41587291a236fc219bf75ad4f5e7c12be953b4b0c34df54085e609c16e6a7e85",
-  ".gitignore": "65a04050071bc63310bd27f49ff73586048db488df0bd3b3e61e1686731e0091"
+  "engine.py": "690123599ed3284bfb097101796cc5d0acd910ee6a9f90a0134d33f229fe65d8",
+  "plm_reader.py": "1e12ef5bd23ad42df79df614a4799f7c2d38a925001048d4bd33ccaa2f5fb176",
+  "creo_read.py": "5e027a85d6297c90f98c5435a3451bc94ed40dfc26fbe856aaf9d1b9c3f21d8d",
+  "README.md": "20f3401ecee649676b48a87f9dfa8494031dbea509c52fd2069817c8f17fcfde",
+  "SHARE_copy.bat": "d61e6354d66e0078014e2e80e1085fee7d6b880003bc458b65e767776a116167",
+  "plm_reader.bat": "bdd125397db3ac7e7432dbdb078a6a811ed4913fca02b062edb27907032fca3d",
+  "plm_reader_gui.bat": "ec44437a53a196ad9b1d678ef6db4ff28917c6e12a9a1793c01bd4e3d51bc398",
+  "make_version_json.py": "b463d9b064c64e7d48c166a385a04d9783025e43b30ca5cbe1ba7d5bacc504a9",
+  ".gitignore": "3a65634c07476d3d532f3a080b8f0fb6f3339b1988609d81151bf9268b4fd874"
  }
 }
