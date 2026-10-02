@@ -158,6 +158,7 @@ def _app_version():
 VERSION = _app_version()
 PARSER_TAG = "p21"      # меняй при ЛЮБОМ изменении правил разбора — форсирует полный пересчёт
 BACKUP_KEEP = int(os.environ.get("PLM_BACKUP_KEEP") or 3)   # сколько бэкапов базы держать в db\backup\
+KEEP_MIRROR = int(os.environ.get("PLM_KEEP_MIRROR") or 3)   # сколько опубликованных баз держать в каждом зеркале
 
 
 def log(msg):
@@ -657,6 +658,10 @@ def _publish(draft):
     shutil.copy2(draft, ver)                     # НОВЫЙ файл — существующее не заменяем
     log("publish: новая база %s" % ver)
     _rotate(3)
+    try:                                         # ЗЕРКАЛА (другой диск): копия свежей базы
+        mirror_published(ver)
+    except Exception as e:
+        log("mirror FAIL: %s" % e)               # зеркало не должно рушить уже опубликованный скан
     return ver
 
 

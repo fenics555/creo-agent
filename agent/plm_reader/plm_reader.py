@@ -26,13 +26,13 @@ import sys
 import threading
 import time
 
-APP_VERSION = "V35"
+APP_VERSION = "V36"
 APP_TITLE = "PLM Reader " + APP_VERSION          # версия ОДНА: заголовок берёт её из константы
 DATA_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "db")          # данные — в подпапке db\
 SETTINGS_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "settings")  # настройки — в подпапке settings\
 SETTINGS_FILE = os.path.join(SETTINGS_DIR, "settings.json")                          # (не затираются при обновлении кода)
 CACHE_FILE = os.path.join(DATA_DIR, "scan_cache.json")
-CURRENT_SETTINGS_VERSION = 2   # увеличивать при КАЖДОМ структурном изменении настроек (см. _settings_migrations)
+CURRENT_SETTINGS_VERSION = 3   # увеличивать при КАЖДОМ структурном изменении настроек (см. _settings_migrations)
 
 
 def load_cache():
@@ -308,6 +308,8 @@ DEFAULT_SETTINGS = {
     "param_material": ["PTC_MASTER_MATERIAL", "MATERIAL", "МАТЕРИАЛ"],
     "folders": [],          # полный список папок сканирования (первые две = поля «Папка1»/«Папка2»)
     "exclude": [],          # папки-исключения: НЕ читать вовсе
+    "db_dir": "",           # рабочая папка БАЗЫ (пусто = рядом, db\); можно увести на другой диск
+    "db_mirror": [],        # папки-ЗЕРКАЛА базы: после каждого скана копия уезжает и туда
     "show_limit": 50000,    # сколько строк показывать за раз (крутилка на главной панели)
     "history_columns": ["Файл", "Путь", "Тип", "Ревизия", "Дата",
                         "Пользователь", "Компьютер", "Версия Creo", "Что изменено"],
@@ -1025,9 +1027,59 @@ def exclude_list(paths=None):
             out.append(p)
     return out
 
+def apply_db_paths(settings, eng):
+    """Применить настройки базы ДО первого обращения к ней: рабочая папка + пути зеркал.
+
+    Возвращает (рабочая папка, список зеркал). Пустой db_dir = база рядом, в `db\\`."""
+    db_dir = (settings.get("db_dir") or "").strip()
+    mir = settings.get("db_mirror") or []
+    if not isinstance(mir, list):
+        mir = []
+    mir = [norm_path(x) for x in mir if isinstance(x, str) and x.strip()]
+    if db_dir:
+        # рабочая папка уводится на другой диск: и база, и кэш, и бэкапы, и замок
+        new_dir = os.path.abspath(db_dir)
+        old_dir = globals().get("DATA_DIR")
+        globals()["DATA_DIR"] = new_dir
+        globals()["CACHE_FILE"] = os.path.join(new_dir, "scan_cache.json")
+        globals()["DB_FILE"] = os.path.join(new_dir, "plm_reader.db")
+        try:
+            eng.set_base_dir(new_dir)
+        except Exception as e:
+            log_line("база: не удалось увести базу в %s (%s)" % (new_dir, e))
+        # база на новом месте есть? если нет — переносим туда свежайшую (КОПИЯ, не перемещение)
+        if old_dir and os.path.normcase(old_dir) != os.path.normcase(new_dir):
+            try:
+                have = [f for f in os.listdir(new_dir) if f.endswith(".db")] if os.path.isdir(new_dir) else []
+                if not have:
+                    import shutil as _sh
+                    src = None
+                    if os.path.isdir(old_dir):
+                        ver = sorted(f for f in os.listdir(old_dir)
+                                     if re.match(r"^plm_reader_\d{8}_\d{6}\.db$", f))
+                        if ver:
+                            src = os.path.join(old_dir, ver[-1])
+                        elif os.path.isfile(os.path.join(old_dir, "plm_reader.db")):
+                            src = os.path.join(old_dir, "plm_reader.db")
+                    if src:
+                        os.makedirs(new_dir, exist_ok=True)
+                        _sh.copy2(src, os.path.join(new_dir, os.path.basename(src)))
+                        log_line("база: перенесена копией на %s (%s)" % (new_dir, os.path.basename(src)))
+                    else:
+                        log_line("база: в %s пусто — наполнится после скана" % new_dir)
+                else:
+                    log_line("база: в %s уже есть файлы — оставляем как есть" % new_dir)
+            except Exception as e:
+                log_line("база: перенос на %s не удался (%s) — наполнится после скана" % (new_dir, e))
+    try:
+        os.makedirs(DATA_DIR, exist_ok=True)
+    except Exception:
+        pass
+    return DATA_DIR, mir
+
 
 class PathsWindow:
-    """Окно «Пути и исключения…»: папки сканирования и папки-исключения, по строке на путь.
+    """Окно «Пути и исключения…»: папки сканирования, папки-исключения и ГДЕ ЖИВЁТ БАЗА.
 
     «＋» добавляет строку, «−» удаляет; пустые строки и дубли отбрасываются при сохранении
     (поэтому запятые в именах папок ничему не мешают)."""
@@ -1037,10 +1089,10 @@ class PathsWindow:
         self.settings = settings
         self.on_save = on_save
         self.win = tk.Toplevel(parent)
-        self.win.title("Пути и исключения — папки сканирования и исключения")
-        self.win.geometry("860x520")
+        self.win.title("Пути, исключения и база данных")
+        self.win.geometry("860x720")
         self.win.transient(parent)
-        self.rows = {"folders": [], "exclude": []}
+        self.rows = {"folders": [], "exclude": [], "db_mirror": []}
         box = ttk.Frame(self.win, padding=10)
         box.pack(fill="both", expand=True)
         ttk.Label(box, text="Папки сканирования (одна строка = один путь):",
@@ -1049,6 +1101,23 @@ class PathsWindow:
         ttk.Label(box, text="Папки исключений — НЕ читать вовсе (одна строка = один путь):",
                   font=("", 10, "bold")).pack(anchor="w", pady=(14, 0))
         self.sec_exc = self._section(box, "exclude")
+        ttk.Label(box, text="ГДЕ ЖИВЁТ БАЗА", font=("", 10, "bold")).pack(anchor="w", pady=(14, 0))
+        ttk.Label(box, text="Пусто = рядом с программой, в папке db\\. Можно указать другой диск:",
+                  foreground="#555").pack(anchor="w")
+        dline = ttk.Frame(box)
+        dline.pack(fill="x", pady=(2, 0))
+        self.e_db_dir = ttk.Entry(dline)
+        self.e_db_dir.insert(0, settings.get("db_dir") or "")
+        self.e_db_dir.pack(side="left", fill="x", expand=True)
+        ttk.Button(dline, text="Выбрать…", width=10,
+                   command=lambda: self._pick(self.e_db_dir)).pack(side="left", padx=4)
+        ttk.Label(box, text="Зеркала базы — после КАЖДОГО скана свежая база копируется и туда "
+                            "(другая машина/диск). Пусто = не дублировать:",
+                  foreground="#555").pack(anchor="w", pady=(8, 0))
+        self.sec_mir = self._section(box, "db_mirror")
+        self.mir_now = ttk.Button(box, text="Скопировать базу в зеркала ПРЯМО СЕЙЧАС",
+                                  command=self.copy_now)
+        self.mir_now.pack(anchor="w", pady=(6, 0))
         foot = ttk.Frame(box)
         foot.pack(fill="x", pady=(12, 0))
         ttk.Button(foot, text="Сохранить", command=self.save).pack(side="left")
@@ -1060,10 +1129,14 @@ class PathsWindow:
             self.add_row("folders", p)
         for p in (settings.get("exclude") or []):
             self.add_row("exclude", p)
+        for p in (settings.get("db_mirror") or []):
+            self.add_row("db_mirror", p)
         if not self.rows["folders"]:
             self.add_row("folders", "")
         if not self.rows["exclude"]:
             self.add_row("exclude", "")
+        if not self.rows["db_mirror"]:
+            self.add_row("db_mirror", "")
 
     def _section(self, parent, key):
         fr = self.ttk.Frame(parent)
@@ -1075,7 +1148,8 @@ class PathsWindow:
         return holder
 
     def add_row(self, key, path):
-        holder = self.sec_scan if key == "folders" else self.sec_exc
+        holder = {"folders": self.sec_scan, "exclude": self.sec_exc,
+                 "db_mirror": self.sec_mir}.get(key, self.sec_scan)
         line = self.ttk.Frame(holder)
         line.pack(fill="x", pady=1)
         ent = self.ttk.Entry(line)
@@ -1100,7 +1174,7 @@ class PathsWindow:
     def collect(self):
         """Списки путей: пустые строки и дубли (без учёта регистра) отбрасываются."""
         out = {}
-        for key in ("folders", "exclude"):
+        for key in ("folders", "exclude", "db_mirror"):
             seen, vals = set(), []
             for _line, ent in self.rows[key]:
                 v = norm_path(ent.get())
@@ -1110,13 +1184,39 @@ class PathsWindow:
             out[key] = vals
         return out
 
+    def copy_now(self):
+        """Прогнать зеркалирование без скана: копия свежей базы — по кнопке."""
+        import engine as _e
+        self.save()                                  # сначала сохранить пути, что введены
+        src = _e.active_db()
+        if not os.path.isfile(src):
+            self.msg.config(text="нечего копировать: базы ещё нет (нажми Сканировать)")
+            return
+        try:
+            done = _e.mirror_published(src)
+        except Exception as ex:
+            self.msg.config(text="не удалось: %s" % ex)
+            return
+        if done:
+            self.msg.config(text="скопировано в зеркал: %d (%s)" % (len(done), os.path.basename(src)))
+        else:
+            self.msg.config(text="зеркала не заданы или совпадают с рабочей папкой")
+
     def save(self):
         d = self.collect()
+        old_dir = (self.settings.get("db_dir") or "").strip()
         self.settings["folders"] = d["folders"]
         self.settings["exclude"] = d["exclude"]
+        self.settings["db_dir"] = norm_path(self.e_db_dir.get())
+        self.settings["db_mirror"] = d["db_mirror"]
         save_settings_file(self.settings)
-        self.msg.config(text="сохранено: папок %d, исключений %d"
-                             % (len(d["folders"]), len(d["exclude"])))
+        tail = ""
+        new_dir = self.settings["db_dir"]
+        if new_dir != old_dir:
+            # папка базы поменялась — предупреждаем честно: подхватка только при перезапуске окна
+            tail = " · база переедет на %s — ПЕРЕЗАПУСТИ окно" % (new_dir or "папку db\\")
+        self.msg.config(text="сохранено: папок %d, исключений %d, зеркал %d%s"
+                             % (len(d["folders"]), len(d["exclude"]), len(d["db_mirror"]), tail))
         if self.on_save:
             try:
                 self.on_save()
@@ -1140,7 +1240,26 @@ def _settings_migrations():
         d.pop("folder", None)
         d.pop("folder2", None)
         return d
-    return {2: v1_to_v2}
+    def v2_to_v3(d):
+        # v2 -> v3: путь рабочей папки базы (db_dir) и список зеркал (db_mirror).
+        # Чужие/битые значения не роняют окно: приводим к строкам, мусор выбрасываем.
+        d["db_dir"] = (d.get("db_dir") or "").strip() if isinstance(d.get("db_dir"), str) else ""
+        raw = d.get("db_mirror")
+        if isinstance(raw, str):
+            raw = [x.strip() for x in raw.split(";")] if ";" in raw else [raw]
+        if not isinstance(raw, list):
+            raw = []
+        out, seen = [], set()
+        for p in raw:
+            if isinstance(p, str) and p.strip():
+                v = norm_path(p.strip())
+                if v.lower() not in seen:
+                    seen.add(v.lower())
+                    out.append(v)
+        d["db_mirror"] = out
+        return d
+
+    return {2: v1_to_v2, 3: v2_to_v3}
 
 
 def _validate_settings(out):
@@ -1489,6 +1608,11 @@ def run_gui():
     from tkinter import ttk, filedialog, messagebox
 
     settings = load_settings_file()                     # битый/чужой файл не роняет окно
+    import engine as _eng_start                      # движок нужен ДО первого чтения базы
+    _db_dir, _db_mirrors = apply_db_paths(settings, _eng_start)   # база может жить на другом диске
+    if settings.get("db_dir") or settings.get("db_mirror"):
+        log_line("база: папка %s · зеркал: %s"
+                 % (_db_dir, ", ".join(_db_mirrors) if _db_mirrors else "нет"))
     _cols = settings.get("columns")                     # новые колонки дат — и для старых настроек
     if isinstance(_cols, list):
         _off = 0
