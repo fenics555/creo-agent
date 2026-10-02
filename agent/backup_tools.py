@@ -10,28 +10,49 @@ def tool_restore(name="", **kw): return BK.restore(name)
 def tool_housekeeping():
     import os, datetime
     rep = []
-    bak = core.BASE / "data" / "backups"
+    # ЖИВАЯ НАХОДКА 02.10.2026 (аудит agent\data): тут стояло core.BASE / "data" — это
+    # D:\AI\tools\data, папка ПУСТАЯ (наследие старой вёрстки дома). Настоящие бэкапы агента
+    # лежат в agent\data\backups (их кладёт backup.py через DATA_DIR), а картинки — в
+    # agent\data\pdfcache. Уборка молча делала НИЧЕГО: пути не существовали.
+    # Правило: источник пути — один (core.DATA_DIR), как и база.
+    bak = core.DATA_DIR / "backups"
     keep = int(settings.get("retention") or 7)
     if bak.exists():
         fs = sorted(bak.glob("*.sqlite*"), key=os.path.getmtime, reverse=True)
         for f in fs[keep:]:
             f.unlink(); rep.append("backup removed " + f.name)
+    else:
+        rep.append("ВНИМАНИЕ: папки бэкапов нет: %s" % bak)
     days = int(settings.get("image_days") or 7)
     cut = datetime.datetime.now().timestamp() - days * 86400
-    pc = core.BASE / "data" / "pdfcache"
+    pc = core.DATA_DIR / "pdfcache"
     if pc.exists():
         for f in pc.glob("*.png"):
             if os.path.getmtime(f) < cut:
                 f.unlink(); rep.append("cache removed " + f.name)
+    # ЖИВАЯ НАХОДКА 02.10.2026 (аудит agent\data): таблица feedback создаётся ЛЕНИВО —
+    # только когда человек первый раз нажмёт «оценка» в витрине. Пока её нет, ночная
+    # задача backup падала на этом DELETE, и вместе с ней откатывался prune истории
+    # (commit был ниже), а VACUUM не доходил. Правило: уборка не должна падать из-за
+    # того, что кто-то ещё не нажал кнопку; отсутствующую таблицу просто пропускаем.
     c = core.db()
     c.execute("DELETE FROM history WHERE ts < datetime('now','-90 days')")
-    c.execute("DELETE FROM feedback WHERE ts < datetime('now','-180 days')")
+    _fb = [r[0] for r in c.execute("SELECT name FROM sqlite_master WHERE name='feedback'")]
+    if _fb:
+        c.execute("DELETE FROM feedback WHERE ts < datetime('now','-180 days')")
+        rep.append("history/feedback pruned")
+    else:
+        rep.append("history pruned (таблицы feedback ещё нет — пропущено)")
     c.commit(); c.close()
-    rep.append("history/feedback pruned")
-    c2 = core.db()
-    c2.execute("VACUUM")
-    c2.close()
-    rep.append("sqlite vacuum done")
+    try:
+        c2 = core.db()
+        c2.execute("VACUUM")
+        c2.close()
+        rep.append("sqlite vacuum done")
+    except Exception as e:
+        # VACUUM не проходит, если базу держит живое соединение агента — это не повод
+        # ронять ночную уборку целиком.
+        rep.append("VACUUM пропущен: %s" % str(e)[:80])
     return "\n".join(rep) or "housekeeping: чисто"
 
 def _has_fts(c):

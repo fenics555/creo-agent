@@ -225,6 +225,11 @@ class Hd(BaseHTTPRequestHandler):
             for path, mt in rows:
                 bydir.setdefault(os.path.dirname(path), {})[os.path.basename(path).lower()] = (path, mt)
             pairs = []
+            # ЖИВАЯ НАХОДКА 02.10.2026 (аудит agent\data): переменная seen_names тут же
+            # использовалась (строки ниже), но НИКОГДА не создавалась — NameError рвал соединение,
+            # и витрина PDF молча показывала пустую страницу. Имена уже показанных моделей
+            # не должны повторяться в разных папках.
+            seen_names = set()
             for d, fs in bydir.items():
                 du = d.upper()
                 if "\\CREO12\\" in du or "\\DATA\\" in du:
