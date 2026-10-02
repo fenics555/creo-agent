@@ -11,6 +11,9 @@ import java.util.*;
 
 /**
  * CREO PDF SCANNER (JLINK, без CREOSON).
+* V2: папка вывода PDF (--out <папка>) и копия рядом с чертежом (--dup).
+ *   Без --out PDF пишется рядом с чертежом (прежнее поведение); с --out — в отдельную папку,
+ *   структура подпапок зеркалится. Скан при заданной папке вывода ищет устаревший PDF ТАМ.
  * Рутина дома: рядом с чертежом <имя>.drw[.N] должен лежать <имя>.pdf и быть не старше чертежа.
  *
  * Режимы:
@@ -35,7 +38,7 @@ public class CreoPdf {
     try {
       for (int i = 0; i < a.length; i++) a[i] = a[i].replace("\"", "").trim();   // терпим кавычки в путях
       String mode = a.length > 0 ? a[0].toLowerCase() : "help";
-      if (mode.equals("scan")) { scan(a.length > 1 ? a[1] : ".", false, Integer.MAX_VALUE); return; }
+      if (mode.equals("scan")) { scanOutFlags(a, 1); return; }
       if (mode.equals("config-scan")) { configScan(); return; }
       if (mode.equals("creo-find")) { creoFind(); return; }
       if (mode.equals("creo-start")) {
@@ -111,7 +114,7 @@ public class CreoPdf {
                            " | после экспорта чертёж убирается из сессии Creo");
         System.out.println("ВЫВОД: " + (outRoot == null ? "РЯДОМ с чертежом" : ("в папку " + outRoot +
                            (dup ? " + копия рядом с чертежом" : ""))));
-        List<String> need = scan(dir, false, limit);
+        List<String> need = scan(dir, false, limit, outRoot, dup);
         System.out.println("к обработке: " + need.size());
         int ok = 0, bad = 0, orphans = 0;
         boolean lost = false;
@@ -124,7 +127,7 @@ public class CreoPdf {
             continue;
           }
           // отдельная папка: структуру подпапок зеркалим, иначе одноимённые чертежи схлопываются
-          String dupDir = null;
+          String outDir = outRoot, dupDir = null;
           if (outRoot != null) {
             String rel = f.getParent().substring(Math.min(dir.length(), f.getParent().length()));
             File sub = new File(outRoot, rel);
@@ -153,10 +156,43 @@ public class CreoPdf {
     } catch (Throwable t) { System.out.println("ERR: " + t); }
   }
 
+  /** Разбор флагов папки вывода для режима scan: --out <папка>, --dup, --limit N.
+    *  Без --out скан идёт по старому правилу: PDF рядом с чертежом. */
+  static void scanOutFlags(String[] a, int from) {
+    String root = null;                                  // первый не-флаг = папка скана
+    String outRoot = null; boolean dup = false; int limit = Integer.MAX_VALUE;
+    for (int i = from; i < a.length; i++) {
+      if (a[i].equalsIgnoreCase("--dup")) dup = true;
+      else if (a[i].equalsIgnoreCase("--limit") && i + 1 < a.length) {
+        try { limit = Integer.parseInt(a[++i]); } catch (NumberFormatException e) { limit = Integer.MAX_VALUE; }
+      } else if (a[i].equalsIgnoreCase("--out")) {
+        String v = (i + 1 < a.length) ? a[++i] : "";
+        if (v.isEmpty() || v.startsWith("--")) { System.out.println("ERR: --out без значения (папка назначения пустая)"); return; }
+        outRoot = v;
+      } else if (root == null && !a[i].startsWith("--")) root = a[i];
+    }
+    if (root == null) root = ".";
+    if (outRoot != null) {
+      File of = new File(outRoot);
+      if (!of.isDirectory() && !of.mkdirs()) {
+        System.out.println("ERR: папка назначения не создаётся: " + outRoot);
+        return;
+      }
+    }
+    System.out.println("СКАН: PDF ищем " + ((outRoot == null) ? "РЯДОМ с чертежом"
+        : ("в папке " + outRoot + (dup ? " + копия рядом с чертежом" : ""))));
+    scan(root, false, limit, outRoot, dup);
+  }
+
   static void usage() {
-    System.out.println("creo_pdf scan <папка> | export <папка> [лимит, 0=без ограничения] | pdf <папка> <имя> [out] |\n" +
+    System.out.println("creo_pdf scan <папка> [--out <папка PDF>] [--dup] [--limit N] | " +
+                       "export <папка> [лимит, 0=без ограничения] [--out <папка PDF>] [--dup] [open] | " +
+                       "pdf <папка> <имя> [out] |\n" +
                        "         config-scan | config-find | config-read [config.pro] | config-load <config.pro> |\n" +
-                       "         creo-find | creo-start [config.pro] [--dry]");
+                       "         creo-find | creo-start [config.pro] [--dry]\n" +
+                       "  --out <папка> — складывать PDF в ОТДЕЛЬНУЮ папку (структура подпапок зеркалится);\n" +
+                       "  --dup         — дополнительно копировать PDF рядом с чертежом;\n" +
+                       "  без --out PDF пишется рядом с чертежом (прежнее поведение).");
   }
 
   static String readOpt(Session s, String k) {
@@ -413,52 +449,92 @@ public class CreoPdf {
     return best;
   }
 
-  /** Обход папки: чертежи <имя>.drw[.N], PDF <имя>.pdf; устарел, если PDF старше чертежа. */
-  static List<String> scan(String root, boolean quiet, int limit) {
+  /** Папка назначения для чертежа из <dir>: зеркало пути относительно корня скана <root>.
+    *  Отдельная папка сохраняет структуру подпапок, иначе одноимённые чертежи схлопываются в один. */
+  static String outDirFor(String root, String dir, String outRoot) {
+    if (outRoot == null) return dir;
+    int k = Math.min(root.length(), dir.length());
+    String rel = dir.substring(k);
+    return new File(outRoot, rel).getPath();
+  }
+
+  /** Рекурсивный сбор .drw[.N] (drw) и .pdf (pdf) по дереву; папки без прав доступа пропускаем. */
+  static void walkTree(Path start, final Map<String, File> drw, final Map<String, File> pdf) throws IOException {
+    Files.walkFileTree(start, new SimpleFileVisitor<Path>() {
+      @Override public FileVisitResult visitFile(Path p, BasicFileAttributes at) {
+        String n = p.getFileName().toString().toLowerCase();
+        String dir = p.getParent().toString();
+        if (n.matches(".*\\.drw(\\.\\d+)?$")) {
+          String base = n.replaceAll("\\.drw(\\.\\d+)?$", "");
+          File cur = drw.get(dir + "|" + base);
+          if (cur == null || p.toFile().lastModified() > cur.lastModified())
+            drw.put(dir + "|" + base, p.toFile());
+        } else if (n.endsWith(".pdf")) {
+          File prev = pdf.get(dir + "|" + n.substring(0, n.length() - 4));
+          if (prev == null || p.toFile().lastModified() > prev.lastModified())
+            pdf.put(dir + "|" + n.substring(0, n.length() - 4), p.toFile());
+        }
+        return FileVisitResult.CONTINUE;
+      }
+      @Override public FileVisitResult visitFileFailed(Path p, IOException e) {
+        System.out.println("  нет доступа: " + p); System.out.flush();
+        return FileVisitResult.CONTINUE;
+      }
+    });
+  }
+
+  /** Обход папки: чертежи <имя>.drw[.N], PDF <имя>.pdf; устарел, если PDF старше чертежа.
+    *  При outRoot != null «нужный» PDF лежит в папке вывода (а при dup — ещё и рядом с чертежом). */
+  static List<String> scan(String root, boolean quiet, int limit) { return scan(root, quiet, limit, null, false); }
+
+  static List<String> scan(String root, boolean quiet, int limit, String outRoot, boolean dup) {
     List<String> need = new ArrayList<>();
     Path start = Paths.get(root);
     if (!Files.isDirectory(start)) { System.out.println("нет папки: " + root); return need; }
     final Map<String, File> drw = new HashMap<>(), pdf = new HashMap<>();
     try {
       // Рекурсивный обход ВСЕХ подпапок; папки без прав доступа пропускаем, а не падаем.
-      Files.walkFileTree(start, new SimpleFileVisitor<Path>() {
-        @Override public FileVisitResult visitFile(Path p, BasicFileAttributes at) {
-          String n = p.getFileName().toString().toLowerCase();
-          String dir = p.getParent().toString();
-          if (n.matches(".*\\.drw(\\.\\d+)?$")) {
-            String base = n.replaceAll("\\.drw(\\.\\d+)?$", "");
-            File cur = drw.get(dir + "|" + base);
-            if (cur == null || p.toFile().lastModified() > cur.lastModified())
-              drw.put(dir + "|" + base, p.toFile());
-          } else if (n.endsWith(".pdf")) {
-            pdf.put(dir + "|" + n.substring(0, n.length() - 4), p.toFile());
-          }
-          return FileVisitResult.CONTINUE;
-        }
-        @Override public FileVisitResult visitFileFailed(Path p, IOException e) {
-          System.out.println("  нет доступа: " + p); System.out.flush();
-          return FileVisitResult.CONTINUE;
-        }
-      });
+      walkTree(start, drw, pdf);
+      // ОТДЕЛЬНАЯ ПАПКА ВЫВОДА лежит вне сканируемой папки — её обходим отдельно,
+      // иначе все чертежи отмечены «НЕТ PDF», хотя файлы там уже лежат.
+      if (outRoot != null) {
+        Path op = Paths.get(outRoot);
+        if (Files.isDirectory(op)) walkTree(op, new HashMap<String, File>(), pdf);
+      }
     } catch (IOException e) { System.out.println("обход: " + e); }
     int miss = 0, stale = 0, ok = 0, orphMiss = 0, orphStale = 0;
     if (NAMES == null) loadNames();
     for (Map.Entry<String, File> e : new TreeMap<>(drw).entrySet()) {
-      File p = pdf.get(e.getKey());
       File d = e.getValue();
       String dir = d.getParent();
       String base = d.getName().replaceAll("\\.drw(\\.\\d+)?$", "");
       boolean orph = isOrphan(new File(dir), base);
+      // ГДЕ ИЩЕМ PDF: рядом с чертежом (обычный режим) либо в папке вывода (когда она задана).
+      String nearDir = dir;
+      String outDir = (outRoot == null) ? dir : outDirFor(root, dir, outRoot);
+      boolean separate = outRoot != null && !outDir.equalsIgnoreCase(dir);
+      File p = pdf.get(outDir + "|" + base);                     // PDF в целевой папке
+      File pn = separate ? pdf.get(nearDir + "|" + base) : p;    // PDF рядом с чертежом
+      String showDir = separate ? outDir : dir;
       if (p == null) {
         miss++;
         if (orph) orphMiss++;
-        if (!quiet) { System.out.println("  НЕТ PDF    " + (orph ? "(СИРОТА) " : "") + dir + File.separator + base + ".pdf"); System.out.flush(); }
+        if (!quiet) { System.out.println("  НЕТ PDF    " + (orph ? "(СИРОТА) " : "") + showDir + File.separator + base + ".pdf"); System.out.flush(); }
         need.add(dir + File.separator + base);
       } else if (p.lastModified() < d.lastModified()) {
         stale++;
         if (orph) orphStale++;
-        System.out.println("  УСТАРЕЛ    " + (orph ? "(СИРОТА) " : "") + dir + File.separator + base + ".pdf (pdf " + p.lastModified() +
+        System.out.println("  УСТАРЕЛ    " + (orph ? "(СИРОТА) " : "") + showDir + File.separator + base + ".pdf (pdf " + p.lastModified() +
                            " < drw " + d.lastModified() + ")"); System.out.flush();
+        need.add(dir + File.separator + base);
+      } else if (dup && separate && pn == null) {
+        // PDF в папке вывода свежий, но копии рядом с чертежом нет — тоже в работу
+        miss++;
+        if (!quiet) { System.out.println("  НЕТ PDF рядом с чертежом (галочка «копия рядом»)  " + nearDir + File.separator + base + ".pdf"); System.out.flush(); }
+        need.add(dir + File.separator + base);
+      } else if (dup && separate && pn.lastModified() < d.lastModified()) {
+        stale++;
+        System.out.println("  УСТАРЕЛ рядом с чертежом  " + nearDir + File.separator + base + ".pdf"); System.out.flush();
         need.add(dir + File.separator + base);
       } else ok++;
       if (need.size() >= limit) break;

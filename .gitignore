@@ -17,4 +17,7 @@ agent_trace_*.txt
 crash_*.txt
 /git_sync.log
 /startup.log
+# Настройки окон — персональные пути пользователя, в гит не идут (бэкапы тоже)
+/settings/
+/agent/creo_pdf/settings/
 

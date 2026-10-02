@@ -1,7 +1,10 @@
 # -*- coding: utf-8 -*-
-r"""CREO PDF — окно «ДИЗАЙН 2»: PDF чертежей (скан/обновление) + дубли + PDF без модели.
+r"""CREO PDF V2 — окно «ДИЗАЙН 2»: PDF чертежей (скан/обновление) + дубли + PDF без модели.
 Движок: creo_pdf.bat (прямой JLINK, без CREOSON) и питоновские помощники.
 Первый дизайн сохранён в design1\ (откат — скопировать обратно).
+
+Папка вывода PDF (V2): поле «Папка PDF» + галочка «и копия рядом с чертежом»;
+пустое поле = прежнее поведение (PDF рядом с чертежом). Скан учитывает папку вывода.
 
 Раскладка:
   НАСТРОЙКИ   — пути (config.pro, папка), обзор, «Из сессии», «Применить», найти/запустить Creo, README, логи
@@ -15,7 +18,13 @@ from tkinter import ttk, filedialog, messagebox
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 BAT = os.path.join(HERE, "creo_pdf.bat")
-CFG = os.path.join(HERE, "gui_settings.json")
+# НАСТРОЙКИ по шаблону инструмента дома: settings\<имя>_settings.json рядом с инструментом,
+# версионируются (settings_version), старый gui_settings.json мигрируется один раз в backup_settings.
+CFG_DIR = os.path.join(HERE, "settings")
+CFG = os.path.join(CFG_DIR, "creo_pdf_settings.json")
+CFG_BACKUP = os.path.join(CFG_DIR, "backup_settings")
+LEGACY_CFG = os.path.join(HERE, "gui_settings.json")
+SETTINGS_VERSION = 2
 DEFAULT_CFG = r"Z:\PTC\CREO-START\START-STD\config.pro"
 DEFAULT_DIR = r"Z:\PTC\Work"
 
@@ -28,7 +37,7 @@ class Win:
         self.lines = []
         self.s = self._load()
 
-        root.title("CREO PDF V1 — чертежи, дубли, PDF без модели  ·  дизайн 2")
+        root.title("CREO PDF V2 — чертежи, дубли, PDF без модели  ·  дизайн 2")
         root.geometry("1180x740")
         root.minsize(900, 560)
         self._style()
@@ -51,8 +60,18 @@ class Win:
         ttk.Button(g1, text="Где config.pro", width=15, command=self.scan_cfg).grid(row=1, column=4, padx=2, pady=(6, 0))
         ttk.Button(g1, text="Найти Creo", width=12, command=self.creo_find).grid(row=1, column=5, padx=2, pady=(6, 0))
 
+        ttk.Label(g1, text="Папка PDF (куда выводить):").grid(row=2, column=0, sticky="w", pady=(6, 0))
+        self.out_var = tk.StringVar(value=self.s.get("pdf_out", ""))
+        ttk.Entry(g1, textvariable=self.out_var).grid(row=2, column=1, columnspan=2, sticky="ew", padx=6, pady=(6, 0))
+        ttk.Button(g1, text="Обзор…", width=10, command=self.pick_out).grid(row=2, column=3, padx=2, pady=(6, 0))
+        self.dup_near = tk.BooleanVar(value=bool(self.s.get("dup_near", False)))
+        ttk.Checkbutton(g1, text="и копия рядом с чертежом", variable=self.dup_near).grid(
+            row=2, column=4, columnspan=2, sticky="w", padx=2, pady=(6, 0))
+        ttk.Label(g1, text="(пусто = PDF рядом с чертежом, как раньше)", foreground="#8a8a8a").grid(
+            row=3, column=1, columnspan=4, sticky="w", padx=6)
+
         g1b = ttk.Frame(g1)
-        g1b.grid(row=2, column=0, columnspan=6, sticky="ew", pady=(8, 0))
+        g1b.grid(row=4, column=0, columnspan=6, sticky="ew", pady=(8, 0))
         ttk.Button(g1b, text="Запустить Creo", command=self.start_creo).pack(side="left")
         ttk.Button(g1b, text="README", command=self.show_readme).pack(side="left", padx=6)
         ttk.Separator(g1b, orient="vertical").pack(side="left", fill="y", padx=8)
@@ -142,17 +161,83 @@ class Win:
 
     # =============== служебное ===============
     def _load(self):
-        try:
-            return json.loads(open(CFG, encoding="utf-8").read())
-        except Exception:
-            return {}
+        """Читает настройки. Порядок: новый settings\\creo_pdf_settings.json, затем старый
+        gui_settings.json (миграция, копия в backup_settings). Пустой/битый файл = {} без падения."""
+        data = {}
+        if os.path.isfile(CFG):
+            # Новый файл есть — он главный. Если он битый, молча откатываться к старому НЕЛЬЗЯ:
+            # пользователь увидит старые настройки и не поймёт, почему его правки пропали.
+            try:
+                with open(CFG, encoding="utf-8") as f:
+                    data = json.load(f)
+                if not isinstance(data, dict):
+                    data = {}
+            except Exception:
+                data = {}
+        elif os.path.isfile(LEGACY_CFG):
+            try:
+                with open(LEGACY_CFG, encoding="utf-8") as f:
+                    data = json.load(f)
+                if not isinstance(data, dict):
+                    data = {}
+            except Exception:
+                data = {}
+            try:
+                os.makedirs(CFG_BACKUP, exist_ok=True)
+                stamp = datetime.datetime.now().strftime("%Y-%m-%d_%H%M%S")
+                with open(os.path.join(CFG_BACKUP, "gui_settings_%s.json" % stamp), "w",
+                          encoding="utf-8") as f:
+                    json.dump(data, f, ensure_ascii=False, indent=1)
+            except Exception:
+                pass
+        return data
 
     def _save(self):
+        """Пишет настройки в settings\\creo_pdf_settings.json. Прочие поля файла сохраняются
+        (незнакомые ключи не теряются). Перед перезаписью — копия в backup_settings с ротацией."""
         try:
-            open(CFG, "w", encoding="utf-8").write(json.dumps(
-                {"config": self.cfg_var.get(), "folder": self.dir_var.get(), "limit": self.limit.get(),
-                 "open_pdf": bool(self.open_pdf.get()), "del_dups": bool(self.del_dups.get()),
-                 "del_nomodel": bool(self.del_nomodel.get())}, ensure_ascii=False, indent=1))
+            prev = {}
+            if os.path.isfile(CFG):
+                with open(CFG, encoding="utf-8") as f:
+                    prev = json.load(f) or {}
+            if not isinstance(prev, dict):
+                prev = {}
+            prev.update({
+                "settings_version": SETTINGS_VERSION,
+                "config": self.cfg_var.get(),
+                "folder": self.dir_var.get(),
+                "pdf_out": self.out_var.get(),
+                "dup_near": bool(self.dup_near.get()),
+                "limit": self.limit.get(),
+                "open_pdf": bool(self.open_pdf.get()),
+                "del_dups": bool(self.del_dups.get()),
+                "del_nomodel": bool(self.del_nomodel.get()),
+            })
+            os.makedirs(CFG_DIR, exist_ok=True)
+            if os.path.isfile(CFG):
+                os.makedirs(CFG_BACKUP, exist_ok=True)
+                stamp = datetime.datetime.now().strftime("%Y-%m-%d_%H%M%S")
+                with open(os.path.join(CFG_BACKUP, "creo_pdf_settings_%s.json" % stamp), "w",
+                          encoding="utf-8") as f:
+                    json.dump(prev, f, ensure_ascii=False, indent=1)
+                self._rotate_backups(5)
+            with open(CFG, "w", encoding="utf-8") as f:
+                json.dump(prev, f, ensure_ascii=False, indent=1)
+            return True
+        except Exception as e:
+            self.log("настройки НЕ сохранены: %s" % e)
+            return False
+
+    @staticmethod
+    def _rotate_backups(keep):
+        """Ротация бэкапов настроек: оставить последние N файлов ПО ВРЕМЕНИ (шаблон инструмента).
+        Сортировка по имени не годится: имена с разными префиксами чередуются."""
+        try:
+            items = [(os.path.getmtime(os.path.join(CFG_BACKUP, n)), n)
+                     for n in os.listdir(CFG_BACKUP)]
+            items.sort()
+            for _mtime, name in items[:-keep] if len(items) > keep else []:
+                os.remove(os.path.join(CFG_BACKUP, name))
         except Exception:
             pass
 
@@ -266,6 +351,33 @@ class Win:
         if p:
             self.dir_var.set(p)
 
+    def pick_out(self):
+        start = self.out_var.get().strip() or self.dir_var.get().strip() or DEFAULT_DIR
+        p = filedialog.askdirectory(title="Выбрать папку для PDF", initialdir=start)
+        if p:
+            self.out_var.set(p)
+
+    # ---------------- папка вывода PDF ----------------
+    def _out_dir(self, for_scan=False):
+        """Папка назначения PDF. Пустая строка = «рядом с чертежом» (прежнее поведение),
+        это НЕ ошибка. Непустая должна быть папкой (создаём) либо её нельзя создать."""
+        o = self.out_var.get().strip().strip('"')
+        if not o:
+            return None
+        if os.path.isfile(o):
+            messagebox.showerror("Папка PDF", "Это ФАЙЛ, а не папка:\n" + o)
+            return False
+        if not os.path.isdir(o):
+            try:
+                os.makedirs(o, exist_ok=True)
+            except Exception as e:
+                messagebox.showerror("Папка PDF", "Папку создать не удалось:\n%s\n\n%s" % (o, e))
+                return False
+        if not os.access(o, os.W_OK):
+            messagebox.showerror("Папка PDF", "Нет прав на запись в:\n" + o)
+            return False
+        return o
+
     # =============== движок ===============
     def _busy(self):
         if self.proc:
@@ -287,7 +399,8 @@ class Win:
         if self._busy():
             return
         self._begin(title + ": creo_pdf " + " ".join(args))
-        cmd = ["cmd", "/c", "call", BAT] + list(args)
+        # Пути с пробелами: каждый аргумент в кавычках (иначе cmd режет строку по пробелу)
+        cmd = ["cmd", "/c", "call", BAT] + ['"%s"' % x if " " in x else x for x in args]
         threading.Thread(target=self._worker, args=(cmd,), daemon=True).start()
 
     def _spawn_py(self, script, args, title):
@@ -331,13 +444,24 @@ class Win:
         d = self._folder()
         if not d:
             return
+        o = self._out_dir()          # None = рядом с чертежом, False = ошибка (уже показана)
+        if o is False:
+            return
+        out_flags = []
+        if o:
+            out_flags = ["--out", o]
+            if self.dup_near.get():
+                out_flags.append("--dup")
         if mode == "scan":
-            self._spawn(["scan", d], "СКАН ПДФ (отчёт)")
+            self._spawn(["scan", d] + out_flags, "СКАН ПДФ (отчёт)")
         else:
-            args = ["export", d, self.limit.get().strip() or "50"]
+            args = ["export", d, self.limit.get().strip() or "50"] + out_flags
             if self.open_pdf.get():
                 args.append("open")
-            self._spawn(args, "СОЗДАТЬ / ОБНОВИТЬ ПДФ" + (" (с открытием)" if self.open_pdf.get() else ""))
+            self._save()
+            self._spawn(args, "СОЗДАТЬ / ОБНОВИТЬ ПДФ" + (" (с открытием)" if self.open_pdf.get() else "")
+                       + (" [в папку: %s%s]" % (o, " + копия рядом" if self.dup_near.get() else "")
+                          if o else " [рядом с чертежом]"))
 
     def run_dups(self):
         """ОДНА кнопка: дубли PDF + PDF не рядом со своим чертежом. Галочка = ещё и убрать лишние."""
