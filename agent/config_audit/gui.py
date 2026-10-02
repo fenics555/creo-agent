@@ -27,6 +27,13 @@ KNOWN = [
     r"D:\PTC\CREO-LOCAL-SETUP\CREO-LOCAL-START\config.pro",
 ]
 DEFAULTS = {"last_config": KNOWN[0]}
+# Подстановки переменных Creo живут в настройках (манифест п.19: одна база — одно место).
+# Если блока нет, движок сам найдёт установку на диске (D:\PTC\CREO*\Creo *\Parametric).
+CREO_VARS = {
+    "$PRO_DIRECTORY": r"D:\PTC\CREO12\Creo 12.4.2.0\Parametric",
+    "$CREO_COMMON_FILES": r"D:\PTC\CREO12\Creo 12.4.2.0\Common Files",
+    "$PROSTD": r"Z:\PTC\CREO-START\НАСТРОЙКИ",
+}
 
 
 class App:
@@ -50,6 +57,7 @@ class App:
 
     def save_settings(self):
         try:
+            self.st["creo_vars"] = dict(CREO_VARS)
             SETTINGS.parent.mkdir(parents=True, exist_ok=True)
             SETTINGS.write_text(json.dumps(self.st, ensure_ascii=False, indent=1),
                                 encoding="utf-8")

@@ -19,17 +19,83 @@ CONFIG = sys.argv[1] if len(sys.argv) > 1 else r"Z:\PTC\CREO-START\START-STD\con
 LOG_DIR = r"D:\AI\log\config_audit"
 REPORT_DIR = r"D:\AI\log\reports"
 REPORT_PREFIX = "REPORT_config_audit"
-# Подстановки переменных Creo, которые встречаются в конфиге дома:
+# Подстановки переменных Creo. До 02.10.2026 это был СЛОВАРЬ-КОНСТАНТА с путём
+# `Creo 12.4.2.0` внутри кода. На машине стоят ОБЕ версии (D:\PTC\CREO12\Creo 12.4.2.0
+# и D:\PTC\CREO13\Creo 13.4.1.0) — при переходе дома на Creo 13 программа проверяла бы
+# несуществующие пути и написала бы «ЕСТЬ БИТЫЕ ПУТИ». Пути теперь в настройках
+# (agent\data\config_audit_settings.json), а сверху — автоопределение по диску.
 VAR = {
     "$PRO_DIRECTORY": r"D:\PTC\CREO12\Creo 12.4.2.0\Parametric",
     "$CREO_COMMON_FILES": r"D:\PTC\CREO12\Creo 12.4.2.0\Common Files",
     "$PROSTD": r"Z:\PTC\CREO-START\НАСТРОЙКИ",
 }
+DEFAULT_CREO_ROOT = r"D:\PTC"
+
+
+def _find_creo(version_hint="12"):
+    """Ищет установку Creo на диске: D:\\PTC\\CREO*\\Creo <версия>\\Parametric.
+    Возвращает (parametric, common_files) или (None, None)."""
+    try:
+        families = sorted(os.listdir(DEFAULT_CREO_ROOT), reverse=True)
+    except OSError:
+        return None, None
+    for fam in families:
+        base = os.path.join(DEFAULT_CREO_ROOT, fam)
+        if not os.path.isdir(base) or not fam.upper().startswith("CREO"):
+            continue
+        try:
+            vers = sorted(os.listdir(base), reverse=True)
+        except OSError:
+            continue
+        for v in vers:
+            p = os.path.join(base, v, "Parametric")
+            if os.path.isdir(p):
+                return p, os.path.join(base, v, "Common Files")
+    return None, None
+
+
+def load_vars():
+    """Подстановки переменных Creo. Приоритет источников:
+    1) настройки дома (`data\\config_audit_settings.json`, блок `creo_vars`);
+    2) путь из кода, ЕСЛИ он реально есть на диске (сейчас это CREO12);
+    3) автоопределение по диску `D:\\PTC\\CREO*\\Creo *\\Parametric` — страховка от перехода
+       дома на другую версию Creo.
+    Путь из кода проверяется на существование НАМЕРЕННО: иначе программа продолжит искать
+    файлы в несуществующей установке и напишет «ЕСТЬ БИТЫЕ ПУТИ»."""
+    import json
+    out = dict(VAR)
+    try:
+        sfile = os.path.normpath(os.path.join(
+            os.path.dirname(os.path.abspath(__file__)), os.pardir, "data",
+            "config_audit_settings.json"))
+        with open(sfile, encoding="utf-8") as f:
+            st = json.load(f)
+        for k, v in (st.get("creo_vars") or {}).items():
+            if k.startswith("$") and v:
+                out[k] = v
+    except Exception:
+        pass
+    # Живая проверка 02.10.2026: ранний return из настроек отдавал МЁРТВЫЙ путь — файл настроек
+    # всегда читается, значит автоопределение не срабатывало никогда. Теперь путь проверяется
+    # ВСЕГДА, а источник значения не важен: есть на диске — берём, нет — ищем установку.
+    if os.path.isdir(out["$PRO_DIRECTORY"]):
+        return out
+    par, com = _find_creo()
+    if par:
+        out["$PRO_DIRECTORY"] = par
+        out["$CREO_COMMON_FILES"] = com
+    return out
 PATHY = re.compile(r"(?:[A-Za-z]:[\\/]|\$[A-Z_]+[\\/]|\\\\)")
+
+_VARS = None
+
 
 def norm(v: str) -> str:
     """Путь конфига -> путь Windows: переменные, слэши, хвостовые пробелы."""
-    for k, r in VAR.items():
+    global _VARS
+    if _VARS is None:
+        _VARS = load_vars()
+    for k, r in _VARS.items():
         v = v.replace(k, r)
     v = v.replace("/", "\\").rstrip("\\ ")
     return v
@@ -112,8 +178,10 @@ def write_report(res, config_path, secs, quiet=False):
             f.write("## Битые пути\n\nНет. Все %d путей config.pro найдены на диске.\n" % res["total"])
         f.write("## Откуда что взято\n- конфиг: только чтение, ничего не пишется на диск конфигурации\n")
         f.write("- журнал прогона: `%s`\n" % log_file)
-        f.write("- подстановки переменных Creo: `$PRO_DIRECTORY`, `$CREO_COMMON_FILES`, `$PROSTD`\n\n")
-        f.write("---\n*Отчёт сформирован программой config_audit*\n")
+        f.write("- подстановки переменных (ПРОВЕРЕНО, что пути есть на диске):\n")
+        for k, v in (load_vars() or {}).items():
+            f.write("  - `%s` → `%s` — %s\n" % (k, v, "есть" if os.path.exists(v) else "НЕТ"))
+        f.write("\n---\n*Отчёт сформирован программой config_audit*\n")
     if not quiet:
         print("отчёт: %s" % rep_file)
     return rep_file
