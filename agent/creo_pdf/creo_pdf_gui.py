@@ -373,35 +373,99 @@ class Win:
         return "break"
 
     def copy_log(self):
+        """Копирование отчёта. Проба в 3 ступени, потому что буфер Tk ненадёжен:
+        текст пропадает при переходе в другое приложение, хотя сразу после вставки
+        проверка проходит. Поэтому главный путь — WinAPI (буфер переживает окно),
+        PowerShell — запасной, Tk — только последний."""
         t = self.txt.get("1.0", "end-1c")
         n = len(t.splitlines())
-        ok = False
-        try:
-            self.root.clipboard_clear()
-            self.root.clipboard_append(t)
-            self.root.update()
-            ok = (self.root.clipboard_get() == t)
-        except Exception as e:
-            self.log("tk-буфер не сработал (%s) — пробую через PowerShell" % e)
+        ok, how = self._clip_winapi(t), "WinAPI"
         if not ok:
-            ok = self._clip_via_powershell(t)
+            ok, how = self._clip_via_powershell(t), "PowerShell"
+        if not ok:
+            ok, how = self._clip_tk(t), "буфер окна"
         if ok:
-            self.status.config(text="отчёт скопирован: %d строк" % n)
-            self.log("— скопировано в буфер: %d строк (%d символов) —" % (n, len(t)))
+            self.status.config(text="отчёт скопирован: %d строк (%s)" % (n, how))
+            self.log("— скопировано в буфер: %d строк, %d символов, способ: %s —" % (n, len(t), how))
         else:
             self.status.config(text="копирование не удалось")
-            self.log("— КОПИРОВАНИЕ НЕ УДАЛОСЬ. Нажми «Сохранить…» — файл пишется всегда. —")
+            self.log("— КОПИРОВАНИЕ НЕ УДАЛОСЬ (все 3 способа). Нажми «Сохранить…» — "
+                     "файл пишется всегда. —")
+
+    @staticmethod
+    def _clip_winapi(text):
+        """Копирование прямо в буфер обмена Windows (CF_UNICODETEXT). Не зависит от
+        окна: буфер остаётся после переключения на другое приложение."""
+        try:
+            import ctypes
+            k32, u32 = ctypes.windll.kernel32, ctypes.windll.user32
+            # ОБЯЗАТЕЛЬНО: без этих объявлений ctypes трактует 64-битные указатели как int,
+            # и адрес обрезается — буфер «записывается», но читается мусор (проверено 02.10.2026).
+            k32.GlobalAlloc.restype = ctypes.c_void_p
+            k32.GlobalLock.restype = ctypes.c_void_p
+            u32.GetClipboardData.restype = ctypes.c_void_p
+            GMEM_MOVEABLE = 0x0002
+            CF_UNICODETEXT = 13
+            data = text + "\0"
+            size = len(data) * ctypes.sizeof(ctypes.c_wchar)
+            k32.GlobalAlloc.restype = ctypes.c_void_p
+            handle = k32.GlobalAlloc(GMEM_MOVEABLE, size)
+            if not handle:
+                return False
+            locked = k32.GlobalLock(ctypes.c_void_p(handle))
+            if not locked:
+                return False
+            ctypes.memmove(locked, ctypes.create_unicode_buffer(data), size)
+            k32.GlobalUnlock(ctypes.c_void_p(handle))
+            if not u32.OpenClipboard(None):
+                return False
+            try:
+                u32.EmptyClipboard()
+                ok = u32.SetClipboardData(CF_UNICODETEXT, ctypes.c_void_p(handle))
+            finally:
+                u32.CloseClipboard()
+            if not ok:
+                k32.GlobalFree(ctypes.c_void_p(handle))
+                return False
+            # ПРОВЕРКА: читаем обратно из буфера — верим только факту чтения
+            if not u32.OpenClipboard(None):
+                return False
+            try:
+                got = u32.GetClipboardData(CF_UNICODETEXT)
+                if not got:
+                    return False
+                p = ctypes.wstring_at(ctypes.c_void_p(k32.GlobalLock(ctypes.c_void_p(got))))
+            finally:
+                u32.CloseClipboard()
+            return p.rstrip("\r\n") == text.rstrip("\r\n")
+        except Exception:
+            return False
+
+    def _clip_tk(self, text):
+        try:
+            self.root.clipboard_clear()
+            self.root.clipboard_append(text)
+            self.root.update()
+            return self.root.clipboard_get() == text
+        except Exception:
+            return False
 
     def _clip_via_powershell(self, text):
+        """Запасной способ: файл UTF-16 → Set-Clipboard. Проверяем ЧТЕНИЕМ из буфера."""
         tmp = os.path.join(HERE, "_clip_tmp.txt")
         try:
             with open(tmp, "w", encoding="utf-16") as f:
                 f.write(text)
             subprocess.run(["powershell", "-NoProfile", "-Command", "Set-Clipboard -Path '%s'" % tmp],
                            capture_output=True, timeout=90)
-            return True
+            back = subprocess.run(["powershell", "-NoProfile", "-Command",
+                                   "Get-Clipboard -Raw"],
+                                  capture_output=True, text=True, encoding="utf-8",
+                                  errors="replace", timeout=90)
+            got = (back.stdout or "").replace("\r\n", "\n").rstrip("\n")
+            return got == text.replace("\r\n", "\n").rstrip("\n")
         except Exception as e:
-            self.log("PowerShell-буфер тоже не сработал: %s" % e)
+            self.log("PowerShell-буфер не сработал: %s" % e)
             return False
 
     def show_clip(self):
