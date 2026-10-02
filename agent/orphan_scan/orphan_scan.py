@@ -139,7 +139,7 @@ class OrphanScanner:
             return self.roots
         
         if not os.path.exists(SEARCH_PRO):
-            print(f"Error: {SEARCH_PRO} not found.")
+            self._say("ошибка: %s не найден" % SEARCH_PRO)
             return []
         
         # search.pro дома в cp1251 (проверено 23.09.2026: чтение как utf-8 падало UnicodeDecodeError)
@@ -153,7 +153,7 @@ class OrphanScanner:
             except Exception:
                 continue
         if text is None:
-            print(f"Error: {SEARCH_PRO} — не читается (кодировка?)")
+            self._say("ошибка: %s не читается (кодировка?)" % SEARCH_PRO)
             return []
         for line in text.splitlines():
             path = line.strip().strip('"')
