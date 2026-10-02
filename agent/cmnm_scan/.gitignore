@@ -1,0 +1,4 @@
+# Настройки окна — личное, в гит не идёт (как у plm_reader: settings/)
+gui_settings.json
+__pycache__/
+*.pyc
