@@ -80,15 +80,37 @@ public class CreoPdf {
         System.out.println("применено опций: " + n + " (пропущено из-за $: " + skip + ")");
       } else if (mode.equals("pdf")) {
         doPdf(s, a.length > 1 ? a[1] : ".", a.length > 2 ? a[2] : "",
-              a.length > 3 ? a[3] : (a.length > 1 ? a[1] : "."));
+              a.length > 3 ? a[3] : (a.length > 1 ? a[1] : "."), null);
       } else if (mode.equals("export")) {
         String dir = a.length > 1 ? a[1] : ".";
         int limit = a.length > 2 ? Integer.parseInt(a[2]) : 100;
         if (limit <= 0) limit = Integer.MAX_VALUE;      // 0 = без ограничения
-        for (int i = 3; i < a.length; i++) if (a[i].equalsIgnoreCase("open")) OPEN_PDF = true;
+        String outRoot = null; boolean dup = false;
+        for (int i = 3; i < a.length; i++) {
+          if (a[i].equalsIgnoreCase("open")) OPEN_PDF = true;
+          else if (a[i].equalsIgnoreCase("--dup")) dup = true;
+          else if (a[i].equalsIgnoreCase("--out")) {
+            String v = (i + 1 < a.length) ? a[++i] : "";
+            if (v.isEmpty()) { System.out.println("ERR: --out без значения (папка назначения пустая)"); return; }
+            outRoot = v;
+          }
+        }
+        if (dup && outRoot == null) outRoot = dir;     // только рядом — вывод по умолчанию
+        if (outRoot != null) {
+          File of = new File(outRoot);
+          if (!of.isDirectory()) {
+            if (!of.mkdirs()) {
+              System.out.println("ERR: папка назначения не создаётся: " + outRoot);
+              return;
+            }
+            System.out.println("папка назначения создана: " + outRoot);
+          }
+        }
         loadNames();
         System.out.println("режим: " + (OPEN_PDF ? "PDF открывать и оставлять" : "PDF не открывать") +
                            " | после экспорта чертёж убирается из сессии Creo");
+        System.out.println("ВЫВОД: " + (outRoot == null ? "РЯДОМ с чертежом" : ("в папку " + outRoot +
+                           (dup ? " + копия рядом с чертежом" : ""))));
         List<String> need = scan(dir, false, limit);
         System.out.println("к обработке: " + need.size());
         int ok = 0, bad = 0, orphans = 0;
@@ -101,7 +123,15 @@ public class CreoPdf {
             System.out.flush();
             continue;
           }
-          try { doPdf(s, f.getParent(), f.getName(), f.getParent()); ok++; }
+          // отдельная папка: структуру подпапок зеркалим, иначе одноимённые чертежи схлопываются
+          String dupDir = null;
+          if (outRoot != null) {
+            String rel = f.getParent().substring(Math.min(dir.length(), f.getParent().length()));
+            File sub = new File(outRoot, rel);
+            outDir = (sub.isDirectory() || sub.mkdirs()) ? sub.getPath() : outRoot;
+            if (dup) dupDir = f.getParent();          // копия рядом с чертежом
+          }
+          try { doPdf(s, f.getParent(), f.getName(), outDir, dupDir); ok++; }
           catch (Throwable t) {
             String msg = String.valueOf(t);
             if (msg.contains("XToolkitCommError")) {
@@ -285,7 +315,7 @@ public class CreoPdf {
 
   /** Экспорт PDF одного чертежа: cd в папку -> retrieve -> Display -> Export -> уборка.
    *  Если по имени не нашлось — пробуем по ИМЕНИ ФАЙЛА (внутреннее имя модели могло разойтись с файлом). */
-  static void doPdf(Session s, String dir, String name, String out) throws Exception {
+  static void doPdf(Session s, String dir, String name, String out, String dupDir) throws Exception {
     s.ChangeDirectory(dir);
     boolean wasInSession = false;
     try { wasInSession = (s.GetModel(name, ModelType.MDL_DRAWING) != null); } catch (Throwable t) { }
@@ -331,6 +361,17 @@ public class CreoPdf {
     boolean okf = f.exists() && f.length() > 0;
     System.out.println("  PDF " + (okf ? ("OK " + f.length() + " б  " + f.getName()) : ("НЕ СОЗДАН " + f.getName())));
     System.out.flush();
+    // копия рядом с чертежом (когда вывод идёт в отдельную папку)
+    if (okf && dupDir != null && !dupDir.equalsIgnoreCase(f.getParent())) {
+      try {
+        File near = new File(dupDir, f.getName());
+        Files.copy(f.toPath(), near.toPath(), StandardCopyOption.REPLACE_EXISTING);
+        System.out.println("  + копия рядом с чертежом: " + near.length() + " б  " + near.getName());
+      } catch (Throwable t) {
+        System.out.println("  (копию рядом сделать не удалось: " + t + ")");
+      }
+      System.out.flush();
+    }
     if (okf && OPEN_PDF) {
       try { java.awt.Desktop.getDesktop().open(f); System.out.println("  (PDF открыт в просмотрщике)"); }
       catch (Throwable t) { System.out.println("  (открыть PDF не удалось: " + t + ")"); }
