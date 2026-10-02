@@ -32,6 +32,25 @@ DEFAULT_ROOTS = [r"Z:\PTC"]      # единый корень склада: то�
 SETTINGS_FILE = os.environ.get("PLM_SETTINGS") or os.path.join(HERE, "settings", "settings.json")
 
 
+def scan_config(settings=None):
+    """Корни и исключения ИЗ НАСТРОЕК окна — чтобы CLI и окно сканировали ОДНО И ТО ЖЕ.
+
+    Возвращает (roots, exclude). Раньше CLI брал только DEFAULT_ROOTS и не знал про
+    исключения — из-за чего `check` считал исключённые папки «пропавшими», а `scan`
+    затирал в базе meta exclude пустым списком (найдено аудитом 02.10.2026)."""
+    try:
+        if settings is None:
+            with open(SETTINGS_FILE, encoding="utf-8") as f:
+                settings = json.load(f)
+    except Exception:
+        return None, None
+    if not isinstance(settings, dict):
+        return None, None
+    roots = [r for r in (settings.get("folders") or []) if isinstance(r, str) and r.strip()]
+    excl = [e for e in (settings.get("exclude") or []) if isinstance(e, str) and e.strip()]
+    return (roots or None), (excl or None)
+
+
 def set_base_dir(path):
     """Увести РАБОЧУЮ папку базы на другой диск (пусто = рядом, `db\\`).
 
@@ -1803,24 +1822,37 @@ def main():
         sys.stdout.reconfigure(errors="replace")
     except Exception:
         pass
+    # Аудит 02.10.2026: CLI обязан видеть те же корни/исключения/порог, что и окно
+    _s = {}
+    try:
+        with open(SETTINGS_FILE, encoding="utf-8") as f:
+            _s = json.load(f)
+    except Exception:
+        _s = {}
+    _roots, _excl = scan_config(_s)
+    _max_mb = float(_s.get("max_size_mb") or 8.0)
     ap = argparse.ArgumentParser(description="PLM Reader " + VERSION)
     ap.add_argument("cmd", choices=["scan", "check", "count", "where", "changes", "tree", "rename-plan"])
     ap.add_argument("model", nargs="?")
     ap.add_argument("new", nargs="?")
-    ap.add_argument("--roots", nargs="+", default=DEFAULT_ROOTS)
+    ap.add_argument("--roots", nargs="+", default=None,
+                    help="корни скана; по умолчанию — папки сканирования ИЗ НАСТРОЕК")
     ap.add_argument("--limit", type=float, default=120.0)
-    ap.add_argument("--max-mb", type=float, default=8.0)
+    ap.add_argument("--max-mb", type=float, default=_max_mb,
+                    help="порог размера файла, МБ (по умолчанию из настроек: %s)" % _max_mb)
     ap.add_argument("--n", type=int, default=40)
     ap.add_argument("--depth", type=int, default=4)
     ap.add_argument("--max-depth", type=int, default=0)
     ap.add_argument("--full", action="store_true", help="перечитать все файлы заново (дозаполнить поля)")
     a = ap.parse_args()
+    roots = a.roots or _roots or DEFAULT_ROOTS
     if a.cmd == "scan":
-        scan_to_base(a.roots, a.max_mb, a.limit, (a.max_depth or None), full=a.full)
+        scan_to_base(roots, a.max_mb, a.limit, (a.max_depth or None), full=a.full, exclude=_excl)
     elif a.cmd == "check":
-        do_check(a.roots if a.roots != DEFAULT_ROOTS else None, a.max_mb, (a.max_depth or None))
+        do_check(roots if roots != DEFAULT_ROOTS else None, a.max_mb, (a.max_depth or None),
+                 exclude=_excl)
     elif a.cmd == "count":
-        inventory(a.roots, a.max_mb, max_depth=(a.max_depth or None))
+        inventory(roots, a.max_mb, max_depth=(a.max_depth or None))
     elif a.cmd == "where":
         do_where(a.model or "")
     elif a.cmd == "tree":
