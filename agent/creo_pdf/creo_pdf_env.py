@@ -106,26 +106,56 @@ def local_drives():
     return out
 
 
-def _scan_drives():
-    """Установки Creo на ВСЕХ локальных дисках: <буква>:\\PTC\\* и <буква>:\\Program Files\\PTC\\*."""
-    found = []
-    roots = []
-    for d in local_drives():
-        roots.append(os.path.join(d, "PTC"))
-        roots.append(os.path.join(d, "Program Files", "PTC"))
-        roots.append(os.path.join(d, "Program Files (x86)", "PTC"))
-    for b in roots:
-        if not os.path.isdir(b):
-            continue
+def _find_parametric_recursive(root, max_depth=5):
+    """Ищет <любая_папка>\\Parametric\\bin\\parametric.exe вглубь от корня.
+    Именно признак 'Parametric\\bin\\parametric.exe', а не зашитый путь: программа
+    устанавливает столько папок, сколько сочтёт нужным (у нас \\PTC\\CREO12\\Creo 12.4.2.0\\Parametric\\bin)."""
+    out = []
+    root_depth = root.rstrip("\\").count("\\")
+
+    def walk(path, depth):
+        if depth - root_depth > max_depth or len(out) > 40:
+            return
         try:
-            for name in sorted(os.listdir(b)):
-                p = os.path.join(b, name)
-                ins = p if os.path.isfile(os.path.join(p, "Parametric", "bin", "parametric.exe")) else \
-                    os.path.join(p, "Parametric")
-                if os.path.isfile(os.path.join(ins, "bin", "parametric.exe")):
-                    found.append(ins)
+            entries = list(os.scandir(path))
         except Exception:
-            pass
+            return
+        # сначала проверяем сам путь: не является ли он искомым
+        for e in entries:
+            if not e.is_dir(follow_symlinks=False):
+                continue
+            # \...\Parametric\bin\parametric.exe ?
+            if e.name.lower() == "parametric":
+                binx = os.path.join(e.path, "bin", "parametric.exe")
+                if os.path.isfile(binx):
+                    out.append(e.path)
+                    continue
+            low = e.name.lower()
+            if low in ("system", "$recycle.bin", "windows", "temp", "tmp", "windows.old",
+                       "system volume information", "$recycle"):
+                continue
+            walk(e.path, depth + 1)
+
+    if os.path.isdir(root):
+        walk(root, root_depth)
+    return out
+
+
+def _scan_drives():
+    """Установки Creo на ВСЕХ локальных дисках. Признак — сам исполнитель parametric.exe,
+    путь до него не зашит: \\PTC\\CREO13\\…\\Parametric\\bin\\parametric.exe."""
+    found = []
+    for d in local_drives():
+        for root in (os.path.join(d, "PTC"), os.path.join(d, "Program Files", "PTC"),
+                     os.path.join(d, "Program Files (x86)", "PTC")):
+            if os.path.isdir(root):
+                found.extend(_find_parametric_recursive(root))
+    # установка прямо в корне диска (D:\Parametric\bin\parametric.exe) — только прямой проверки,
+    # рекурсия по всему диску слишком долгая (обход диска занимает минуты)
+    for d in local_drives():
+        p = os.path.join(d, "Parametric")
+        if os.path.isfile(os.path.join(p, "bin", "parametric.exe")):
+            found.append(p)
     return found
 
 
