@@ -5,6 +5,7 @@
 Движок — `config_audit.py` в этой же папке (функция audit).
 """
 import csv
+import json
 import os
 import sys
 import time
@@ -15,11 +16,17 @@ from tkinter import filedialog, messagebox, ttk
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 import config_audit as eng  # noqa: E402
 
+# Настройки окна — в data\ рядом с остальными (манифест п.19). До 02.10.2026 окно их не имело
+# вовсе: выбранный config.pro терялся при закрытии, это был самый частый сценарий — открыть,
+# посмотреть, закрыть, снова выбирать.
+SETTINGS = Path(r"D:\AI\tools\agent\data\config_audit_settings.json")
+# Известные места дома. Живая проверка 02.10.2026: START-Config НЕ существует на диске —
+# держать его в списке значило предлагать пользователю заведомо мёртвый путь.
 KNOWN = [
     r"Z:\PTC\CREO-START\START-STD\config.pro",
-    r"Z:\PTC\CREO-START\START-Config\config.pro",
     r"D:\PTC\CREO-LOCAL-SETUP\CREO-LOCAL-START\config.pro",
 ]
+DEFAULTS = {"last_config": KNOWN[0]}
 
 
 class App:
@@ -28,14 +35,33 @@ class App:
         self.root.title("V1 — ПУТИ CONFIG.PRO — что есть, чего нет")
         self.root.geometry("1020x620")
         self.res = None
+        self._pending = []
+        self.st = self.load_settings()
         self.build()
+
+    def load_settings(self):
+        d = dict(DEFAULTS)
+        try:
+            if SETTINGS.exists():
+                d.update(json.loads(SETTINGS.read_text(encoding="utf-8")))
+        except Exception as e:
+            self._pending.append("настройки не прочитаны (%s) — беру значения по умолчанию" % e)
+        return d
+
+    def save_settings(self):
+        try:
+            SETTINGS.parent.mkdir(parents=True, exist_ok=True)
+            SETTINGS.write_text(json.dumps(self.st, ensure_ascii=False, indent=1),
+                                encoding="utf-8")
+        except Exception as e:
+            self._pending.append("настройки не сохранены: %s" % e)
 
     def build(self):
         top = tk.LabelFrame(self.root, text="НАСТРОЙКИ", padx=10, pady=8)
         top.pack(fill="x", padx=10, pady=8)
 
         tk.Label(top, text="Файл config.pro:").grid(row=0, column=0, sticky="w")
-        self.var_path = tk.StringVar(value=str(eng.CONFIG))
+        self.var_path = tk.StringVar(value=str(self.st.get("last_config") or eng.CONFIG))
         self.combo = ttk.Combobox(top, textvariable=self.var_path, values=KNOWN, width=80)
         self.combo.grid(row=0, column=1, padx=6, pady=4)
         tk.Button(top, text="Обзор…", command=self.browse).grid(row=0, column=2)
@@ -50,6 +76,8 @@ class App:
         tk.Button(btns, text="Открыть папку", command=lambda: self.open_dir(os.path.dirname(self.var_path.get()))).pack(side="left", padx=4)
         tk.Button(btns, text="Сохранить отчёт (CSV)", command=self.save_csv).pack(side="left", padx=4)
         tk.Button(btns, text="README", command=self.show_readme).pack(side="left", padx=4)
+        tk.Button(btns, text="Папка отчётов", command=lambda: self.open_dir(eng.REPORT_DIR)).pack(side="left", padx=4)
+        tk.Button(btns, text="Папка логов", command=lambda: self.open_dir(eng.LOG_DIR)).pack(side="left", padx=4)
 
         self.sum = tk.Label(self.root, text="готов", anchor="w", bg="#fff1c7", padx=8, pady=4)
         self.sum.pack(fill="x", padx=10)
@@ -64,6 +92,12 @@ class App:
 
         self.info = tk.Text(self.root, height=6, font=("Consolas", 9), bg="#f8f9fa")
         self.info.pack(fill="x", padx=10, pady=(0, 8))
+        for s in self._pending:        # сообщения, накопленные до создания виджета лога
+            self.log(s)
+        self._pending = []
+        self.log("настройки: %s" % SETTINGS)
+        self.log("конфиг: %s" % self.var_path.get())
+        self.log("журнал: %s | отчёты: %s" % (eng.LOG_DIR, eng.REPORT_DIR))
 
     def log(self, s):
         self.info.insert("end", s + "\n")
@@ -87,9 +121,13 @@ class App:
         p = filedialog.askopenfilename(filetypes=[("config.pro", "*.pro"), ("Все файлы", "*.*")])
         if p:
             self.var_path.set(p)
+            self.st["last_config"] = p
+            self.save_settings()   # выбранный конфиг переживает перезапуск окна
 
     def run(self):
         p = self.var_path.get()
+        self.st["last_config"] = p
+        self.save_settings()
         if not os.path.exists(p):
             return messagebox.showwarning("Нет файла", p)
         _t0 = time.time()
@@ -102,14 +140,21 @@ class App:
         for pr in self.res["problems"]:
             self.tree.insert("", "end", values=(pr["line"], pr["opt"], pr["value"], pr["path"]))
         _secs = time.time() - _t0
-        self.sum.config(text="путей проверено: %d | НЕТ на диске: %d | за %.1f с"
+        self.sum.config(text="путей проверено: %d | НЕТ на диске: %d | за %.2f с"
                              % (self.res["total"], self.res["missing"], _secs))
-        self.log("файл: %s (%.1f с)" % (p, _secs))
+        self.log("файл: %s (%.2f с)" % (p, _secs))
         if self.res["missing"]:
             self.log("ЧТО ДЕЛАТЬ: файла нет → либо положить файл по этому пути, либо закомментировать "
                      "настройку (`!`) и рядом записать причину.")
         else:
             self.log("все пути на месте.")
+        # тот же журнал и отчёт, что у CLI (закон трёх рук: одна база — один лог, один отчёт)
+        try:
+            rep = eng.write_report(self.res, p, _secs, quiet=True)
+            self.log("отчёт: %s" % rep)
+            self.log("журнал прогона: %s" % os.path.join(eng.LOG_DIR, "run_*.txt"))
+        except Exception as e:
+            self.log("отчёт не записан: %s" % e)
 
     def save_csv(self):
         if not self.res:

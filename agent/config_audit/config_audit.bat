@@ -4,5 +4,8 @@ rem   config_audit.bat                 — проверить боевой Z:\PT
 rem   config_audit.bat <путь\config.pro> — проверить другой конфиг
 setlocal
 cd /d "%~dp0"
-python config_audit.py %*
-endlocal
+rem chcp 65001 + -X utf8: без них русский вывод в консоли идёт кракозябрами
+rem (живая проверка 02.10.2026: было "����� CONFIG.PRO").
+chcp 65001 > nul
+python -X utf8 config_audit.py %*
+endlocal & exit /b %ERRORLEVEL%
