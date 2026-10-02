@@ -16,19 +16,55 @@ except Exception:
 
 CREO = re.compile(r"\.(prt|asm|drw|frm|sec|lay)(\.\d+)?$", re.I)
 LOG_DIR = r"D:\AI\log\cmnm_scan"
+REPORT_KEEP = int(os.environ.get("CMNM_REPORT_KEEP") or 20)   # сколько отчётов хранить
+
+
+def write_report(lines):
+    """Отчёт в файл: `run_<дата>_<время>.txt`. Секунды в имени — иначе два прогона в одну
+    минуту затирают друг друга (найдено 02.10.2026). Старые отчёты ротируются, папка не растёт."""
+    os.makedirs(LOG_DIR, exist_ok=True)
+    logp = os.path.join(LOG_DIR, "run_%s.txt" % time.strftime("%Y-%m-%d_%H%M%S"))
+    try:
+        with open(logp, "w", encoding="utf-8") as f:
+            f.write("\n".join(lines) + "\n")
+    except Exception:
+        return ""
+    try:                                   # ротация: оставляем последние REPORT_KEEP
+        olds = sorted((x for x in os.listdir(LOG_DIR)
+                       if x.startswith("run_") and x.endswith(".txt")), reverse=True)
+        for old in olds[REPORT_KEEP:]:
+            os.remove(os.path.join(LOG_DIR, old))
+    except Exception:
+        pass
+    return logp
+
+
+def missing_roots(roots):
+    """Папки, которых нет на диске: молчаливый «0 файлов» вводит в заблуждение (02.10.2026)."""
+    return [r for r in roots if not os.path.isdir(r)]
 
 
 def strip_len_prefix(nm):
     """Внутреннее имя в заголовке идёт с 3-значным HEX-префиксом длины:
     «007d25.asm» = 7 символов «d25.asm», «00bplatina.prt» = 11 «platina.prt».
-    Живая находка 23.09.2026: без этой правки программа показывала ЛОЖНОЕ расхождение
+
+    Живая находка 23.09.2026: без среза префикса программа показывала ЛОЖНОЕ расхождение
     на каждом файле (7 из 7 на пробной папке), потому что префикс считался частью имени.
-    Оставляем строку как есть, если префикс не сходится по длине или это не похоже на имя файла."""
+    Срез делаем, если остаток по длине совпадает с префиксом.
+
+    Живая находка 02.10.2026 (аудит): длина в префиксе — в БАЙТАХ UTF-8, а не в символах,
+    и точка в имени не обязательна. Старое правило (символы + требование точки) давало
+    131 ложное срабатывание на 490 файлах (27%): кириллические имена и имена без расширения.
+    Правильное правило (байты UTF-8) даёт 86 — они настоящие (имя файла по коду, внутри по имени).
+    """
     m = re.match(r"^([0-9a-fA-F]{3})(.+)$", nm)
     if m:
-        ln = int(m.group(1), 16)
         rest = m.group(2)
-        if abs(len(rest) - ln) <= 1 and "." in rest:
+        try:
+            n_bytes = len(rest.encode("utf-8"))
+        except Exception:
+            n_bytes = len(rest)
+        if abs(n_bytes - int(m.group(1), 16)) <= 1:
             return rest
     return nm
 
@@ -108,27 +144,25 @@ def main(argv):
     if not roots:
         print(__doc__)
         return 2
-    os.makedirs(LOG_DIR, exist_ok=True)
-    logp = os.path.join(LOG_DIR, "run_%s.txt" % time.strftime("%Y-%m-%d_%H%M"))
-    f = open(logp, "w", encoding="utf-8")
-
-    def out(s):
-        print(s)
-        f.write(s + "\n")
-        f.flush()
-
-    out("=== ВНУТРЕННИЕ ИМЕНА (CMNM) против имён файлов ===")
+    lines = ["=== ВНУТРЕННИЕ ИМЕНА (CMNM) против имён файлов ==="]
+    for r in missing_roots(roots):
+        lines.append("  ВНИМАНИЕ: папки нет на диске: %s" % r)
+        print(lines[-1])
     res = scan(roots, limit)
     for full, nm, fn in res["bad"][:60]:
-        out("  РАСХОЖДЕНИЕ: файл «%s»  →  внутри «%s»" % (fn, nm))
-    out("\nфайлов просмотрено: %d; без поля CMNM: %d; расхождений: %d (%.0f с)" %
-        (res["files"], res["nofield"], len(res["bad"]), res["seconds"]))
+        lines.append("  РАСХОЖДЕНИЕ: файл «%s»  →  внутри «%s»" % (fn, nm))
+        print(lines[-1])
+    lines.append("\nфайлов просмотрено: %d; без поля CMNM: %d; расхождений: %d (%.0f с)"
+                 % (res["files"], res["nofield"], len(res["bad"]), res["seconds"]))
+    print(lines[-1])
     if len(res["bad"]) > 60:
-        out("…и ещё %d расхождений (полный список в отчёте)" % (len(res["bad"]) - 60))
+        lines.append("…и ещё %d расхождений (полный список ниже)" % (len(res["bad"]) - 60))
+        print(lines[-1])
         for full, nm, _fn in res["bad"][60:]:
-            f.write("  %s  →  %s\n" % (full, nm))
-    out("отчёт: %s" % logp)
-    f.close()
+            lines.append("  %s  →  %s" % (full, nm))
+    logp = write_report(lines)
+    if logp:
+        print("отчёт: %s" % logp)
     return 0
 
 
