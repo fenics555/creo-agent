@@ -8,10 +8,12 @@ import re
 import sqlite3
 import sys
 
-LOG_DIR = r"D:\AI\log\creo_pdf"
+HERE = os.path.dirname(os.path.abspath(__file__))
+sys.path.insert(0, HERE)
+import creo_pdf_env as env                                   # noqa: E402
+
+LOG_DIR = env.find_logs_dir()
 OUT = os.path.join(LOG_DIR, "model_names.txt")
-DB_AGENT = r"D:\AI\tools\agent\data\agent.sqlite"
-DB_HARVEST = r"D:\AI\tools\agent\data\harvest.db"
 
 
 def base_of(fn):
@@ -20,8 +22,11 @@ def base_of(fn):
 
 def main(argv):
     quiet = "--quiet" in argv
+    dbs = env.find_db_files()          # [(путь, таблица)] — ищет рядом с инструментом и выше
+    if not dbs:
+        print("  базы моделей не найдены (ищу рядом с инструментом и в родительских папках)")
     names = set()
-    for db, table in ((DB_AGENT, "models"), (DB_HARVEST, "models_raw")):
+    for db, table in dbs:
         if not os.path.exists(db):
             continue
         try:

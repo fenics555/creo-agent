@@ -1,8 +1,10 @@
 # -*- coding: utf-8 -*-
-r"""CREO PDF V4 — окно «ДИЗАЙН 2»: PDF чертежей (скан/обновление) + дубли + PDF без модели.
+r"""CREO PDF V5 — окно «ДИЗАЙН 2»: PDF чертежей (скан/обновление) + дубли + PDF без модели.
 Движок: creo_pdf.bat (прямой JLINK, без CREOSON) и питоновские помощники.
 Первый дизайн сохранён в design1\ (откат — скопировать обратно).
 
+V5: папку можно переносить на любой диск — все пути (Creo, Java, логи, индекс, базы) ищутся
+    по месту нахождения инструмента и по всем локальным дискам; см. README «ЧТО И ГДЕ ДОЛЖНО СТОЯТЬ».
 V4: несколько установок Creo — «Найти Creo» находит ВСЕ и даёт выбрать версию, «Все Creo» показывает список.
 V3: пути только в одном файле settings\creo_pdf_settings.json (creo_pdf_env.py --show|--set|--find-all).
 Строка «Установка Creo»: Обзор… · Найти Creo · Пути — инструмент переносится на другую версию Creo.
@@ -97,7 +99,7 @@ class Win:
         self.lines = []
         self.s = self._load()
 
-        root.title("CREO PDF V4 — чертежи, дубли, PDF без модели  ·  дизайн 2")
+        root.title("CREO PDF V5 — чертежи, дубли, PDF без модели  ·  дизайн 2")
         root.geometry("1180x740")
         root.minsize(900, 560)
         self._style()
@@ -316,8 +318,17 @@ class Win:
 
     def _dump_log(self):
         text = "\n".join(self.lines) + "\n"
-        # ЗАКОН ДОМА: логи программ живут в D:\AI\log\<имя>\ (мигрировано 23.09.2026)
-        LOG_DIR = r"D:\AI\log\creo_pdf"
+        # Путь логов — из единого источника (инструмент может лежать на любом диске).
+        # ЗАКОН ДОМА: логи программ живут в D:\AI\log\<имя>\ ; при переносе инструмента —
+        # рядом с ним; при полном отсутствии — в %LOCALAPPDATA%\creo_pdf\logs.
+        import importlib.util as _ilu
+        try:
+            _s = _ilu.spec_from_file_location("_env", ENV_PY)
+            _env = _ilu.module_from_spec(_s)
+            _s.loader.exec_module(_env)
+            LOG_DIR = _env.find_logs_dir()
+        except Exception:
+            LOG_DIR = os.path.join(HERE, "logs")
         try:
             os.makedirs(os.path.join(LOG_DIR, "runs"), exist_ok=True)
             with open(os.path.join(LOG_DIR, "last_run_log.txt"), "w", encoding="utf-8") as f:

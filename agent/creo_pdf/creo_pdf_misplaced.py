@@ -14,6 +14,10 @@ import os, re, shutil, sys, time, datetime
 
 MODEL_RX = re.compile(r"\.(drw|prt|asm|frm)(\.\d+)?$", re.I)
 HERE = os.path.dirname(os.path.abspath(__file__))
+sys.path.insert(0, HERE)
+import creo_pdf_env as env                                   # noqa: E402
+# Пути баз — из единого источника (инструмент может лежать на любом диске)
+DBS = env.find_db_files()
 
 
 def walk_tree(root, quiet=False):
@@ -40,14 +44,13 @@ def walk_tree(root, quiet=False):
 
 def db_lookup(bases):
     """Где в доме лежит модель с таким именем (префиксный поиск по индексу агента).
-    Возвращает {base: [(path, ext)]}, ext — drw/prt/asm/frm."""
-    DB = ((r"D:\AI\tools\agent\data\harvest.db", "models_raw"),
-          (r"D:\AI\tools\agent\data\agent.sqlite", "models"))
+    Возвращает {base: [(path, ext)]}, ext — drw/prt/asm/frm.
+    Пути баз — DBS из единого источника (рядом с инструментом), без зашитого D:\\AI."""
     out = {}
     if not bases:
         return out
     import sqlite3
-    for db, table in DB:
+    for db, table in DBS:
         if not os.path.exists(db):
             continue
         try:

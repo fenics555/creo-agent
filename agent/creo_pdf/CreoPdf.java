@@ -360,9 +360,15 @@ public class CreoPdf {
 
   static java.util.Set<String> NAMES = null;   // базовые имена моделей дома (индекс, если есть)
 
-  /** Индекс имён моделей дома (пишет creo_pdf_names.py). Без него сироты не распознаются. */
+  /** Индекс имён моделей (путь — из настроек, NAMES_INDEX; иначе рядом с движком).
+    *  Без него сироты не распознаются, но инструмент работает. */
   static void loadNames() {
-    File f = new File("D:\\AI\\log\\creo_pdf\\model_names.txt");
+    String path = envOr("NAMES_INDEX", "");
+    if (path.isEmpty()) {
+      path = envOr("LOGS_DIR", ".");
+      path = path.isEmpty() ? "model_names.txt" : (path + File.separator + "model_names.txt");
+    }
+    File f = new File(path);
     if (!f.isFile()) { NAMES = null; System.out.println("индекс имён моделей: нет (сироты не распознаются)"); return; }
     try {
       java.util.Set<String> s = new java.util.HashSet<>();

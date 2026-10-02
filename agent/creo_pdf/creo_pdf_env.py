@@ -33,6 +33,8 @@ ENV_KEYS = {
     "config_pro": "CONFIG_PRO",
     "work_dir": "WORK_DIR",
     "pdf_out": "PDF_OUT",
+    "logs_dir": "LOGS_DIR",
+    "names_index": "NAMES_INDEX",
 }
 
 
@@ -93,9 +95,26 @@ def _rec_entry(ver, rec):
             "source": "реестр", "ok": _valid_common(common)}
 
 
+def local_drives():
+    """ВСЕ локальные диски этой машины: C, D, E… (буква проверяется существованием).
+    Список зашитых путей вроде D:\\PTC не годится: Creo может стоять на любом диске."""
+    out = []
+    for c in "CDEFGHIJKLMNOPQRSTUVWXYZAB":
+        d = c + ":\\"
+        if os.path.isdir(d):
+            out.append(d)
+    return out
+
+
 def _scan_drives():
+    """Установки Creo на ВСЕХ локальных дисках: <буква>:\\PTC\\* и <буква>:\\Program Files\\PTC\\*."""
     found = []
-    for b in (r"C:\Program Files\PTC", r"C:\Program Files (x86)\PTC", r"D:\PTC", r"E:\PTC", r"F:\PTC"):
+    roots = []
+    for d in local_drives():
+        roots.append(os.path.join(d, "PTC"))
+        roots.append(os.path.join(d, "Program Files", "PTC"))
+        roots.append(os.path.join(d, "Program Files (x86)", "PTC"))
+    for b in roots:
         if not os.path.isdir(b):
             continue
         try:
@@ -137,8 +156,56 @@ def find_creo():
         e = cands[0]
         return e["install"], e["common"], e["source"] + " (но JLINK-библиотека не найдена)"
     return "", "", "не найдено"
+
+
+def local_home():
+    """Корень, где может лежать инструмент: папка с .bat вверх до корня диска.
+    Нужен, чтобы логи и базы искались рядом с инструментом, а не по зашитому D:\\AI."""
+    return HERE
+
+
+def find_logs_dir():
+    """Папка логов инструмента: настройка → <инструмент>\\logs → %LOCALAPPDATA%\\creo_pdf\\logs.
+    Порядок именно такой: переносить инструмент на другой диск должно быть достаточно."""
+    d = load().get("logs_dir") or ""
+    cands = [d,
+             os.path.join(HERE, "logs"),
+             os.path.join(os.environ.get("LOCALAPPDATA", os.path.expanduser("~")), "creo_pdf", "logs")]
+    for c in cands:
+        if c and os.path.isdir(c):
+            return c
+    # ничего нет — создаём рядом с инструментом
+    c = os.path.join(HERE, "logs")
+    try:
+        os.makedirs(c, exist_ok=True)
+    except Exception:
+        pass
+    return c
+
+
+def find_db_files():
+    """Базы имён моделей: ищем рядом с инструментом, потом в родительских папках (старый дом).
+    Возвращает список существующих (путь, таблица). Если баз нет — инструмент работает без них
+    (сироты просто не распознаются), это не поломка."""
+    out = []
+    roots = [HERE, os.path.dirname(HERE), os.path.join(os.path.dirname(HERE), "data")]
+    names = (("harvest.db", "models_raw"), ("agent.sqlite", "models"))
+    for r in roots:
+        for fn, tbl in names:
+            p = os.path.join(r, "data", fn) if not r.endswith("data") else os.path.join(r, fn)
+            if os.path.isfile(p) and (p, tbl) not in out:
+                out.append((p, tbl))
+        p = os.path.join(r, "harvest.db")
+        if os.path.isfile(p) and (p, "models_raw") not in out:
+            out.append((p, "models_raw"))
+        p = os.path.join(r, "agent.sqlite")
+        if os.path.isfile(p) and (p, "models") not in out:
+            out.append((p, "models"))
+    return out
+
+
 def find_java():
-    """Папка с javac.exe: JAVA_HOME → where javac → типовые папки дома."""
+    """Папка с javac.exe: настройка → JAVA_HOME/JDK_HOME → where javac → типовые папки всех дисков."""
     for env in ("JAVA_HOME", "JDK_HOME"):
         v = os.environ.get(env)
         if v and os.path.isfile(os.path.join(v, "bin", "javac.exe")):
@@ -152,10 +219,13 @@ def find_java():
                 return os.path.dirname(line), "where javac"
     except Exception:
         pass
-    for cand in (r"D:\AI\Java\bin", r"C:\Program Files\Java\jdk-25\bin",
-                 r"C:\Program Files\Eclipse Adoptium\jdk-25\bin"):
-        if os.path.isfile(os.path.join(cand, "javac.exe")):
-            return cand, "типовой путь"
+    for d in local_drives():
+        for rel in ("AI\\Java\\bin", "Java\\bin", "JDK\\bin",
+                    "Program Files\\Java\\jdk-25\\bin", "Program Files\\Eclipse Adoptium\\jdk-25\\bin",
+                    "Program Files\\Java", "tools\\Java\\bin"):
+            cand = os.path.join(d, rel)
+            if os.path.isfile(os.path.join(cand, "javac.exe")):
+                return cand, "скан дисков (%s)" % d
     return "", "не найдено"
 
 
@@ -213,10 +283,16 @@ def resolve(d):
     out["config_pro"] = d.get("config_pro") or ""
     out["work_dir"] = d.get("work_dir") or ""
     out["pdf_out"] = d.get("pdf_out") or ""
+    out["logs_dir"] = find_logs_dir()
+    out["names_index"] = d.get("names_index") or os.path.join(out["logs_dir"], "model_names.txt")
     out["_src"] = {"creo": ("из настроек" if want_ins and not warnings and src else src),
                    "java": jsrc if not d.get("java_bin") else "из настроек"}
+    out["_src"]["logs"] = "из настроек" if d.get("logs_dir") else "рядом с инструментом"
+    out["_src"]["dbs"] = ", ".join(p for p, _t in find_db_files()) or "не найдены"
     out["_warnings"] = warnings
     return out
+
+
 def main(argv):
     d = load()
     r = resolve(d)
@@ -240,6 +316,9 @@ def main(argv):
             print("  %-14s %-13s = %s" % (k, var, v if v else "(пусто)"))
         print("  источник Creo : " + r["_src"]["creo"])
         print("  источник Java : " + r["_src"]["java"])
+        print("  логи          : " + r.get("logs_dir", "") + " (" + r["_src"].get("logs", "") + ")")
+        print("  индекс имён   : " + r.get("names_index", ""))
+        print("  базы моделей  : " + r["_src"].get("dbs", ""))
         return 0
     if argv[0] == "--set" and len(argv) >= 2:
         kv = argv[1].split("=", 1)

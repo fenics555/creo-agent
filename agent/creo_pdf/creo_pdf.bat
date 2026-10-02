@@ -17,6 +17,7 @@ rem  ВАЖНО: именно call %%L, а НЕ "call set %%L" — иначе п
 for /f "usebackq delims=" %%L in (`python -X utf8 "%~dp0creo_pdf_env.py" --dump`) do call %%L
 rem  предупреждения — простым вызовом, БЕЗ for: текст с пробелами нельзя отдавать в bat через for
 python -X utf8 "%~dp0creo_pdf_env.py" --warnings
+rem  пути логов/индекса — из того же источника (инструмент может лежать на любом диске)
 if not defined CREO_COMMON (
   echo ERR: не найден Common Files установки Creo.
   echo Задай путь: python -X utf8 "%~dp0creo_pdf_env.py" --set creo_common=...
@@ -37,7 +38,7 @@ set "PATH=%ARCH%\lib;%ARCH%\obj;%PATH%"
 set "PRO_COMM_MSG_EXE=%ARCH%\obj\pro_comm_msg.exe"
 "%JAVA_BIN%\javac.exe" -encoding UTF-8 -cp "pfcasync.jar" CreoPdf.java
 if errorlevel 1 ( echo COMPILE FAILED & exit /b 1 )
-rem  Индекс имён моделей дома (для распознавания чертежей-сирот). Обновляем перед прогонами экспорта.
+rem  Индекс имён моделей дома (для распознавания чертежей-сирот). Путь — из настроек.
 if /I "%1"=="export" ( python "%~dp0creo_pdf_names.py" --quiet )
 if /I "%1"=="pdf"    ( python "%~dp0creo_pdf_names.py" --quiet )
 "%JAVA_BIN%\java.exe" "-Djava.library.path=%ARCH%\lib;%ARCH%\obj" -Dstdout.encoding=UTF-8 -Dstderr.encoding=UTF-8 -cp ".;pfcasync.jar" CreoPdf %*

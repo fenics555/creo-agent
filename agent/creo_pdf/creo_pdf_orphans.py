@@ -10,9 +10,11 @@ r"""PDF БЕЗ МОДЕЛИ РЯДОМ (или модель в другой па
 import os, re, sqlite3, sys, time
 
 MODEL_EXT = ("drw", "prt", "asm", "frm")
-DB_AGENT = r"D:\AI\tools\agent\data\agent.sqlite"
-DB_HARVEST = r"D:\AI\tools\agent\data\harvest.db"
 HERE = os.path.dirname(os.path.abspath(__file__))
+sys.path.insert(0, HERE)
+import creo_pdf_env as env                                   # noqa: E402
+# Пути баз — из единого источника (инструмент может лежать на любом диске)
+DBS = env.find_db_files()
 
 
 def _short(s, w):
@@ -48,7 +50,7 @@ def db_lookup(names):
     В базах `name` = ПОЛНОЕ имя файла с расширением и версией (напр. 'x.prt.1'),
     поэтому ищем по префиксу '<база>.%'. names -> {lower(base): [path, ...]}"""
     found = {}
-    for db, table in ((DB_HARVEST, "models_raw"), (DB_AGENT, "models")):
+    for db, table in DBS:
         if not os.path.exists(db) or not names:
             continue
         try:
