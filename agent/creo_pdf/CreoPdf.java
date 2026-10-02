@@ -33,6 +33,21 @@ public class CreoPdf {
   };
 
   static boolean OPEN_PDF = false;      // открывать PDF после создания (иначе ничего не открывается)
+  // Счётчик причин проблем (по внутренним ссылкам .drw) — для читаемой сводки в конце скана.
+  static final Map<String, Integer> PROBLEMS = new LinkedHashMap<>();
+
+  static void countProblem(String cls) {
+    if (cls == null) return;
+    String key = cls.startsWith("ПЕРЕИМЕНОВАН") ? "переименованных чертежей (ссылка на другую модель)"
+        : cls.startsWith("СИРОТА") ? "сирот (модели нет нигде)"
+        : cls.startsWith("НЕТ МОДЕЛИ:") ? "нет модели, на которую ссылается чертёж"
+        : cls.startsWith("НЕ ОТКРЫВАЕТСЯ") ? "ссылка верная и модель есть — чертёж не открывается"
+        : cls.startsWith("НЕТ МОДЕЛИ РЯДОМ") ? "модель одноимённая, но рядом её нет"
+        : cls.startsWith("модель рядом есть, .drw") ? "модель есть, но ссылок в .drw не найдено"
+        : cls.startsWith("НЕТ ФАЙЛА ЧЕРТЕЖА") ? "файл чертежа исчез/прочитан не как .drw"
+        : "прочее (" + cls + ")";
+    PROBLEMS.merge(key, 1, Integer::sum);
+  }
 
   public static void main(String[] a) {
     try {
@@ -123,13 +138,28 @@ public class CreoPdf {
                            (dup ? " + копия рядом с чертежом" : ""))));
         List<String> need = scan(dir, false, limit, outRoot, dup);
         System.out.println("к обработке: " + need.size());
-        int ok = 0, bad = 0, orphans = 0;
+        int ok = 0, bad = 0, orphans = 0, renamed = 0;
         boolean lost = false;
         for (String base : need) {
           File f = new File(base);
-          if (isOrphan(f.getParentFile(), f.getName())) {
+          // ПРОПУСКАЕМ ЗАВЕДОМО НЕРАБОЧИЕ: сироты и чертежи, ссылающиеся на отсутствующую модель.
+          // Раньше они уходили в doPdf и сыпали XToolkitNotFound — отчёт вводил в заблуждение.
+          String cls = classify(f.getParentFile(), f.getName());
+          if (cls.startsWith("СИРОТА")) {
             orphans++;
-            System.out.println("  СИРОТА (нет модели): " + f.getPath());
+            System.out.println("  ПРОПУЩЕН (сирота): " + f.getName() + " — " + cls);
+            System.out.flush();
+            continue;
+          }
+          if (cls.startsWith("НЕТ МОДЕЛИ:") || cls.startsWith("НЕТ МОДЕЛИ РЯДОМ")) {
+            orphans++;
+            System.out.println("  ПРОПУЩЕН (нет модели): " + f.getName() + " — " + cls);
+            System.out.flush();
+            continue;
+          }
+          if (cls.startsWith("ПЕРЕИМЕНОВАН")) {
+            renamed++;
+            System.out.println("  ПРОПУЩЕН (переименован): " + f.getName() + " — " + cls);
             System.out.flush();
             continue;
           }
@@ -157,8 +187,11 @@ public class CreoPdf {
             bad++;
           }
         }
-        System.out.println("ИТОГО: сделано " + ok + ", сирот (нет модели) " + orphans +
+        System.out.println("ИТОГО: сделано " + ok + ", пропущено (сирота/нет модели) " + orphans +
+                           ", пропущено (переименован) " + renamed +
                            (lost ? ", ПРЕРВАНО (связь с Creo потеряна)" : ", прочих ошибок " + bad));
+        if (bad > 0)
+          System.out.println("  остальное смотрите по строке «ОШИБКА»: там указана причина по чертежу.");
       } else usage();
       try { s.ChangeDirectory(cwd0); System.out.println("cwd восстановлена: " + cwd0); } catch (Throwable t) {}
       c.Disconnect(10);
@@ -428,6 +461,42 @@ public class CreoPdf {
     return new java.util.ArrayList<>(out);
   }
 
+  /** Классификация чертежа — ПО ПРАВДЕ, а не по имени файла (02.10.2026).
+    *  Возвращает: "OK" | "СИРОТА:нет модели рядом" | "ПЕРЕИМЕНОВАН: чертёж X ссылается на Y"
+    *  | "НЕТ МОДЕЛИ: внутри .drw имя Y, которого нет рядом" | "НЕ ЧИТАЕТСЯ: <файл>". */
+  static String classify(File dir, String base) {
+    String want = base.toLowerCase().replace(" ", "_");
+    boolean modelHere = newestByExt(dir, base, "prt") != null || newestByExt(dir, base, "asm") != null;
+    File drw = newestByExt(dir, base, "drw");
+    if (drw == null) return "НЕТ ФАЙЛА ЧЕРТЕЖА";
+    // Заголовок файла НЕ годится как признак: и настоящий чертёж Creo, и посторонний файл
+    // начинаются с "#UGC:2" (проверено на живых файлах 02.10.2026). Признак — только ссылки внутри.
+    java.util.List<String> inside = modelsInside(drw);
+    if (inside.isEmpty()) {
+      // не прочитали .drw — судим по соседям (старая логика, чтобы не врать)
+      if (!modelHere && NAMES != null && !NAMES.contains(want)) return "СИРОТА (нет модели рядом и в индексе)";
+      return modelHere ? "модель рядом есть, .drw не прочитан" : "НЕТ МОДЕЛИ РЯДОМ (чертёж не прочитан)";
+    }
+    boolean wantInside = inside.contains(want);
+    if (!wantInside) {
+      StringBuilder have = new StringBuilder();
+      for (String nm : inside) {
+        if (newestByExt(dir, nm, "prt") != null || newestByExt(dir, nm, "asm") != null) {
+          if (have.length() > 0) have.append(", ");
+          have.append(nm);
+        }
+      }
+      if (have.length() > 0)
+        return "ПЕРЕИМЕНОВАН: чертёж " + want + " ссылается на " + have + " (она рядом есть)";
+      return "НЕТ МОДЕЛИ: чертёж " + want + " ссылается на " + String.join(", ", inside)
+          + " — её в папке нет";
+    }
+    // Имя сходится и модель рядом есть, но чертёж всё равно в списке проблем
+    // (значит не открылся при экспорте) — это отдельный, внятный класс.
+    return modelHere ? "НЕ ОТКРЫВАЕТСЯ: модель " + want + " рядом есть, ссылка верная — чертёж не открылся"
+        : "НЕТ МОДЕЛИ РЯДОМ: чертёж " + want + " ссылается на одноимённую, но .prt/.asm рядом нет";
+  }
+
   /** Диагностика неудачного открытия: на какую модель чертёж ссылается НА САМОМ ДЕЛЕ?
     *  Печатает правду вместо бессмысленного «не удалось открыть». */
   static void explainMismatch(File dir, String base) {
@@ -606,6 +675,7 @@ public class CreoPdf {
   static List<String> scan(String root, boolean quiet, int limit) { return scan(root, quiet, limit, null, false); }
 
   static List<String> scan(String root, boolean quiet, int limit, String outRoot, boolean dup) {
+    PROBLEMS.clear();
     List<String> need = new ArrayList<>();
     Path start = Paths.get(root);
     if (!Files.isDirectory(start)) { System.out.println("нет папки: " + root); return need; }
@@ -634,16 +704,23 @@ public class CreoPdf {
       File p = pdf.get(outDir + "|" + base);                     // PDF в целевой папке
       File pn = separate ? pdf.get(nearDir + "|" + base) : p;    // PDF рядом с чертежом
       String showDir = separate ? outDir : dir;
+      boolean problem = (p == null) || (p.lastModified() < d.lastModified())
+          || (dup && separate && pn == null) || (dup && separate && pn.lastModified() < d.lastModified());
+      // ПРАВДА вместо догадки: проблемный чертёж классифицируем по внутренним ссылкам .drw.
+      // Молчаливое «(СИРОТА)» по имени файла вводило в заблуждение (чертежи переименованы).
+      String cls = problem && !quiet ? classify(new File(dir), base) : null;
+      countProblem(cls);
       if (p == null) {
         miss++;
         if (orph) orphMiss++;
-        if (!quiet) { System.out.println("  НЕТ PDF    " + (orph ? "(СИРОТА) " : "") + showDir + File.separator + base + ".pdf"); System.out.flush(); }
+        if (!quiet) { System.out.println("  НЕТ PDF    " + showDir + File.separator + base + ".pdf"
+            + (cls == null ? "" : "  [" + cls + "]")); System.out.flush(); }
         need.add(dir + File.separator + base);
       } else if (p.lastModified() < d.lastModified()) {
         stale++;
         if (orph) orphStale++;
-        System.out.println("  УСТАРЕЛ    " + (orph ? "(СИРОТА) " : "") + showDir + File.separator + base + ".pdf (pdf " + p.lastModified() +
-                           " < drw " + d.lastModified() + ")"); System.out.flush();
+        System.out.println("  УСТАРЕЛ    " + showDir + File.separator + base + ".pdf (pdf " + p.lastModified() +
+                           " < drw " + d.lastModified() + ")" + (cls == null ? "" : "  [" + cls + "]")); System.out.flush();
         need.add(dir + File.separator + base);
       } else if (dup && separate && pn == null) {
         // PDF в папке вывода свежий, но копии рядом с чертежом нет — тоже в работу
@@ -660,6 +737,13 @@ public class CreoPdf {
     System.out.println("чертежей: " + drw.size() + " | PDF в порядке: " + ok +
                        " | нет PDF: " + miss + " | устарели: " + stale +
                        " | из них СИРОТ (нет модели): " + (orphMiss + orphStale));
+    if (!PROBLEMS.isEmpty()) {
+      System.out.println("ПРИЧИНЫ (по внутренним ссылкам чертежей, а не по имени файла):");
+      java.util.List<String> keys = new ArrayList<>(PROBLEMS.keySet());
+      Collections.sort(keys);
+      for (String k : keys)
+        System.out.println("  " + k + " — " + PROBLEMS.get(k));
+    }
     return need;
   }
 }
