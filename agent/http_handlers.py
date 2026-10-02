@@ -497,8 +497,12 @@ class Hd(BaseHTTPRequestHandler):
         elif p == "/wiz_orphan_preview":
             # Третья рука orphan_scan (манифест п.19): визард в витрине под щитом
             # согласования. Только чтение — ничего не меняет.
+            # ВНИМАНИЕ: в ветке /wiz_plmtree ниже есть `import os as _os` — из-за него
+            # `_os` становится ЛОКАЛЬНОЙ переменной всей do_POST и падает
+            # UnboundLocalError. Здесь имя другое (живой отказ 02.10.2026).
+            import os as _oso
             import sys as _sys2
-            _ot = _os.path.join(_os.path.dirname(_os.path.abspath(__file__)), "orphan_scan")
+            _ot = _oso.path.join(_oso.path.dirname(_oso.path.abspath(__file__)), "orphan_scan")
             if _ot not in _sys2.path:
                 _sys2.path.insert(0, _ot)
             import orphan_scan as _os37
