@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-r"""CREO PDF V5 — окно «ДИЗАЙН 2»: PDF чертежей (скан/обновление) + дубли + PDF без модели.
+r"""CREO PDF V6 — окно «ДИЗАЙН 2»: PDF чертежей (скан/обновление) + дубли + PDF без модели.
 Движок: creo_pdf.bat (прямой JLINK, без CREOSON) и питоновские помощники.
 Первый дизайн сохранён в design1\ (откат — скопировать обратно).
 
@@ -25,11 +25,13 @@ HERE = os.path.dirname(os.path.abspath(__file__))
 BAT = os.path.join(HERE, "creo_pdf.bat")
 ENV_PY = os.path.join(HERE, "creo_pdf_env.py")     # ЕДИНЫЙ источник путей (Creo, Java, config.pro)
 # НАСТРОЙКИ по шаблону инструмента дома: settings\<имя>_settings.json рядом с инструментом,
-# версионируются (settings_version), старый gui_settings.json мигрируется один раз в backup_settings.
+# версионируются (settings_version). Старый gui_settings.json (02.10.2026) перенесён
+# в settings\backup_settings\gui_settings_legacy_2026-10-02.json — в корне остался только код.
 CFG_DIR = os.path.join(HERE, "settings")
 CFG = os.path.join(CFG_DIR, "creo_pdf_settings.json")
 CFG_BACKUP = os.path.join(CFG_DIR, "backup_settings")
 LEGACY_CFG = os.path.join(HERE, "gui_settings.json")
+LEGACY_BACKUP = os.path.join(CFG_BACKUP, "gui_settings_legacy_2026-10-02.json")
 SETTINGS_VERSION = 3
 DEFAULT_CFG = r"Z:\PTC\CREO-START\START-STD\config.pro"
 DEFAULT_DIR = r"Z:\PTC\Work"
@@ -99,7 +101,7 @@ class Win:
         self.lines = []
         self.s = self._load()
 
-        root.title("CREO PDF V5 — чертежи, дубли, PDF без модели  ·  дизайн 2")
+        root.title("CREO PDF V6 — чертежи, дубли, PDF без модели  ·  дизайн 2")
         root.geometry("1180x740")
         root.minsize(900, 560)
         self._style()
@@ -244,22 +246,25 @@ class Win:
                     data = {}
             except Exception:
                 data = {}
-        elif os.path.isfile(LEGACY_CFG):
-            try:
-                with open(LEGACY_CFG, encoding="utf-8") as f:
-                    data = json.load(f)
-                if not isinstance(data, dict):
+        else:
+            # старый файл настроек: ищем в корне (старые копии) и в settings\backup_settings (перенесённый)
+            src = next((p for p in (LEGACY_CFG, LEGACY_BACKUP) if os.path.isfile(p)), None)
+            if src:
+                try:
+                    with open(src, encoding="utf-8") as f:
+                        data = json.load(f)
+                    if not isinstance(data, dict):
+                        data = {}
+                except Exception:
                     data = {}
-            except Exception:
-                data = {}
-            try:
-                os.makedirs(CFG_BACKUP, exist_ok=True)
-                stamp = datetime.datetime.now().strftime("%Y-%m-%d_%H%M%S")
-                with open(os.path.join(CFG_BACKUP, "gui_settings_%s.json" % stamp), "w",
-                          encoding="utf-8") as f:
-                    json.dump(data, f, ensure_ascii=False, indent=1)
-            except Exception:
-                pass
+                try:
+                    os.makedirs(CFG_BACKUP, exist_ok=True)
+                    stamp = datetime.datetime.now().strftime("%Y-%m-%d_%H%M%S")
+                    with open(os.path.join(CFG_BACKUP, "gui_settings_%s.json" % stamp), "w",
+                              encoding="utf-8") as f:
+                        json.dump(data, f, ensure_ascii=False, indent=1)
+                except Exception:
+                    pass
         return data
 
     def _save(self):

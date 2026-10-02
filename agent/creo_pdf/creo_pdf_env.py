@@ -22,7 +22,11 @@ import sys
 HERE = os.path.dirname(os.path.abspath(__file__))
 CFG_DIR = os.path.join(HERE, "settings")
 CFG = os.path.join(CFG_DIR, "creo_pdf_settings.json")
+# Старый файл настроек перенесён В settings\backup_settings (02.10.2026): в корне инструмента
+# лежит только код. Здесь — поиск легаси в обоих местах, чтобы старые копии инструмента
+# и перенесённые машины читали настройки одинаково.
 LEGACY = os.path.join(HERE, "gui_settings.json")
+LEGACY_BACKUP = os.path.join(CFG_DIR, "backup_settings", "gui_settings_legacy_2026-10-02.json")
 SETTINGS_VERSION = 3
 
 ENV_KEYS = {
@@ -260,7 +264,7 @@ def find_java():
 
 
 def load():
-    for path in (CFG, LEGACY):
+    for path in (CFG, LEGACY, LEGACY_BACKUP):
         if not os.path.isfile(path):
             continue
         try:
