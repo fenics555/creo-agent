@@ -22,11 +22,80 @@ from collections import Counter, defaultdict
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 sys.path.insert(0, HERE)          # сначала СВОЯ папка (вложенный читатель creo_read — переносимость)
-DB = os.environ.get("PLM_DB") or os.path.join(HERE, "db", "plm_reader.db")   # данные — в подпапке db\ (её не делим)
+BASE_DIR = os.environ.get("PLM_DATA_DIR") or os.path.join(HERE, "db")   # рабочая папка базы (можно увести на другой диск)
+DB = os.environ.get("PLM_DB") or os.path.join(BASE_DIR, "plm_reader.db")   # данные — в подпапке db\ (её не делим)
 # Логи: дома — в общий D:\AI\log, на чужой машине — рядом с инструментом (переносимость)
 LOG = os.environ.get("PLM_LOG") or (
     r"D:\AI\log\plm_reader\engine.log" if os.path.isdir(r"D:\AI\log") else os.path.join(HERE, "log", "engine.log"))
 DEFAULT_ROOTS = [r"Z:\PTC"]      # единый корень склада: тот же, что в окне (settings.json) и в meta базы
+
+SETTINGS_FILE = os.environ.get("PLM_SETTINGS") or os.path.join(HERE, "settings", "settings.json")
+
+
+def set_base_dir(path):
+    """Увести РАБОЧУЮ папку базы на другой диск (пусто = рядом, `db\\`).
+
+    Меняет всё, что завязано на папку: сама база, замок скана, кэш и бэкапы.
+    Звать ДО первого обращения к базе (окно зовёт сразу после чтения настроек)."""
+    global BASE_DIR, DB, LOCK_FILE
+    d = (path or "").strip()
+    BASE_DIR = os.path.abspath(d) if d else os.path.join(HERE, "db")
+    DB = os.environ.get("PLM_DB") or os.path.join(BASE_DIR, "plm_reader.db")
+    try:                                     # замок всегда РЯДОМ с базой, а не в папке инструмента
+        LOCK_FILE = os.path.join(BASE_DIR, "plm.lock")
+    except NameError:                        # LOCK_FILE ещё не объявлен — создадим позже
+        pass
+    os.makedirs(BASE_DIR, exist_ok=True)
+    return BASE_DIR
+
+
+def mirror_dirs(settings=None):
+    """Папки-ЗЕРКАЛА базы: список `db_mirror` из настроек (пусто = не дублировать).
+
+    Читает тот же settings\\settings.json, что и окно, — поэтому работает и для CLI."""
+    try:
+        if settings is None:
+            with open(SETTINGS_FILE, encoding="utf-8") as f:
+                settings = json.load(f)
+    except Exception:
+        return []
+    out = []
+    for p in (settings.get("db_mirror") or []):
+        if isinstance(p, str) and p.strip():
+            v = os.path.abspath(p.strip())
+            if v.lower() not in [x.lower() for x in out] and v.lower() != BASE_DIR.lower():
+                out.append(v)
+    return out
+
+
+def mirror_published(ver, mirrors=None):
+    """Скопировать ОПУБЛИКОВАННУЮ базу в каждое зеркало (другой диск) и почистить старые.
+
+    Ошибка зеркала НЕ роняет скан: основная база уже опубликована, пишем в лог и идём дальше."""
+    import shutil
+    done = []
+    for d in (mirrors if mirrors is not None else mirror_dirs()):
+        name = os.path.basename(ver)
+        dst = os.path.join(d, name)
+        try:
+            os.makedirs(d, exist_ok=True)
+            shutil.copy2(ver, dst)
+            done.append(dst)
+            # ротация в зеркале: держим столько же, сколько в рабочей папке (KEEP_MIRROR)
+            try:
+                olds = sorted(f for f in os.listdir(d)
+                              if re.match(r"^plm_reader_\d{8}_\d{6}\.db$", f))
+                for old in olds[:-KEEP_MIRROR]:
+                    os.remove(os.path.join(d, old))
+            except Exception as e:
+                log("mirror %s: ротация не удалась (%s)" % (d, e))
+        except Exception as e:
+            log("mirror FAIL %s: %s" % (d, e))
+    if done:
+        log("mirror: продублировано в %d папок: %s"
+            % (len(done), ", ".join(done)))
+        print("mirror: база продублирована -> %s" % ", ".join(done), flush=True)
+    return done
 
 
 def as_roots(x):

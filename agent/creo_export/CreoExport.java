@@ -11,8 +11,9 @@ import java.io.File;
  *
  * Usage:  CreoExport <format> <modelName> [outDir]
  *   format : step | iges | vrml | pdf | neutral | dxf3d | stl
- *   model  : file name, e.g. "pin_splitk.prt" or "amf75838.asm" (must be resolvable from Creo cwd)
- *   outDir : default  D:\AI\tools\agent\creo_export\out
+ *   model  : file name, e.g. "pin_splitk.prt" or "amf75838.asm" (must be resolvable from Creo cwd;
+ *            a FULL PATH is preferred - the engine switches to its folder itself)
+ *   outDir : default .\out  (relative to this tool's folder; no absolute path is hardcoded)
  *
  * Exit code 0 = all requested exports OK, 1 = something failed.
  */
@@ -22,10 +23,21 @@ public class CreoExport {
   public static void main(String[] a) {
     String fmt = (a.length > 0 ? a[0] : "step").toLowerCase();
     String model = (a.length > 1 ? a[1] : "");
-    String out = (a.length > 2 ? a[2] : "D:\\AI\\tools\\agent\\creo_export\\out\\");
+    String out = (a.length > 2 ? a[2] : ".\\out");
     if (model.isEmpty()) { System.out.println("ERR: model name required"); System.exit(1); }
     if (!out.endsWith("\\") && !out.endsWith("/")) out = out + "\\";
-    new File(out).mkdirs();
+    // Относительный путь надо привести к абсолютному ДО mkdirs, иначе Creo получит
+    // относительный каталог относительно своей рабочей папки, а не нашей (XToolkitInvalidDir).
+    File outDir = new File(out);
+    if (!outDir.isAbsolute()) {
+      try { outDir = new File(System.getProperty("user.dir"), out).getCanonicalFile(); }
+      catch (Throwable t2) { outDir = new File(out).getAbsoluteFile(); }
+    }
+    if (!outDir.isDirectory() && !outDir.mkdirs()) {
+      System.out.println("ERR: не удалось создать папку вывода: " + outDir.getPath());
+      System.exit(2);
+    }
+    out = outDir.getPath() + File.separator;
     String fname = new File(model).getName();                    // work with the file name only
     String base = fname.replaceAll("(?i)\\.(prt|asm|drw)$", "");
     String ext = fname.replaceAll("(?i)^.*\\.", "").toLowerCase();
@@ -54,6 +66,9 @@ public class CreoExport {
       System.out.println("model=" + m.GetFileName() + " fullname=" + m.GetFullName());
       System.out.println("format=" + fmt + " out=" + out);
 
+      // ОШИБКА ОДНОГО ФОРМАТА НЕ ДОЛЖНА УБИВАТЬ ПРОГОН (02.10.2026): раньше исключение из
+      // Export уходило в main и обрывало всё — не было ни EXPORT DONE, ни Disconnect.
+      try {
       if (fmt.equals("step")) {
         GeometryFlags f = pfcExport.GeometryFlags_Create(); f.SetAsSolids(true);
         m.Export(out + base + ".stp",
@@ -80,10 +95,21 @@ public class CreoExport {
         m.Export(out + base + ".dxf", pfcExport.DXF3DExportInstructions_Create());
         rep(out + base + ".dxf");
       } else if (fmt.equals("stl")) {
+        // Известное ограничение (проверено 02.10.2026): STL-экспорт отдаёт
+        // XToolkitNotFound — в этой сессии Creo не загружен модуль экспорта STL.
+        // Проверка идёт по справке PTC: Create(cipOptional) — имя необязательно.
         m.Export(out + base + ".stl", pfcModel.STLASCIIExportInstructions_Create(""));
         rep(out + base + ".stl");
       } else {
         System.out.println("ERR: unknown format '" + fmt + "' (step|iges|vrml|pdf|neutral|dxf3d|stl)");
+        fails++;
+      }
+      } catch (Throwable ef) {
+        // Ошибка формата: сообщаем ЧЕСТНО (с текстом исключения) и идём к Disconnect.
+        String msg = String.valueOf(ef);
+        System.out.println("  ФОРМАТ " + fmt + " НЕ ВЫГРУЖЕН: " + msg);
+        if (msg.contains("XToolkitNotFound") && fmt.equals("stl"))
+          System.out.println("    причина: в этой сессии Creo не загружен модуль экспорта STL (не ошибка кода)");
         fails++;
       }
       c.Disconnect(10);

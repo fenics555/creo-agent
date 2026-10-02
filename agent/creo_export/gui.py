@@ -6,46 +6,112 @@
 """
 import os
 import subprocess
-import time
-import sys
 import threading
+import time
 import tkinter as tk
 from pathlib import Path
 from tkinter import filedialog, messagebox
 
 HERE = Path(__file__).resolve().parent
 BAT = HERE / "creo_export.bat"
-SETTINGS = HERE / "gui_settings.json"
+# НАСТРОЙКИ — в одном месте по шаблону инструмента дома:
+# settings\creo_export_settings.json, версионируются, бэкапы с ротацией.
+# Старый gui_settings.json из корня мигрируется один раз в settings\backup_settings.
+CFG_DIR = HERE / "settings"
+SETTINGS = CFG_DIR / "creo_export_settings.json"
+BACKUP_DIR = CFG_DIR / "backup_settings"
+LEGACY = HERE / "gui_settings.json"
+SETTINGS_VERSION = 2
+BACKUP_KEEP = 5
 
 FORMATS = ["step", "iges", "vrml", "pdf", "neutral", "dxf3d", "stl"]
 CREO_EXT = ".prt .asm .drw .frm .sec .lay"
 
 
+def _defaults():
+    return {"settings_version": SETTINGS_VERSION, "format": "step", "model": "",
+            "out": str(HERE / "out"), "open_after": True}
+
+
 class App:
     def __init__(self, root):
         self.root = root
-        self.root.title("V1 — ВЫГРУЗКА ИЗ CREO (JLINK)")
+        self.root.title("CREO EXPORT V2 — выгрузка из живого Creo (JLINK)")
         self.root.geometry("900x560")
         self.st = self.load()
         self.proc = None
         self.build()
 
     def load(self):
-        d = {"format": "step", "model": "", "out": str(HERE / "out"), "open_after": True}
-        try:
-            if SETTINGS.exists():
+        """Чтение настроек: новый файл в settings\\ главный, старый из корня — только мигрируется.
+        Битый json = значения по умолчанию, окно открывается."""
+        d = _defaults()
+        src = None
+        if SETTINGS.exists():
+            src = SETTINGS
+        elif LEGACY.exists():
+            src = LEGACY
+        if src is not None:
+            try:
                 import json
-                d.update(json.loads(SETTINGS.read_text(encoding="utf-8")))
-        except Exception:
-            pass
+                data = json.loads(src.read_text(encoding="utf-8"))
+                if isinstance(data, dict):
+                    d.update(data)
+            except Exception:
+                pass
+            # миграция со старого файла: копия и новое место
+            if src == LEGACY:
+                try:
+                    BACKUP_DIR.mkdir(parents=True, exist_ok=True)
+                    stamp = time.strftime("%Y-%m-%d_%H%M%S")
+                    (BACKUP_DIR / ("gui_settings_%s.json" % stamp)).write_text(
+                        src.read_text(encoding="utf-8"), encoding="utf-8")
+                except Exception:
+                    pass
+        d["settings_version"] = SETTINGS_VERSION
         return d
 
     def save(self):
+        r"""Запись настроек в settings\creo_export_settings.json: чужие ключи не теряются,
+        перед перезаписью копия, ротация последних BACKUP_KEEP бэкапов."""
+        import json
         try:
-            import json
-            self.st.update({"format": self.var_fmt.get(), "model": self.var_model.get(),
-                            "out": self.var_out.get(), "open_after": bool(self.var_open.get())})
-            SETTINGS.write_text(json.dumps(self.st, ensure_ascii=False, indent=1), encoding="utf-8")
+            prev = {}
+            if SETTINGS.exists():
+                try:
+                    prev = json.loads(SETTINGS.read_text(encoding="utf-8")) or {}
+                except Exception:
+                    prev = {}
+            if not isinstance(prev, dict):
+                prev = {}
+            prev.update({
+                "settings_version": SETTINGS_VERSION,
+                "format": self.var_fmt.get(),
+                "model": self.var_model.get(),
+                "out": self.var_out.get(),
+                "open_after": bool(self.var_open.get()),
+            })
+            CFG_DIR.mkdir(parents=True, exist_ok=True)
+            if SETTINGS.exists():
+                BACKUP_DIR.mkdir(parents=True, exist_ok=True)
+                stamp = time.strftime("%Y-%m-%d_%H%M%S")
+                (BACKUP_DIR / ("creo_export_settings_%s.json" % stamp)).write_text(
+                    json.dumps(prev, ensure_ascii=False, indent=1), encoding="utf-8")
+                self._rotate()
+            SETTINGS.write_text(json.dumps(prev, ensure_ascii=False, indent=1), encoding="utf-8")
+            return True
+        except Exception as e:
+            self.log("настройки НЕ сохранены: %s\n" % e)
+            return False
+
+    @staticmethod
+    def _rotate():
+        """Ротация бэкапов по времени: остаются последние BACKUP_KEEP файлов."""
+        try:
+            items = sorted(((BACKUP_DIR / n).stat().st_mtime, n)
+                           for n in os.listdir(BACKUP_DIR))
+            for _m, n in items[:-BACKUP_KEEP] if len(items) > BACKUP_KEEP else []:
+                (BACKUP_DIR / n).unlink()
         except Exception:
             pass
 
