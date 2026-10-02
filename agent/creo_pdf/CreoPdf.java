@@ -134,7 +134,10 @@ public class CreoPdf {
             continue;
           }
           // отдельная папка: структуру подпапок зеркалим, иначе одноимённые чертежи схлопываются
-          String outDir = outRoot, dupDir = null;
+// БЕЗ --out вывод идёт РЯДОМ с чертежом: outDir = папка чертежа.
+          // null здесь даёт XToolkitCantWrite (путь «null\имя.pdf» вместо папки) —
+          // регресс V2, найден живым прогоном 02.10.2026.
+          String outDir = (outRoot == null) ? f.getParent() : outRoot, dupDir = null;
           if (outRoot != null) {
             String rel = f.getParent().substring(Math.min(dir.length(), f.getParent().length()));
             File sub = new File(outRoot, rel);
