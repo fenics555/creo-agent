@@ -1,8 +1,25 @@
-# CREO EXPORT — экспорт модели из ЖИВОГО Creo (JLINK, без CREOSON)
+# CREO EXPORT V2 — экспорт модели из ЖИВОГО Creo (JLINK, без CREOSON)
 
 **Что это.** Автономная программа (Java) для выгрузки модели из уже запущенного Creo:
 STEP / IGES / VRML / PDF / NEUTRAL / DXF3D / STL. Работает **напрямую через JLINK**
 (`pfcasync.jar` + `pfcasyncmt.dll`), CREOSON ей не нужен. После работы **Creo остаётся жив**.
+
+## ГДЕ НАСТРАИВАЕТСЯ — ОДИН ФАЙЛ (V2)
+```
+creo_export\settings\creo_export_settings.json      ← единственный файл настроек окна
+creo_export\settings\backup_settings\              ← бэкапы, ротация: последние 5 по времени
+```
+Поля: `settings_version`, `format`, `model`, `out`, `open_after`. Чужие ключи не теряются,
+битый json не роняет окно (значения по умолчанию). Старый `gui_settings.json` из корня
+мигрируется автоматически, копия уходит в `backup_settings`.
+**Пути Creo и Java не зашиты в коде.** `creo_export.bat` берёт их из общего источника
+`..\creo_pdf\creo_pdf_env.py`: файл настроек → реестр PTC → рекурсивный поиск
+`…\Parametric\bin\parametric.exe` на всех локальных дисках → `JAVA_HOME`.
+Задать вручную:
+```
+python -X utf8 ..\creo_pdf\creo_pdf_env.py --set creo_install=D:\PTC\CREO13\Creo 13.4.1.0\Parametric
+```
+**Папка вывода по умолчанию** — `.\out` относительно папки инструмента (никакого абсолютного пути).
 
 **Зачем.** Когда рутины CREOSON не хватает: пачка экспортов, цикл по сотням моделей,
 свой обработчик — берём этот инструмент (или копируем приём в свою программу).
@@ -17,38 +34,52 @@ creo_export_gui.bat
   **Папка вывода** (по умолчанию `creo_export\out`), галочка «открыть папку после выгрузки»;
 - кнопка **ВЫГРУЗИТЬ** — запускает движок и показывает его вывод живьём; рядом **СТОП** (taskkill по дереву);
 - кнопка **Проверить Creo** — ищет процесс `parametric.exe` (без запущенного Creo выгрузка не сработает);
-- настройки окна — `gui_settings.json` рядом с программой. Класс Ж: нужен ЖИВОЙ Creo.
+- настройки окна — `settings\creo_export_settings.json` (см. выше). Класс Ж: нужен ЖИВОЙ Creo.
 
 ## КОНСОЛЬ
 ```
 creo_export.bat <формат> <модель> [папка_вывода]
 creo_export.bat step  pin_splitk.prt
-creo_export.bat iges  pin_splitk.prt  D:\temp\out
-creo_export.bat vrml  amf75838.asm
+creo_export.bat iges  "D:\AI\PROBA\famcopy2\pin_splitk.prt"  D:\temp\out
+creo_export.bat pdf   "D:\...\чертеж.drw"
 ```
-⚠️ **Звать только по ПОЛНОМУ пути** (живая находка 23.09.2026): при детач-запуске cmd может не найти
-голое имя. Проверенная форма:
+⚠️ **Звать только по ПОЛНОМУ пути к bat** (живая находка 23.09.2026): при детач-запуске cmd может
+не найти голое имя. Проверенная форма:
 ```
-cmd /c call "D:\AI\tools\agent\creo_export\creo_export.bat" step pin_splitk.prt
+cmd /c call "D:\AI\tools\agent\creo_export\creo_export.bat" step "D:\...\pin_splitk.prt"
 ```
+⚠️ **Модель — полным путём** (живая находка 02.10.2026): с голым именем `pin_splitk.prt` выгрузка
+падала `XToolkitNotFound`; с полным путём движок сам делает `ChangeDirectory` и работает.
 Пакетная приёмка всех форматов: `cmd /c "D:\AI\tools\agent\creo_export\_test_all.bat"`
-(пишет логи в `D:\AI\log\creo_export\`: `t_step.txt`, `t_iges.txt`, `t_vrml.txt`, `t_pdf.txt`, `t_neutral.txt`, `t_done.txt`).
+(логи в `D:\AI\log\creo_export\`; модели передаются `CE_TEST_MODEL` / `CE_TEST_DRW`).
 - Требование: **Creo запущен** (иначе `AsyncConnection_Connect` не найдёт сессию).
   Подъём Creo: `CREO-START.bat` или `python D:\AI\tools\agent\ctl.py up`.
-- Папка вывода по умолчанию — `creo_export\out`.
-- Код возврата: `0` — всё выгрузилось, `1` — были отказы (смотри строки `FAIL`).
-- Bat сам компилирует `CreoExport.java` (если нет `.class`) и сам копирует `pfcasync.jar`.
+- Папка вывода по умолчанию — `.\out` (создаётся сама).
+- Код возврата: `0` — всё выгрузилось, `1` — были отказы (смотри строки `FAIL` / `ФОРМАТ … НЕ ВЫГРУЖЕН`).
+- Bat сам компилирует `CreoExport.java` (каждый раз — файл может быть новее класса) и сам копирует
+  `pfcasync.jar` из установки Creo, если его нет рядом.
 
-## Форматы
-| формат | как создаётся | примечание |
+## ФОРМАТЫ — ПРОВЕРЕНО ЖИВЬЁМ 02.10.2026 (Creo 13.4.1.0)
+| формат | результат | примечание |
 |---|---|---|
-| `step` | `pfcExport.STEP3DExportInstructions_Create(EXPORT_ASM_SINGLE_FILE, GeometryFlags.SetAsSolids)` | проверено: 13 466 б |
-| `iges` | `pfcExport.IGES3DNewExportInstructions_Create(..., flags)` | проверено: 55 268 б |
-| `vrml` | `pfcModel.VRMLModelExportInstructions_Create(папка)` + `Export("", instr)` | имя игнорируется, файл `<модель>_prt.wrl` |
-| `pdf` | `pfcExport.PDFExportInstructions_Create()` + **`Model.Display()`** | **✓ для ЧЕРТЕЖА**: `OK knockout_1.pdf 26276 б`; на детали ✗ `XToolkitInvalidType` |
-| `neutral` | `pfcExport.NEUTRALFileExportInstructions_Create()` | **✓ работает**, но Creo добавляет суффикс версии: файл ложится как `pin_splitk.neu.1` |
-| `dxf3d` | `pfcExport.DXF3DExportInstructions_Create()` | не проверен |
-| `stl` | `pfcModel.STLASCIIExportInstructions_Create("")` | не проверен |
+| `step` | `OK pin_splitk.stp 13468 б` | работает |
+| `iges` | `OK pin_splitk.igs 55268 б` | работает |
+| `vrml` | `OK pin_splitk_prt.wrl 26233 б` | имя файла задаёт сам Creo, ловится `listExt` |
+| `pdf` | `OK калибр.pdf 23305 б` | **только с ЧЕРТЕЖА**; на детали `XToolkitInvalidType` |
+| `neutral` | `OK pin_splitk.neu.1 74020 б` | Creo добавляет суффикс версии (`.neu.1`, `.neu.2`…) |
+| `dxf3d` | `OK pin_splitk.dxf 52584 б` | работает (в прежнем README было «не проверен») |
+| `stl` | **`ФОРМАТ stl НЕ ВЫГРУЖЕН: XToolkitNotFound`** | ограничение среды: в этой сессии Creo не загружен модуль экспорта STL. Код выгрузки сверен со справкой PTC (`STLASCIIExportInstructions::Create(cipOptional)`) — ошибка не в коде |
+| ошибка одного формата | не роняет прогон | печатается `ФОРМАТ … НЕ ВЫГРУЖЕН: <текст>`, затем `EXPORT DONE WITH FAILURES: N` и корректный `Disconnect` |
+
+### Ошибка формата больше не убивает прогон (02.10.2026)
+Раньше исключение из `Export` уходило в `main` и обрывало всё: не было ни `EXPORT DONE`, ни `Disconnect`.
+Теперь каждый формат обёрнут в свой `try/catch`, причина печатается дословно.
+
+## ИНСТРУМЕНТ АГЕНТА
+`D:\AI\tools\agent\creo_export_tools.py` → инструмент **`creo_export`** (`approval: True`).
+Реестр агента (`tools_registry.py`) подключает любой `*_tools.py` автоматически — правки реестра не нужно.
+Живая проверка: `реестр: блок <creo_export_tools> подключён автоматически, инструментов: 1`.
+
 
 ### Пакетная приёмка 23.09.2026 (`_test_all.bat`)
 | формат | итог |
@@ -117,6 +148,21 @@ interface:export_pdf {file, filename, dirname, use_drawing_settings:true} → OK
    (данные при этом корректны, писать в файл UTF-8).
 4. Среда обязательна: `PATH` += `x86e_win64\{lib,obj}`, `PRO_COMM_MSG_EXE`, `java.library.path`,
    иначе `UnsatisfiedLinkError: Can't find dependent libraries`.
+5. **Модель — полным путём.** Голое `pin_splitk.prt` → `XToolkitNotFound`; полный путь движок
+   разбирает сам (`ChangeDirectory` + `CreateFromFileName`) — проверено 02.10.2026.
+6. **BAT = 100 % ASCII.** Кириллица в bat ломает разбор `cmd`: прогон молча обрывается.
+   Русские пояснения — здесь в README, в bat только латиница.
+7. **Скобки с `exit /b` внутри bat** дают пустой вывод и код 1 — ветки ошибок пишутся через
+   `goto :label` (обойдено при переносе путей на общий источник 02.10.2026).
+8. **`call set %%L` вместо `call %%L`** обнуляет переменные (получается `set set NAME=…`).
+9. **`javac -encoding UTF-8`** обязателен при не-ASCII в исходнике, а **`-Dstdout.encoding=UTF-8`**
+   иначе ломает кириллицу в выводе (было `model=������.drw`, стало `калибр.pdf`).
+10. **Относительный `out` надо приводить к абсолютному ДО `mkdirs`** — иначе Creo получает путь
+    относительно своей рабочей папки и отвечает `XToolkitInvalidDir`.
+11. **Ошибка одного формата не должна обрывать прогон**: у каждого формата свой `try/catch`,
+    иначе исключение уходит в `main`, теряются `EXPORT DONE` и `Disconnect`.
+12. **«Работает» ≠ «настроено правильно»**: с зашитым `CREO=D:\PTC\CREO12\...` инструмент
+    успешно подключался к живому **Creo 13** — DLL версионно-совместимы. Зашитый путь — мина.
 
 ## Состав
 ```

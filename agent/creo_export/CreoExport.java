@@ -121,7 +121,8 @@ public class CreoExport {
     }
   }
 
-  static String defaultOut() { return "D:\\AI\\tools\\agent\\creo_export\\out\\"; }
+  // Мёртвый код удалён 02.10.2026: defaultOut() возвращал зашитый абсолютный путь
+  // и НИКОГДА не вызывался.
 
   static void rep(String p) {
     File f = new File(p);

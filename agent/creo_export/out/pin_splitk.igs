@@ -1,8 +1,8 @@
  PTC IGES file: pin_splitk.igs                                          S      1
 1H,,1H;,10HPIN_SPLITK,14Hpin_splitk.igs,27HCreo Parametric by PTC Inc., G      1
-7H2025323,32,38,7,38,15,10HPIN_SPLITK,1.,2,2HMM,32768,0.5,              G      2
-15H20260923.061648,   0.01,    100.,4HUser,7HUnknown,10,0,              G      3
-15H20260923.061648;                                                     G      4
+7H2026163,32,38,7,38,15,10HPIN_SPLITK,1.,2,2HMM,32768,0.5,              G      2
+15H20261002.153625,   0.01,    100.,4HUser,7HUnknown,10,0,              G      3
+15H20261002.153625;                                                     G      4
      314       1       1       1       0       0       0       001000200D      1
      314       0       4       1       0                   COLOR       1D      2
      314       2       1       1       0       0       0       001000200D      3

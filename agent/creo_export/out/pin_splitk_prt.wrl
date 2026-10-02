@@ -27,7 +27,7 @@ field MFFloat drag_trf [] ]
 {WorldInfo {}}
 
 PROTO Model_Info [
-field SFInt32 proe_id 1048576
+field SFInt32 proe_id 2097203
 field SFString proe_type_s "Proe_Part"
 field SFString proe_name "PIN_SPLITK"
 field SFInt32 maj_rev -5
@@ -107,7 +107,7 @@ fieldOfView 1.56959
 }
 
 Model_Info {
-proe_id 1048576
+proe_id 2097203
 proe_type_s "Proe_Part"
 proe_name "PIN_SPLITK"
 maj_rev -5
