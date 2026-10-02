@@ -1,9 +1,11 @@
 # -*- coding: utf-8 -*-
-r"""CREO PDF V2 — окно «ДИЗАЙН 2»: PDF чертежей (скан/обновление) + дубли + PDF без модели.
+r"""CREO PDF V3 — окно «ДИЗАЙН 2»: PDF чертежей (скан/обновление) + дубли + PDF без модели.
 Движок: creo_pdf.bat (прямой JLINK, без CREOSON) и питоновские помощники.
 Первый дизайн сохранён в design1\ (откат — скопировать обратно).
 
-Папка вывода PDF (V2): поле «Папка PDF» + галочка «и копия рядом с чертежом»;
+V3: пути только в одном файле settings\creo_pdf_settings.json (creo_pdf_env.py --show|--set|--find-creo).
+Строка «Установка Creo»: Обзор… · Найти Creo · Пути — инструмент переносится на другую версию Creo.
+Папка вывода PDF: поле «Папка PDF» + галочка «и копия рядом с чертежом»;
 пустое поле = прежнее поведение (PDF рядом с чертежом). Скан учитывает папку вывода.
 
 Раскладка:
@@ -18,15 +20,41 @@ from tkinter import ttk, filedialog, messagebox
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 BAT = os.path.join(HERE, "creo_pdf.bat")
+ENV_PY = os.path.join(HERE, "creo_pdf_env.py")     # ЕДИНЫЙ источник путей (Creo, Java, config.pro)
 # НАСТРОЙКИ по шаблону инструмента дома: settings\<имя>_settings.json рядом с инструментом,
 # версионируются (settings_version), старый gui_settings.json мигрируется один раз в backup_settings.
 CFG_DIR = os.path.join(HERE, "settings")
 CFG = os.path.join(CFG_DIR, "creo_pdf_settings.json")
 CFG_BACKUP = os.path.join(CFG_DIR, "backup_settings")
 LEGACY_CFG = os.path.join(HERE, "gui_settings.json")
-SETTINGS_VERSION = 2
+SETTINGS_VERSION = 3
 DEFAULT_CFG = r"Z:\PTC\CREO-START\START-STD\config.pro"
 DEFAULT_DIR = r"Z:\PTC\Work"
+_PATH_KEYS = ("creo_install", "creo_common", "java_bin", "pfcasync_jar",
+              "config_pro", "work_dir", "pdf_out")
+
+
+def _env(*args):
+    """Команда чтения из единого источника настроек (creo_pdf_env.py)."""
+    return [sys.executable, "-X", "utf8", ENV_PY] + list(args)
+
+
+def env_show():
+    """Прочитанные пути инструмента: (текст для окна, {ключ: значение})."""
+    try:
+        p = subprocess.run(_env("--show"), capture_output=True, text=True,
+                           encoding="utf-8", errors="replace", timeout=60)
+        out = (p.stdout or "").strip()
+    except Exception as e:
+        return ("Не удалось прочитать настройки инструмента:\n%s" % e), {}
+    vals = {}
+    for line in out.splitlines():
+        if "=" in line:
+            k, _, v = line.strip().partition("=")
+            k = k.strip()
+            if k in _PATH_KEYS:
+                vals[k] = v.strip()
+    return out, vals
 
 
 class Win:
@@ -37,7 +65,7 @@ class Win:
         self.lines = []
         self.s = self._load()
 
-        root.title("CREO PDF V2 — чертежи, дубли, PDF без модели  ·  дизайн 2")
+        root.title("CREO PDF V3 — чертежи, дубли, PDF без модели  ·  дизайн 2")
         root.geometry("1180x740")
         root.minsize(900, 560)
         self._style()
@@ -46,32 +74,40 @@ class Win:
         g1 = ttk.LabelFrame(root, text=" НАСТРОЙКИ ", padding=10)
         g1.pack(fill="x", padx=10, pady=(10, 6))
 
-        ttk.Label(g1, text="config.pro:").grid(row=0, column=0, sticky="w")
-        self.cfg_var = tk.StringVar(value=self.s.get("config", DEFAULT_CFG))
-        ttk.Entry(g1, textvariable=self.cfg_var).grid(row=0, column=1, columnspan=2, sticky="ew", padx=6)
-        ttk.Button(g1, text="Обзор…", width=10, command=self.pick_cfg).grid(row=0, column=3, padx=2)
-        ttk.Button(g1, text="Из сессии", width=12, command=self.from_session).grid(row=0, column=4, padx=2)
-        ttk.Button(g1, text="Применить к Creo", width=17, command=self.apply_cfg).grid(row=0, column=5, padx=2)
+        ttk.Label(g1, text="Установка Creo:").grid(row=0, column=0, sticky="w", pady=(8, 0))
+        _txt, self.paths = env_show()
+        self.creo_var = tk.StringVar(value=self.s.get("creo_install") or self.paths.get("creo_install", ""))
+        ttk.Entry(g1, textvariable=self.creo_var).grid(row=0, column=1, columnspan=2, sticky="ew", padx=6, pady=(8, 0))
+        ttk.Button(g1, text="Обзор…", width=10, command=self.pick_creo).grid(row=0, column=3, padx=2, pady=(8, 0))
+        ttk.Button(g1, text="Найти Creo", width=12, command=self.find_creo).grid(row=0, column=4, padx=2, pady=(8, 0))
+        ttk.Button(g1, text="Пути", width=8, command=self.show_paths).grid(row=0, column=5, padx=2, pady=(8, 0))
 
-        ttk.Label(g1, text="Папка проверки:").grid(row=1, column=0, sticky="w", pady=(6, 0))
-        self.dir_var = tk.StringVar(value=self.s.get("folder", DEFAULT_DIR))
-        ttk.Entry(g1, textvariable=self.dir_var).grid(row=1, column=1, columnspan=2, sticky="ew", padx=6, pady=(6, 0))
-        ttk.Button(g1, text="Обзор…", width=10, command=self.pick_dir).grid(row=1, column=3, padx=2, pady=(6, 0))
-        ttk.Button(g1, text="Где config.pro", width=15, command=self.scan_cfg).grid(row=1, column=4, padx=2, pady=(6, 0))
-        ttk.Button(g1, text="Найти Creo", width=12, command=self.creo_find).grid(row=1, column=5, padx=2, pady=(6, 0))
+        ttk.Label(g1, text="config.pro:").grid(row=1, column=0, sticky="w", pady=(6, 0))
+        self.cfg_var = tk.StringVar(value=self.s.get("config") or self.paths.get("config_pro") or DEFAULT_CFG)
+        ttk.Entry(g1, textvariable=self.cfg_var).grid(row=1, column=1, columnspan=2, sticky="ew", padx=6, pady=(6, 0))
+        ttk.Button(g1, text="Обзор…", width=10, command=self.pick_cfg).grid(row=1, column=3, padx=2, pady=(6, 0))
+        ttk.Button(g1, text="Из сессии", width=12, command=self.from_session).grid(row=1, column=4, padx=2, pady=(6, 0))
+        ttk.Button(g1, text="Применить к Creo", width=17, command=self.apply_cfg).grid(row=1, column=5, padx=2, pady=(6, 0))
 
-        ttk.Label(g1, text="Папка PDF (куда выводить):").grid(row=2, column=0, sticky="w", pady=(6, 0))
+        ttk.Label(g1, text="Папка проверки:").grid(row=2, column=0, sticky="w", pady=(6, 0))
+        self.dir_var = tk.StringVar(value=self.s.get("folder") or self.paths.get("work_dir") or DEFAULT_DIR)
+        ttk.Entry(g1, textvariable=self.dir_var).grid(row=2, column=1, columnspan=2, sticky="ew", padx=6, pady=(6, 0))
+        ttk.Button(g1, text="Обзор…", width=10, command=self.pick_dir).grid(row=2, column=3, padx=2, pady=(6, 0))
+        ttk.Button(g1, text="Где config.pro", width=15, command=self.scan_cfg).grid(row=2, column=4, padx=2, pady=(6, 0))
+        ttk.Button(g1, text="Найти Creo", width=12, command=self.creo_find).grid(row=2, column=5, padx=2, pady=(6, 0))
+
+        ttk.Label(g1, text="Папка PDF (куда выводить):").grid(row=3, column=0, sticky="w", pady=(6, 0))
         self.out_var = tk.StringVar(value=self.s.get("pdf_out", ""))
-        ttk.Entry(g1, textvariable=self.out_var).grid(row=2, column=1, columnspan=2, sticky="ew", padx=6, pady=(6, 0))
-        ttk.Button(g1, text="Обзор…", width=10, command=self.pick_out).grid(row=2, column=3, padx=2, pady=(6, 0))
+        ttk.Entry(g1, textvariable=self.out_var).grid(row=3, column=1, columnspan=2, sticky="ew", padx=6, pady=(6, 0))
+        ttk.Button(g1, text="Обзор…", width=10, command=self.pick_out).grid(row=3, column=3, padx=2, pady=(6, 0))
         self.dup_near = tk.BooleanVar(value=bool(self.s.get("dup_near", False)))
         ttk.Checkbutton(g1, text="и копия рядом с чертежом", variable=self.dup_near).grid(
-            row=2, column=4, columnspan=2, sticky="w", padx=2, pady=(6, 0))
+            row=3, column=4, columnspan=2, sticky="w", padx=2, pady=(6, 0))
         ttk.Label(g1, text="(пусто = PDF рядом с чертежом, как раньше)", foreground="#8a8a8a").grid(
-            row=3, column=1, columnspan=4, sticky="w", padx=6)
+            row=4, column=1, columnspan=4, sticky="w", padx=6)
 
         g1b = ttk.Frame(g1)
-        g1b.grid(row=4, column=0, columnspan=6, sticky="ew", pady=(8, 0))
+        g1b.grid(row=5, column=0, columnspan=6, sticky="ew", pady=(8, 0))
         ttk.Button(g1b, text="Запустить Creo", command=self.start_creo).pack(side="left")
         ttk.Button(g1b, text="README", command=self.show_readme).pack(side="left", padx=6)
         ttk.Separator(g1b, orient="vertical").pack(side="left", fill="y", padx=8)
@@ -204,6 +240,7 @@ class Win:
                 prev = {}
             prev.update({
                 "settings_version": SETTINGS_VERSION,
+                "creo_install": self.creo_var.get().strip(),
                 "config": self.cfg_var.get(),
                 "folder": self.dir_var.get(),
                 "pdf_out": self.out_var.get(),
@@ -345,6 +382,50 @@ class Win:
                                        filetypes=[("config", "*.pro"), ("все файлы", "*.*")])
         if p:
             self.cfg_var.set(p)
+
+    # ---------------- единый источник путей ----------------
+    def pick_creo(self):
+        """Ручной выбор корня установки Creo: указываем папку с parametric.exe (…\\Parametric\\bin)."""
+        start = self.creo_var.get().strip() or (self.paths.get("creo_install") or DEFAULT_DIR)
+        p = filedialog.askdirectory(title="Выбрать папку установки Creo (…\\Parametric)", initialdir=start)
+        if not p:
+            return
+        # если указали корень уровнем выше (…\\Creo 12.4.2.0) — спускаемся в Parametric
+        if not os.path.isfile(os.path.join(p, "bin", "parametric.exe")):
+            sub = os.path.join(p, "Parametric")
+            if os.path.isfile(os.path.join(sub, "bin", "parametric.exe")):
+                p = sub
+        self.creo_var.set(p)
+        self.log("установка Creo указана вручную: " + p)
+
+    def find_creo(self):
+        """Кнопка «Найти Creo»: поиск по реестру и типовым папкам, результат идёт в настройки."""
+        try:
+            p = subprocess.run(_env("--find-creo"), capture_output=True, text=True,
+                               encoding="utf-8", errors="replace", timeout=90)
+            out = (p.stdout or "").strip()
+        except Exception as e:
+            out = "поиск не удался: %s" % e
+        self.log("=" * 100)
+        for line in out.splitlines():
+            self.log(line)
+        if "установка Creo: " in out:
+            ins = out.split("установка Creo: ", 1)[1].strip()
+            if ins and ins != "НЕ НАЙДЕНА" and "\n" not in ins:
+                self.creo_var.set(ins)
+                self._save()
+                self.log("— записано в настройки: creo_install = " + ins)
+        else:
+            messagebox.showwarning("Creo", "Не удалось определить установку Creo.\n"
+                                              "Укажи папку вручную кнопкой «Обзор…».")
+
+    def show_paths(self):
+        """Показать все пути инструмента: где что лежит и откуда взято."""
+        text, _vals = env_show()
+        self.log("=" * 100)
+        for line in text.splitlines():
+            self.log(line)
+        self.log("— единый файл настроек: " + CFG + " —")
 
     def pick_dir(self):
         p = filedialog.askdirectory(title="Выбрать папку проверки", initialdir=self.dir_var.get() or DEFAULT_DIR)

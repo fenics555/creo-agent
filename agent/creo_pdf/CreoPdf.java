@@ -42,7 +42,14 @@ public class CreoPdf {
       if (mode.equals("config-scan")) { configScan(); return; }
       if (mode.equals("creo-find")) { creoFind(); return; }
       if (mode.equals("creo-start")) {
-        creoStart(a.length > 1 ? a[1] : "", a.length > 2 && a[2].equalsIgnoreCase("--dry"));
+        // Аргументы: [config.pro] [--dry]. Флаг не должен приниматься за путь к конфигу.
+        String cfgArg = "";
+        boolean dry = false;
+        for (int i = 1; i < a.length; i++) {
+          if (a[i].equalsIgnoreCase("--dry")) dry = true;
+          else if (cfgArg.isEmpty()) cfgArg = a[i];
+        }
+        creoStart(cfgArg, dry);
         return;
       }
       if (mode.equals("help")) { usage(); return; }
@@ -199,8 +206,20 @@ public class CreoPdf {
     try { return String.valueOf(s.GetConfigOption(k)); } catch (Throwable t) { return "(нет)"; }
   }
 
-  /** Путь установки Creo: реестр Windows (InstallDir), иначе скан папок установки. */
+  /** Значение переменной окружения или запасное: bat передаёт сюда пути из единого файла настроек. */
+  static String envOr(String name, String def) {
+    String v = System.getenv(name);
+    return (v == null || v.isEmpty()) ? def : v;
+  }
+
+  /** Путь установки Creo: сначала настройка (CREO_INSTALL из bat), потом реестр, потом скан папок.
+    *  Благодаря настройке инструмент переносится на другую версию Creo без правки кода. */
   static String findParametric() {
+    String fromEnv = System.getenv("CREO_INSTALL");
+    if (fromEnv != null && !fromEnv.isEmpty()) {
+      File exe0 = new File(fromEnv, "bin" + File.separator + "parametric.exe");
+      if (exe0.isFile()) return exe0.getPath();
+    }
     try {
       Process p = new ProcessBuilder("reg", "query", "HKLM\\SOFTWARE\\PTC\\PTC Creo Parametric", "/s")
           .redirectErrorStream(true).start();
@@ -216,7 +235,8 @@ public class CreoPdf {
       }
       p.waitFor();
     } catch (Exception e) { }
-    for (String root : new String[]{"D:\\PTC\\CREO12", "C:\\Program Files\\PTC", "E:\\PTC"}) {
+    for (String root : new String[]{"D:\\PTC\\CREO12", "D:\\PTC", "C:\\Program Files\\PTC",
+                                   "C:\\Program Files (x86)\\PTC", "E:\\PTC"}) {
       File r = new File(root);
       File[] vers = r.listFiles(File::isDirectory);
       if (vers == null) continue;
@@ -248,7 +268,12 @@ public class CreoPdf {
   /** Штатный запуск Creo: parametric.exe с рабочей папкой = папка боевого config.pro
    *  (Creo читает config.pro из рабочей папки — так же, как это делает домашний бат, но без бата). */
   static void creoStart(String cfgPath, boolean dry) {
-    if (cfgPath == null || cfgPath.isEmpty()) cfgPath = "Z:\\PTC\\CREO-START\\START-STD\\config.pro";
+    if (cfgPath == null || cfgPath.isEmpty()) cfgPath = envOr("CONFIG_PRO", "");
+    if (cfgPath.isEmpty()) {
+      System.out.println("ERR: не задан config.pro. Укажи его в аргументе или в настройках инструмента.");
+      System.out.println("     (python creo_pdf_env.py --set config_pro=...)");
+      return;
+    }
     File cfg = new File(cfgPath);
     String startDir = cfg.getParent();
     String exe = findParametric();
@@ -270,6 +295,9 @@ public class CreoPdf {
   /** Поиск config.pro БЕЗ сессии Creo: известные места дома + профиль + loadpoint Creo. */
   static void configScan() {
     java.util.List<String> cand = new java.util.ArrayList<>();
+    // СНАЧАЛА настройка инструмента (единый источник), потом известные места дома.
+    String fromCfg = envOr("CONFIG_PRO", "");
+    if (!fromCfg.isEmpty()) cand.add(fromCfg);
     cand.add("Z:\\PTC\\CREO-START\\START-STD\\config.pro");
     cand.add("Z:\\PTC\\CREO-START\\START-Config\\config.pro");
     cand.add("Z:\\PTC\\CREO-START\\START-Config\\lokal для Сергея\\config.pro");
@@ -296,7 +324,8 @@ public class CreoPdf {
       System.out.println("  " + (new File(s).exists() ? "ЕСТЬ " : "нет  ") + s);
   }
 
-  /** Каталоги Creo (loadpoint): выводим из x86e_win64 внутри java.library.path. */
+  /** Каталоги Creo (loadpoint): выводим из x86e_win64 внутри java.library.path (даёт bat из настроек),
+    *  затем из CREO_INSTALL, и только потом — жёсткий запасной вариант. */
   static java.util.List<String> loadPoints() {
     java.util.LinkedHashSet<String> out = new java.util.LinkedHashSet<>();
     String p = System.getProperty("java.library.path", "");
@@ -305,6 +334,11 @@ public class CreoPdf {
       if (!f.getName().equalsIgnoreCase("x86e_win64")) continue;
       File arch = f, common = arch.getParentFile(), lp = (common == null ? null : common.getParentFile());
       if (lp != null) out.add(lp.getPath());
+    }
+    String ins = envOr("CREO_INSTALL", "");
+    if (!ins.isEmpty()) {
+      File d = new File(ins).getParentFile();
+      if (d != null) out.add(d.getPath());
     }
     if (out.isEmpty()) out.add("D:\\PTC\\CREO12\\Creo 12.4.2.0");
     return new java.util.ArrayList<>(out);
