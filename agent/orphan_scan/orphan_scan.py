@@ -7,12 +7,16 @@ from datetime import datetime
 
 # Константы
 CREO_EXT_PATTERN = re.compile(r"\.(drw|drw\.\d+)$", re.I)
-MODEL_EXT_PATTERN = re.compile(r"\.(prt|asm)(\.\d+)?$", re.I)
 DB_AGENT = r"D:\AI\tools\agent\data\agent.sqlite"
 DB_HARVEST = r"D:\AI\tools\agent\data\harvest.db"
 SEARCH_PRO = r"Z:\PTC\Work\search.pro"
+WORK_ROOT = r"Z:\PTC\Work"       # эталон «верхней папки» для распределения сирот
 LOG_DIR = r"D:\AI\log\orphan_scan"
 REPORT_DIR = r"D:\AI\log\reports"
+REPORT_PREFIX = "REPORT_orphan_scan"          # имя отчёта не привязано к номеру спеки
+# Закон трёх рук (манифест п.19): настройки окна живут в data\, рядом с остальными настройками дома
+SETTINGS_PATH = r"D:\AI\tools\agent\data\orphan_scan_settings.json"
+LEGACY_SETTINGS = r"D:\AI\tools\agent\orphan_scan\gui_settings.json"   # переносится при первом чтении
 
 def BASE_OF(fn):
     """Базовое имя модели: `00080-03-z.prt.1` → `00080-03-z` (регистр не важен).
@@ -32,11 +36,29 @@ class OrphanScanner:
         self.model_elsewhere_list = []
         self.distribution = {}
         self.roots = []
-        
+
         # Инициализация баз (лениво)
         self.conn_agent = None
         self.conn_harvest = None
         self.inventory = None      # множество БАЗОВЫХ имён моделей (ленивая загрузка)
+        self.progress = None       # приёмник строк для окна
+        self._stop = False         # флаг мягкой остановки (кнопка СТОП окна)
+
+    def request_stop(self):
+        """Мягкая остановка обхода. Живая проверка 02.10.2026: присваивание
+        `self.roots = []` НЕ прерывает `for root in self.roots` — цикл уже держит
+        итератор (roots_visited=3 из 3), поэтому флаг проверяется в теле цикла."""
+        self._stop = True
+
+    def _reset(self):
+        """Сброс накопленного состояния. Живая проверка 02.10.2026: повторный scan()
+        на одном экземпляре удваивал счётчики (5 → 10 чертежей)."""
+        self.stats = {"total_drawings": 0, "not_orphan": 0,
+                      "model_elsewhere": 0, "orphan": 0}
+        self.orphans = []
+        self.model_elsewhere_list = []
+        self.distribution = {}
+        self._stop = False
 
     def _say(self, s):
         """Печать, безопасная для окна: в pythonw `sys.stdout` = None, и обычный print падает."""
@@ -144,6 +166,7 @@ class OrphanScanner:
         """Обход и классификация чертежей. `roots` — явный список папок (для окна),
         `progress` — функция-приёмник строк (для окна). Без аргументов — как раньше: по argv/search.pro."""
         self.progress = progress
+        self._reset()
         self.roots = list(roots) if roots else self.get_roots(argv)
         if not self.roots:
             self._say("No roots to scan.")
@@ -153,8 +176,13 @@ class OrphanScanner:
         self._say("моделей в инвентаре: %d" % len(self.inventory or ()))
 
         for root in self.roots:
+            if self._stop:          # кнопка СТОП окна: выход из обхода (живая проверка 02.10.2026)
+                self._say("остановка по запросу окна")
+                break
             self._say("Scanning: %s" % root)
             for dirpath, _, filenames in os.walk(root):
+                if self._stop:
+                    break
                 for fn in filenames:
                     match = CREO_EXT_PATTERN.search(fn)
                     if not match:
@@ -188,28 +216,41 @@ class OrphanScanner:
                         # если папка не на диске Z: (ValueError «path is on mount 'D:', start on mount 'Z:'»),
                         # а окно программы умеет проверять ЛЮБУЮ папку — поэтому считаем безопасно.
                         try:
-                            rel_path = os.path.relpath(full_path, r"Z:\PTC\Work")
+                            rel_path = os.path.relpath(full_path, WORK_ROOT)
                             top_folder = rel_path.split(os.sep)[0] or "Unknown"
                         except ValueError:
-                            top_folder = "вне Z:\\PTC\\Work"
+                            top_folder = "вне %s" % WORK_ROOT
                         self.distribution[top_folder] = self.distribution.get(top_folder, 0) + 1
 
     def run_report(self):
+        """Пишет лог прогона и отчёт. Имя отчёта больше не привязано к номеру спеки
+        (живая правка 02.10.2026: было REPORT_spec113_local_leg_* — спека закрыта,
+        и новое имя ломало бы поиск «последнего отчёта» в окне).
+        ПОЛНЫЙ список сирот идёт отдельным .txt: 50 строк в .md не годятся для разбора."""
         os.makedirs(LOG_DIR, exist_ok=True)
         os.makedirs(REPORT_DIR, exist_ok=True)
-        
-        timestamp = datetime.now().strftime("%Y-%m-%d_%H%M")
-        log_file = os.path.join(LOG_DIR, f"run_{timestamp}.txt")
-        report_file = os.path.join(REPORT_DIR,
-                                   "REPORT_spec113_local_leg_%s.md" % datetime.now().strftime("%Y-%m-%d_%H%M"))
-        
+
+        stamp = datetime.now().strftime("%Y-%m-%d_%H%M%S")   # секунды: два прогона
+        log_file = os.path.join(LOG_DIR, f"run_{stamp}.txt")   # в одну минуту больше не сливаются
+        report_file = os.path.join(REPORT_DIR, "%s_%s.md" % (REPORT_PREFIX, stamp))
+        list_file = os.path.join(LOG_DIR, f"orphans_{stamp}.txt")
+        stopped = " (остановлено по запросу)" if self._stop else ""
+
+        # Полный список сирот — отдельным файлом (в .md попадают первые 50).
+        with open(list_file, "w", encoding="utf-8") as f_lst:
+            for p in self.orphans:
+                f_lst.write(p + "\n")
+            for p in self.model_elsewhere_list:
+                f_lst.write("модель в другом месте\t" + p + "\n")
+
         with open(log_file, "w", encoding="utf-8") as f_log:
-            f_log.write(f"=== ORPHAN SCAN RUN: {timestamp} ===\n")
+            f_log.write(f"=== ORPHAN SCAN RUN: {stamp}{stopped} ===\n")
             f_log.write(f"Roots: {self.roots}\n\n")
-            
+
             with open(report_file, "w", encoding="utf-8") as f_rep:
-                f_rep.write(f"# Отчёт: Поиск чертежей-сирот\n")
-                f_rep.write(f"**Дата:** {datetime.now().strftime('%Y-%m-%d %H:%M')}\n\n")
+                f_rep.write(f"# Отчёт: Поиск чертежей-сирот{stopped}\n")
+                f_rep.write(f"**Дата:** {datetime.now().strftime('%Y-%m-%d %H:%M')}\n")
+                f_rep.write(f"**Инструмент:** orphan_scan (класс Р, только чтение)\n\n")
                 
                 f_rep.write("## 1. Сводная статистика\n")
                 f_rep.write(f"- Всего чертежей: {self.stats['total_drawings']}\n")
@@ -227,7 +268,8 @@ class OrphanScanner:
                     for p in self.orphans[:50]:
                         f_rep.write(f"- `{p}`\n")
                     if len(self.orphans) > 50:
-                        f_rep.write(f"\n*... и ещё {len(self.orphans)-50} сирот.*\n")
+                        f_rep.write(f"\n*... и ещё {len(self.orphans)-50} сирот; "
+                                    f"полный список — `{list_file}`.*\n")
                 f_rep.write("\n")
 
                 f_rep.write("## 4. Корни прогона\n")
@@ -235,9 +277,18 @@ class OrphanScanner:
                     f_rep.write("- `%s`\n" % r)
                 if len(self.roots) > 20:
                     f_rep.write("- …и ещё %d корней\n" % (len(self.roots) - 20))
-                f_rep.write("\n*Приёмку делает первая нога своими командами: контрольные случаи — "
+                f_rep.write("\n## 5. Откуда что взято\n")
+                f_rep.write(f"- корни: {len(self.roots)} "
+                            f"(свёрнуты: вложенные папки не обходятся дважды)\n")
+                f_rep.write(f"- инвентарь моделей: {len(self.inventory or ())} базовых имён "
+                            f"из `{DB_AGENT}:models` и `{DB_HARVEST}:models_raw` (только чтение)\n")
+                f_rep.write(f"- пути поиска Creo: `{SEARCH_PRO}`\n")
+                f_rep.write(f"- эталон верхней папки для распределения: `{WORK_ROOT}`\n")
+                f_rep.write(f"- журнал прогона: `{log_file}`\n")
+                f_rep.write(f"- полный список сирот: `{list_file}`\n\n")
+                f_rep.write("*Приёмку делает первая нога своими командами: контрольные случаи — "
                             "`приваи` (сирота), `ыва` (не сирота), `00-06` (сирота).*\n\n")
-                
+
                 f_rep.write("--- \n*Отчёт сформирован инструментом orphan_scan*\n")
 
             f_log.write(f"Total drawings: {self.stats['total_drawings']}\n")
@@ -245,13 +296,21 @@ class OrphanScanner:
             f_log.write(f"Model elsewhere: {self.stats['model_elsewhere']}\n")
             f_log.write(f"Not orphan: {self.stats['not_orphan']}\n")
             f_log.write(f"Report: {report_file}\n")
+            f_log.write(f"Orphan list: {list_file}\n")
 
-        print(f"Done! Report: {report_file}")
+        self._say(f"готово: отчёт {report_file}")
+        self._say(f"полный список сирот: {list_file}")
+        return report_file
 
 if __name__ == "__main__":
     scanner = OrphanScanner()
     start_time = time.time()
     scanner.scan(sys.argv[1:])
+    if not scanner.roots:
+        # было: тихий выход с кодом 0 — планировщик и агент считали прогон успешным
+        scanner._say("НЕЧЕГО ПРОВЕРЯТЬ: корни не заданы и не найдены "
+                     "(проверьте путь или %s)" % SEARCH_PRO)
+        sys.exit(2)
     scanner.run_report()
-    print(f"Time taken: {time.time() - start_time:.2f}s")
+    scanner._say(f"время: {time.time() - start_time:.2f} с")
 

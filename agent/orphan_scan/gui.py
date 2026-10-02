@@ -18,7 +18,11 @@ from tkinter import filedialog, messagebox, ttk
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 import orphan_scan as eng  # noqa: E402
 
-SETTINGS = Path(__file__).resolve().parent / "gui_settings.json"
+# Настройки окна живут в data\ рядом с настройками остальных инструментов дома
+# (закон трёх рук, манифест п.19). Старый файл в папке инструмента переносится
+# автоматически при первом чтении (живая правка 02.10.2026).
+SETTINGS = Path(eng.SETTINGS_PATH)
+LEGACY_SETTINGS = Path(eng.LEGACY_SETTINGS)
 
 
 class App:
@@ -26,25 +30,42 @@ class App:
         self.root = root
         self.root.title("V1 — ЧЕРТЕЖИ-СИРОТЫ (нет модели рядом)")
         self.root.geometry("1080x680")
+        self._pending = []          # сообщения, пока окно лога ещё не создано
         self.st = self.load()
         self.scanner = None
         self.build()
 
+    def get_roots(self):
+        """Список папок из окна. Живая находка 02.10.2026: `list(self.roots_var.get())`
+        давал СПИСОК СИМВОЛОВ строки (обход шёл по `Scanning: (`, `Scanning: '`),
+        поэтому берём элементы прямо из Listbox."""
+        return list(self.lst.get(0, tk.END))
+
+    def set_roots(self, roots):
+        self.roots_var.set(list(roots))
+
     def load(self):
         d = {"mode": "search_pro", "roots": []}
         try:
-            if SETTINGS.exists():
+            if not SETTINGS.exists() and LEGACY_SETTINGS.exists():
+                # перенос старых настроек из папки инструмента в data\
+                d.update(json.loads(LEGACY_SETTINGS.read_text(encoding="utf-8")))
+                self.save(d)
+                self._pending.append("настройки перенесены: %s -> %s" % (LEGACY_SETTINGS, SETTINGS))
+            elif SETTINGS.exists():
                 d.update(json.loads(SETTINGS.read_text(encoding="utf-8")))
-        except Exception:
-            pass
+        except Exception as e:
+            self._pending.append("настройки не прочитаны (%s) — беру значения по умолчанию" % e)
         return d
 
-    def save(self):
+    def save(self, state=None):
         try:
-            self.st.update({"mode": self.var_mode.get(), "roots": list(self.roots_var.get())})
+            self.st.update(state or {"mode": self.var_mode.get(),
+                                     "roots": self.get_roots()})
+            SETTINGS.parent.mkdir(parents=True, exist_ok=True)
             SETTINGS.write_text(json.dumps(self.st, ensure_ascii=False, indent=1), encoding="utf-8")
-        except Exception:
-            pass
+        except Exception as e:
+            self._pending.append("настройки не сохранены: %s" % e)
 
     def build(self):
         top = tk.LabelFrame(self.root, text="НАСТРОЙКИ", padx=10, pady=8)
@@ -74,6 +95,7 @@ class App:
         self.b_stop.pack(side="left", padx=4)
         tk.Button(btns, text="Последний отчёт", command=self.open_report).pack(side="left", padx=4)
         tk.Button(btns, text="Папка отчётов", command=lambda: self.open_dir(eng.REPORT_DIR)).pack(side="left", padx=4)
+        tk.Button(btns, text="Папка логов", command=lambda: self.open_dir(eng.LOG_DIR)).pack(side="left", padx=4)
         tk.Button(btns, text="Сохранить список (CSV)", command=self.save_csv).pack(side="left", padx=4)
         tk.Button(btns, text="README", command=self.show_readme).pack(side="left", padx=4)
 
@@ -93,6 +115,11 @@ class App:
 
         self.info = tk.Text(self.root, height=7, font=("Consolas", 9), bg="#f8f9fa")
         self.info.pack(fill="x", padx=10, pady=(0, 8))
+        for s in self._pending:      # отдать сообщения, накопленные до создания виджета
+            self.log(s)
+        self._pending = []
+        self.log("настройки: %s" % SETTINGS)
+        self.log("базы: agent.sqlite + harvest.db (только чтение); пути Creo: %s" % eng.SEARCH_PRO)
 
     def toggle(self):
         state = "normal" if self.var_mode.get() == "custom" else "disabled"
@@ -112,7 +139,10 @@ class App:
 
     def open_report(self):
         try:
-            files = sorted(Path(eng.REPORT_DIR).glob("REPORT_spec113_local_leg_*.md"))
+            files = sorted(Path(eng.REPORT_DIR).glob("%s_*.md" % eng.REPORT_PREFIX))
+            if not files:
+                # старые отчёты спеки 113 остаются доступными до их истечения
+                files = sorted(Path(eng.REPORT_DIR).glob("REPORT_spec113_local_leg_*.md"))
             if not files:
                 return messagebox.showinfo("Отчётов нет", "Сначала прогон")
             os.startfile(str(files[-1]))
@@ -122,19 +152,19 @@ class App:
     def add_root(self):
         p = filedialog.askdirectory()
         if p:
-            roots = list(self.roots_var.get())
+            roots = self.get_roots()
             if p not in roots:
                 roots.append(p)
-                self.roots_var.set(roots)
+                self.set_roots(roots)
                 self.save()
 
     def del_root(self):
         sel = self.lst.curselection()
         if not sel:
             return
-        roots = list(self.roots_var.get())
+        roots = self.get_roots()
         roots.pop(sel[0])
-        self.roots_var.set(roots)
+        self.set_roots(roots)
         self.save()
 
     def open_selected(self):
@@ -148,7 +178,7 @@ class App:
     def run(self):
         roots = None
         if self.var_mode.get() == "custom":
-            roots = list(self.roots_var.get())
+            roots = self.get_roots()          # было list(self.roots_var.get()) — список символов
             if not roots:
                 return messagebox.showwarning("Нет папок", "Добавьте хотя бы одну папку")
         self.save()
@@ -158,8 +188,7 @@ class App:
         self.b_stop.config(state="normal")
         self._t0 = time.time()
         self.sum.config(text="идёт осмотр…")
-        self.scanner = eng.OrphanScanner()
-        self._stop = False
+        self.scanner = eng.OrphanScanner()   # новый экземпляр на каждый прогон (счётчики сбрасываются)
 
         def work():
             try:
@@ -170,10 +199,13 @@ class App:
         threading.Thread(target=work, daemon=True).start()
 
     def stop(self):
-        # мягкая остановка: обход прерываем флагом, отчёт по уже найденному пишем
+        # Мягкая остановка: флаг в движке. Живая проверка 02.10.2026: присваивание
+        # scanner.roots = [] цикл `for root in self.roots` НЕ прерывало
+        # (обойдено 3 корня из 3), поэтому флаг проверяется в теле обхода.
         if self.scanner:
-            self.scanner.roots = []
-            self.log("остановка: обход прекращён, пишу отчёт по найденному")
+            self.scanner.request_stop()
+            self.log("остановка: обход прекращается на следующей папке, "
+                     "отчёт по найденному будет записан")
         self.b_stop.config(state="disabled")
 
     def done(self):

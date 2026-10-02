@@ -494,6 +494,24 @@ class Hd(BaseHTTPRequestHandler):
             backup_dir = root / "_purge_backup" / datetime.datetime.now().strftime("%Y%m%d")
             res = purge_versions.execute(root, keep, creo_mode, backup_dir)
             self._j(res)
+        elif p == "/wiz_orphan_preview":
+            # Третья рука orphan_scan (манифест п.19): визард в витрине под щитом
+            # согласования. Только чтение — ничего не меняет.
+            import sys as _sys2
+            _ot = _os.path.join(_os.path.dirname(_os.path.abspath(__file__)), "orphan_scan")
+            if _ot not in _sys2.path:
+                _sys2.path.insert(0, _ot)
+            import orphan_scan as _os37
+            root = (b.get("root") or "").strip()
+            if not root:
+                return self._j({"error": "укажите папку"})
+            _sc = _os37.OrphanScanner()
+            _sc.scan(roots=[root])
+            rows = [{"kind": "СИРОТА", "path": p} for p in _sc.orphans[:200]]
+            rows += [{"kind": "модель в другом месте", "path": p}
+                     for p in _sc.model_elsewhere_list[:200]]
+            return self._j({"rows": rows, "stats": _sc.stats,
+                            "roots": _sc.roots, "error": None})
         elif p == "/wiz_plmtree":
             import contextlib
             import io
