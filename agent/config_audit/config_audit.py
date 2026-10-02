@@ -54,14 +54,42 @@ def _find_creo(version_hint="12"):
     return None, None
 
 
+def _from_start_bat():
+    """Путь установки ИЗ БАТА, которым дом реально запускает Creo (источник истины).
+
+    Живая находка 02.10.2026: боевой `Z:\\PTC\\CREO-START\\START-STD\\CREO-START.bat` содержит
+    `set CREO_EXE=D:\\PTC\\CREO13\\Creo 13.4.1.0\\Parametric\\bin\\parametric.exe`, а программа
+    подставляла CREO12 — потому что «та папка тоже есть на диске». Проверять конфиг нужно
+    против того Creo, на котором дом РАБОТАЕТ, а не против любой установки, найденной на диске.
+    """
+    for bat in (r"Z:\PTC\CREO-START\START-STD\CREO-START.bat",
+                r"Z:\PTC\CREO-START\START-Config\CREO-START.bat"):
+        try:
+            if not os.path.isfile(bat):
+                continue
+            with open(bat, encoding="utf-8", errors="replace") as f:
+                text = f.read()
+        except Exception:
+            continue
+        m = re.search(r"CREO_EXE\s*=\s*([^\r\n]+)", text)
+        if not m:
+            continue
+        exe = m.group(1).strip().strip('"')
+        # ...\\Creo 13.4.1.0\\Parametric\\bin\\parametric.exe -> ...\\Creo 13.4.1.0\\Parametric
+        par = os.path.dirname(os.path.dirname(exe))
+        if os.path.isdir(par):
+            root = os.path.dirname(par)                      # ...\\Creo 13.4.1.0
+            return par, os.path.join(root, "Common Files")
+    return None, None
+
+
 def load_vars():
     """Подстановки переменных Creo. Приоритет источников:
-    1) настройки дома (`data\\config_audit_settings.json`, блок `creo_vars`);
-    2) путь из кода, ЕСЛИ он реально есть на диске (сейчас это CREO12);
-    3) автоопределение по диску `D:\\PTC\\CREO*\\Creo *\\Parametric` — страховка от перехода
-       дома на другую версию Creo.
-    Путь из кода проверяется на существование НАМЕРЕННО: иначе программа продолжит искать
-    файлы в несуществующей установке и напишет «ЕСТЬ БИТЫЕ ПУТИ»."""
+    1) БАТ запуска `CREO-START.bat` — чем дом РЕАЛЬНО стартует Creo (главный источник);
+    2) настройки дома (`data\\config_audit_settings.json`, блок `creo_vars`);
+    3) путь из кода, ЕСЛИ он реально есть на диске;
+    4) автоопределение по диску `D:\\PTC\\CREO*\\Creo *\\Parametric` — страховка.
+    """
     import json
     out = dict(VAR)
     try:
@@ -75,9 +103,12 @@ def load_vars():
                 out[k] = v
     except Exception:
         pass
-    # Живая проверка 02.10.2026: ранний return из настроек отдавал МЁРТВЫЙ путь — файл настроек
-    # всегда читается, значит автоопределение не срабатывало никогда. Теперь путь проверяется
-    # ВСЕГДА, а источник значения не важен: есть на диске — берём, нет — ищем установку.
+    par, com = _from_start_bat()          # ← главный источник: боевой CREO-START.bat
+    if par:
+        out["$PRO_DIRECTORY"] = par
+        if com and os.path.isdir(com):
+            out["$CREO_COMMON_FILES"] = com
+        return out
     if os.path.isdir(out["$PRO_DIRECTORY"]):
         return out
     par, com = _find_creo()
