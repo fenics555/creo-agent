@@ -15,12 +15,28 @@ rem  Shared source of paths: ..\creo_pdf\creo_pdf_env.py
 rem ============================================================================
 setlocal
 cd /d "%~dp0"
-set "ENV_PY=%~dp0..\creo_pdf\creo_pdf_env.py"
-if not exist "%ENV_PY%" goto NOENV
+rem Single source of paths: next to this bat first, then a sibling tool.
+set "ENV_PY=%~dp0creo_pdf_env.py"
+if not exist "%ENV_PY%" set "ENV_PY=%~dp0..\creo_pdf\creo_pdf_env.py"
+if not exist "%ENV_PY%" set "ENV_PY=%~dp0..\..\creo_pdf\creo_pdf_env.py"
 rem NOTE: exactly call %%L, NOT "call set %%L" - the latter makes set set NAME=... and stays empty
-for /f "usebackq delims=" %%L in (`python -X utf8 "%ENV_PY%" --dump`) do call %%L
-if not defined CREO_COMMON goto NOCOMMON
+if exist "%ENV_PY%" for /f "usebackq delims=" %%L in (`python -X utf8 "%ENV_PY%" --dump`) do call %%L
+if not defined CREO_COMMON goto AUTOFIND
 if not defined JAVA_BIN goto NOJAVA
+goto HAVEPATHS
+
+:AUTOFIND
+rem Fallback: the tool searches Creo (registry) and javac by itself, with no external source.
+echo shared path source not found - searching Creo and Java on this machine...
+if not defined CREO_COMMON for /f "usebackq delims=" %%R in (`powershell -NoProfile -Command "(Get-ItemProperty 'HKLM:\SOFTWARE\PTC\PTC Creo Parametric\*' -Name CommonFilesLocation -ErrorAction SilentlyContinue).CommonFilesLocation -ne ''"`) do call set "CREO_COMMON=%%R"
+if not defined CREO_COMMON goto NOCOMMON
+if not defined JAVA_BIN (
+  for /f "usebackq delims=" %%J in (`where javac.exe 2^>nul`) do if not defined JAVA_BIN call set "JAVA_BIN=%%~dpJ"
+)
+if not defined JAVA_BIN if defined JAVA_HOME if exist "%JAVA_HOME%\bin\javac.exe" set "JAVA_BIN=%JAVA_HOME%\bin"
+if not defined JAVA_BIN goto NOJAVA
+
+:HAVEPATHS
 set "ARCH=%CREO_COMMON%\x86e_win64"
 if not exist "%ARCH%\lib\pfcasyncmt.dll" goto NODLL
 if not exist "pfcasync.jar" if exist "%PFCA_SYNC%" copy /Y "%PFCA_SYNC%" "pfcasync.jar" >nul
@@ -33,16 +49,13 @@ if errorlevel 1 goto COMPILEFAIL
 "%JAVA_BIN%\java.exe" -Dstdout.encoding=UTF-8 -Dstderr.encoding=UTF-8 "-Djava.library.path=%ARCH%\lib;%ARCH%\obj" -cp ".;pfcasync.jar" CreoExport %*
 exit /b %ERRORLEVEL%
 
-:NOENV
-echo ERR: shared path source not found: "%ENV_PY%"
-exit /b 2
 :NOCOMMON
 echo ERR: Creo Common Files not found.
-echo FIX : python -X utf8 "%ENV_PY%" --set creo_install=...
+echo FIX : run once  python -X utf8 "..\creo_pdf\creo_pdf_env.py" --set creo_install=...
 exit /b 2
 :NOJAVA
 echo ERR: javac not found.
-echo FIX : python -X utf8 "%ENV_PY%" --set java_bin=...
+echo FIX : run once  python -X utf8 "..\creo_pdf\creo_pdf_env.py" --set java_bin=...
 exit /b 2
 :NODLL
 echo ERR: no pfcasyncmt.dll in "%ARCH%\lib" - this is not a Creo Common Files folder.

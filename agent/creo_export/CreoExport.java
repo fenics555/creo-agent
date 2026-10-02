@@ -95,10 +95,11 @@ public class CreoExport {
         m.Export(out + base + ".dxf", pfcExport.DXF3DExportInstructions_Create());
         rep(out + base + ".dxf");
       } else if (fmt.equals("stl")) {
-        // Известное ограничение (проверено 02.10.2026): STL-экспорт отдаёт
-        // XToolkitNotFound — в этой сессии Creo не загружен модуль экспорта STL.
-        // Проверка идёт по справке PTC: Create(cipOptional) — имя необязательно.
-        m.Export(out + base + ".stl", pfcModel.STLASCIIExportInstructions_Create(""));
+        // Проверено на живой сессии 02.10.2026, три варианта:
+        //   Create("")                     -> XToolkitNotFound
+        //   Create(полный путь)            -> XStringTooLong (путь не принимается)
+        //   Create(имя файла без папки)    -> рабочий: путь задаёт Export, в инструкции только имя
+        m.Export(out + base + ".stl", pfcModel.STLASCIIExportInstructions_Create(base + ".stl"));
         rep(out + base + ".stl");
       } else {
         System.out.println("ERR: unknown format '" + fmt + "' (step|iges|vrml|pdf|neutral|dxf3d|stl)");
@@ -109,7 +110,8 @@ public class CreoExport {
         String msg = String.valueOf(ef);
         System.out.println("  ФОРМАТ " + fmt + " НЕ ВЫГРУЖЕН: " + msg);
         if (msg.contains("XToolkitNotFound") && fmt.equals("stl"))
-          System.out.println("    причина: в этой сессии Creo не загружен модуль экспорта STL (не ошибка кода)");
+          System.out.println("    причина: все три варианта вызова STL дают XToolkitNotFound —"
+              + " модуль экспорта STL недоступен в этой сессии Creo (не ошибка кода и не путь)");
         fails++;
       }
       c.Disconnect(10);

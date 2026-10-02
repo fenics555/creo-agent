@@ -68,12 +68,32 @@ cmd /c call "D:\AI\tools\agent\creo_export\creo_export.bat" step "D:\...\pin_spl
 | `pdf` | `OK калибр.pdf 23305 б` | **только с ЧЕРТЕЖА**; на детали `XToolkitInvalidType` |
 | `neutral` | `OK pin_splitk.neu.1 74020 б` | Creo добавляет суффикс версии (`.neu.1`, `.neu.2`…) |
 | `dxf3d` | `OK pin_splitk.dxf 52584 б` | работает (в прежнем README было «не проверен») |
-| `stl` | **`ФОРМАТ stl НЕ ВЫГРУЖЕН: XToolkitNotFound`** | ограничение среды: в этой сессии Creo не загружен модуль экспорта STL. Код выгрузки сверен со справкой PTC (`STLASCIIExportInstructions::Create(cipOptional)`) — ошибка не в коде |
+| `stl` | **`ФОРМАТ stl НЕ ВЫГРУЖЕН: XToolkitNotFound`** | **ограничение среды**, см. ниже |
 | ошибка одного формата | не роняет прогон | печатается `ФОРМАТ … НЕ ВЫГРУЖЕН: <текст>`, затем `EXPORT DONE WITH FAILURES: N` и корректный `Disconnect` |
+
+### STL — почему не работает (проверено 02.10.2026 на живой сессии)
+| Вызов | Результат |
+|---|---|
+| `STLASCIIExportInstructions_Create("")` | `XToolkitNotFound` |
+| `STLASCIIExportInstructions_Create(полный путь)` | `XStringTooLong` |
+| `STLASCIIExportInstructions_Create(имя файла)` + `Export(путь, instr)` ← **оставлен в коде** | `XToolkitNotFound` |
+Все три варианта дают отказ ⇒ **причина не в коде и не в пути**, а в том, что модуль экспорта STL
+недоступен в этой сессии Creo. Формат оставлен в списке (при другой конфигурации заработает),
+но помечен как непроверенный на этой машине.
 
 ### Ошибка формата больше не убивает прогон (02.10.2026)
 Раньше исключение из `Export` уходило в `main` и обрывало всё: не было ни `EXPORT DONE`, ни `Disconnect`.
 Теперь каждый формат обёрнут в свой `try/catch`, причина печатается дословно.
+
+## ПОЛНЫЙ ПРОГОН 02.10.2026 — 18 выгрузок (деталь, сборка, чертёж; живой Creo 13.4.1.0)
+| Модель | step | iges | neutral | dxf3d | vrml | pdf |
+|---|---|---|---|---|---|---|
+| деталь `pin_splitk.prt` | 13 468 | 55 268 | 74 020 | 52 584 | 26 221 | отказ `XToolkitInvalidType` (ожидаемо: PDF только с чертежа) |
+| сборка `ыва.asm` | 30 848 | 144 566 | 20 298 | 131 868 | — | — |
+| чертёж `калибр.drw` | — | — | — | — | — | 23 307 (`%PDF-1.7`) |
+| чертёж `ыва.drw` | — | — | — | — | — | 17 934 |
+Коды возврата: успех `0`, отказ `1`. Защиты: нет модели → `ERR: model name required`;
+нет файла → `ERR: XToolkitNotFound`; неизвестный формат → список допустимых.
 
 ## ИНСТРУМЕНТ АГЕНТА
 `D:\AI\tools\agent\creo_export_tools.py` → инструмент **`creo_export`** (`approval: True`).
