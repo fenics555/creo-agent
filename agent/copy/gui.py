@@ -17,7 +17,10 @@ from pathlib import Path
 
 HERE = Path(__file__).resolve().parent
 SERVER = HERE / "copy_server.py"
-SETTINGS = HERE / "gui_settings.json"
+# Настройки окна — в data\ (манифест п.19). До 02.10.2026 окно искало `gui_settings.json`
+# в папке программы, которого там НИКОГДА не было: настройки просто не сохранялись.
+SETTINGS = Path(r"D:\AI\tools\agent\data\copy_settings.json")
+DEFAULTS = {"port": 8000, "bind": "127.0.0.1"}
 
 
 class App:
@@ -26,25 +29,27 @@ class App:
         self.root.title("V1 — СЛУЖБА КОПИРОВАНИЯ (copy_server)")
         self.root.geometry("820x520")
         self.st = self.load()
+        self._pending = []
         self.proc = None
         self.build()
         self.refresh_state()
 
     def load(self):
-        d = {"port": 8000, "bind": "127.0.0.1"}
+        d = dict(DEFAULTS)
         try:
             if SETTINGS.exists():
                 d.update(json.loads(SETTINGS.read_text(encoding="utf-8")))
-        except Exception:
-            pass
+        except Exception as e:
+            self._pending.append("настройки не прочитаны (%s) — беру значения по умолчанию" % e)
         return d
 
     def save(self):
         try:
             self.st.update({"port": int(self.var_port.get()), "bind": self.var_bind.get()})
+            SETTINGS.parent.mkdir(parents=True, exist_ok=True)
             SETTINGS.write_text(json.dumps(self.st, ensure_ascii=False, indent=1), encoding="utf-8")
-        except Exception:
-            pass
+        except Exception as e:
+            self._pending.append("настройки не сохранены: %s" % e)
 
     def build(self):
         top = tk.LabelFrame(self.root, text="НАСТРОЙКИ", padx=10, pady=8)
@@ -76,6 +81,11 @@ class App:
 
         self.info = tk.Text(self.root, font=("Consolas", 9), bg="#f8f9fa")
         self.info.pack(fill="both", expand=True, padx=10, pady=8)
+        for s in self._pending:
+            self.log(s + "\n")
+        self._pending = []
+        self.log("настройки: %s\n" % SETTINGS)
+        self.log("журнал службы: %s\n" % (HERE.parent.parent / "log"))
 
     # ---------- вспомогательное ----------
     def log(self, s):
