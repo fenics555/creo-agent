@@ -1,9 +1,10 @@
 # -*- coding: utf-8 -*-
-r"""CREO PDF V3 — окно «ДИЗАЙН 2»: PDF чертежей (скан/обновление) + дубли + PDF без модели.
+r"""CREO PDF V4 — окно «ДИЗАЙН 2»: PDF чертежей (скан/обновление) + дубли + PDF без модели.
 Движок: creo_pdf.bat (прямой JLINK, без CREOSON) и питоновские помощники.
 Первый дизайн сохранён в design1\ (откат — скопировать обратно).
 
-V3: пути только в одном файле settings\creo_pdf_settings.json (creo_pdf_env.py --show|--set|--find-creo).
+V4: несколько установок Creo — «Найти Creo» находит ВСЕ и даёт выбрать версию, «Все Creo» показывает список.
+V3: пути только в одном файле settings\creo_pdf_settings.json (creo_pdf_env.py --show|--set|--find-all).
 Строка «Установка Creo»: Обзор… · Найти Creo · Пути — инструмент переносится на другую версию Creo.
 Папка вывода PDF: поле «Папка PDF» + галочка «и копия рядом с чертежом»;
 пустое поле = прежнее поведение (PDF рядом с чертежом). Скан учитывает папку вывода.
@@ -32,6 +33,37 @@ DEFAULT_CFG = r"Z:\PTC\CREO-START\START-STD\config.pro"
 DEFAULT_DIR = r"Z:\PTC\Work"
 _PATH_KEYS = ("creo_install", "creo_common", "java_bin", "pfcasync_jar",
               "config_pro", "work_dir", "pdf_out")
+
+
+def env_find_all():
+    """Все установки Creo как список словарей (пусто, если не нашлось)."""
+    try:
+        p = subprocess.run(_env("--find-all"), capture_output=True, text=True,
+                           encoding="utf-8", errors="replace", timeout=90)
+        out = (p.stdout or "")
+    except Exception:
+        return []
+    cands, cur = [], None
+    for line in out.splitlines():
+        s = line.strip()
+        if s.startswith("в настройках сейчас:"):
+            cur = s.split(":", 1)[1].strip()
+            continue
+        if s[:1].isdigit() and ") Creo" in s:
+            body = s.split(") ", 1)[1]
+            ver, _sp, ins = body.partition("  ")
+            cands.append({"version": ver.replace("Creo", "").strip() or "?",
+                          "install": ins.strip(), "common": "", "ok": None, "src": ""})
+        elif cands and s.startswith("Common Files:"):
+            cands[-1]["common"] = s.split(":", 1)[1].strip()
+        elif cands and s.startswith("источник"):
+            txt = s.split(":", 1)[1].strip()
+            cands[-1]["ok"] = ("НЕ ГОДЕН" not in txt)
+            cands[-1]["src"] = txt
+    for c in cands:
+        if cur and cur.endswith(str(cands.index(c) + 1)):
+            c["current"] = True
+    return cands
 
 
 def _env(*args):
@@ -65,7 +97,7 @@ class Win:
         self.lines = []
         self.s = self._load()
 
-        root.title("CREO PDF V3 — чертежи, дубли, PDF без модели  ·  дизайн 2")
+        root.title("CREO PDF V4 — чертежи, дубли, PDF без модели  ·  дизайн 2")
         root.geometry("1180x740")
         root.minsize(900, 560)
         self._style()
@@ -94,7 +126,7 @@ class Win:
         ttk.Entry(g1, textvariable=self.dir_var).grid(row=2, column=1, columnspan=2, sticky="ew", padx=6, pady=(6, 0))
         ttk.Button(g1, text="Обзор…", width=10, command=self.pick_dir).grid(row=2, column=3, padx=2, pady=(6, 0))
         ttk.Button(g1, text="Где config.pro", width=15, command=self.scan_cfg).grid(row=2, column=4, padx=2, pady=(6, 0))
-        ttk.Button(g1, text="Найти Creo", width=12, command=self.creo_find).grid(row=2, column=5, padx=2, pady=(6, 0))
+        ttk.Button(g1, text="Все Creo", width=10, command=self.show_all_creo).grid(row=2, column=5, padx=2, pady=(6, 0))
 
         ttk.Label(g1, text="Папка PDF (куда выводить):").grid(row=3, column=0, sticky="w", pady=(6, 0))
         self.out_var = tk.StringVar(value=self.s.get("pdf_out", ""))
@@ -399,25 +431,67 @@ class Win:
         self.log("установка Creo указана вручную: " + p)
 
     def find_creo(self):
-        """Кнопка «Найти Creo»: поиск по реестру и типовым папкам, результат идёт в настройки."""
-        try:
-            p = subprocess.run(_env("--find-creo"), capture_output=True, text=True,
-                               encoding="utf-8", errors="replace", timeout=90)
-            out = (p.stdout or "").strip()
-        except Exception as e:
-            out = "поиск не удался: %s" % e
-        self.log("=" * 100)
-        for line in out.splitlines():
+        """ВЫБОР версии: показываем ВСЕ найденные установки и даём выбрать нужную.
+        Если установка одна — сразу записываем её, без лишнего вопроса."""
+        cands = env_find_all()
+        for line in ["=" * 100, "ПОИСК УСТАНОВОК CREO (реестр + диски)"]:
             self.log(line)
-        if "установка Creo: " in out:
-            ins = out.split("установка Creo: ", 1)[1].strip()
-            if ins and ins != "НЕ НАЙДЕНА" and "\n" not in ins:
-                self.creo_var.set(ins)
-                self._save()
-                self.log("— записано в настройки: creo_install = " + ins)
+        if not cands:
+            self.log("  НИ ОДНОЙ УСТАНОВКИ НЕ НАЙДЕНО — укажи путь кнопкой «Обзор…»")
+            messagebox.showwarning("Creo", "Установки Creo не найдены.\n"
+                                          "Укажи папку вручную кнопкой «Обзор…».")
+            return
+        for i, c in enumerate(cands, 1):
+            self.log("  %d) Creo %-10s %s  [%s]" % (i, c["version"], c["install"],
+                                                     "годен" if c["ok"] else "НЕ ГОДЕН"))
+        cur = self.creo_var.get().strip().lower()
+        cur_i = next((i for i, c in enumerate(cands, 1) if c["install"].lower() == cur), 0)
+        pick = cur_i or 1
+        if len(cands) > 1:
+            dlg = tk.Toplevel(self.root)
+            dlg.title("Выбор установки Creo")
+            dlg.transient(self.root)
+            ttk.Label(dlg, text="Найдено установок: %d. Какую использовать?" % len(cands),
+                      padding=10).pack(anchor="w")
+            lb = tk.Listbox(dlg, width=110, height=min(len(cands) + 1, 8), font=("Consolas", 9))
+            for i, c in enumerate(cands, 1):
+                mark = " ← сейчас в настройках" if i == cur_i else ""
+                lb.insert("end", "%d) Creo %-10s %s%s" % (i, c["version"], c["install"], mark))
+            lb.selection_set(pick - 1)
+            lb.pack(padx=10, pady=4)
+            chosen = {"i": pick}
+
+            def ok(_ev=None):
+                chosen["i"] = lb.curselection()[0] + 1 if lb.curselection() else pick
+                dlg.destroy()
+
+            row = ttk.Frame(dlg)
+            row.pack(pady=8)
+            ttk.Button(row, text="Выбрать", command=ok).pack(side="left", padx=4)
+            ttk.Button(row, text="Отмена", command=dlg.destroy).pack(side="left", padx=4)
+            lb.bind("<Double-Button-1>", ok)
+            self.root.wait_window(dlg)
+            pick = chosen["i"]
+        c = cands[pick - 1]
+        self.creo_var.set(c["install"])
+        self._save()
+        self.log("— выбрана установка: Creo %s → %s (записано в настройки)" % (c["version"], c["install"]))
+        if not c["ok"]:
+            self.log("  ВНИМАНИЕ: у этой установки не найдена JLINK-библиотека — проверь путь.")
+
+    def show_all_creo(self):
+        """Просто показать в логе ВСЕ найденные установки — ничего не меняя."""
+        cands = env_find_all()
+        self.log("=" * 100)
+        self.log("ВСЕ УСТАНОВКИ CREO НА МАШИНЕ: %d" % len(cands))
+        for i, c in enumerate(cands, 1):
+            self.log("  %d) Creo %-10s %s  [%s]" % (i, c["version"], c["install"],
+                                                     "годен" if c["ok"] else "НЕ ГОДЕН"))
+            self.log("     %s" % c["common"])
+        if not cands:
+            self.log("  ничего не найдено")
         else:
-            messagebox.showwarning("Creo", "Не удалось определить установку Creo.\n"
-                                              "Укажи папку вручную кнопкой «Обзор…».")
+            self.log("  выбрать одну: кнопка «Найти Creo» в строке «Установка Creo»")
 
     def show_paths(self):
         """Показать все пути инструмента: где что лежит и откуда взято."""

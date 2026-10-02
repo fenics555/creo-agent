@@ -59,28 +59,83 @@ def _common_from_install(install):
     return os.path.join(d, "Common Files") if d else ""
 
 
+def _reg_installs():
+    """ВСЕ установки из реестра. Ключ ветки = версия (12.4.2.0, 13.4.1.0 …).
+    Раньше бралась только первая ветка — при двух установках второй Creo не находился."""
+    out = []
+    try:
+        p = subprocess.run(["reg", "query", r"HKLM\SOFTWARE\PTC\PTC Creo Parametric", "/s"],
+                           capture_output=True, text=True, encoding="utf-8", errors="replace", timeout=25)
+    except Exception:
+        return out
+    ver, rec = None, {}
+    for line in (p.stdout or "").splitlines():
+        line = line.strip()
+        if line.startswith("HKEY_"):
+            if rec.get("install") or rec.get("installdir"):
+                out.append(_rec_entry(ver, rec))
+            m = re.search(r"PTC Creo Parametric\\([\d.]+)\s*$", line)
+            ver = m.group(1) if m else None
+            rec = {}
+            continue
+        m = re.match(r"(\w+)\s+REG_SZ\s+(\S.*)$", line)
+        if m:
+            rec[m.group(1).lower()] = m.group(2).strip()   # ключи реестра в разном регистре
+    if rec.get("install") or rec.get("installdir"):
+        out.append(_rec_entry(ver, rec))
+    return out
+
+
+def _rec_entry(ver, rec):
+    ins = rec.get("install") or rec.get("installdir") or rec.get("installlocation") or ""
+    common = rec.get("commonfileslocation") or _common_from_install(ins)
+    return {"version": ver or "", "install": ins, "common": common,
+            "source": "реестр", "ok": _valid_common(common)}
+
+
 def _scan_drives():
     found = []
-    for b in (r"C:\Program Files\PTC", r"C:\Program Files (x86)\PTC", r"D:\PTC", r"E:\PTC"):
+    for b in (r"C:\Program Files\PTC", r"C:\Program Files (x86)\PTC", r"D:\PTC", r"E:\PTC", r"F:\PTC"):
         if not os.path.isdir(b):
             continue
         try:
             for name in sorted(os.listdir(b)):
                 p = os.path.join(b, name)
-                if os.path.isfile(os.path.join(p, "Parametric", "bin", "parametric.exe")):
-                    found.append(os.path.join(p, "Parametric"))
+                ins = p if os.path.isfile(os.path.join(p, "Parametric", "bin", "parametric.exe")) else \
+                    os.path.join(p, "Parametric")
+                if os.path.isfile(os.path.join(ins, "bin", "parametric.exe")):
+                    found.append(ins)
         except Exception:
             pass
     return found
 
 
+def find_all_creo():
+    """ВСЕ найденные установки Creo: реестр (все версии) + скан дисков. Без дублей."""
+    out, seen = [], set()
+    for e in _reg_installs():
+        if e["install"] and e["install"] not in seen:
+            seen.add(e["install"])
+            out.append(e)
+    for ins in _scan_drives():
+        if ins in seen:
+            continue
+        seen.add(ins)
+        common = _common_from_install(ins)
+        out.append({"version": "", "install": ins, "common": common,
+                    "source": "скан дисков", "ok": _valid_common(common)})
+    return out
+
+
 def find_creo():
-    """Возвращает (install_dir, common_files, источник)."""
-    ins = _reg_install_dir()
-    if ins and os.path.isdir(ins):
-        return ins, _common_from_install(ins), "реестр HKLM\\SOFTWARE\\PTC"
-    for cand in _scan_drives():
-        return cand, _common_from_install(cand), "скан Program Files\\PTC и папок PTC"
+    """Возвращает (install_dir, common_files, источник) — первая годная установка."""
+    cands = find_all_creo()
+    for e in cands:
+        if e["ok"]:
+            return e["install"], e["common"], (e["source"] + (" " + e["version"] if e["version"] else ""))
+    if cands:
+        e = cands[0]
+        return e["install"], e["common"], e["source"] + " (но JLINK-библиотека не найдена)"
     return "", "", "не найдено"
 def find_java():
     """Папка с javac.exe: JAVA_HOME → where javac → типовые папки дома."""
@@ -204,6 +259,20 @@ def main(argv):
         save(d)
         print("%s = %s  (записано в %s)" % (key, val, CFG))
         return 0
+    if argv[0] == "--find-all":
+        cands = find_all_creo()
+        print("НАЙДЕНО УСТАНОВОК CREO: %d" % len(cands))
+        for i, e in enumerate(cands, 1):
+            tag = "ГОДЕН" if e["ok"] else "НЕ ГОДЕН (нет x86e_win64\\lib\\pfcasyncmt.dll)"
+            print("%d) Creo %-10s %s" % (i, e["version"] or "?", e["install"]))
+            print("   Common Files: %s" % e["common"])
+            print("   источник    : %s · %s" % (e["source"], tag))
+        if cands:
+            cur = (d.get("creo_install") or "").lower()
+            for i, e in enumerate(cands, 1):
+                if e["install"].lower() == cur:
+                    print("в настройках сейчас: пункт %d" % i)
+        return 0 if cands else 1
     if argv[0] == "--find-creo":
         ins, common, src = find_creo()
         print("установка Creo: " + (ins if ins else "НЕ НАЙДЕНА"))
