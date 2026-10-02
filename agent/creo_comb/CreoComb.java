@@ -26,12 +26,27 @@ public class CreoComb {
   };
   static int LIMIT = 500;   // предохранитель: сколько моделей максимум трогаем за проход
 
+  /** Режимы, которым нужен живой Creo (все прочие — tpl-plan и help). 02.10.2026:
+   *  проверка режима до connect(), иначе «неизвестный режим» выглядел как «нужен Creo». */
+  static final java.util.Set<String> MODES_WITH_CREO = new java.util.HashSet<String>(
+      java.util.Arrays.asList("refs", "probe-open", "probe-open-f", "add", "mkparam",
+                              "typcheck", "roles", "mfgcheck", "typcheck-here", "setparam",
+                              "dump", "scan", "scan-here"));
+
   public static void main(String[] a) {
     try {
       for (int i = 0; i < a.length; i++) a[i] = a[i].replace("\"", "").trim();
       String mode = a.length > 0 ? a[0].toLowerCase() : "help";
       if (mode.equals("help")) { usage(); return; }
       if (mode.equals("tpl-plan")) { tplPlan(a.length > 1 ? a[1] : CFG_DEFAULT); return; }
+
+      // 02.10.2026: неизвестный режим распознавался ПОСЛЕ connect() — и без Creo человек получал
+      // «нужен запущенный Creo» вместо «неизвестный режим». Проверяем ДО подключения.
+      if (!MODES_WITH_CREO.contains(mode)) {
+        System.out.println("НЕИЗВЕСТНЫЙ РЕЖИМ: " + mode);
+        usage();
+        System.exit(4);
+      }
 
       System.loadLibrary("pfcasyncmt");
       Session s = connect().GetSession();
@@ -50,9 +65,18 @@ public class CreoComb {
       if (mode.equals("scan")) { scan(s, a.length > 1 ? a[1] : "", a.length > 2 ? a[2] : CFG_DEFAULT); return; }
       if (mode.equals("scan-here")) { scan(s, s.GetCurrentDirectory(), a.length > 1 ? a[1] : CFG_DEFAULT); return; }
       usage();
+      System.exit(4);   // неизвестный режим (02.10.2026): раньше был тихий код 0
     } catch (Throwable t) {
+      // 02.10.2026: было `System.out.println + printStackTrace` и ВЫХОД 0 — планировщик
+      // и окно считали прогон успешным. Теперь: честный текст без стека + код 2.
+      String msg = String.valueOf(t);
+      if (msg.indexOf("XToolkitNotFound") >= 0) {
+        System.out.println("НУЖЕН ЗАПУЩЕННЫЙ CREO: не найдено активной сессии (XToolkitNotFound).");
+        System.out.println("Режимы без Creo: tpl-plan (план шаблонов из config.pro), help.");
+        System.exit(2);
+      }
       System.out.println("ОШИБКА: " + t);
-      t.printStackTrace();
+      System.exit(2);
     }
   }
 

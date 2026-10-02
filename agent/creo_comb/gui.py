@@ -17,7 +17,7 @@ from tkinter import filedialog, messagebox
 
 HERE = Path(__file__).resolve().parent
 BAT = HERE / "creo_comb.bat"
-SETTINGS = HERE / "gui_settings.json"
+SETTINGS = Path(r"D:\AI\tools\agent\data\creo_comb_settings.json")   # манифест п.19: настройки в data\
 
 MODES = [
     ("tpl-plan — шаблоны конфига: что прописано и есть ли файл (без Creo)", "tpl-plan"),
