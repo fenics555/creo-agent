@@ -392,6 +392,76 @@ public class CreoPdf {
     return !NAMES.contains(base.toLowerCase());
   }
 
+  /** Кодировка имён внутри .drw. Проверено на живых файлах 02.10.2026: имена лежат в UTF-8
+    *  («УИСВГД-401-040-00.PRT» читается только так; в windows-1251 получается мусор «РЈРИР…»). */
+  static java.nio.charset.Charset drwCharset() {
+    return StandardCharsets.UTF_8;
+  }
+
+  /** Какие модели реально записаны ВНУТРИ чертежа (02.10.2026). Файл .drw двоичный, но в нём
+    *  есть читаемые имена вида "C5-028_102.PRT". Чертёж может ссылаться на НЕСКОЛЬКО моделей,
+    *  поэтому возвращаем ВСЕ уникальные имена без расширения, в нижнем регистре.
+    *  Нужно, чтобы отчёт говорил ПРАВДУ: чертёж X.drw ссылается на модель Y.prt, и тогда
+    *  «нет PDF» — не беда, а расхождение имён, лечится переименованием. */
+  static java.util.List<String> modelsInside(File drw) {
+    java.util.LinkedHashSet<String> out = new java.util.LinkedHashSet<>();
+    try {
+      byte[] b = Files.readAllBytes(drw.toPath());
+      // ВАЖНО: имена в .drw лежат в UTF-8 (проверено на живых файлах), при cp1251 кириллица
+      // превращается в мусор «РЈРИР» — и диагностика врёт.
+      String s = new String(b, drwCharset());
+      java.util.regex.Matcher m = java.util.regex.Pattern
+          .compile("(?i)([^\\x00-\\x1F\\x7F]{3,80}?)\\.(PRT|ASM)")
+          .matcher(s);
+      while (m.find()) {
+        String cand = m.group(1).trim();
+        while (cand.endsWith(".") || cand.endsWith("_") || cand.endsWith("-")) cand = cand.substring(0, cand.length() - 1).trim();
+        // отсекаем хвосты мусора вида «тч‚ДУИСВГД-401-040-00» (служебные префиксы внутри)
+        cand = cand.replaceAll("^[^\\p{L}\\p{N}]+", "");
+        if (cand.length() < 3) continue;
+        if (!cand.matches("[\\p{L}\\p{N}_\\- ]+")) continue;
+        out.add(cand.toLowerCase().replace(" ", "_"));
+      }
+    } catch (Throwable t) {
+      return new java.util.ArrayList<>();
+    }
+    return new java.util.ArrayList<>(out);
+  }
+
+  /** Диагностика неудачного открытия: на какую модель чертёж ссылается НА САМОМ ДЕЛЕ?
+    *  Печатает правду вместо бессмысленного «не удалось открыть». */
+  static void explainMismatch(File dir, String base) {
+    File drw = newestByExt(dir, base, "drw");
+    if (drw == null) { System.out.println("    причина: файла чертежа нет"); return; }
+    java.util.List<String> inside = modelsInside(drw);
+    if (inside.isEmpty()) {
+      System.out.println("    причина: не удалось прочитать имена моделей из " + drw.getName());
+      return;
+    }
+    String want = base.toLowerCase().replace(" ", "_");
+    if (inside.contains(want)) {
+      boolean here = newestByExt(dir, want, "prt") != null || newestByExt(dir, want, "asm") != null;
+      System.out.println("    причина: чертёж ссылается на свою модель " + want
+          + (here ? " и она рядом есть" : " — а её в папке НЕТ")
+          + "; открыть не выходит (битая ссылка, версия файла или блокировка).");
+      return;
+    }
+    // главный случай: имя чертежа ≠ именам моделей, на которые он ссылается
+    StringBuilder have = new StringBuilder(), no = new StringBuilder();
+    for (String nm : inside) {
+      boolean ok = newestByExt(dir, nm, "prt") != null || newestByExt(dir, nm, "asm") != null;
+      if (ok) { if (have.length() > 0) have.append(", "); have.append(nm); }
+      else { if (no.length() > 0) no.append(", "); no.append(nm); }
+    }
+    System.out.println("    ПРИЧИНА: чертёж называется " + want + ", а ссылается на модель(и): "
+        + String.join(", ", inside));
+    if (have.length() > 0)
+      System.out.println("    рядом в этой папке ЕСТЬ: " + have + " → чертёж, вероятно, переименован; "
+          + "откройте модель " + inside.get(0) + " в Creo и переименуйте чертёж под неё.");
+    if (no.length() > 0)
+      System.out.println("    рядом НЕТ: " + no + " → верните эти модели в папку.");
+  }
+
   /** Экспорт PDF одного чертежа: cd в папку -> retrieve -> Display -> Export -> уборка.
    *  Если по имени не нашлось — пробуем по ИМЕНИ ФАЙЛА (внутреннее имя модели могло разойтись с файлом). */
   static void doPdf(Session s, String dir, String name, String out, String dupDir) throws Exception {
@@ -430,7 +500,12 @@ public class CreoPdf {
           }
         }
       }
-      if (mm == null) throw new Exception("не удалось открыть чертёж ни по имени, ни по файлу: " + last);
+      if (mm == null) {
+        // Не выбрасываем голый XToolkitNotFound: сначала читаем из .drw, на какую модель
+        // он ссылается. Иначе отчёт говорит «нет модели», хотя модель рядом есть (02.10.2026).
+        explainMismatch(new File(dir), name);
+        throw new Exception("не удалось открыть чертёж ни по имени, ни по файлу: " + last);
+      }
       m = mm;
     }
     m.Display();
