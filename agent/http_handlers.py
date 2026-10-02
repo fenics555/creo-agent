@@ -521,6 +521,48 @@ class Hd(BaseHTTPRequestHandler):
                      for p in _sc.model_elsewhere_list[:200]]
             return self._j({"rows": rows, "stats": _sc.stats,
                             "roots": _sc.roots, "error": None})
+        elif p == "/wiz_config_audit":
+            # Третья рука config_audit (манифест п.19): визард витрины под щитом
+            # согласования. Только чтение — конфиг не меняется.
+            # ВСЁ тело в try/except: иначе исключение рвёт соединение, клиент видит
+            # RemoteDisconnected и никакой причины (живая проверка 02.10.2026).
+            try:
+                import sys as _sys3
+                import os as _cfa_os
+                # ВНИМАНИЕ: в ветке /wiz_plmtree ниже есть `import os as _os`, из-за чего `_os`
+                # становится ЛОКАЛЬНОЙ переменной всей do_POST; имена здесь свои.
+                _ct = _cfa_os.path.join(_cfa_os.path.dirname(_cfa_os.path.abspath(__file__)),
+                                        "config_audit")
+                if _ct not in _sys3.path:
+                    _sys3.path.insert(0, _ct)
+                import config_audit as _ca37
+                cfg = (b.get("config") or _ca37.CONFIG).strip()
+                if not _cfa_os.path.isfile(cfg):
+                    return self._j({"error": "нет файла config.pro: %s" % cfg})
+                res = _ca37.audit(cfg)
+                rep = None
+                try:
+                    rep = _ca37.write_report(res, cfg, 0.0, quiet=True)
+                except Exception:
+                    pass
+                return self._j({
+                    "config": cfg,
+                    "total": res["total"],
+                    "missing": res["missing"],
+                    "problems": [{"line": pr["line"], "opt": pr["opt"],
+                                  "value": pr["value"], "path": pr["path"]}
+                                 for pr in res["problems"][:200]],
+                    "vars": dict(_ca37.load_vars() or {}),
+                    "report": rep,
+                    "error": None})
+            except Exception as _cfa_e:
+                import traceback as _cfa_tb
+                trace = traceback.format_exc()[-800:]
+                try:
+                    log("wiz_config_audit FAILED: %s" % trace)
+                except Exception:
+                    pass
+                return self._j({"error": "%s: %s" % (type(_cfa_e).__name__, _cfa_e)})
         elif p == "/wiz_plmtree":
             import contextlib
             import io

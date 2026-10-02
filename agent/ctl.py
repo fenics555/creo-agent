@@ -111,6 +111,41 @@ def start_agent(hidden):
         subprocess.Popen('start "АГЕНТ v15" cmd /c "cd /d %s && python agent.py"' % AG, shell=True)
 
 
+def verify_agent():
+    """Приёмка подъёма агента (живая проверка 02.10.2026). Долг Б10 из отчёта
+    «после ctl up порт пропадал» НЕ воспроизводится (2 прогона подряд — порт держится),
+    поэтому вместо правки вслепую добавлена проверка: если агент не поднялся,
+    ctl.py сам печатает ПРИЧИНУ из stderr агента, а не молчит."""
+    pid = 0
+    try:
+        pid = int(open(AG + r"\agent.pid").read().strip() or 0)
+    except Exception:
+        pass
+    if not alive(8765):
+        return False, "порт 8765 не слушается (agent.pid=%s)" % pid
+    if not pid:
+        return False, "порт слушается, но agent.pid пуст — нечем управлять"
+    # PID из файла должен совпадать с живым процессом, который держит порт
+    out = subprocess.run(["powershell", "-NoProfile", "-Command",
+                          "(Get-NetTCPConnection -LocalPort 8765 -State Listen).OwningProcess"],
+                         capture_output=True, text=True, timeout=20).stdout.strip()
+    if out and out.isdigit() and int(out) != pid:
+        return False, "порт держит процесс %s, а в agent.pid %s — не совпадают" % (out, pid)
+    return True, "порт 8765 держит PID %s (совпадает с agent.pid)" % pid
+
+
+def agent_stderr_tail(n=8):
+    """Хвост stderr агента — чтобы отказ был виден, а не загадочен."""
+    for f in (AG + r"\data\tmp\agent_err.txt", AG + r"\data\tmp\agent_out.txt"):
+        try:
+            txt = open(f, encoding="utf-8", errors="replace").read().strip().splitlines()
+            if txt:
+                return "%s: %s" % (os.path.basename(f), " / ".join(txt[-n:]))
+        except Exception:
+            continue
+    return "stderr агента пуст"
+
+
 def up(browser=False, hidden=False):
     log("== ctl up ==")
     if alive(11434): log("Ollama уже на 11434")
@@ -129,7 +164,14 @@ def up(browser=False, hidden=False):
     else:
         kill_pid(AG + r"\agent.pid")
         log("поднимаю агента..."); start_agent(hidden)
-        log("агент на 8765" if wait_port(8765, 60) else "ВНИМАНИЕ: агент не поднялся за 60 сек")
+        if wait_port(8765, 60):
+            ok, why = verify_agent()
+            log("агент на 8765 — %s" % why if ok else "ВНИМАНИЕ: %s" % why)
+            if not ok:
+                log("хвост вывода агента: %s" % agent_stderr_tail())
+        else:
+            log("ВНИМАНИЕ: агент не поднялся за 60 сек")
+            log("хвост вывода агента: %s" % agent_stderr_tail())
     if browser:
         subprocess.Popen('cmd /c start "" http://%s:8765' % socket.gethostname(), shell=True)
 
@@ -147,6 +189,10 @@ def down():
 def status():
     for name, port in (("Ollama", 11434), ("CREOSON", 8080), ("агент", 8765), ("copy", 8000)):
         print("%-8s %-6d %s" % (name, port, "жив" if alive(port) else "МЁРТВ"))
+    ok, why = verify_agent()
+    print("приёмка агента: %s — %s" % ("OK" if ok else "ПРОВАЛ", why))
+    if not ok:
+        print("хвост вывода агента: %s" % agent_stderr_tail())
 
 
 def _kill_stray_agents():
