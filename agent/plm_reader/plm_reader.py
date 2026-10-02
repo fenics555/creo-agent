@@ -26,7 +26,7 @@ import sys
 import threading
 import time
 
-APP_VERSION = "V34"
+APP_VERSION = "V35"
 APP_TITLE = "PLM Reader " + APP_VERSION          # версия ОДНА: заголовок берёт её из константы
 DATA_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "db")          # данные — в подпапке db\
 SETTINGS_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "settings")  # настройки — в подпапке settings\
@@ -2152,8 +2152,8 @@ def run_gui():
                 _FOLDERS[n] = r
                 tview.insert(n, "end", text="загрузка…")
             s = eng.summary()
-            tsum.config(text="в базе файлов %d · моделей %d · изменений %d"
-                        % (s.get("snapshots", 0), s.get("models", 0), s.get("changes", 0)))
+            tsum.config(text="в базе изделий %d (файлов с копиями версий %d) · изменений %d"
+                        % (s.get("models", 0), s.get("snapshots", 0), s.get("changes", 0)))
 
     def expand_all():
         """ПОЛНОЕ дерево: в режиме Входимость строится одним заходом из базы (быстро)."""
@@ -2923,8 +2923,8 @@ def run_gui():
             lbl.config(text="НУЖЕН СКАН: новых %d · изменённых %d · пропало %d (%.1f с)%s"
                        % (r["new"], r["mod"], r["gone"], r["secs"], _tail))
         else:
-            lbl.config(text="БАЗА АКТУАЛЬНА: файлов %d, изменений нет (%.1f с)%s"
-                       % (r["total"], r["secs"], _tail))
+            lbl.config(text="БАЗА АКТУАЛЬНА: изделий %d (файлов на диске %d, с копиями версий), изменений нет (%.1f с)%s"
+                       % (r.get("models", r["total"]), r["total"], r["secs"], _tail))
         log_line("check: %s" % r.get("verdict", ""))
 
     def load_base(limit=2000):
@@ -3277,6 +3277,30 @@ def run_gui():
             lbl.config(text="выгружено: %s" % os.path.basename(p))
 
     # --- КОПИРОВАТЬ / ВСТАВИТЬ: Ctrl+C/V/X/A и ПКМ во всех полях и таблицах ---
+    # ГРАБЛЯ (V35): НЕЛЬЗЯ вешать bind_all на Ctrl+V и тут же делать event_generate("<<Paste>>") —
+    # у полей (Entry/TEntry/Text/Spinbox/Combobox) СВОЙ class-binding на <<Paste>>, а он срабатывает
+    # РАНЬШЕ тега "all" (порядок bindtags: виджет → класс → родитель → all). Итог: нативная вставка
+    # + наша = ДВЕ вставки подряд (жалоба владельца 02.10.2026, окно «Столбцы и параметры»).
+    # Поэтому: если класс виджета умеет событие сам — молча возвращаем "break" и НЕ генерируем.
+    _NATIVE = {}
+
+    def _has_native(w, seq):
+        """Есть ли у класса виджета собственная обработка виртуального события."""
+        try:
+            cls = w.winfo_class()
+        except Exception:
+            return False
+        key = (cls, seq)
+        if key in _NATIVE:
+            return _NATIVE[key]
+        ok = False
+        try:
+            ok = bool(w.tk.call("bind", cls, seq))
+        except Exception:
+            ok = False
+        _NATIVE[key] = ok
+        return ok
+
     def _foc():
         try:
             return root.focus_get()
@@ -3286,8 +3310,8 @@ def run_gui():
     def _clip_ev(seq, ev=None):
         w = _foc()
         try:
-            if w is not None:
-                w.event_generate(seq)
+            if w is not None and not _has_native(w, seq):
+                w.event_generate(seq)          # Treeview и прочие без своего обработчика
         except Exception:
             pass
         return "break"
@@ -3362,12 +3386,13 @@ def run_gui():
 
     btn.config(command=go)
     _bs = db_summary()
-    log_line("base: файлов %d, моделей %d, связей %d, папок %d, изменений %d"
-             % (_bs.get("files", 0), _bs.get("models", 0), _bs.get("links", 0),
+    log_line("base: изделий %d, файлов с копиями версий %d, связей %d, папок %d, изменений %d"
+             % (_bs.get("models", 0), _bs.get("files", 0), _bs.get("links", 0),
                 _bs.get("folders", 0), _bs.get("changes", 0)))
     if _bs.get("files"):
-        lbl.config(text="база: файлов %d · моделей %d · изменений %d — читаю из базы…"
-                   % (_bs.get("files", 0), _bs.get("models", 0), _bs.get("changes", 0)))
+        # V35: цифры по-человечески — главная = ИЗДЕЛИЯ (без дублей .1/.2), рядом файлы с копиями версий
+        lbl.config(text="база: изделий %d (файлов с копиями версий %d) · изменений %d — читаю из базы…"
+                   % (_bs.get("models", 0), _bs.get("files", 0), _bs.get("changes", 0)))
         load_base()
         root._plm_db_stamp = _active_stamp()
         check_base()

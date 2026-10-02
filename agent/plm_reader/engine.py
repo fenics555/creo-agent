@@ -657,9 +657,16 @@ def scan_to_base(roots, max_mb=8, limit=120, depth=None, progress_cb=None, stop_
 
 
 def inventory(roots, max_mb=8, store=True, max_depth=None):
-    """СТРОЕНИЕ СКЛАДА (быстро, секунды): папки/подпапки, файлы, модели — и сразу в базу `folders`."""
+    """СТРОЕНИЕ СКЛАДА (быстро, секунды): папки/подпапки, файлы, модели — и сразу в базу `folders`.
+
+    Считаем ТРИ разные вещи, чтобы цифры не путались (V35):
+      папок  — сколько каталогов обойдено;
+      файлов — сколько файлов моделей (.prt/.asm/.drw и копии версий) ЛЕЖИТ на диске;
+      изделий— сколько РАЗНЫХ моделей (без дублей версий .1/.2/...): имя без номера версии.
+    """
     t0 = time.time()
     rows, folders, files, models = [], 0, 0, 0
+    seen_models = set()
     for root in roots:
         root = os.path.abspath(root)
         if not os.path.isdir(root):
@@ -673,7 +680,12 @@ def inventory(roots, max_mb=8, store=True, max_depth=None):
             folders += 1
             rel = os.path.relpath(dp, root)
             depth = 0 if rel == "." else rel.count(os.sep) + 1
-            m = sum(1 for f in fs if MODEL.search(f))
+            m = 0
+            for f in fs:
+                if not MODEL.search(f):
+                    continue
+                m += 1
+                seen_models.add(stem(f))      # без номера версии — изделие одно
             models += m
             files += len(fs)
             rows.append((dp, os.path.dirname(dp), depth, m, len(fs)))
@@ -685,8 +697,11 @@ def inventory(roots, max_mb=8, store=True, max_depth=None):
                         [(r[0], r[1], r[2], r[3], r[4], now) for r in rows])
         con.commit()
         con.close()
-    print("строение: папок %d, файлов %d, моделей %d (за %.1f с)%s"
-          % (folders, files, models, time.time() - t0, " → в базу folders" if store else ""),
+    items = len(seen_models)
+    print("строение склада: папок %d · изделий %d (без копий версий) · файлов моделей %d (с копиями версий) "
+          "· прочих файлов в папках %d (за %.1f с)%s"
+          % (folders, items, models, files - models, time.time() - t0,
+             " → в базу folders" if store else ""),
           flush=True)
     return folders, files
 
@@ -992,10 +1007,13 @@ def do_check(roots=None, max_mb=8.0, depth=None, exclude=None):
         else "АКТУАЛЬНО (скан не нужен)"
     if purged:
         verdict += " · старые версии после ПУРГЕ: %d (норма)" % purged
-    res = {"total": len(files), "mod": changed, "new": new, "skipped": same, "gone": gone, "purged": purged, "need": need, "verdict": verdict, "secs": round(time.time() - t0, 1)}
-    msg = ("проверка: файлов %d | без изменений %d | новых %d | изменённых %d | пропало %d"
+    # V35: models — изделия БЕЗ дублей версий; total — файлы моделей с копиями версий (для отчёта и статуса)
+    res = {"total": len(files), "models": len(live_models), "mod": changed, "new": new, "skipped": same,
+           "gone": gone, "purged": purged, "need": need, "verdict": verdict, "secs": round(time.time() - t0, 1)}
+    msg = ("проверка: изделий %d | файлов моделей с копиями версий %d | без изменений %d | новых %d"
+           " | изменённых %d | пропало %d"
            " | старые версии после ПУРГЕ %d | за %.1f с → %s"
-           % (res["total"], same, new, changed, gone, purged, res["secs"], verdict))
+           % (res["models"], res["total"], same, new, changed, gone, purged, res["secs"], verdict))
     print(msg, flush=True)
     log(msg)
     return res
