@@ -28,7 +28,14 @@ def _serve_ui(handler):
         b = STUB_PAGE.encode("utf-8")
     handler.send_response(200)
     handler.send_header("Content-Type", "text/html; charset=utf-8")
-    handler.send_header("Cache-Control", "no-cache")
+    # ЖИВОЙ ДЕФЕКТ 03.10.2026 (слово владельца «открылся старый агент»): было `no-cache`
+    # БЕЗ ETag/Last-Modified. `no-cache` требует перепроверки, но перепроверять нечем —
+    # браузер при возврате на вкладку отдавал старый index.html, и владелец видел
+    # витрину вчерашнего дня. Витрина агента обязана быть `no-store`: она меняется
+    # при каждой правке, кэшировать её нечего.
+    handler.send_header("Cache-Control", "no-store, no-cache, must-revalidate")
+    handler.send_header("Pragma", "no-cache")
+    handler.send_header("Expires", "0")
     handler.send_header("Content-Length", str(len(b)))
     handler.end_headers()
     handler.wfile.write(b)
@@ -52,7 +59,9 @@ def _serve_file(handler, rel):
         b = f.read()
     handler.send_response(200)
     handler.send_header("Content-Type", STATIC_EXT[ext])
-    handler.send_header("Cache-Control", "no-cache")
+    handler.send_header("Cache-Control", "no-store, no-cache, must-revalidate")
+    handler.send_header("Pragma", "no-cache")
+    handler.send_header("Expires", "0")
     handler.send_header("Content-Length", str(len(b)))
     handler.end_headers()
     handler.wfile.write(b)
