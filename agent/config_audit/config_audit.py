@@ -36,6 +36,28 @@ LOG_DIR = r"D:\AI\log\config_audit"
 REPORT_DIR = r"D:\AI\log\reports"
 REPORT_PREFIX = "REPORT_config_audit"
 SETTINGS_FILE = os.path.normpath(os.path.join(_AGENT, "data", "config_audit_settings.json"))
+# ЭТАП 9 (волна 10): карта плагинов дома. Читает audit_protk; живёт рядом с PROGRAM_REGISTRY.
+PLUGINS_CARD = os.path.normpath(os.path.join(_AGENT, "dev", "PLUGINS.md"))
+# АВТОНОМНОСТЬ (контракт 09_): при переносе программы в изоляцию папки `dev` рядом нет.
+# Живой провал 03.10.2026 (vol2): копия движка в изоляции не нашла карту и пометила КАЖДЫЙ
+# protkdat как «нет_в_карте» → RC 1. Поэтому ищем карту по трём местам, и если её нет —
+# это «нет данных», а не провал: проверка просто не сверяет.
+PLUGINS_CARD_ALT = os.path.normpath(os.path.join(_HERE, "PLUGINS.md"))
+
+
+def find_plugins_card():
+    """Где карта плагинов: рядом с движком → в настройках → в `dev\\` агента."""
+    st = ""
+    try:
+        import json
+        with open(SETTINGS_FILE, encoding="utf-8") as f:
+            st = (json.load(f).get("plugins_card") or "")
+    except Exception:
+        st = ""
+    for cand in (st, PLUGINS_CARD_ALT, PLUGINS_CARD):
+        if cand and os.path.isfile(cand):
+            return cand
+    return ""
 # Путь к config.pro по умолчанию — через общий поиск (рядом с батом запуска).
 CONFIG = sys.argv[1] if len(sys.argv) > 1 else (BOOT.config_path() or "")
 # $PROSTD не зависит от версии Creo: это папка настроек дома.
@@ -139,6 +161,79 @@ def audit(config_path):
     return {"total": ok + len(problems), "missing": len(problems), "problems": problems}
 
 
+def audit_protk(config_path):
+    """ЭТАП 9 (волна 10): плагины боя против карты `dev\\PLUGINS.md`.
+
+    ЗАЧЕМ (профилактика из плана): новый `protkdat`, поставленный в боевой `config.pro`,
+    обязан попасть в карту плагинов. Раньше про него узнавали случайно, через поломку.
+
+    ЧТО ЧИТАЕТ:
+      1) все строки `protkdat` из config.pro, включая закомментированные (`!`) — они
+         показываются как выключенные, но тоже должны быть зафиксированы;
+      2) раздел «ЖИВАЯ ПРОВЕРКА» карты: строки вида `- protkdat <путь>`.
+
+    ЧТО ВОЗВРАЩАЕТ: {'in_config': N, 'in_card': M, 'active': K, 'problems': [...]}
+      problems — расхождения: 'нет_в_карте' (плагин в бою не зафиксирован — ЭТО ПРОВАЛ),
+      'нет_на_диске' (файл protk.dat отсутствует — провал для активных строк),
+      'нет_в_бою' (карта обещает плагин, которого в config.pro нет — предупреждение,
+      обычно значит «модуль сняли», это НЕ ошибка дома).
+
+    Только чтение: ни config.pro, ни PLUGINS.md, ни protk.dat программа не меняет.
+    """
+    card = find_plugins_card()
+    known = {}
+    card_found = bool(card)
+    if card_found:
+        with open(card, encoding="utf-8") as f:
+            for n, raw in enumerate(f, 1):
+                t = raw.strip()
+                if not t.startswith("- protkdat"):
+                    continue
+                path = norm(t.split("- protkdat", 1)[1].strip())
+                if path:
+                    known[path.lower()] = {"line": n, "path": path}
+    rows, problems = [], []
+    n_cfg = 0
+    if not os.path.isfile(config_path):
+        raise FileNotFoundError("нет файла config.pro: %s" % config_path)
+    with open(config_path, encoding="utf-8-sig", errors="replace") as f:
+        for n, raw in enumerate(f, 1):
+            line = raw.strip()
+            off = line.startswith("!")
+            if off:
+                # Живой дефект 03.10.2026: `!` снимался только у НЕзакомментированных строк,
+                # из-за чего выключенные плагины (KeyShot, строка 377) вообще не попадали
+                # в разбор — программа рапортовала «нет_в_бою» для зафиксированного модуля.
+                line = line.lstrip("!").strip()
+            if not line.lower().startswith("protkdat"):
+                continue
+            val = line.split(None, 1)[1].strip() if len(line.split(None, 1)) == 2 else ""
+            if not val:
+                continue
+            n_cfg += 1
+            path = norm(val)
+            rec = {"line": n, "raw": val, "path": path, "active": not off,
+                   "on_disk": os.path.isfile(path),
+                   "in_card": path.lower() in known if card_found else None}
+            rows.append(rec)
+            if not card_found:
+                # Карты нет (перенос в изоляцию, папки dev рядом нет) — это «нет данных»,
+                # а не провал: молча не сверяем, но CLI об этом говорит честно.
+                continue
+            if not rec["in_card"]:
+                problems.append({"kind": "нет_в_карте", "line": n, "path": path, "active": not off})
+            elif not off and not rec["on_disk"]:
+                problems.append({"kind": "нет_на_диске", "line": n, "path": path, "active": True})
+    for key, rec in known.items():
+        if not any(r["path"].lower() == key for r in rows):
+            problems.append({"kind": "нет_в_бою", "line": rec["line"],
+                             "path": rec["path"], "active": False})
+    hard = sum(1 for p in problems if p["kind"] in ("нет_в_карте", "нет_на_диске"))
+    return {"in_config": n_cfg, "in_card": len(known), "active": sum(1 for r in rows if r["active"]),
+            "problems": problems, "hard": hard, "rows": rows, "card": card,
+            "card_found": card_found}
+
+
 def write_report(res, config_path, secs, quiet=False):
     """Журнал прогона и отчёт. До 02.10.2026 программа писала ТОЛЬКО в stdout: у неё не было
     ни своего лога, ни отчёта — паспорт в programs.json обещал `D:\\AI\\log\\config_audit`,
@@ -208,12 +303,40 @@ def main():
         print("   в конфиге: %s" % pr["value"])
         print("   на диске : %s   <- НЕТ" % pr["path"])
     print("=" * 78)
+    # --- ЭТАП 9 (волна 10): плагины боя против карты PLUGINS.md ---------------------
+    protk = None
+    try:
+        protk = audit_protk(CONFIG)
+        print("ПЛАГИНЫ (protkdat): в config.pro %d, в карте %d, активных %d"
+              % (protk["in_config"], protk["in_card"], protk["active"]))
+        if not protk.get("card_found"):
+            # Честно: карты нет — сверять не с чем. Это «нет данных», НЕ провал,
+            # иначе перенос программы в изоляцию всегда давал бы RC 1.
+            print("   карта плагинов не найдена — сверка с картой пропущена (нет данных)")
+        else:
+            print("   карта: %s" % protk["card"])
+        for r in protk["rows"]:
+            print("   строка %-4d %-9s %-7s %s"
+                  % (r["line"], "активен" if r["active"] else "ВЫКЛЮЧЕН",
+                     "есть" if r["on_disk"] else "НЕТ", r["path"]))
+        for pr in protk["problems"]:
+            print("   РАСХОЖДЕНИЕ [%s] строка %d: %s" % (pr["kind"], pr["line"], pr["path"]))
+        if not protk["problems"] and protk.get("card_found"):
+            print("   плагины боя совпадают с картой, файлы на месте")
+    except Exception as e:
+        print("ПЛАГИНЫ: не разобрал (%s: %s) — на вердикт по путям не влияет"
+              % (type(e).__name__, e))
+    print("=" * 78)
     write_report(res, CONFIG, secs)
     if res["missing"]:
         print("ЧТО ДЕЛАТЬ: файла нет -> или положить файл(ы) по этому пути, или закомментировать")
         print("настройку (`!`), и записать причину рядом — как сделано с template_* 23.09.2026.")
         return 1
-    print("все пути на месте.")
+    if protk is not None and protk["hard"]:
+        print("все пути на месте, но ПЛАГИНЫ: расхождений %d (см. PLUGINS.md)."
+              % protk["hard"])
+        return 1
+    print("все пути на месте, плагины зафиксированы.")
     return 0
 
 

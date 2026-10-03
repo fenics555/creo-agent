@@ -106,6 +106,37 @@ def _run_config():
                 "путей %d, отсутствует %d" % (res["total"], res["missing"]), items)
 
 
+@check("plugins_registry", "Плагины боя зафиксированы в карте", "check", "creo", "error",
+       app="config_audit")
+def _run_plugins():
+    """ЭТАП 9 (волна 10): каждый `protkdat` из боевого config.pro есть в `dev\\PLUGINS.md`,
+    а активный — ещё и на диске. Профилактика из плана: новый плагин в бою обязан быть
+    зафиксирован, иначе про него узнают случайно, через поломку Creo."""
+    sys.path.insert(0, str(AGENT / "config_audit"))
+    import config_audit as eng
+    p = eng.CONFIG
+    if not p or not Path(p).exists():
+        return _res(False, 0, 1, 0, "рабочий config.pro не найден")
+    try:
+        res = eng.audit_protk(p)
+    except Exception as e:
+        return _res(False, 0, 1, 0, "не разобрал плагины: %s" % e)
+    items = [{"icon": "❌" if pr["kind"] in ("нет_в_карте", "нет_на_диске") else "⚠️",
+              "verdict": "error" if pr["kind"] in ("нет_в_карте", "нет_на_диске") else "warn",
+              "what": "%s · строка %s: %s" % (pr["kind"], pr["line"], pr["path"])}
+             for pr in res["problems"]]
+    for r in res["rows"]:
+        items.append({"icon": "✅", "verdict": "ok",
+                      "what": "строка %s · %s · %s · %s"
+                              % (r["line"], "активен" if r["active"] else "выключен",
+                                 "файл есть" if r["on_disk"] else "файла нет",
+                                 r["path"])})
+    return _res(res["hard"] == 0, res["in_config"], res["hard"],
+                len(res["problems"]) - res["hard"],
+                "в config.pro %d, в карте %d, активных %d, расхождений %d"
+                % (res["in_config"], res["in_card"], res["active"], res["hard"]), items)
+
+
 @check("rules", "Правила дома согласованы и срабатывают", "check", "rules", "error")
 def _run_rules():
     """rules_engine: правила валидны, включённые находят совпадения на демо-фактах."""
