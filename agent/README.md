@@ -29,6 +29,15 @@ Creo**: формат листа, читаемость текста, обязат
 `drawing_report`. В едином прогоне это проверки `drawing_notes` и `hatch_audit`.
 Приёмка: `python dev\vol6_check.py`, живое окно: `python dev\vol6_win_live.py`.
 
+**Пакетные параметры, класс Ж (волна 7, 03.10.2026):** `batch_params\` — план пакетной
+правки параметров и переименования признаков **с планом, согласием и СТОП**. План строится
+без Creo (чтение файлов через `creo_read`) и пишется в `log\reports\PLAN_batch_params_*.md`
++ JSON; запись (`batch_params\apply.bat`) требует `--approve`, идёт через доказанный
+`set_param` и **при мёртвом CREOSON даёт честный отказ RC 2, а не «успех»**. Без согласия —
+RC 3, `--dry_run` — RC 0 без записи. Окно: `batch_params\batch_params_gui.bat`.
+Инструменты: `batch_params_plan`, `batch_params_apply`, `feature_rename_plan`.
+Приёмка: `python dev\vol7_check.py`, живое окно: `python dev\vol7_win_live.py`.
+
 ## Как работать с домом
 - **Управление:** `python ctl.py up [--browser] [--hidden]` — подъём стека
   (Ollama 11434, CREOSON 8080, copy-server 8000, агент 8765).

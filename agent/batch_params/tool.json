@@ -1,0 +1,29 @@
+{
+ "id": "batch_params",
+ "title": "Пакетные параметры и переименование признаков (план, согласие, СТОП)",
+ "version": 1,
+ "kind": "act",
+ "group": "Creo",
+ "needs_creo": true,
+ "class": "Ж",
+ "engine": "plan.py",
+ "gui": "gui.py",
+ "gui_bat": "batch_params_gui.bat",
+ "readme": "README.md",
+ "cli": ["--param ИМЯ=ЗНАЧЕНИЕ", "--approve", "--dry_run"],
+ "inputs": [
+   {"name": "root", "type": "path",
+    "default": "Z:\\PTC\\CREO-START\\Libraries\\Библиотека_стандартных_изделий",
+    "desc": "папка с моделями для плана"},
+   {"name": "param", "type": "string", "default": "GROUP=std",
+    "desc": "параметры через «;»: ИМЯ=ЗНАЧЕНИЕ"}
+ ],
+ "outputs": {"plan": "PLAN_batch_params_*.md", "report": "REPORT_batch_params_apply_*.md",
+             "log": "batch_params_*.json"},
+ "settings": "batch_params_settings.json",
+ "deps": ["creo_read", "creo_ops_tools", "ui_common"],
+ "approval": true,
+ "ui": "ui_common",
+ "rc": {"0": "применено или проба", "1": "часть шагов не вышла", "2": "нет CREOSON или нечего делать", "3": "нет согласия"},
+ "notes": "Класс Ж. План строится БЕЗ Creo (чтение файлов). Запись - только с approve, на копии, через доказанный set_param. При мёртвом CREOSON - честный отказ RC 2, а не «успех»."
+}
