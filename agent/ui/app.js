@@ -148,9 +148,55 @@ return '<div class="grp" style="margin:8px 0"><h4><span style="color:'+(p.pid?'#
 function rlJobs(){var els=document.querySelectorAll('.jobsline');if(!els.length)return;
 J('/api/jobs').then(function(d){els.forEach(function(e){e.textContent=((d||{}).lines)||'журнал пуст'})})
 .catch(function(){els.forEach(function(e){e.textContent='нужен перезапуск агента (AI_RESTART.bat)'})})}
+// ЗОНА «ОКНА И НАСТРОЙКИ» — строение по канону repo\ОКНА\01_СТРОЕНИЕ_ОКНА.md:
+// слой 3 «Блоки интерфейса» — НАСТРОЙКИ → ИСПОЛНИТЕЛИ → ОТЧЁТ, заголовки в ПРОБЕЛАХ.
+// Слой 5 «Работа» — запуск окна идёт через маршрут (отдельный процесс), витрина не висит.
+// Слой 6 «Отчёт» — плашка состояния канона (#fff1c7/#856404) + вывод последнего действия.
+var wgSel=null, wgFlt='';
+function guiZone(){
+ var z=document.getElementById('zone');
+ var h='<div class="grp"><h4> НАСТРОЙКИ </h4>'
+  +'<small style="color:#5a5a5a">что открыть и как запускать. Окна программ дома — 22 шт., список читается с диска.</small>'
+  +'<div style="display:flex;gap:8px;margin-top:8px;align-items:center">'
+  +'<input id="gzl_f" placeholder="фильтр по имени окна…" style="flex:1" value="'+esc(wgFlt)+'">'
+  +'<button class="sec" data-act="gzl_reload">🔄 Обновить список</button>'
+  +'<button class="sec" data-act="open_guis">🪟 Старый вид списка</button></div></div>';
+ z.innerHTML=h+'<div class="grp" id="gzl_exec"><h4> ИСПОЛНИТЕЛИ </h4><small style="color:#5a5a5a">загружаю…</small></div>'
+  +'<div class="grp"><h4> ОТЧЁТ </h4><div id="gzl_out" style="display:none;background:#fff1c7;color:#856404;font:11px Arial;padding:6px 8px;border-radius:4px"></div>'
+  +'<small style="color:#5a5a5a">Отчёт: последнее действие и его результат. Полный журнал — «📜 Лог агента» в меню.</small></div>';
+ var fi=document.getElementById('gzl_f');
+ if(fi)fi.addEventListener('input',function(){wgFlt=fi.value;gzlDraw()});
+ gzlLoad();
+}
+function gzlLoad(){
+ var box=document.getElementById('gzl_exec');if(!box)return;
+ box.innerHTML='<h4> ИСПОЛНИТЕЛИ </h4><small style="color:#5a5a5a">читаю список окон с диска…</small>';
+ J('/wiz_run_gui',{token:TK,list:'true'}).then(function(r){
+  if(r.error){box.innerHTML='<h4> ИСПОЛНИТЕЛИ </h4><span style="color:#c62828">'+esc(r.error)+'</span>';return}
+  wgAll=r.programs||[];gzlDraw()}).catch(function(e){
+  box.innerHTML='<h4> ИСПОЛНИТЕЛИ </h4><span style="color:#c62828">ошибка: '+esc(e)+'</span>'});
+}
+function gzlDraw(){
+ var box=document.getElementById('gzl_exec');if(!box)return;
+ var f=(wgFlt||'').toLowerCase();
+ var list=wgAll.filter(function(n){return n.toLowerCase().indexOf(f)>=0});
+ var h='<h4> ИСПОЛНИТЕЛИ <small style="color:#5a5a5a">окон: '+list.length+' из '+wgAll.length+'</small></h4>'
+  +'<small style="color:#5a5a5a">Запуск идёт отдельным процессом — витрина не блокируется. '
+  +'Опасное (чистка версий) просит подтверждения внутри окна.</small>'
+  +'<div style="display:flex;flex-wrap:wrap;gap:6px;margin-top:8px">';
+ list.forEach(function(n){
+  h+='<button class="sec" data-act="gzl_run" data-p="'+esc(n)+'" style="padding:4px 9px;font-size:12px">🪟 '+esc(n)+'</button>'});
+ if(!list.length)h+='<small style="color:#5a5a5a">окон не найдено</small>';
+ box.innerHTML=h+'</div>';
+}
+function gzlOut(msg,bad){
+ var o=document.getElementById('gzl_out');if(!o)return;
+ o.style.display='block';o.textContent=(bad?'❌ ':'✅ ')+msg;
+}
 function showZone(v){var z=document.getElementById('zone');if(!z)return;
 if(v=='chat'){z.style.display='none';chat.style.display='block';return}
 chat.style.display='none';z.style.display='block';
+if(v=='gui'){guiZone();return}
 if(v=='prog'){z.innerHTML='<div class="grp">⏳ читаю список программ дома…</div>';
 J('/api/programs').then(function(d){if(!d||!d.programs){z.innerHTML=rlNeed();return}
 var h='<div class="grp"><h4>🧰 ПРОГРАММЫ ДОМА <small style="color:#A6A8AB">список от '+esc(d.updated||'')+'</small></h4>'
@@ -289,6 +335,8 @@ else if(a=='close_cfaudit'){document.getElementById('wiz_cfaudit').style.display
 else if(a=='wiz_config_audit'){var cf=document.getElementById('cf_config').value,cfd=document.getElementById('cf_config').dataset.def||'Z:\\PTC\\CREO-START\\START-STD\\config.pro',cfo=document.getElementById('cf_out');cfo.innerHTML='<small style="color:#A6A8AB">проверяю пути конфига…</small>';J('/wiz_config_audit',{token:TK,config:cf||cfd}).then(function(g){if(g.error){cfo.innerHTML='<span style="color:#C64E4E">'+esc(g.error)+'</span>';return}var miss=(g.missing||0),t='<b>'+(g.total||0)+' путей проверено · битых: '+miss+'</b>';if(g.report){t+='<br><small style="color:#A6A8AB">отчёт: '+esc(g.report)+'</small>'}if(g.vars){t+='<br><small style="color:#A6A8AB">Creo: '+esc(g.vars['$PRO_DIRECTORY']||'')+'</small>'}var tb='<table style="width:100%;font-size:12px;border-collapse:collapse;margin-top:6px"><tr style="color:#A6A8AB;text-align:left"><th>Строка</th><th>Настройка</th><th>Путь на диске (НЕТ)</th></tr>';(g.problems||[]).forEach(function(w){tb+='<tr><td style="padding:2px 4px">'+esc(w.line)+'</td><td style="padding:2px 4px">'+esc(w.opt)+'</td><td style="padding:2px 4px;color:#C64E4E">'+esc(w.path)+'</td></tr>'});cfo.innerHTML=t+tb+'</table>'}).catch(function(e){cfo.innerHTML='<span style="color:#C64E4E">ошибка: '+esc(e)+'</span>'})}
 else if(a=='wiz_orphan_scan'){var oroot=document.getElementById('wo_root').value,o2=document.getElementById('wo_out');if(!oroot){alert('укажи папку');return}var n2=!/^[DE]:/i.test(oroot);if(n2&&!confirm('сетевой корень: осмотр может идти минутами. Продолжить?'))return;o2.innerHTML='<small style="color:#A6A8AB">смотрю…</small>';J('/wiz_orphan_preview',{token:TK,root:oroot}).then(function(g){if(g.error){o2.innerHTML='<span style="color:#C64E4E">'+esc(g.error)+'</span>';return}var s=g.stats||{},tb='<b>'+esc(s.total_drawings||0)+' чертежей · сирот '+(s.orphan||0)+'</b><br><small style="color:#A6A8AB">не сирот '+(s.not_orphan||0)+' · модель в другом месте '+(s.model_elsewhere||0)+'</small>';var t2='<table style="width:100%;font-size:12px;border-collapse:collapse;margin-top:5px">';(g.rows||[]).forEach(function(w){var col=(w.kind=='СИРОТА')?'#C64E4E':'#D0A030';t2+='<tr><td style="padding:2px 4px;color:'+col+'">'+esc(w.kind)+'</td><td style="padding:2px 4px">'+esc(w.path)+'</td></tr>'});t2+='</table>';o2.innerHTML=tb+t2}).catch(function(e){o2.innerHTML='<span style="color:#C64E4E">ошибка: '+esc(e)+'</span>'})}
 else if(a=='open_checks'){document.getElementById('wiz_checks').style.display='flex'}
+       else if(a=='gzl_reload'){gzlLoad()}
+       else if(a=='gzl_run'){var gp=el.getAttribute('data-p');gzlOut('запускаю '+gp+'…');J('/wiz_run_gui',{token:TK,program:gp}).then(function(r){if(r.error){gzlOut(r.error,true);return}gzlOut(r.msg||('запущено: '+gp))}).catch(function(e){gzlOut('ошибка: '+e,true)})}
        else if(a=='ui_readme'){ /* слой 7 канона ОКНА: README внутри окна, при ошибке — честная строка */
   J('/ui_readme',{token:TK}).then(function(r){var w=document.getElementById('wiz_readme');
    if(!w){return}
