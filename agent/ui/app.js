@@ -29,6 +29,17 @@ document.addEventListener('change',function(e){var el=e.target.closest('[data-cf
 document.addEventListener('input',function(e){var el=e.target.closest('[data-cfg]');if(!el||el.type!=='range')return;
  var b=el.parentElement.querySelector('[data-v="'+el.getAttribute('data-cfg')+'"]');if(b)b.textContent=' '+el.value});
 function esc(s){return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;')}
+// ДИАГНОСТИКА (слово владельца 03.10.2026: «не могу войти в дом»): ошибка JS раньше
+// просто терялась — страница выглядела живой, а вход не работал. Теперь любая ошибка
+// и необработанный отказ ПЕЧАТАЮТСЯ в блок входа, и вход не блокируется.
+window.addEventListener('error',function(ev){
+ var el=document.getElementById('lg_err');
+ if(!el){el=document.createElement('div');el.id='lg_err';
+  el.style.cssText='margin-top:8px;padding:6px 8px;background:#fff1c7;color:#856404;font:11px Consolas,monospace;white-space:pre-wrap;max-height:120px;overflow:auto';
+  var box=document.getElementById('login');
+  if(box&&box.firstElementChild)box.firstElementChild.appendChild(el)}
+ el.textContent='ошибка скрипта: '+(ev.message||ev)+'\n'+(ev.filename||'')+':'+(ev.lineno||'');
+});
 // ЗАПУСК ОКОН ПРОГРАММ ИЗ ВИТРИНЫ (03.10.2026, слово владельца «другой вызов окон»).
 // Список берётся с диска маршрутом /wiz_run_gui (list=true), запуск — тем же маршрутом.
 var wgAll=[];

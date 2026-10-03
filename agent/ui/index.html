@@ -1,6 +1,6 @@
 <!DOCTYPE html>
 <!-- CREO-AGENT UI v15 · data/ui/index.html · отдаётся agent.py do_GET else · UTF-8 без BOM -->
-<html><head><meta charset="utf-8"><title>АГЕНТ v15</title>
+<html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>АГЕНТ v15</title>
 <style>
 body{margin:0;background:radial-gradient(1100px 520px at 18% -8%,#1C2735 0%,#131417 55%,#111214 100%);background-attachment:fixed;color:#E8E8E8;font:14px/1.5 Segoe UI,sans-serif}
 #top{position:fixed;top:0;left:0;right:0;height:44px;box-sizing:border-box;background:linear-gradient(180deg,#24262B,#1B1D21);border-bottom:1px solid #1273EB;box-shadow:0 4px 18px rgba(0,0,0,.45);padding:6px 14px;display:flex;gap:8px;align-items:center;z-index:5;flex-wrap:nowrap;overflow:hidden;white-space:nowrap}
@@ -101,6 +101,17 @@ body.lay-v3 #zone{left:6px;right:326px;top:44px;bottom:74px}
 #wiz_readme>div{max-width:760px}
 #wo_out,#wp_out,#cfo,#pt_out,#ck_out,#wg_list{width:100%!important}
 #wg_list,#wr_txt,#pt_out,#ck_out{max-height:44vh}
+/* ==== РЕЗИНОВОСТЬ ОКНА И ВХОДА (слово владельца 03.10.2026: «не могу раздвинуть окно,
+   не могу войти в дом») ==== 1) `<meta viewport>` (добавлен) — без него страница
+   открывалась в мобильном масштабе: окно «не раздвивалось», поля входа были не по экрану.
+   2) Блоки входа и модальных окон получили overflow — содержимое больше окна прокручивается,
+   а не обрезается и не прячет кнопки. */
+#login,#wiz,#pro,#adm{overflow:auto;padding:16px 0}
+#login>div,#wiz>div,#pro>div,#adm>div{margin:auto;max-width:92vw}
+body{min-height:100vh}
+#chat,#zone,#panel,#rail{max-width:100%;overflow-wrap:break-word}
+#inp{flex-wrap:wrap}
+#inp #q{min-width:180px}
 /* ==== ПАЛИТРА ПО КАНОНУ ОКНА (repo\ОКНА\02_ДИЗАЙН_И_РАСКЛАДКА.md) ====
    Константы цитатой из конспекта и из каркаса ui_common.py:
      фон окна #f4f4f2 · логи #f8f9fa · приглушённый текст #5a5a5a · акцент #1f6fb2 ·
