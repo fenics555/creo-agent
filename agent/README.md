@@ -21,6 +21,14 @@
 в каркасе; `checks.py` — паспорт проверки и **единый прогон** всех проверок дома с одним
 отчётом и процентом соответствия (`python checks.py`, инструменты `checks_*`).
 
+**Аудит чертежа (волна 6, 03.10.2026):** `drawing_audit\` — проверка PDF-чертежей **без
+Creo**: формат листа, читаемость текста, обязательные плашки по чек-листу, графика
+(вектор или растр), пустые листы. Класс Р: ничего не рисует и не правит. Чек-лист живёт в
+`data\drawing_audit_settings.json` и меняется без кода. Запуск: `drawing_audit\drawing_audit.bat`
+(CLI), `drawing_audit\drawing_audit_gui.bat` (окно), инструменты `drawing_audit` /
+`drawing_report`. В едином прогоне это проверки `drawing_notes` и `hatch_audit`.
+Приёмка: `python dev\vol6_check.py`, живое окно: `python dev\vol6_win_live.py`.
+
 ## Как работать с домом
 - **Управление:** `python ctl.py up [--browser] [--hidden]` — подъём стека
   (Ollama 11434, CREOSON 8080, copy-server 8000, агент 8765).

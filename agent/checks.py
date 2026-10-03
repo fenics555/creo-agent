@@ -186,6 +186,58 @@ def _run_facts():
                  for f in facts[:5]])
 
 
+@check("drawing_notes", "Чертёж: плашки и формат листа", "check", "drawings", "warn",
+       app="drawing_audit")
+def _run_drawing_notes():
+    """drawing_audit: чек-лист плашек и формат листа на PDF-чертежах (волна 6, этап 4).
+
+    Читает боевую папку библиотеки. Текст, который PDF не отдаёт, даёт warn, а не
+    «нет плашек»: отсутствие данных - не дефект чертежа (безопасная деградация)."""
+    sys.path.insert(0, str(AGENT / "drawing_audit"))
+    import drawing_audit as eng
+    st = eng.load_settings()
+    res = eng.scan([Path(d) for d in (st.get("folders") or eng.DEFAULT_DIRS)], st)
+    if not res["files"]:
+        return _res(True, 0, 0, 1, "чертежей не найдено в %d папках настроек"
+                    % len(st.get("folders") or []))
+    notes = [r for r in res["rows"] if r["id"] == "notes_present"]
+    sheets = [r for r in res["rows"] if r["id"] == "sheet_size"]
+    bad_sheets = sum(1 for r in sheets if r["verdict"] == "error")
+    miss = sum(1 for r in notes if r["verdict"] == "warn")
+    items = [{"icon": "❌" if r["verdict"] == "error" else "⚠️",
+              "verdict": r["verdict"] if r["verdict"] == "error" else "warn",
+              "what": "%s: %s" % (Path(r["path"]).name, r["note"])}
+             for r in res["rows"] if r["id"] in ("sheet_size", "notes_present")
+             and r["verdict"] != "ok"]
+    return _res(bad_sheets == 0, len(res["files"]), bad_sheets, miss,
+                "чертежей %d, лист не распознан: %d, без полного чек-листа: %d "
+                "(чек-лист: %s)" % (res["checked"], bad_sheets, miss, st.get("notes")),
+                items)
+
+
+@check("hatch_audit", "Чертёж: графика и пустые листы", "check", "drawings", "warn",
+       app="drawing_audit")
+def _run_hatch():
+    """drawing_audit: штриховка/графика и пустые листы. Вектор ИЛИ растр: часть
+    боевых чертежей — сканы, векторной штриховки у них нет в принципе."""
+    sys.path.insert(0, str(AGENT / "drawing_audit"))
+    import drawing_audit as eng
+    st = eng.load_settings()
+    res = eng.scan([Path(d) for d in (st.get("folders") or eng.DEFAULT_DIRS)], st)
+    if not res["files"]:
+        return _res(True, 0, 0, 1, "чертежей не найдено в настройках")
+    rows = [r for r in res["rows"] if r["id"] in ("graphics", "hatch", "empty_page")]
+    bad = sum(1 for r in rows if r["verdict"] == "error")
+    warn = sum(1 for r in rows if r["verdict"] == "warn")
+    items = [{"icon": "❌" if r["verdict"] == "error" else "⚠️",
+              "verdict": "error" if r["verdict"] == "error" else "warn",
+              "what": "%s: %s" % (Path(r["path"]).name, r["note"])}
+             for r in rows if r["verdict"] != "ok"]
+    return _res(bad == 0, len(res["files"]), bad, warn,
+                "чертежей %d, пустых листов: %d, без графики: %d"
+                % (res["checked"], bad, warn), items)
+
+
 def registry(as_text=True):
     """Список всех зарегистрированных проверок."""
     if not as_text:

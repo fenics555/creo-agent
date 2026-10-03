@@ -1,0 +1,28 @@
+{
+ "id": "drawing_audit",
+ "title": "Аудит чертежа без Creo (плашки, штриховка, листы)",
+ "version": 1,
+ "kind": "check",
+ "group": "Creo",
+ "needs_creo": false,
+ "class": "Р",
+ "engine": "drawing_audit.py",
+ "gui": "gui.py",
+ "gui_bat": "drawing_audit_gui.bat",
+ "readme": "README.md",
+ "cli": ["--help"],
+ "inputs": [
+   {"name": "folders", "type": "paths",
+    "default": ["Z:\\PTC\\CREO-START\\Libraries\\Библиотека_стандартных_изделий\\Заклепки\\pdf"],
+    "desc": "папки с PDF-чертежами; по умолчанию 4 папки библиотеки"},
+   {"name": "notes", "type": "string", "default": "ГОСТ;СТ;МАСС;ТВОР.;ПРОВЕР;ИЗМ.",
+    "desc": "чек-лист обязательных плашек через «;»"}
+ ],
+ "outputs": {"report": "REPORT_drawing_audit_*.md", "log": "drawing_audit_*.csv"},
+ "settings": "drawing_audit_settings.json",
+ "deps": ["ui_common", "pymupdf"],
+ "approval": false,
+ "ui": "ui_common",
+ "rc": {"0": "ошибок нет", "1": "есть ошибки", "2": "нечего проверять"},
+ "notes": "Класс Р: ничего не чинит и не рисует. Читает PDF-чертежи и сверяет с чек-листом плашек из настроек. Проверено 03.10.2026 на боевой папке Заклепки\\pdf (6 файлов): 0 ошибок, 8 предупреждений."
+}
