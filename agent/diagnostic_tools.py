@@ -106,7 +106,7 @@ BLACK = {"creo_kill", "creo_stop", "creo_start", "creo_erase", "creo_save", "cre
          "creo_rename_model", "creo_purge_versions", "creo_print_pdf", "creo_mapkey", "creo_assemble",
          "creo_set_param", "creo_set_relations", "creo_set_units", "creo_backup", "creo_draw_regenerate",
          "copy_model", "spec_create_active", "model_learn", "backup_restore", "user_add", "user_role",
-         "settings_set", "index_run", "scan_run", "usage_build", "save_skill",
+         "settings_set", "index_run", "scan_run", "plm_scan", "save_skill",
          "diag_run", "diag_test", "probe_run", "creoson_full_test", "diag_learn"}
 
 def tool_probe_run(**kw):

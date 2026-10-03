@@ -30,7 +30,7 @@
 |---|---|---|
 | `data\agent.sqlite` | 217,9 МБ | память агента — единственная своя база |
 | `data\harvest.db` | 63,6 МБ | инвентарь моделей/файлов (`models_raw` 93 076, `pairs` 27 941) |
-| `plm_reader\db\plm_reader.db` | — | реестр изделий (**вне `data/`**, своей папкой) |
+| `plm_reader\db\plm_reader_<ГГГГММДД_ЧЧММСС>.db` | 66,5 МБ | ПЛМ: 26 071 изделие, 46 756 снимков, 24 877 связей, 122 968 изменений (**вне `data/`**, своей папкой; активная — свежайшая по имени, ротация 3 шт.) |
 | `D:\AI\continue\index\index.sqlite` | — | индекс Continue |
 
 **Настройки:** `data\config.json` — ЕДИНЫЙ хозяин (`settings.py`, `core.CONFIG_FILE`). Остальные 9 файлов
@@ -47,6 +47,28 @@
 
 **Проба перед удалением данных:** `python dev\store_audit_probe.py` (целостность и счётчики баз),
 `dev\data_audit_live.py` (живые ручки агента), `dev\heavy_bak_inspect.py` (метаданные тяжёлых бэкапов).
+
+## ПЛМ (переключение на ПЛМ-READER, 03.10.2026)
+Источник истины по изделиям, связям и изменениям — **автономная программа `plm_reader\`**, не таблицы агента.
+Агент — тонкая обёртка `plm_reader_tools.py`: она грузит `plm_reader\engine.py` **по явному пути**
+(`importlib`), потому что в доме четыре файла `engine.py` и обычный `import engine` может отдать чужой.
+
+- **Инструменты агента:** `plm_item`, `plm_tree`, `plm_where`, `plm_changes`, `plm_history`,
+  `plm_summary`, `plm_rename_plan`, `plm_scan` (apply=1 — запись, под щитом согласования),
+  `plm_ii` / `plm_status` (статус и ревизия — в агентской таблице `plm_statuses`: в самом
+  ПЛМ-READER полей lifecycle нет; извещения пишутся в `D:\AI\repo\Изменения\ИИ_*.md`).
+- **Витрина:** `graph_tools.py` и `map_tools.py` переведены на базу ПЛМ-READER (таблица `links`);
+  HTTP `/graph/data` и `/map/data` отдают тот же формат `{nodes, links}` / `{roots, top}`, что и раньше,
+  поэтому `ui\graph.html` и `ui\map.html` править не пришлось.
+- **Отключено 03.10.2026** (перенесено в `_disabled\`, код не удалён): `plm_tools.py` (`plm_mine`,
+  `plm_bom`, `plm_audit`, `models_where`) и `usage_tools.py` (`usage_build`, `usage_state`,
+  `models_where`). Причина — индекс `usage` пуст с 27.09 (`usage=0`), а `plm_bom=1324` строки держались
+  на выгрузке из него. Таблицы `plm_items/plm_bom/plm_changes` в `agent.sqlite` оставлены как архив —
+  новая запись в них не идёт.
+- **Ночной прогон** больше не строит `usage` (`agent_sched.py`, `nightly_tools.py`), `db_index_links`
+  отсылает к `plm_scan`.
+- **Песочница приёмки:** переменные окружения `PLM_SETTINGS` (настройки) и `PLM_DB_DIR` (папка базы).
+  Прогоны: `D:\AI\PROBA\plm_switch\accept_f1_20261003.py` (песочница) и `accept_f4_20261003.py` (боевая).
 
 ## Автономные программы дома
 Полная карта с разбором автономности: **`D:\AI\tools\README.md`**. Коротко:
@@ -79,6 +101,12 @@
   `python index_repo.py --keep` — дописать. Раньше не очищал и раздувал базу в 35 раз.
 - **Уборка ручных бэкапов:** `python -c "import backup; print(backup.sweep_manual(days=30))"` —
   сначала сухой прогон (ничего не удаляет), для удаления добавь `do=True`.
+- 03.10.2026 — **переключение ПЛМ на автономный PLM-READER** (подробности в разделе «ПЛМ»):
+  новый блок `plm_reader_tools.py` (10 инструментов), `graph`/`map` переведены на базу ПЛМ-READER,
+  старые `plm_tools.py` и `usage_tools.py` отключены (перенесены в `_disabled\`), 7 потребителей
+  старых имён исправлены (`loop`, `nightly_tools`, `agent_sched`, `db_tools`, `panel`, `prog_tools`,
+  `diagnostic_tools`). Приёмка: 9 из 9 на песочнице и 9 из 9 на боевой базе, провалов 0.
+  **Требует рестарта агента** (в памяти процесса PID 14136 от 03.10.2026 10:42 — старый код).
 ## Ссылки
 - Паспорт дома: `D:\AI\repo\PASSPORT.md` · Карта скиллов: `D:\AI\repo\SKILL_index.md`
 - Правила: `D:\AI\repo\MANIFEST.md` и `D:\AI\.clinerules`

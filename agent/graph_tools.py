@@ -1,74 +1,48 @@
 # -*- coding: utf-8 -*-
-"""graph_tools: build connection graph for a model."""
-import core
+r"""graph_tools: граф связей модели — источник теперь база ПЛМ-READER (03.10.2026).
 
-def _children_bom(name):
-    try:
-        c = core.db()
-        rows = c.execute("SELECT child FROM bom WHERE parent LIKE ?", ("%" + name + "%",)).fetchall()
-        c.close()
-        return [r[0] for r in rows]
-    except Exception:
-        return []
+Раньше блок читал агентские `bom/usage/links`, а `usage` пуст с 27.09 — граф был пустым.
+Теперь всё из `plm_reader\db\...\links` (parent/child) одним SQL на узел.
+"""
+import plm_reader_tools as PRT
 
-def _parents_bom(name):
-    try:
-        c = core.db()
-        rows = c.execute("SELECT parent FROM bom WHERE child LIKE ?", ("%" + name + "%",)).fetchall()
-        c.close()
-        return [r[0] for r in rows]
-    except Exception:
-        return []
 
-def _usage_links(name):
+def _both(name):
+    """(дети, родители) из links ПЛМ-READER — направление «вниз» и «вверх»."""
+    E = PRT.engine()
+    c = E.connect(ro=True)
     try:
-        c = core.db()
-        rows = c.execute("SELECT child FROM usage WHERE parent LIKE ?", ("%" + name + "%",)).fetchall()
+        like = "%" + name + "%"
+        kids = [r[0] for r in c.execute(
+            "SELECT child FROM links WHERE parent LIKE ?", (like,))]
+        pars = [r[0] for r in c.execute(
+            "SELECT parent FROM links WHERE child LIKE ?", (like,))]
+    finally:
         c.close()
-        return [r[0] for r in rows]
-    except Exception:
-        return []
+    return kids, pars
 
-def _cross_links(name):
-    try:
-        c = core.db()
-        rows = c.execute("SELECT child FROM links WHERE parent LIKE ?", ("%" + name + "%",)).fetchall()
-        c.close()
-        return [r[0] for r in rows]
-    except Exception:
-        return []
 
 def build_graph(name, depth=2):
-    nodes = []
+    nodes = [{"id": name, "name": name, "kind": "center", "meta": {}}]
     links = []
-    visited = set()
-    nodes.append({"id": name, "name": name, "kind": "center", "meta": {}})
-    visited.add(name)
-    for _ in range(depth):
-        new_nodes = []
+    visited = {name}
+    for _ in range(int(depth or 2)):
         for n in list(visited):
-            for child in _children_bom(n):
+            kids, pars = _both(n)
+            for child in kids:
                 if child not in visited:
                     visited.add(child)
                     nodes.append({"id": child, "name": child, "kind": "bom_child", "meta": {}})
                     links.append({"source": n, "target": child, "kind": "bom"})
-                    new_nodes.append(child)
-            for parent in _parents_bom(n):
+            for parent in pars:
                 if parent not in visited:
                     visited.add(parent)
                     nodes.append({"id": parent, "name": parent, "kind": "bom_parent", "meta": {}})
                     links.append({"source": parent, "target": n, "kind": "bom"})
-                    new_nodes.append(parent)
-    for u in _usage_links(name):
-        if u not in visited:
-            visited.add(u)
-            nodes.append({"id": u, "name": u, "kind": "usage", "meta": {}})
-            links.append({"source": name, "target": u, "kind": "usage"})
-    for lnk in _cross_links(name):
-        if lnk not in visited:
-            visited.add(lnk)
-            nodes.append({"id": lnk, "name": lnk, "kind": "link", "meta": {}})
-            links.append({"source": name, "target": lnk, "kind": "link"})
-    return {"nodes": nodes, "links": links}
+            if len(visited) > 600:          # предохранитель на больших сборках
+                break
+    return {"nodes": nodes, "links": links, "db": PRT._where_db()}
 
-TOOLS = [{"name": "graph", "desc": "\u0413\u0440\u0430\u0444 \u0441\u0432\u044f\u0437\u0435\u0439 \u043c\u043e\u0434\u0435\u043b\u0438", "params": {"name": "\u0438\u043c\u044f"}, "fn": build_graph}]
+
+TOOLS = [{"name": "graph", "desc": "Граф связей модели (данные из ПЛМ-READER)",
+          "params": {"name": "имя"}, "fn": build_graph}]

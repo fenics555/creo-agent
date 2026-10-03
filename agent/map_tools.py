@@ -1,37 +1,38 @@
 # -*- coding: utf-8 -*-
-"""map_tools.py: карта проекта — корневые каталоги и топ моделей по связям."""
-import os
-import core
+"""map_tools.py: карта проекта — корневые каталоги и топ моделей по связям.
+
+03.10.2026: переведена на базу ПЛМ-READER. Было три LEFT JOIN по агентским `usage/bom/links`,
+из которых `usage` пуст с 27.09, — карта теряла почти все связи. Теперь одна таблица `links`.
+"""
+import plm_reader_tools as PRT
 
 TOOLS = [
-    {"name": "map", "desc": "Карта проекта: корни и топ моделей по связям",
+    {"name": "map", "desc": "Карта проекта: корни и топ моделей по связям (ПЛМ-READER)",
      "params": {"top": "сколько топовых моделей"}, "fn": "build_map"}
 ]
 
 def build_map(top_n=100):
-    c = core.db()
+    """Корни папок и топ моделей по числу связей (вниз + вверх) из links ПЛМ-READER."""
+    E = PRT.engine()
+    c = E.connect(ro=True)
     try:
-        # степени моделей одним SQL с LEFT JOIN по трём таблицам (без цикла по строкам)
-        rows = c.execute("""
-            SELECT f.path,
-                   COALESCE(u.cnt, 0) + COALESCE(b.cnt, 0) + COALESCE(l.cnt, 0) AS links
-            FROM files f
-            LEFT JOIN (SELECT parent, COUNT(*) AS cnt FROM usage GROUP BY parent) u ON f.path = u.parent
-            LEFT JOIN (SELECT parent, COUNT(*) AS cnt FROM bom GROUP BY parent) b ON f.path = b.parent
-            LEFT JOIN (SELECT parent, COUNT(*) AS cnt FROM links GROUP BY parent) l ON f.path = l.parent
-        """).fetchall()
-        # группировка по корню (последний компонент родительского пути)
-        roots = {}
-        top = []
-        for path, links in rows:
-            d = os.path.dirname(path)
-            root = os.path.basename(d) if d else ""
-            roots.setdefault(root, {"name": root, "count": 0, "links": 0})
-            roots[root]["count"] += 1
-            roots[root]["links"] += links
-            top.append({"name": path, "root": root, "links": links})
-        root_list = sorted(roots.values(), key=lambda r: r["links"], reverse=True)
-        top_sorted = sorted(top, key=lambda t: t["links"], reverse=True)[:top_n]
-        return {"roots": root_list, "top": top_sorted}
+        rows = c.execute(
+            "SELECT designation, path, COALESCE(dn,0)+COALESCE(up,0) AS links FROM ("
+            "  SELECT s.designation AS designation, s.path AS path,"
+            "         (SELECT COUNT(*) FROM links l WHERE l.parent = s.designation) AS dn,"
+            "         (SELECT COUNT(*) FROM links l WHERE l.child  = s.designation) AS up"
+            "  FROM snapshots s WHERE s.designation IS NOT NULL AND s.designation != ''"
+            ") ORDER BY links DESC LIMIT ?", (int(top_n or 100),)).fetchall()
     finally:
         c.close()
+    roots = {}
+    top = []
+    for des, path, cnt in rows:
+        folder = path.replace("/", "\\").rsplit("\\", 1)[0] if path else ""
+        root = folder.rsplit("\\", 1)[-1] if folder else ""
+        r = roots.setdefault(root, {"name": root, "count": 0, "links": 0})
+        r["count"] += 1
+        r["links"] += cnt
+        top.append({"name": des, "path": path, "root": root, "links": cnt})
+    return {"roots": sorted(roots.values(), key=lambda r: r["links"], reverse=True)[:30],
+            "top": top, "db": PRT._where_db()}

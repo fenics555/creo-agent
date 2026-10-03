@@ -105,8 +105,10 @@ def db_index_kb():
 
 
 def db_index_links():
-    subprocess.Popen([sys.executable, "-c", "import usage_tools; usage_tools.build_usage(True)"], cwd=AGENT_DIR)
-    return {"msg": "пересбор базы связей запущен в фоне (тяжёлый); состояние — db_state или usage_state"}
+    """03.10.2026: индекс `usage` мёртв (пуст с 27.09), связи теперь ведёт ПЛМ-READER.
+    Пересбор базы связей = скан ПЛМ-READER (`plm_scan`), он пишет свою базу, не таблицу агента."""
+    return {"msg": "пересбор связей перенесён в ПЛМ-READER: вызови plm_scan apply=1 "
+                   "(новая база в plm_reader\\db). Таблица usage агента больше не используется."}
 
 
 TOOLS = [

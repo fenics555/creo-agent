@@ -187,7 +187,7 @@ def load_skill(name):
 
 _CORE = (
     "creo_get_active", "creo_status", "creo_session", "creo_list_files",
-    "models_find", "models_where", "models_stats", "usage_state",
+    "models_find", "plm_item", "plm_tree", "plm_where", "plm_summary",
     "search_kb", "read_file", "trail_predict", "trail_problems",
     "settings_show", "help", "tools_help",
 )
@@ -509,7 +509,7 @@ def run_loop(messages, client, has_link=False, on_step=None, opts_and_steps=None
             pl = (payload or "").strip()
             tail = (" Инструмент вернул: «%s»." % last_res[:200]) if last_res else ""
             if _refusal(pl) or (len(pl) < 80 and pl.lower() in _NUDGE.lower()):
-                pl = "Ответ модели не распознан." + tail + " Уточни запрос (пример: models_where q=<имя детали>) или введи прямую команду инструмента."
+                pl = "Ответ модели не распознан." + tail + " Уточни запрос (пример: plm_where q=<имя детали>) или введи прямую команду инструмента."
             return {"answer": _clean(pl), "think": think, "steps": step + 1, "log": steps_log}
         name = payload
         sig = (name, json.dumps(args, sort_keys=True, ensure_ascii=False))

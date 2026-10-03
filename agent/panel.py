@@ -81,7 +81,7 @@ def build():
         "creo_pwd": "📁", "creo_list_files": "📄", "creo_find_model": "🔍",
         "creo_get_params": "📋", "creo_get_relations": "🔗", "creo_get_mass": "⚖",
         "creo_save": "💾", "copy_model": "📑", "creo_audit_folder": "🧹",
-        "usage_build": "🧩", "trail_analyze": "📈", "trail_problems": "⚠",
+        "plm_scan": "🧩", "trail_analyze": "📈", "trail_problems": "⚠",
         "trail_predict": "🔮", "calc": "🧮", "search_kb": "📚",
         "read_file": "📖", "vision_analyze": "👁", "backup_make": "💼",
         "git_sync": "⎇", "chat_send": "💬", "help": "❓",

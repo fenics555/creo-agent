@@ -183,7 +183,7 @@ def bases_list(as_json=False, **kw):
         out.append("    %s" % r["path"])
         out.append("    внутри: %s" % r["what"])
     out.append("\nОБНОВИТЬ: индекс дома — prog_run prog_id=harvest; индекс знаний — index_run; "
-               "PLM — plm_mine; состав — usage_build. Журнал работ — jobs_show.")
+               "PLM - plm_item; состав - plm_tree; входимость - plm_where. Журнал работ - jobs_show.")
     return "\n".join(out)
 
 

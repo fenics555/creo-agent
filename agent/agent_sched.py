@@ -24,7 +24,8 @@ def _scheduler():
                             elif t == "index":
                                 log("night index: %s" % scanner.index_all())
                             elif t == "usage":
-                                import usage_tools; usage_tools.build_usage(True)
+                                # 03.10.2026: индекс usage мёртв (пуст с 27.09), БД-связи ведёт ПЛМ-READER
+                                log("night usage: пропущено — связи ведёт PLM-READER (plm_scan)")
                             elif t == "backup":
                                 import backup; backup._do(); import backup_tools; log(backup_tools.tool_housekeeping()); log(backup_tools.tool_drift_check())
                             elif t == "drafts":
