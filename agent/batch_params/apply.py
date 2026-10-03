@@ -48,9 +48,13 @@ def creoson_ready(timeout=3):
         s.close()
     try:
         import subprocess
+        # КОДИРОВКА: tasklist в cp866, а дефолт utf-8 роняет reader-thread с
+        # UnicodeDecodeError и stdout приходит None (живой факт 03.10.2026).
         ps = subprocess.run(["tasklist", "/FI", "IMAGENAME eq parametric.exe"],
-                            capture_output=True, text=True, timeout=20)
-        if "parametric.exe" not in ps.stdout:
+                            capture_output=True, text=True, encoding="cp866",
+                            errors="replace", timeout=20)
+        out = ps.stdout or ""
+        if "parametric.exe" not in out:
             return False, ("CREOSON отвечает, но Creo не запущен (parametric.exe нет). "
                            "Запись параметров без него невозможна.")
     except Exception as e:
@@ -70,6 +74,47 @@ def creoson_alive(timeout=3):
         return False
     finally:
         s.close()
+
+
+def ensure_active(target_file, retries=3, pause=1.0):
+    """ЩИТ «ТОЛЬКО КОПИЯ»: активная модель в Creo ДОЛЖНА быть целевой.
+
+    ИНЦИДЕНТ 03.10.2026 (см. dev\\incident_din439.py): `file:open` с полным путём
+    НЕ переключает окно - активируется модель с тем же стемом, уже открытая в сессии
+    (боевая `Z:\\...\\din439.prt` вместо копии `D:\\AI\\PROBA\\vol7_copy\\din439.prt`).
+    Из-за этого `file:save` отвечал «ok», а параметр уходил в БОЕВУЮ модель.
+    Поэтому перед любой записью сверяем: кто реально активен.
+    Возвращает (ok, причина).
+    """
+    import time
+    import creo_tools as CT
+    want_name = str(Path(target_file).name).lower()
+    want_dir = str(Path(target_file).parent).lower().rstrip("\\/")
+
+    def norm_dir(s):
+        # CREOSON отдаёт путь с УДВОЕННЫМ диском («Z:Z:/PTC/...») и слэшами.
+        s = str(s).replace("\\", "/").lower()
+        while "//" in s:
+            s = s.replace("//", "/")
+        while len(s) > 1 and s[1] == ":":
+            s = s[1:]                      # убрать повтор диска
+        return s.rstrip("/")
+
+    for i in range(int(retries)):
+        j = CT.creo_call("file", "get_active", {}, 20)
+        d = j.get("data") if CT.ok(j) else None
+        if isinstance(d, dict):
+            got = str(d.get("file") or "").lower()
+            got_dir = norm_dir(d.get("dirname") or "")
+            # Сверка ПО ПУТИ: сверка по имени не годится - стен у боевой и копии
+            # одинаковый, именно это и вызвало инцидент 03.10.2026.
+            if got == want_name and got_dir == norm_dir(want_dir):
+                return True, "активна целевая модель %s (%s)" % (got, d.get("dirname"))
+            return False, ("активна ДРУГАЯ модель: %s (%s) — запись прервана, цель была %s (%s)"
+                           % (got or "неизвестна", d.get("dirname") or "?", want_name,
+                              Path(target_file).parent))
+        time.sleep(pause)
+    return False, "CREOSON не отдал активную модель — запись прервана"
 
 
 def set_param(model, name, value):
@@ -117,8 +162,16 @@ def apply_plan(plan, approve=False, copy_only=True, dry_run=False, on_log=None):
             log("СТОП на шаге %d из %d" % (i, len(steps)))
             return {"rc": 0, "detail": "остановлено СТОП на шаге %d" % i,
                     "done": len(results), "results": results, "stopped": True}
-        if s["file"] not in seen:
-            seen.add(s["file"])          # одну модель открываем логически один раз
+        # ЩИТ «ТОЛЬКО КОПИЯ»: активная модель обязана совпадать с целевой.
+        # Без этой сверки запись уходит в модель с тем же стемом (инцидент 03.10.2026).
+        same, why_active = ensure_active(s["file"])
+        if not same:
+            results.append({"file": s["name"], "param": s["param"], "ok": False,
+                            "note": why_active})
+            log("СТОП-ЩИТ: %s" % why_active)
+            return {"rc": 4, "detail": why_active, "done": sum(1 for r in results
+                                                              if r["ok"]),
+                    "results": results, "stopped": True, "shield": "wrong_active_model"}
         ok, note = set_param(Path(s["file"]).stem, s["param"], s["value"])
         results.append({"file": s["name"], "param": s["param"], "ok": ok, "note": note})
         log("%s %s %s=%s" % ("OK " if ok else "FAIL", s["name"], s["param"], s["value"]))
