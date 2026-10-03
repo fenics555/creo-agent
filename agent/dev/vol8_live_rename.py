@@ -40,6 +40,7 @@ def main():
     import runner as R
 
     ready, why = BA.creoson_ready()
+    import rename_tools as RT
     ok("стек готов", ready, why)
     if not ready:
         print("СТОП: без стека проба невозможна.")
@@ -83,6 +84,19 @@ def main():
     ok("без согласия RC 3", R.run_plan(plan, approve=False)["rc"] == 3)
 
     # 5. С СОГЛАСИЕМ — запись через сам runner
+    # ЖИВАЯ НАХОДКА 03.10.2026 (два дефекта, оба проверены пробой):
+    #  1) `file:close_window` отвечает «успех», но модель ОСТАЁТСЯ в сессии — убирает
+    #     только `file:erase` (цитата пробы: после erase сессия = ['vol8_probe.prt']).
+    #  2) висящая в памяти модель с новым именем роняет переименование:
+    #     «Error renaming model; check to see there isn't another model in memory
+    #     with the same name».
+    CT.creo_call("file", "erase", {"file": "vol8_ren_renamed.prt"}, 30)
+    CT.creo_call("file", "erase", {"file": "vol8_ren.prt"}, 30)
+    time.sleep(1)
+    jo2 = CT.creo_call("file", "open", {"file": src.name, "dirname": str(src.parent),
+                                        "activate": True, "display": True}, 90)
+    ok("сессия очищена, копия открыта заново", CT.ok(jo2),
+       ", ".join(RT._session()) if RT._session() else "сессия пуста")
     res = R.run_plan(plan, approve=True, on_log=lambda s: print("  | " + s))
     ok("plan_run вернул успех", res["rc"] == 0 and res.get("done", 0) == 1,
        "RC %s: %s" % (res.get("rc"), res.get("detail")))
@@ -95,6 +109,15 @@ def main():
     old_left = list(src.parent.glob("vol8_ren.prt*"))
     ok("старое имя осталось (копия не пропала)", bool(old_left),
        ", ".join(p.name for p in old_left))
+
+    # 7. ОТКАТ: возвращаем имя обратно, иначе следующий прогон упадёт по «same name»
+    CT.creo_call("file", "erase", {"file": "vol8_ren_renamed.prt"}, 30)
+    time.sleep(1)
+    back = RT.tool_rename_model(old_name=str(new_name), new_name=str(src), dry_run=0)
+    time.sleep(1)
+    back_files = sorted(p.name for p in src.parent.glob("vol8_ren*"))
+    ok("откат: имя возвращено", any(f.startswith("vol8_ren.") for f in back_files),
+       "%s | %s" % (", ".join(back_files), str(back)[:120]))
 
     print("-" * 78)
     print("ИТОГ ЖИВОЙ ПРОБЫ rename_model: %s (провалов %d)"

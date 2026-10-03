@@ -101,8 +101,12 @@ def plan_for_file(path, params):
                       "old": "" if old is None else str(old),
                       "verdict": verdict, "note": note})
     return steps
-def build_plan(root=None, params=None, limit=MAX_FILES):
-    """План целиком: файлы × параметры. Ничего не пишет на диске модели."""
+def build_plan(root=None, params=None, limit=MAX_FILES, only=None):
+    """План целиком: файлы × параметры. Ничего не пишет на диске модели.
+
+    `only` — явный список файлов (живая проба волны 8 бьёт по одной копии, а папка
+    пробы может лежать рядом с чужими моделями: без этого в плане появлялись лишние
+    write-шаги, и щит отказывал RC 4 «активна ДРУГАЯ модель»)."""
     try:
         params = parse_params(params)
     except ValueError as e:
@@ -110,7 +114,7 @@ def build_plan(root=None, params=None, limit=MAX_FILES):
     if not params:
         return {"error": "не задано ни одного параметра (нужно --param ИМЯ=ЗНАЧЕНИЕ)",
                 "steps": [], "files": []}
-    files, missing = find_models(root, limit)
+    files, missing = (list(only), None) if only else find_models(root, limit)
     steps = []
     for f in files:
         steps += plan_for_file(f, params)

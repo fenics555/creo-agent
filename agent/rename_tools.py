@@ -63,8 +63,14 @@ def _latest(wd, base, ext):
 
 
 def _source_ext(wd, base):
+    """Расширение исходной модели.
+
+    Живая находка 03.10.2026 (волна 8, шаг rename_model): файл может лежать БЕЗ номера
+    версии (`vol8_ren.prt`) — прежний код смотрел только на `base + ext + ".*"` (версии)
+    и отвечал «нет файлов», хотя модель открыта и лежит рядом. Поэтому сперва сам файл,
+    и только потом версии."""
     for ext in (".prt", ".asm"):
-        if _latest(wd, base, ext):
+        if (Path(wd) / (base + ext)).exists() or _latest(wd, base, ext):
             return ext
     return ""
 

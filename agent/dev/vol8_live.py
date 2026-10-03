@@ -96,7 +96,8 @@ def main():
 
     # 6. ПЛАН: план batch_params переводим в единый формат
     import plan as BPP
-    bp = BPP.build_plan(str(COPY_DIR), ["%s=%s" % (PARAM, VALUE)], limit=5)
+    bp = BPP.build_plan(str(COPY_DIR), ["%s=%s" % (PARAM, VALUE)], limit=5,
+                        only=[str(COPY_MODEL)])
     plan = F.from_batch_params(bp)
     plan["title"] = "Живая проба plan_run: %s=%s" % (PARAM, VALUE)
     good, errs = F.validate(plan)
