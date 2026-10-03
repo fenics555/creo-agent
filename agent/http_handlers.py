@@ -690,6 +690,50 @@ class Hd(BaseHTTPRequestHandler):
                                 "stats": _RE.stats(_new), "error": None})
             except Exception as _rx_e:
                 return self._j({"error": "%s: %s" % (type(_rx_e).__name__, _rx_e)})
+        elif p == "/wiz_batch":
+            # ПАКЕТНЫЙ РЕЖИМ — по образцу B&W (конспект 17, §7 «Batch Mode»):
+            # таблица Name | Progress | Status | Fixed Errors + СВОДКА В ЗАГОЛОВКЕ окна.
+            # Источник — живой журнал `/api/jobs` («РАБОТА <id>: запущено/завершено»),
+            # а не выдуманные цифры: прогресс и «исправлено ошибок» берутся из текста строк.
+            if not cl:
+                return self._j({"error": "нужен вход"})
+            import re as _re2
+            try:
+                # ЖИВОЙ источник — `core.jobs_tail()` (его же зовёт /api/jobs и инструмент
+                # jobs_show). Метода `prog_tools.journal_lines()` в доме НЕТ.
+                _lines = core.jobs_tail(400)
+            except Exception as _jl_e:
+                return self._j({"error": "журнал работ не прочитан: %s" % _jl_e, "rows": []})
+            runs = {}
+            for ln in str(_lines).splitlines():
+                m = _re2.search(r"(\d\d-\d\d \d\d:\d\d:\d\d)\s+\D*РАБОТА\s+([A-Za-z0-9_]+):\s*(запущено|завершено)(.*)", ln)
+                if not m:
+                    continue
+                ts, pid, kind, tail = m.groups()
+                r = runs.setdefault(pid, {"name": pid, "started": None, "finished": None,
+                                          "status": "неизвестно", "code": None, "secs": None,
+                                          "fixed": None, "log": ""})
+                if kind == "запущено":
+                    r["started"] = ts
+                    r["status"] = "Выполняется"
+                else:
+                    r["finished"] = ts
+                    c = _re2.search(r"code=(-?\d+)", tail)
+                    s = _re2.search(r"секунд=([\d.]+)", tail)
+                    lg = _re2.search(r"лог=(\S+)", tail)
+                    r["code"] = int(c.group(1)) if c else None
+                    r["secs"] = float(s.group(1)) if s else None
+                    r["log"] = lg.group(1) if lg else ""
+                    r["status"] = "Готово" if r["code"] == 0 else ("Ошибка" if r["code"] else "Завершено")
+            out = list(runs.values())[-60:]
+            out.reverse()
+            done = sum(1 for x in out if x["status"] == "Готово")
+            bad = sum(1 for x in out if x["status"] == "Ошибка")
+            tot = sum(x["secs"] or 0 for x in out)
+            return self._j({"rows": out, "total": len(out), "done": done, "failed": bad,
+                            "summary": "Пакетный режим, %d прогонов — %d успешно, %d с ошибкой, "
+                                       "%.1f с суммарно" % (len(out), done, bad, tot),
+                            "secs_total": round(tot, 1), "error": None})
         elif p == "/wiz_setg":
             # ТАБЛИЦА НАСТРОЕК ДОМА — по образцу B&W (конспект 17, §4 «Окно настроек
             # SMARTUpdate»): Option | Value | Status | Description, вкладки, кнопки

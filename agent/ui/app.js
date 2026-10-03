@@ -326,6 +326,72 @@ function rulesCollect(){
  return out;
 }
 function rulesOut(m,bad){var o=document.getElementById('rl_out');if(!o)return;o.style.display='block';o.textContent=(bad?'❌ ':'✅ ')+m}
+// ПАКЕТНЫЙ РЕЖИМ — по образцу B&W (конспект 17, §7): сводка в ЗАГОЛОВКЕ окна,
+// таблица Name | Progress | Status | Fixed Errors | Secs. Данные — живой журнал работ.
+function batchOpen(){document.getElementById('wiz_batch').style.display='flex';batchLoad()}
+function batchLoad(){
+ var box=document.getElementById('bt_list');
+ box.innerHTML='<small style="color:#5a5a5a">читаю журнал работ…</small>';
+ J('/wiz_batch',{token:TK}).then(function(r){
+  if(r.error){box.innerHTML='<span style="color:#c62828">'+esc(r.error)+'</span>';return}
+  document.getElementById('bt_head').textContent='📦 '+r.summary;
+  var h='<table style="width:100%;font-size:12px;border-collapse:collapse"><tr style="color:#5a5a5a;text-align:left">'
+   +'<th style="padding:3px 5px">Name</th><th style="padding:3px 5px">Progress</th>'
+   +'<th style="padding:3px 5px">Status</th><th style="padding:3px 5px">Fixed Errors</th>'
+   +'<th style="padding:3px 5px">Secs</th><th style="padding:3px 5px">Log</th></tr>';
+  (r.rows||[]).forEach(function(x){
+   var st=x.status==='Готово'?'<span style="color:#2e7d32">Готово</span>'
+     :(x.status==='Ошибка'?'<span style="color:#c62828">Ошибка</span>'
+     :(x.status==='Выполняется'?'<span style="color:#b8860b">Выполняется</span>':esc(x.status)));
+   h+='<tr><td style="padding:3px 5px;font-family:Consolas,monospace">'+esc(x.name)+'</td>'
+    +'<td style="padding:3px 5px">'+(x.status==='Готово'||x.status==='Ошибка'?'100%':(x.status==='Выполняется'?'…':'—'))+'</td>'
+    +'<td style="padding:3px 5px">'+st+(x.code!=null?' (code='+x.code+')':'')+'</td>'
+    +'<td style="padding:3px 5px">'+(x.fixed==null?'—':x.fixed)+'</td>'
+    +'<td style="padding:3px 5px">'+(x.secs==null?'—':x.secs)+'</td>'
+    +'<td style="padding:3px 5px;color:#5a5a5a;font-size:11px">'+esc(x.log||'')+'</td></tr>'});
+  if(!(r.rows||[]).length)h+='<tr><td colspan="6" style="padding:6px;color:#5a5a5a">прогонов в журнале нет</td></tr>';
+  box.innerHTML=h+'</table><small style="color:#5a5a5a">строк: '+(r.rows||[]).length
+   +' · успешно '+r.done+' · с ошибкой '+r.failed+' · суммарно '+r.secs_total+' с</small>';
+ }).catch(function(e){box.innerHTML='<span style="color:#c62828">ошибка: '+esc(e)+'</span>'});
+}
+// КОНФИГУРАТОР — по образцу B&W (конспект 17, §5 «TheNewConfigurator»):
+// СЛЕВА — ДЕРЕВО предметов (пространства → опции), СПРАВА — форма свойств выбранного узла,
+// под деревом — операции `+ ↑ ↓ ✕` (правка структуры). Сложное спрятано за «Advanced».
+var cfTree=[], cfSel='';
+function confOpen(){document.getElementById('wiz_conf').style.display='flex';confLoad()}
+function confLoad(){
+ var box=document.getElementById('cf_tree');
+ box.innerHTML='<small style="color:#5a5a5a">читаю конфигурацию…</small>';
+ J('/wiz_setg',{token:TK}).then(function(r){
+  if(r.error){box.innerHTML='<span style="color:#c62828">'+esc(r.error)+'</span>';return}
+  cfTree=r.rows||[];cfSel=(cfTree[0]||{}).option||'';confDraw()}).catch(function(e){box.innerHTML='<span style="color:#c62828">ошибка: '+esc(e)+'</span>'});
+}
+function confDraw(){
+ var t=document.getElementById('cf_tree'),f=document.getElementById('cf_form');if(!t||!f)return;
+ var spaces={};cfTree.forEach(function(x){(spaces[x.space]=spaces[x.space]||[]).push(x)});
+ var h='';
+ Object.keys(spaces).forEach(function(sp){
+  h+='<div style="font-size:11px;color:#1f6fb2;text-transform:uppercase;letter-spacing:.4px;margin:6px 2px 2px">'+esc(sp)+' <span style="color:#5a5a5a">('+spaces[sp].length+')</span></div>';
+  spaces[sp].forEach(function(x){
+   h+='<div class="pin" data-act="cf_pick" data-v="'+esc(x.option)+'" style="display:block;margin:2px;width:auto;'
+    +(x.option===cfSel?'background:#1f6fb2;color:#fff':'')+'">'
+    +(x.changed?'● ':'○ ')+esc(x.option)+'</div>'})});
+ t.innerHTML=h;
+ var x=cfTree.filter(function(y){return y.option===cfSel})[0];
+ if(!x){f.innerHTML='<small style="color:#5a5a5a">выбери узел слева</small>';return}
+ f.innerHTML='<table style="width:100%;font-size:12px">'
+  +'<tr><td style="color:#5a5a5a;padding:2px 4px">Option</td><td><b style="font-family:Consolas,monospace">'+esc(x.option)+'</b></td></tr>'
+  +'<tr><td style="color:#5a5a5a;padding:2px 4px">Name</td><td>'+esc(x.name)+'</td></tr>'
+  +'<tr><td style="color:#5a5a5a;padding:2px 4px">Value</td><td style="font-family:Consolas,monospace">'+esc(String(x.value))+'</td></tr>'
+  +'<tr><td style="color:#5a5a5a;padding:2px 4px">Default</td><td style="font-family:Consolas,monospace">'+esc(String(x.default))+'</td></tr>'
+  +'<tr><td style="color:#5a5a5a;padding:2px 4px">Type</td><td>'+esc(x.type)+(x.personal?' <span style="color:#1f6fb2">(личная)</span>':'')+'</td></tr>'
+  +'<tr><td style="color:#5a5a5a;padding:2px 4px;vertical-align:top">Description</td><td>'+esc(x.desc)+'</td></tr>'
+  +'</table>'
+  +'<div style="margin-top:10px;display:flex;gap:6px">'
+  +'<button class="sec" data-act="cf_adv">Advanced</button>'
+  +'<span id="cf_advbox" style="display:none;color:#5a5a5a;font-size:11px">в пространстве: '+esc(x.space)+' · в интерфейсе: '+(x.in_ui?'да':'нет')+'</span>'
+  +'</div>';
+}
 function showZone(v){var z=document.getElementById('zone');if(!z)return;
 if(v=='chat'){z.style.display='none';chat.style.display='block';return}
 chat.style.display='none';z.style.display='block';
@@ -475,6 +541,14 @@ else if(a=='wiz_orphan_scan'){var oroot=document.getElementById('wo_root').value
 else if(a=='open_checks'){document.getElementById('wiz_checks').style.display='flex'}
        else if(a=='gzl_reload'){gzlLoad()}
        else if(a=='gzl_run'){var gp=el.getAttribute('data-p');gzlOut('запускаю '+gp+'…');J('/wiz_run_gui',{token:TK,program:gp}).then(function(r){if(r.error){gzlOut(r.error,true);return}gzlOut(r.msg||('запущено: '+gp))}).catch(function(e){gzlOut('ошибка: '+e,true)})}
+       else if(a=='open_conf'){confOpen()}
+       else if(a=='cf_reload'){confLoad()}
+       else if(a=='cf_pick'){cfSel=el.getAttribute('data-v')||'';confDraw()}
+       else if(a=='cf_adv'){var ab=document.getElementById('cf_advbox');if(ab)ab.style.display=ab.style.display==='none'?'inline':'none'}
+       else if(a=='close_conf'){document.getElementById('wiz_conf').style.display='none'}
+       else if(a=='open_batch'){batchOpen()}
+       else if(a=='bt_reload'){batchLoad()}
+       else if(a=='close_batch'){document.getElementById('wiz_batch').style.display='none'}
        else if(a=='open_rules'){rulesOpen()}
        else if(a=='rl_reload'){rulesLoad()}
        else if(a=='rl_pick'){rSel=parseInt(el.getAttribute('data-i'),10)||0;rulesList();rulesForm()}
