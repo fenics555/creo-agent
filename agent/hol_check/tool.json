@@ -1,0 +1,25 @@
+{
+ "id": "hol_check",
+ "title": "Проверка таблиц отверстий (.hol)",
+ "version": 1,
+ "kind": "check",
+ "group": "Creo",
+ "needs_creo": false,
+ "class": "Р",
+ "engine": "hol_check.py",
+ "gui": "gui.py",
+ "gui_bat": "hol_check_gui.bat",
+ "readme": "README.md",
+ "cli": ["--help"],
+ "inputs": [
+  {"name": "folders", "type": "paths", "default": ["Z:\\PTC\\CREO-START\\НАСТРОЙКИ\\ТАБЛИЦА_ОТВЕРСТИЙ"],
+   "desc": "папки с .hol; по умолчанию боевая + СТАРОЕ"}
+ ],
+ "outputs": {"report": "REPORT_hol_check_*.md", "log": "hol_check_*.csv"},
+ "settings": "hol_check_settings.json",
+ "deps": ["ui_common"],
+ "approval": false,
+ "ui": "ui_common",
+ "rc": {"0": "ошибок нет", "1": "есть ошибки", "2": "нечего проверять"},
+ "notes": "Класс Р: ничего не чинит, только читает. Ищет разорванные имена колонок в шапке THREAD_DATA — причину ошибки err_holechart от 18.09.2026."
+}
