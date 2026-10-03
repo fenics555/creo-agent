@@ -432,12 +432,33 @@ z.innerHTML=h;rlJobs()}).catch(function(){z.innerHTML=rlNeed()})}}
 setInterval(rlJobs,60000); // ход работ дома: тихое обновление, если блок открыт
 
 /* ==== ВИД ОКНА: v1 вкладки сверху · v2 боковое меню · v3 пульт (личная настройка ui_layout) ==== */
-function applyLayout(v,save){if(v!='v1'&&v!='v2'&&v!='v3')v='v2';LAY=v;document.body.className='lay-'+v;localStorage.setItem('lay',v);
+function applyLayout(v,save){if(v!='v1'&&v!='v2'&&v!='v3'&&v!='v4')v='v2';LAY=v;document.body.className='lay-'+v;localStorage.setItem('lay',v);
 document.querySelectorAll('.lay').forEach(function(x){x.classList.toggle('on',x.getAttribute('data-val')==v)});
 if(save)J('/setcfg',{token:TK,key:'ui_layout',value:v});
 var z=document.getElementById('zone');
 if(v=='v3'){zonePult()}
+else if(v=='v4'){chat.style.display='block';bwFill()}
 else if(z&&z.classList.contains('pult')){z.classList.remove('pult');z.style.display='none';chat.style.display='block'}}
+// ПРАВАЯ ПАНЕЛЬ МАКЕТА B&W: наполнение живыми данными, три смысловые группы.
+function bwFill(){
+ var g=document.getElementById('bwp_guis'),p=document.getElementById('bwp_prog'),c=document.getElementById('bwp_chk');
+ if(!g)return;
+ g.innerHTML='<small style="color:#5a5a5a">читаю…</small>';
+ J('/wiz_run_gui',{token:TK,list:'true'}).then(function(r){
+  g.innerHTML=(r.programs||[]).map(function(n){return '<span class="bwb_i" style="cursor:pointer" data-act="bw_run" data-v="'+esc(n)+'">'+esc(n)+'</span>'}).join('')
+   ||'<small style="color:#5a5a5a">окон нет</small>'}).catch(function(){});
+ p.innerHTML='<small style="color:#5a5a5a">читаю…</small>';
+ fetch('/api/programs',{headers:{'X-Token':TK||''}}).then(function(r){return r.json()}).then(function(d){
+  var ps=(d||{}).programs||[];
+  p.innerHTML=ps.slice(0,24).map(function(x){return '<span class="bwb_i" title="'+esc(x.title||'')+'">'+esc(x.id)+'</span>'}).join('')
+   +'<br><span class="bwb_n">всего программ: '+ps.length+'</span>'}).catch(function(){});
+ c.innerHTML='<span class="bwb_i" data-act="open_checks">✅ Проверки дома</span>'
+  +'<span class="bwb_i" data-act="open_tools">🧰 Инструменты</span>'
+  +'<span class="bwb_i" data-act="open_setg">⚙ Настройки</span>'
+  +'<span class="bwb_i" data-act="open_rules">📜 Правила</span>'
+  +'<span class="bwb_i" data-act="open_conf">🧭 Конфигуратор</span>'
+  +'<span class="bwb_i" data-act="open_batch">📦 Пакетный</span>';
+}
 function fillPstate(){var el=document.getElementById('pstate');var s=window.ST;if(!el||!s)return;
 // счётчики в меню — из ЖИВОГО /status, а не зашитые числа (они протухают каждый ход)
 var nt=document.getElementById('rl_ntools');if(nt)nt.textContent=s.tools||'—';
@@ -557,6 +578,13 @@ else if(a=='open_checks'){document.getElementById('wiz_checks').style.display='f
        else if(a=='cf_pick'){cfSel=el.getAttribute('data-v')||'';confDraw()}
        else if(a=='cf_adv'){var ab=document.getElementById('cf_advbox');if(ab)ab.style.display=ab.style.display==='none'?'inline':'none'}
        else if(a=='close_conf'){document.getElementById('wiz_conf').style.display='none'}
+       else if(a=='bw_run'){var bn2=el.getAttribute('data-v');
+ J('/wiz_run_gui',{token:TK,program:bn2}).then(function(r){
+  if(r.error){qinp.value='ошибка: '+r.error;return}
+  qinp.value=r.msg||('запущено: '+bn2)})}
+       else if(a=='bw_apply'){J('/status').then(function(s){if(s)qinp.value='статус: '+s.host+' · '+s.model+' · инструментов '+s.tools})}
+       else if(a=='bw_close'){applyLayout('v2',true)}
+       else if(a=='open_tools'){showZone('tools');applyLayout('v2',false)}
        else if(a=='open_batch'){batchOpen()}
        else if(a=='bt_reload'){batchLoad()}
        else if(a=='close_batch'){document.getElementById('wiz_batch').style.display='none'}
