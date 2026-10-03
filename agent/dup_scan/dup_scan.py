@@ -143,16 +143,41 @@ def main(argv):
         if a == "--apply":
             apply_ = True
         elif a == "--min-mb":
+            # ЖИВАЯ НАХОДКА 03.10.2026 (аудит): раньше `--min-mb` без значения ронял программу
+            # IndexError, а мусорный ключ молча становился ПАПКОЙ для поиска. Теперь — честный отказ.
+            if i + 1 >= len(argv):
+                print("НЕВЕРНЫЙ --min-mb: нужно число МБ")
+                return 3
+            try:
+                min_mb = float(argv[i + 1])
+            except ValueError:
+                print("НЕВЕРНЫЙ --min-mb: '%s' — не число" % argv[i + 1])
+                return 3
+            if min_mb < 0:
+                print("НЕВЕРНЫЙ --min-mb: %s (минимум 0)" % min_mb)
+                return 3
             i += 1
-            min_mb = float(argv[i])
         elif a == "--ext":
+            if i + 1 >= len(argv):
+                print("НЕВЕРНЫЙ --ext: нужно перечисление расширений")
+                return 3
             i += 1
             exts = {x.strip().lower().lstrip(".") for x in argv[i].split(",") if x.strip()}
+        elif a.startswith("--"):
+            print("неизвестный ключ: %s" % a)
+            print("ключи: --apply | --min-mb <МБ> | --ext <prt,asm,…>")
+            return 3
         else:
             roots.append(a.replace('"', ""))
         i += 1
     if not roots:
         print("укажи хотя бы одну папку")
+        return 2
+    # ЖИВАЯ НАХОДКА 03.10.2026 (аудит): несуществующая папка печаталась и уходила с кодом 0 —
+    # выглядело как «проверил, двойников нет». Теперь честный отказ (как у log_clean).
+    missing = [p for p in roots if not os.path.isdir(p)]
+    if missing:
+        print("НЕТ ТАКОЙ ПАПКИ: %s" % ", ".join(missing))
         return 2
 
     f, logp = log_open()

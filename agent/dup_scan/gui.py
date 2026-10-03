@@ -18,7 +18,7 @@ from tkinter import filedialog, messagebox, ttk
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 import dup_scan as eng  # noqa: E402
 
-SETTINGS = Path(__file__).resolve().parent / "gui_settings.json"
+SETTINGS = Path(r"D:\AI\tools\agent\data\dup_scan_settings.json")   # манифест п.19: настройки в data\
 
 
 class App:
@@ -37,12 +37,27 @@ class App:
                 d.update(json.loads(SETTINGS.read_text(encoding="utf-8")))
         except Exception:
             pass
+        # ЖИВАЯ НАХОДКА 03.10.2026 (аудит): список папок лежал в StringVar, и `list(StringVar.get())`
+        # давал СПИСОК СИМВОЛОВ — в gui_settings.json попадало ['(', "'", 'D', ':', '\\', …].
+        # Перезапуск окна показывал одну «папку» из скобок, и поиск искал несуществующий путь.
+        # Раньше это лечили в cmnm_scan — здесь грабля повторилась. Теперь битый список выкидываем.
+        roots = [r for r in (d.get("roots") or []) if isinstance(r, str) and len(r) > 2]
+        d["roots"] = roots
+        try:
+            d["min_mb"] = max(0.0, float(d.get("min_mb") or 0.0))
+        except Exception:
+            d["min_mb"] = 0.0
+        if d.get("mode") not in ("report", "apply"):
+            d["mode"] = "report"
         return d
 
     def save(self):
         try:
-            self.st.update({"roots": list(self.roots_var.get()), "ext": self.var_ext.get(),
+            # roots читаем ИЗ САМОГО СПИСКА, а не из roots_var: StringVar.get() отдаёт строку
+            # «('D:\\AAA', …)», и старая запись клала в настройки список букв.
+            self.st.update({"roots": list(self.lst.get(0, "end")), "ext": self.var_ext.get(),
                             "min_mb": float(self.var_min.get()), "mode": self.var_mode.get()})
+            SETTINGS.parent.mkdir(parents=True, exist_ok=True)
             SETTINGS.write_text(json.dumps(self.st, ensure_ascii=False, indent=1), encoding="utf-8")
         except Exception:
             pass
@@ -108,14 +123,19 @@ class App:
         except Exception as e:
             messagebox.showwarning("Не открыть", "%s\n%s" % (p, e))
 
+    def roots(self):
+        """Список папок ИЗ САМОГО Listbox. StringVar.get() отдаёт строку «('D:\\AAA', …)»,
+        и list(...) из неё даёт список СИМВОЛОВ — это и ломало настройки (живая проба 03.10.2026)."""
+        return list(self.lst.get(0, "end"))
+
     def selected_root(self):
         sel = self.lst.curselection()
-        return self.roots_var.get()[sel[0]] if sel else ""
+        return self.roots()[sel[0]] if sel else ""
 
     def add_root(self):
         p = filedialog.askdirectory()
         if p:
-            roots = list(self.roots_var.get())
+            roots = self.roots()
             if p not in roots:
                 roots.append(p)
                 self.roots_var.set(roots)
@@ -124,14 +144,14 @@ class App:
         sel = self.lst.curselection()
         if not sel:
             return
-        roots = list(self.roots_var.get())
+        roots = self.roots()
         roots.pop(sel[0])
         self.roots_var.set(roots)
         self.save()
 
     # ---------- поиск и перенос ----------
     def run_find(self):
-        roots = list(self.roots_var.get())
+        roots = self.roots()
         if not roots:
             return messagebox.showwarning("Нет папок", "Добавьте хотя бы одну папку")
         self.save()
