@@ -93,11 +93,21 @@ def ensure_active(target_file, retries=3, pause=1.0):
 
     def norm_dir(s):
         # CREOSON отдаёт путь с УДВОЕННЫМ диском («Z:Z:/PTC/...») и слэшами.
-        s = str(s).replace("\\", "/").lower()
+        # ДЕФЕКТ (живая находка волны 8, 03.10.2026): старый цикл
+        #   while len(s) > 1 and s[1] == ":": s = s[1:]
+        # съедал не только повторный диск, но и НАСТОЯЩИЙ: "d:d:/ai/x" -> "d:/ai/x"
+        # (условие снова верно, s[1] это ":") -> ":/ai/x". Поэтому щит отказывал
+        # по копии, у которой пути совпадали на глаз. Убираем повтор, ПОКА дальше
+        # не двоеточие, и восстанавливаем букву диска, если она потерялась.
+        s = str(s).replace("\\", "/").lower().strip()
         while "//" in s:
             s = s.replace("//", "/")
-        while len(s) > 1 and s[1] == ":":
-            s = s[1:]                      # убрать повтор диска
+        if len(s) >= 2 and s[1] == ":":
+            drive = s[0]
+            while len(s) >= 3 and s[1] == ":" and s[2] != ":":
+                s = s[2:]
+            if not s.startswith(drive + ":"):
+                s = drive + s
         return s.rstrip("/")
 
     for i in range(int(retries)):
@@ -172,7 +182,7 @@ def apply_plan(plan, approve=False, copy_only=True, dry_run=False, on_log=None):
             return {"rc": 4, "detail": why_active, "done": sum(1 for r in results
                                                               if r["ok"]),
                     "results": results, "stopped": True, "shield": "wrong_active_model"}
-        ok, note = set_param(Path(s["file"]).stem, s["param"], s["value"])
+        ok, note = set_param(s["file"], s["param"], s["value"])   # ПОЛНЫЙ ПУТЬ, не стем
         results.append({"file": s["name"], "param": s["param"], "ok": ok, "note": note})
         log("%s %s %s=%s" % ("OK " if ok else "FAIL", s["name"], s["param"], s["value"]))
         time.sleep(0.05)                  # пауза, чтобы не долбить CREOSON

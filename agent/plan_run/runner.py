@@ -49,6 +49,73 @@ def _steps_to_write(plan):
     return [s for s in plan.get("steps", []) if s.get("risk") == "write"]
 
 
+def exec_step(s, BA):
+    """Выполнить ОДИН пишущий шаг по его `what`. Возвращает (ok, note).
+
+    Замысел спеки: «любой новый писающий механизм выражается планом». Значит
+    исполнитель зн��ет не конкретный инструмент, а раздаёт шаги по имени.
+    Каждая ветка зовёт ДОКАЗАННЫЙ путь дома, своего вызова CREOSON не вводим.
+
+    Ветки:
+      set_param     — параметр (доказан волной 7) + обязательное `file:save`;
+      rename_model  — переименование (доказан `rename_tools`, onlysession+save).
+    """
+    what = str(s.get("what", "")).strip()
+    args = s.get("args", {}) or {}
+    target = str(s.get("where", ""))
+
+    if what == "set_param":
+        # КОНТРАКТ (живая находка 03.10.2026): CREOSON НЕ берёт стем без
+        # расширения — «Invalid File Name». Берёт имя с расширением ИЛИ полный
+        # путь. Даём полный путь: он же сверен щитом выше.
+        ok, note = BA.set_param(target, args.get("param"), args.get("value"))
+        if not ok:
+            return False, note
+    elif what == "rename_model":
+        try:
+            import rename_tools as RT
+        except Exception as e:
+            return False, "движок rename_tools недоступен: %s" % e
+        old_name = str(args.get("old_name") or "")
+        new_name = str(args.get("new_name") or "")
+        # ЗАМЕЧАНИЕ КОНТРАКТА (живая находка 03.10.2026): rename_tools принимает
+        # ТОЛЬКО ИМЯ и работает в рабочей папке Creo. С абсолютным путём он
+        # отвечает «новое имя: латиница/цифры/_-» - и этот ответ НЕ содержит
+        # слов «ошибка», поэтому фильтр по словам давал ЛОЖНЫЙ УСПЕХ.
+        # Поэтому успех rename проверяем НА ДИСКЕ, а не по тексту ответа.
+        res = RT.tool_rename_model(old_name=old_name, new_name=new_name,
+                                   dry_run=1 if s.get("dry_run") else 0)
+        note = res if isinstance(res, str) else str(res)
+        if s.get("dry_run"):
+            return True, note
+        made = Path(new_name).exists() or bool(list(Path(new_name).parent.glob(
+            Path(new_name).name + "*"))) if Path(new_name).parent.exists() else False
+        if not made:
+            return False, ("нового имени на диске нет: %s | ответ механизма: %s "
+                           "(rename работает по РАБОЧЕЙ ПАПКЕ Creo и принимает "
+                           "только имя, не путь)" % (new_name, note[:160]))
+        return True, "%s | новое имя на диске: %s" % (note[:120], new_name)
+    else:
+        return False, "шаг %s: неизвестная операция «%s» (исполнитель умеет: %s)"\
+            % (s.get("n"), what or "—", ", ".join(STEPS_KNOWN))
+
+    # СОХРАНЕНИЕ — обязательная часть шага (живая находка 03.10.2026):
+    # `parameter:set` меняет ТОЛЬКО СЕССИЮ. Без `file:save` на диске ничего
+    # не появляется, и проверка по файлу честно говорит «параметра нет».
+    # Волна 7 делала save руками в пробе — в механизме шага его не было.
+    if s.get("save", True):
+        import creo_tools as CT
+        js = CT.creo_call("file", "save", {"file": target}, 60)
+        if not CT.ok(js):
+            return False, "%s | СОХРАНЕНИЕ НЕ ВЫШЛО: %s" % (note, CT.errmsg(js))
+        time.sleep(1.5)   # Creo пишет версию файла не мгновенно
+        note = "%s | сохранено" % note
+    return True, note
+
+
+STEPS_KNOWN = ("set_param", "rename_model")
+
+
 def run_plan(plan, approve=False, dry_run=False, on_log=None):
     """Исполнить план. Возвращает словарь с rc/detail/results.
 
@@ -117,15 +184,15 @@ def run_plan(plan, approve=False, dry_run=False, on_log=None):
             return {"rc": 4, "detail": why_active,
                     "done": sum(1 for r in results if r["ok"]), "results": results,
                     "stopped": True, "shield": "wrong_active_model"}
-        # Шаг kind=batch_params: what=set_param, args={param, value}.
+        # Шаг уходит диспетчеру по полю `what`.
+        ok_step, note = exec_step(s, BA)
         args = s.get("args", {}) or {}
-        ok_step, note = BA.set_param(Path(s.get("where", "")).stem,
-                                     args.get("param"), args.get("value"))
         results.append({"n": s.get("n"), "file": s.get("target"),
                         "param": args.get("param"), "ok": ok_step, "note": note})
-        log_line("%s шаг %s %s %s=%s" % ("OK" if ok_step else "FAIL", s.get("n"),
-                                         s.get("target"), args.get("param"),
-                                         args.get("value")))
+        log_line("%s шаг %s %s %s=%s (сохранение: %s)"
+                 % ("OK" if ok_step else "FAIL", s.get("n"), s.get("target"),
+                    args.get("param"), args.get("value"),
+                    "да" if ok_step else "НЕТ"))
         time.sleep(0.05)   # не долбим CREOSON
 
     done = sum(1 for r in results if r["ok"])
