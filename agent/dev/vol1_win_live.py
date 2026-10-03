@@ -12,7 +12,24 @@ sys.stdout = io.TextIOWrapper(sys.stdout.buffer, encoding="utf-8", errors="repla
 AGENT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(AGENT))
 
+SETTINGS_LIVE = AGENT / "data" / "config_audit_settings.json"
+
 fail = []
+backup = None
+
+
+def keep_settings():
+    """Проба НЕ трогает боевые настройки окна: копируем и возвращаем (грабля 03.10.2026:
+    проба с недоступным путём записала его в data\config_audit_settings.json)."""
+    global backup
+    if SETTINGS_LIVE.exists():
+        backup = SETTINGS_LIVE.read_text(encoding="utf-8")
+
+
+def restore_settings():
+    if backup is not None:
+        SETTINGS_LIVE.write_text(backup, encoding="utf-8")
+        print("настройки окна возвращены из копии")
 
 
 def ok(name, cond, detail=""):
@@ -24,6 +41,7 @@ def ok(name, cond, detail=""):
 def check_config_audit():
     sys.path.insert(0, str(AGENT / "config_audit"))
     import gui as g
+    import config_audit as eng
     app = g.App()
     app.root.update_idletasks()
     ok("config_audit: окно собрано", app.root.winfo_exists() == 1)
@@ -31,15 +49,18 @@ def check_config_audit():
        str(app.root.minsize()))
     ok("config_audit: таблица настроек", hasattr(app, "tbl") and
        len(app.tbl.spec) >= 1, "строк: %d" % len(getattr(app, "tbl").spec))
-    # кнопка «По умолчанию» и «Отменить изменения» живы
+    # кнопка «По умолчанию» жива: значение меняем и возвращаем (файл не трогаем)
+    keep_now = app.tbl.vals.get("last_config")
     app.tbl.vals["last_config"] = r"Z:\нет\config.pro"
     app.tbl.refresh()
     ok("config_audit: точка «изменено»", app.tbl.changed("last_config") is True)
     app.tbl.set_defaults()
     ok("config_audit: «По умолчанию» вернул", app.tbl.changed("last_config") is False)
-    # реальная проверка на живом config.pro, если он есть
-    p = app.var_path.get()
-    if Path(p).exists():
+    # ЖИВАЯ проверка: путь берём у движка, а НЕ из настроек — иначе проба пройдёт
+    # по битому пути и запишет его обратно (грабля 03.10.2026).
+    p = eng.CREO.find_config()[0]
+    app.var_path.set(p)
+    if p and Path(p).exists():
         t0 = time.time()
         app.run()
         for _ in range(60):          # ждём поток не дольше ~3 с
@@ -57,6 +78,7 @@ def check_config_audit():
             ok("config_audit: строки с иконкой статуса", rows >= 0, "строк: %d" % rows)
     else:
         print("ПРОПУСК живой проверки: config.pro не найден по %s" % p)
+    app.tbl.vals["last_config"] = keep_now
     app.root.destroy()
 
 
@@ -73,8 +95,12 @@ def check_dup_scan():
 
 if __name__ == "__main__":
     t0 = time.time()
-    check_config_audit()
-    check_dup_scan()
+    keep_settings()                  # проба не должна оставлять битый путь в настройках
+    try:
+        check_config_audit()
+        check_dup_scan()
+    finally:
+        restore_settings()
     print("=== ИТОГ: %s (провалов %d) за %.2f с ===" % (
         "ОК" if not fail else "НЕ ОК", len(fail), time.time() - t0))
     sys.exit(1 if fail else 0)

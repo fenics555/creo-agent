@@ -11,7 +11,7 @@ import sys
 import time
 import tkinter as tk
 from pathlib import Path
-from tkinter import filedialog, messagebox, ttk
+from tkinter import filedialog, messagebox
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
@@ -208,20 +208,7 @@ class App:
         except Exception as e:
             messagebox.showerror("Не сохранить", str(e))
 
-    def show_readme(self):
-        p = Path(__file__).resolve().parent / "README.md"
-        try:
-            text = p.read_text(encoding="utf-8")
-        except Exception as e:
-            self.log("README не прочитан: %s" % e)
-            return
-        self.log("=" * 100)
-        self.log("README: %s" % p)
-        self.log("=" * 100)
-        for line in text.splitlines():
-            self.log(line)
-        self.log("=" * 100)
-        self.log("конец README")
+    # README теперь показывает каркас (U.readme_button) — свой метод не нужен.
 
 
 if __name__ == "__main__":

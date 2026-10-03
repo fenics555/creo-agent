@@ -13,6 +13,10 @@
 | `doctor.py` | ⛔ **ПРАВИТ ЖИВОЕ**: перезаписывает боевой `Z:\PTC\CREO-START\START-STD\CREO-START.bat` и запускает `GIT_SYNC.bat`. **Не запускать ради проверки** — только по слову владельца | по слову владельца |
 | `make_spec_one.py` | сборщик `spec_tools.py` (изменять источники, не результат) | вручную |
 | `prog_runner.py` | обёртка запуска движка в фоне (зовёт `prog_tools.py`) | из агента |
+| `win_check.py` | **ОКНА (волна 1, 03.10.2026):** 6 признаков каждого окна (каркас `ui_common`, кнопка README, minsize, заголовок, тяжёлое в потоке, настройки в `data\`) + **живая сборка Tk** каркаса. Отчёт в `D:\AI\log\win_check\` | `python dev\win_check.py` |
+| `vol1_check.py` | приёмка типов инструментов (волна 1): 163 инструмента, разметка `kind`, фильтры `tools_help`, `tools_card` | `python dev\vol1_check.py` |
+| `vol1_win_live.py` | живая сборка окон волны 1 (`config_audit`, `dup_scan`) + нажатие кнопок таблицы и запуск проверки в потоке | `python dev\vol1_win_live.py` |
+| `vol1_probe_hang.py` | проба с замером по шагам: находит шаг, на котором окно зависает. Писать с `flush=True` и запускать `python -u` | по надобности |
 | `perf_probe.py`, `netdiag.ps1`, `creo_gate_*.py`, `fix_users.py`, `skills_charge.py`, `GIT_SYNC_ALL.bat`, `PROGRAM_REGISTRY.md` | замеры, сеть, щит Creo, починка логинов, заряд скиллов, синк репо, реестр программ | по надобности |
 
 Отчёт проверки скиллов: `D:\AI\log\skills_check\skills_check_report.txt`.

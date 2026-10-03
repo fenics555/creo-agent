@@ -8,12 +8,10 @@
 import json
 import os
 import time
-import subprocess
 import sys
-import threading
 import tkinter as tk
 from pathlib import Path
-from tkinter import filedialog, messagebox, ttk
+from tkinter import filedialog, messagebox
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
@@ -178,6 +176,7 @@ class App:
 
     # ---------- поиск и перенос ----------
     def run_find(self):
+        """Поиск двойников — в потоке каркаса (окно не замирает, константа 5)."""
         roots = self.roots()
         if not roots:
             return messagebox.showwarning("Нет папок", "Добавьте хотя бы одну папку")
@@ -189,17 +188,17 @@ class App:
             self.tree.delete(i)
         self.res = None
         self.b_apply.config(state="disabled")
+        self.status.set("ищу двойники…")
         self.log("ищу двойников: %s (%.1f+ МБ, расширения: %s)" %
                  ("; ".join(roots), float(self.var_min.get()), ", ".join(sorted(exts)) or "все"))
 
         def work():
-            try:
-                res = eng.find_dups(roots, exts, min_bytes, progress=lambda s: self.root.after(0, self.log, s))
-            except Exception as e:
-                self.root.after(0, lambda: messagebox.showerror("Ошибка поиска", str(e)))
-                return
-            self.root.after(0, lambda: self.show(res))
-        threading.Thread(target=work, daemon=True).start()
+            return eng.find_dups(roots, exts, min_bytes,
+                                 progress=lambda s: self.root.after(0, self.log, s))
+
+        U.run_in_thread(self.root, work, on_done=self.show,
+                        on_error=lambda e: self.status.set("ошибка поиска"),
+                        log=self.log)
 
     def show(self, res):
         self.res = res
