@@ -77,7 +77,10 @@ def _row(pid, c, err, pd, pd_err):
     if pd_err:
         flags.append("витрина: %s" % pd_err)
     if not c:
-        flags.append("контракта нет")
+        if pd.get("contract"):
+            flags.append("контракт не полагается — %s" % pd["contract"].split("(", 1)[-1].rstrip(")"))
+        else:
+            flags.append("контракта нет")
     if not pd.get("status"):
         flags.append("состояния нет")
     state = pd.get("status") or DASH
@@ -122,7 +125,9 @@ def build():
         lines.append("")
     mismatch = []
     for pid in sorted(set(contracts) | set(progs)):
-        if pid not in contracts:
+        # запись может честно помечать «контракт не полагается» — это не расхождение
+        opt_out = bool(progs.get(pid, {}).get("contract"))
+        if pid not in contracts and not opt_out:
             mismatch.append("%s — есть в витрине, контракта tool.json нет" % pid)
         if pid not in progs:
             mismatch.append("%s — контракт есть, в списке витрины нет" % pid)
