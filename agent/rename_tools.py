@@ -70,14 +70,23 @@ def _session():
 
 
 def _parents(wd, base):
-    """Родительские сборки модели: база usage + поиск по .asm рабочей папки."""
+    """Родительские сборки модели.
+
+    03.10.2026: было «база usage + поиск по .asm». Таблица `usage` пуста с 27.09, поэтому из базы
+    приходили нули; источник истины теперь `links` ПЛМ-READER (та же база, что у plm_* и витрины).
+    Локальный поиск по .asm рабочей папки сохранён как добавка.
+    """
     names = []
     try:
-        c = core.db()
-        rows = c.execute(
-            "SELECT DISTINCT parent FROM usage WHERE child=?", (base.lower(),)
-        ).fetchall()
-        c.close()
+        import plm_reader_tools as PRT
+        E = PRT.engine()
+        key = E.stem(base)          # тот же ключ, что у do_where: без пути и расширения
+        c = E.connect(ro=True)
+        try:
+            rows = c.execute("SELECT DISTINCT parent FROM links WHERE child=?",
+                             (key,)).fetchall()
+        finally:
+            c.close()
         names = [r[0] for r in rows if r and r[0]]
     except Exception:
         names = []

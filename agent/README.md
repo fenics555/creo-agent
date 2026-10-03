@@ -103,10 +103,14 @@
   сначала сухой прогон (ничего не удаляет), для удаления добавь `do=True`.
 - 03.10.2026 — **переключение ПЛМ на автономный PLM-READER** (подробности в разделе «ПЛМ»):
   новый блок `plm_reader_tools.py` (10 инструментов), `graph`/`map` переведены на базу ПЛМ-READER,
-  старые `plm_tools.py` и `usage_tools.py` отключены (перенесены в `_disabled\`), 7 потребителей
-  старых имён исправлены (`loop`, `nightly_tools`, `agent_sched`, `db_tools`, `panel`, `prog_tools`,
-  `diagnostic_tools`). Приёмка: 9 из 9 на песочнице и 9 из 9 на боевой базе, провалов 0.
-  **Требует рестарта агента** (в памяти процесса PID 14136 от 03.10.2026 10:42 — старый код).
+  старые `plm_tools.py` и `usage_tools.py` отключены (перенесены в `_disabled\`), потребители старых
+  имён исправлены в `loop`, `nightly_tools`, `agent_sched`, `db_tools`, `panel`, `prog_tools`,
+  `diagnostic_tools`, `http_handlers` (`/wiz_plmtree` — тоже грузил движок через `sys.path`),
+  `rename_tools` (родители брались из мёртвой `usage`), витрина (`app.js`, `index.html`).
+  Приёмка: 9 из 9 на песочнице, 9 из 9 на боевой базе, 5 из 5 ручек HTTP-витрины, провалов 0.
+  Агент перезапущен 03.10.2026 12:27 (PID 16024), приёмка рестарта трёхчастная — пройдена.
+  Перезапуск делается точечно: `taskkill /PID <из agent.pid>` + `python ctl.py up --hidden`.
+  `AI_RESTART.bat` и `ctl.py down` НЕ применять без нужды — они сносят CREOSON и Ollama.
 ## Ссылки
 - Паспорт дома: `D:\AI\repo\PASSPORT.md` · Карта скиллов: `D:\AI\repo\SKILL_index.md`
 - Правила: `D:\AI\repo\MANIFEST.md` и `D:\AI\.clinerules`

@@ -16,13 +16,15 @@ def build_map(top_n=100):
     E = PRT.engine()
     c = E.connect(ro=True)
     try:
+        # 03.10.2026: было без GROUP BY — одно обозначение приходило столько раз, сколько
+        # у него версий файлов, и карта показывала MM_PART трижды. Теперь одна строка на изделие.
         rows = c.execute(
-            "SELECT designation, path, COALESCE(dn,0)+COALESCE(up,0) AS links FROM ("
+            "SELECT designation, MIN(path) AS path, COALESCE(dn,0)+COALESCE(up,0) AS links FROM ("
             "  SELECT s.designation AS designation, s.path AS path,"
             "         (SELECT COUNT(*) FROM links l WHERE l.parent = s.designation) AS dn,"
             "         (SELECT COUNT(*) FROM links l WHERE l.child  = s.designation) AS up"
             "  FROM snapshots s WHERE s.designation IS NOT NULL AND s.designation != ''"
-            ") ORDER BY links DESC LIMIT ?", (int(top_n or 100),)).fetchall()
+            ") GROUP BY designation ORDER BY links DESC LIMIT ?", (int(top_n or 100),)).fetchall()
     finally:
         c.close()
     roots = {}

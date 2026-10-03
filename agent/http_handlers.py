@@ -574,12 +574,11 @@ class Hd(BaseHTTPRequestHandler):
         elif p == "/wiz_plmtree":
             import contextlib
             import io
-            import os as _os
-            import sys as _sys
-            _pt = _os.path.join(_os.path.dirname(_os.path.abspath(__file__)), "plm_reader")
-            if _pt not in _sys.path:
-                _sys.path.insert(0, _pt)
-            import engine as _eng
+            # 03.10.2026: было `sys.path.insert + import engine` — в доме четыре файла engine.py,
+            # и обычный импорт мог отдать чужой модуль из sys.modules. Теперь единая точка входа:
+            # обёртка plm_reader_tools грузит движок по явному пути (importlib).
+            import plm_reader_tools as _PRT
+            _eng = _PRT.engine()
             cmd = b.get("cmd") or "tree"
             buf = io.StringIO()
             with contextlib.redirect_stdout(buf):
