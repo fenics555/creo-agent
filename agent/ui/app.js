@@ -207,19 +207,21 @@ function gzlOut(msg,bad){
 // ЗОНА «ИНСТРУМЕНТЫ» (слово владельца: «где вкладка, где инструменты 100+?»).
 // Раньше витрина знала только счётчик (180), а список был недоступен из интерфейса.
 var tlAll=[], tlFlt='', tlGrp='';
+// ЭКРАН ИНСТРУМЕНТОВ В МОДАЛЬНОМ ОКНЕ (03.10.2026): раньше кнопка «Инструменты» в
+// макете B&W вызывала showZone() и applyLayout('v2') — то есть ВЫБРАСЫВАЛА из макета B&W
+// в старое меню. Теперь это обычное окно поверх, макет не ломается.
+function toolsOpen(){document.getElementById('wiz_tools').style.display='flex';toolsZone()}
 function toolsZone(){
- var z=document.getElementById('zone');
+ var z=document.getElementById('wiz_tools_body');if(!z)return;
  z.innerHTML='<div class="grp"><h4> НАСТРОЙКИ </h4>'
-  +'<small style="color:#5a5a5a">поиск по имени и описанию; группа — фильтр второго уровня. '
-  +'Кнопка «в чат» подставляет вызов в поле вопроса.</small>'
+  +'<small style="color:#5a5a5a">поиск по имени и описанию; группа — второй уровень.</small>'
   +'<div style="display:flex;gap:8px;margin-top:8px;align-items:center">'
   +'<input id="tl_f" placeholder="например: rename, копир, провер…" style="flex:1">'
-  +'<select id="tl_g" style="width:220px"><option value="">все группы</option></select>'
-  +'<button class="sec" data-act="tl_reload">🔄 Обновить</button></div></div>'
+  +'<select id="tl_g" style="width:200px"><option value="">все группы</option></select>'
+  +'<button class="sec" data-act="tl_reload">🔄</button></div></div>'
   +'<div class="grp" id="tl_list"><h4> ИСПОЛНИТЕЛИ </h4><small style="color:#5a5a5a">читаю реестр…</small></div>'
-  +'<div class="grp"><h4> ОТЧЁТ </h4><div id="tl_out" style="display:none;background:#fff1c7;color:#856404;font:11px Arial;padding:6px 8px;border-radius:4px"></div>'
-  +'<small style="color:#5a5a5a">Найдено: инструментов в списке. Клик по строке кладёт вызов в чат — '
-  +'инструмент исполняется агентом, а не витриной.</small></div>';
+  +'<div class="grp"><h4> ОТЧЁТ </h4><small style="color:#5a5a5a">Инструмент исполняет агент — '
+  +'нажми на имя, чтобы подставить вызов в чат.</small></div>';
  var f=document.getElementById('tl_f'); if(f)f.addEventListener('input',function(){tlFlt=f.value;tlDraw()});
  var g=document.getElementById('tl_g'); if(g)g.addEventListener('change',function(){tlGrp=g.value;tlDraw()});
  tlLoad();
@@ -229,7 +231,7 @@ function tlLoad(){
  box.innerHTML='<h4> ИСПОЛНИТЕЛИ </h4><small style="color:#5a5a5a">читаю реестр инструментов…</small>';
  fetch('/api/tools',{headers:{'X-Token':TK||''}}).then(function(r){return r.json()}).then(function(r){
   if(r.error){box.innerHTML='<h4> ИСПОЛНИТЕЛИ </h4><span style="color:#c62828">'+esc(r.error)+'</span>';return}
-  tlAll=r.tools||[];window.NTOOLS=tlAll.length;
+  tlAll=r.tools||[];
   var g=document.getElementById('tl_g');if(g){var seen={};tlAll.forEach(function(t){seen[t.group]=(seen[t.group]||0)+1});
    Object.keys(seen).sort().forEach(function(n){var o=document.createElement('option');o.value=n;o.textContent=n+' ('+seen[n]+')';g.appendChild(o)})}
   tlDraw()}).catch(function(e){box.innerHTML='<h4> ИСПОЛНИТЕЛИ </h4><span style="color:#c62828">ошибка: '+esc(e)+'</span>'});
@@ -244,8 +246,8 @@ function tlDraw(){
  var h='<h4> ИСПОЛНИТЕЛИ <small style="color:#5a5a5a">показано '+list.length+' из '+tlAll.length+'</small></h4>'
   +'<table style="width:100%;font-size:12px;border-collapse:collapse">';
  list.slice(0,300).forEach(function(t){
-  h+='<tr><td style="padding:2px 4px;white-space:nowrap"><b style="color:#1f6fb2">'+esc(t.name)+'</b>'
-   +(t.approval?' 🔒':'')+(t.needs_creo?' ⚙':'')+'</td>'
+  h+='<tr><td style="padding:2px 4px;white-space:nowrap"><span class="bwb_i" style="cursor:pointer" data-act="tl_use" data-v="'+esc(t.name)+'">'
+   +esc(t.name)+'</span>'+(t.approval?' 🔒':'')+(t.needs_creo?' ⚙':'')+'</td>'
    +'<td style="padding:2px 4px;color:#5a5a5a">'+esc(t.desc)+'</td>'
    +'<td style="padding:2px 4px;color:#5a5a5a;white-space:nowrap">'+esc(t.group)+'</td></tr>'});
  if(!list.length)h+='<tr><td style="padding:6px;color:#5a5a5a">ничего не найдено</td></tr>';
@@ -589,7 +591,6 @@ else if(a=='open_checks'){document.getElementById('wiz_checks').style.display='f
   qinp.value=r.msg||('запущено: '+bn2)})}
        else if(a=='bw_apply'){J('/status').then(function(s){if(s)qinp.value='статус: '+s.host+' · '+s.model+' · инструментов '+s.tools})}
        else if(a=='bw_close'){applyLayout('v2',true)}
-       else if(a=='open_tools'){showZone('tools');applyLayout('v2',false)}
        else if(a=='open_batch'){batchOpen()}
        else if(a=='bt_reload'){batchLoad()}
        else if(a=='close_batch'){document.getElementById('wiz_batch').style.display='none'}
@@ -605,6 +606,9 @@ else if(a=='open_checks'){document.getElementById('wiz_checks').style.display='f
        else if(a=='sg_reload'){sgLoad()}
        else if(a=='sg_tab'){sgSpace=el.getAttribute('data-v')||'';sgDraw()}
        else if(a=='close_setg'){document.getElementById('wiz_setg').style.display='none'}
+       else if(a=='open_tools'){toolsOpen()}
+       else if(a=='close_tools'){document.getElementById('wiz_tools').style.display='none'}
+       else if(a=='tl_use'){var tn=el.getAttribute('data-v');var qp=document.getElementById('q');if(qp)qp.value=tn+' ';document.getElementById('wiz_tools').style.display='none'}
        else if(a=='tl_reload'){tlLoad()}
        else if(a=='ui_readme'){ /* слой 7 канона ОКНА: README внутри окна, при ошибке — честная строка */
   J('/ui_readme',{token:TK}).then(function(r){var w=document.getElementById('wiz_readme');
