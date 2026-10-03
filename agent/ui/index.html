@@ -88,6 +88,19 @@ body.lay-v3 #zone{left:6px;right:326px;top:44px;bottom:74px}
 #zone.pult{grid-template-columns:1.2fr 1fr;gap:8px;align-content:start}
 #zone.pult .pultwide{grid-column:1 / span 2}
 #zone.pult .grp{margin:0 0 8px}
+/* ==== РАЗМЕРЫ ОКОН ВИТРИНЫ (слово владельца 03.10.2026: «не работает, что-то с размерами
+   окон») ==== Раньше модальные окна имели ФИКСИРОВАННУЮ ширину (430/520/560/620/680/760 px)
+   и на узком окне браузера вылезали за край. Теперь ширина адаптивная: не больше 92% окна,
+   высота — не больше 88% экрана; выводные блоки тянутся на всю ширину окна. */
+#wiz>div,#wiz_purge>div,#wiz_cfaudit>div,#wiz_plmtree>div,#wiz_orphan>div,#wiz_guis>div,#wiz_readme>div{
+ width:auto!important;max-width:92vw!important;max-height:88vh!important}
+#wiz>div,#wiz_purge>div{max-width:430px}
+#wiz_cfaudit>div{max-width:560px}
+#wiz_plmtree>div,#wiz_orphan>div{max-width:520px}
+#wiz_guis>div{max-width:680px}
+#wiz_readme>div{max-width:760px}
+#wo_out,#wp_out,#cfo,#pt_out,#ck_out,#wg_list{width:100%!important}
+#wg_list,#wr_txt,#pt_out,#ck_out{max-height:44vh}
 /* ==== ПАЛИТРА ПО КАНОНУ ОКНА (repo\ОКНА\02_ДИЗАЙН_И_РАСКЛАДКА.md) ====
    Константы цитатой из конспекта и из каркаса ui_common.py:
      фон окна #f4f4f2 · логи #f8f9fa · приглушённый текст #5a5a5a · акцент #1f6fb2 ·
