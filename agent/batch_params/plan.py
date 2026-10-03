@@ -125,11 +125,16 @@ def build_plan(root=None, params=None, limit=MAX_FILES):
 
 
 def write_plan(plan):
-    """План на диск: отчёт для человека + JSON для apply.py. Возвращает (отчёт, json)."""
+    """План на диск: md для человека + JSON для apply.py. Возвращает (md, json).
+
+    Правка 03.10.2026: план-файл пишется в папку программы `log\\batch_params`, а НЕ в
+    `log\\reports` — там по закону дома лежат только `REPORT_<задача>_<исполнитель>_<дата>.md`
+    (проверка `dev\\culture_check.py`: «чужих файлов 17» — все были PLAN_batch_params_*.md).
+    """
     REPORT_DIR.mkdir(parents=True, exist_ok=True)
     LOG_DIR.mkdir(parents=True, exist_ok=True)
     stamp = time.strftime("%Y-%m-%d_%H%M%S")
-    rp = REPORT_DIR / ("PLAN_batch_params_%s.md" % stamp)
+    rp = LOG_DIR / ("PLAN_batch_params_%s.md" % stamp)
     jp = LOG_DIR / ("plan_batch_params_%s.json" % stamp)
     out = ["# ПЛАН ПАКЕТНЫХ ПАРАМЕТРОВ (ничего ещё НЕ записано)", "",
            "Собран: **%s** · корень: `%s` · моделей: **%d** · шагов: **%d**"
