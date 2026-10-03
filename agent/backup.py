@@ -4,6 +4,7 @@ r"""
 Двухуровневые: рабочие копии sqlite каждые 6 часов + архив.
 Глубина — из settings (retention).
 """
+import os
 import time, datetime, threading, sqlite3, shutil
 from core import log, DB, DATA_DIR
 import settings
@@ -37,15 +38,22 @@ def sweep_manual(days=30, do=False):
             continue
         rows.append((age, f.stat().st_size, str(f)))
     rows.sort(reverse=True)
+    # ЖИВАЯ НАХОДКА 03.10.2026: счётчик врал — печатал «УДАЛЕНО N файлов» по числу НАЙДЕННЫХ,
+    # даже если os.remove упал на каждом (нет import os). Считаем только реально удалённые.
+    done, failed = 0, 0
     for age, size, path in rows:
         if do:
             try:
-                os.remove(path); freed += size
-                log("ручной бэкап удалён: %s (%.1f МБ, %d дн.)" % (path, size / 1e6, age))
+                os.remove(path); freed += size; done += 1
+                log("ручной бэкап удалён: %s (%.1f КБ, %d дн.)" % (path, size / 1024.0, age))
             except Exception as e:
+                failed += 1
                 log("не удалил %s: %s" % (path, e))
-    head = ("УДАЛЕНО %d файлов, освобождено %.1f МБ" % (len(rows), freed / 1e6)) if do \
-        else ("НАЙДЕНО %d файлов старше %d дней (ничего не удалено — повтори с do=True)" % (len(rows), days))
+    if do:
+        head = "УДАЛЕНО %d из %d файлов, освобождено %.2f МБ%s" % (
+            done, len(rows), freed / 1e6, (", НЕ УДАЛЕНО %d" % failed) if failed else "")
+    else:
+        head = "НАЙДЕНО %d файлов старше %d дней (ничего не удалено — повтори с do=True)" % (len(rows), days)
     lines = [head]
     for age, size, path in rows[:20]:
         lines.append("  %5.1f дн. %8.1f КБ  %s" % (age, size / 1024.0, path))

@@ -37,8 +37,23 @@ def chunk_text(text):
         chunks.append(text)
     return chunks
 
-def run():
+def run(keep=False):
     log("индексация начата: root=%s" % ROOT)
+    # ЖИВАЯ НАХОДКА 03.10.2026 (аудит data\, Д13): таблица chunks заполнялась БЕЗ очистки,
+    # поэтому каждый повторный запуск ДОБАВЛЯЛ копии. Доказательство на старом бэкапе:
+    # 1 330 971 чанков при 37 372 уникальных файлах — в среднем 35,6 копии на файл
+    # (максимум 1016), и именно из-за этого база разрослась до 6,38 ГБ.
+    # Теперь индекс ПЕРЕСОБИРАЕТСЯ начисто: keep=True — дописать к существующему.
+    try:
+        if keep:
+            n_old = DB.execute("SELECT COUNT(*) FROM chunks").fetchone()[0]
+            log("режим дописывания: в базе уже %d чанков" % n_old)
+        else:
+            DB.execute("DELETE FROM chunks")
+            DB.commit()
+            log("индекс очищен перед сборкой (режим пересборки)")
+    except Exception as e:
+        log("не смог очистить chunks: %s" % e)
     files_indexed = 0
     chunks_created = 0
     errors = 0
@@ -80,4 +95,5 @@ def run():
         (files_indexed, chunks_created, errors))
 
 if __name__ == "__main__":
-    run()
+    # --keep — дописать к существующему индексу (по умолчанию — пересборка начисто, Д13)
+    run(keep="--keep" in sys.argv)
