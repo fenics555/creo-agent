@@ -241,6 +241,38 @@ function tlDraw(){
  if(list.length>300)h+='<tr><td colspan="3" style="padding:6px;color:#5a5a5a">…ещё '+(list.length-300)+' — уточните поиск</td></tr>';
  box.innerHTML=h+'</table>';
 }
+// ЭКРАН НАСТРОЕК ПО ОБРАЗЦУ B&W (конспект 17, §4 «Окно настроек SMARTUpdate»):
+// таблица Option | Value | Status | Description + вкладки по пространствам.
+// Status — зелёная точка, если значение отличается от умолчания (§4 B&W).
+var sgRows=[], sgSpace='';
+function setgOpen(){document.getElementById('wiz_setg').style.display='flex';sgLoad()}
+function sgLoad(){
+ var box=document.getElementById('sg_list');
+ box.innerHTML='<small style="color:#5a5a5a">читаю настройки…</small>';
+ J('/wiz_setg',{token:TK}).then(function(r){
+  if(r.error){box.innerHTML='<span style="color:#c62828">'+esc(r.error)+'</span>';return}
+  sgRows=r.rows||[];sgSpace='';
+  var tb=document.getElementById('sg_tabs');
+  var h='<button class="sec" data-act="sg_tab" data-v="" style="font-size:11px;padding:3px 8px">Все ('+sgRows.length+')</button>';
+  (r.spaces||[]).forEach(function(s){h+='<button class="sec" data-act="sg_tab" data-v="'+esc(s)+'" style="font-size:11px;padding:3px 8px">'+esc(s)+'</button>'});
+  tb.innerHTML=h;sgDraw()}).catch(function(e){box.innerHTML='<span style="color:#c62828">ошибка: '+esc(e)+'</span>'});
+}
+function sgDraw(){
+ var box=document.getElementById('sg_list');if(!box)return;
+ var list=sgRows.filter(function(x){return !sgSpace||x.space==sgSpace});
+ var h='<table style="width:100%;font-size:12px;border-collapse:collapse"><tr style="color:#5a5a5a;text-align:left">'
+  +'<th style="padding:3px 5px">Option</th><th style="padding:3px 5px">Value</th>'
+  +'<th style="padding:3px 5px">Status</th><th style="padding:3px 5px">Description</th></tr>';
+ list.forEach(function(x){
+  var st=x.changed?'<span style="color:#2e7d32">● изменено</span>':(x.personal?'<span style="color:#1f6fb2">● личное</span>':'<span style="color:#9a9a9a">○</span>');
+  h+='<tr><td style="padding:3px 5px;font-family:Consolas,monospace;white-space:nowrap">'+esc(x.option)+'</td>'
+   +'<td style="padding:3px 5px;font-family:Consolas,monospace">'+esc(String(x.value))+'</td>'
+   +'<td style="padding:3px 5px;white-space:nowrap">'+st+'</td>'
+   +'<td style="padding:3px 5px;color:#5a5a5a">'+esc(x.name)+' — '+esc(x.desc)+'</td></tr>'});
+ h+='</table><small style="color:#5a5a5a">показано '+list.length+' из '+sgRows.length
+  +' · изменено: '+sgRows.filter(function(x){return x.changed}).length+'</small>';
+ box.innerHTML=h;
+}
 function showZone(v){var z=document.getElementById('zone');if(!z)return;
 if(v=='chat'){z.style.display='none';chat.style.display='block';return}
 chat.style.display='none';z.style.display='block';
@@ -390,6 +422,10 @@ else if(a=='wiz_orphan_scan'){var oroot=document.getElementById('wo_root').value
 else if(a=='open_checks'){document.getElementById('wiz_checks').style.display='flex'}
        else if(a=='gzl_reload'){gzlLoad()}
        else if(a=='gzl_run'){var gp=el.getAttribute('data-p');gzlOut('запускаю '+gp+'…');J('/wiz_run_gui',{token:TK,program:gp}).then(function(r){if(r.error){gzlOut(r.error,true);return}gzlOut(r.msg||('запущено: '+gp))}).catch(function(e){gzlOut('ошибка: '+e,true)})}
+       else if(a=='open_setg'){setgOpen()}
+       else if(a=='sg_reload'){sgLoad()}
+       else if(a=='sg_tab'){sgSpace=el.getAttribute('data-v')||'';sgDraw()}
+       else if(a=='close_setg'){document.getElementById('wiz_setg').style.display='none'}
        else if(a=='tl_reload'){tlLoad()}
        else if(a=='ui_readme'){ /* слой 7 канона ОКНА: README внутри окна, при ошибке — честная строка */
   J('/ui_readme',{token:TK}).then(function(r){var w=document.getElementById('wiz_readme');
@@ -402,7 +438,31 @@ else if(a=='open_checks'){document.getElementById('wiz_checks').style.display='f
        else if(a=='wg_refresh'){wgLoad()}
        else if(a=='wg_run'){var pr=el.getAttribute('data-p'),st=document.getElementById('wg_status');st.style.display='block';st.textContent='запускаю '+pr+'…';J('/wiz_run_gui',{token:TK,program:pr}).then(function(r){if(r.error){st.textContent='❌ '+r.error;return}st.textContent='✅ '+(r.msg||'запущено')}).catch(function(e){st.textContent='❌ ошибка: '+e})}
        else if(a=='close_checks'){document.getElementById('wiz_checks').style.display='none'}
-       else if(a=='wiz_check_run'){var o=document.getElementById('ck_out');o.innerHTML='<small style="color:#A6A8AB">прогоняю проверки…</small>';J('/wiz_check_run',{token:TK,scope:document.getElementById('ck_scope').value.trim(),only:document.getElementById('ck_only').value.trim(),report:document.getElementById('ck_rep').checked?'true':''}).then(function(g){if(g.error){o.innerHTML='<span style="color:#C64E4E">'+esc(g.error)+'</span>';return}var r=g.result||{},h='<b>'+(r.checks||0)+' проверок · успешно '+(r.passed||0)+' · провалено '+(r.failed_checks||0)+' · объектов '+(r.items||0)+'</b><br><small style="color:#A6A8AB">соответствие: '+(r.percent===null||r.percent===undefined?'н/д':Math.round(r.percent))+' % · '+Number(r.secs||0).toFixed(2)+' с</small>';h+='<table style="width:100%;font-size:12px;border-collapse:collapse;margin-top:6px">';(r.rows||[]).forEach(function(w){h+='<tr><td style="padding:2px 4px">'+(w.ok?'✅':'❌')+' '+esc(w.id)+'</td><td style="padding:2px 4px;color:#A6A8AB">'+esc(w.title)+'</td><td style="padding:2px 4px">'+esc(w.detail)+'</td></tr>';(w.items||[]).forEach(function(it){if(it.verdict=='ok')return;h+='<tr><td style="padding:2px 4px"></td><td style="padding:2px 4px;color:#D0A030">'+esc(it.icon)+' '+esc(it.what)+'</td><td></td></tr>'})});h+='</table>';if(g.report)h+='<small style="color:#A6A8AB">отчёт: '+esc(g.report)+'</small>';o.innerHTML=h}).catch(function(e){o.innerHTML='<span style="color:#C64E4E">ошибка: '+esc(e)+'</span>'})}
+       else if(a=='wiz_check_run'){ /* ЭКРАН ПРОВЕРОК ПО ОБРАЗЦУ B&W (конспект repo\B&W\17_ДИЗАЙН_ОКОН_И_НАСТРОЕК_B&W.md,
+   §6 «Окно результатов проверок»): слева дерево с иконками статуса, справа Statistics
+   (Checks count / Passed / Failed / Items), Matching Percent с полосой-прогрессом,
+   внизу две главные кнопки Check и Close. */
+ var o=document.getElementById('ck_out');o.innerHTML='<small style="color:#5a5a5a">прогоняю проверки…</small>';
+ J('/wiz_check_run',{token:TK,scope:document.getElementById('ck_scope').value.trim(),only:document.getElementById('ck_only').value.trim(),report:document.getElementById('ck_rep').checked?'true':''}).then(function(g){
+  if(g.error){o.innerHTML='<span style="color:#c62828">'+esc(g.error)+'</span>';return}
+  var r=g.result||{},pct=(r.percent===null||r.percent===undefined)?0:Math.round(r.percent);
+  var h='<div style="display:flex;gap:10px;align-items:flex-start">';
+  h+='<div style="flex:1;min-width:0"><b style="font-size:12px;text-transform:uppercase;letter-spacing:.4px;color:#1f6fb2">Model / Checks</b>';
+  h+='<table style="width:100%;font-size:12px;border-collapse:collapse;margin-top:4px"><tr style="color:#5a5a5a;text-align:left"><th style="padding:2px 4px">Статус</th><th style="padding:2px 4px">Проверка</th><th style="padding:2px 4px">Название</th><th style="padding:2px 4px">Объекты</th><th style="padding:2px 4px">Провалы</th></tr>';
+  (r.rows||[]).forEach(function(w){
+   var ic=w.ok?'✅':(w.warned?'⚠️':'❌');
+   h+='<tr><td style="padding:2px 4px">'+ic+'</td><td style="padding:2px 4px"><b>'+esc(w.id)+'</b></td><td style="padding:2px 4px;color:#5a5a5a">'+esc(w.title)+'</td><td style="padding:2px 4px;color:#5a5a5a">'+(w.total||0)+'</td><td style="padding:2px 4px;color:#5a5a5a">'+(w.failed||0)+'</td></tr>'});
+  h+='</table></div>';
+  h+='<div style="width:215px;border-left:1px solid #dcdcd7;padding-left:10px"><b style="font-size:12px;text-transform:uppercase;letter-spacing:.4px;color:#1f6fb2">Statistics</b>'
+   +'<div style="font:11px Consolas,monospace;line-height:1.7;margin-top:4px">Checks count: <b>'+(r.checks||0)+'</b><br>Passed: '+(r.passed||0)+'<br>Failed: '+(r.failed_checks||0)+'<br>Items: '+(r.items||0)+'<br>Failed items: '+(r.failed_items||0)+'<br>Secs: '+Number(r.secs||0).toFixed(2)+'</div>'
+   +'<div style="margin-top:8px;font:12px Consolas,monospace">Matching Percent: <b>'+pct+' %</b></div>'
+   +'<div style="height:10px;background:#e8e8e3;border-radius:5px;margin-top:4px;overflow:hidden"><div style="height:10px;width:'+pct+'%;background:'+(pct>=100?'#2e7d32':(pct>=70?'#b8860b':'#c62828'))+'"></div></div>';
+  (r.rows||[]).forEach(function(w){(w.items||[]).forEach(function(it){if(it.verdict=='ok')return;
+   h+='<div style="margin-top:6px;font-size:11px;color:#856404;background:#fff1c7;padding:4px 6px;border-radius:4px">'+esc(it.icon)+' '+esc(it.what)+'</div>'})});
+  h+='</div></div>';
+  h+='<div style="display:flex;gap:8px;align-items:center;margin-top:10px;border-top:1px solid #dcdcd7;padding-top:8px"><button data-act="wiz_check_run">Check — прогнать</button>'
+   +(g.report?'<span style="color:#5a5a5a;font-size:11px">отчёт: '+esc(g.report)+'</span>':'')+'<span style="flex:1"></span><button data-act="close_checks" class="sec">Close</button></div>';
+  o.innerHTML=h}).catch(function(e){o.innerHTML='<span style="color:#c62828">ошибка: '+esc(e)+'</span>'})}
        else if(a=='close_plmtree'){document.getElementById('wiz_plmtree').style.display='none'}
 else if(a=='pt_tree'||a=='pt_where'||a=='pt_plan'){var m=document.getElementById('pt_model').value,n=document.getElementById('pt_new').value,o=document.getElementById('pt_out');o.textContent='считаю…';var c=(a=='pt_where')?'where':((a=='pt_plan')?'rename-plan':'tree');J('/wiz_plmtree',{token:TK,cmd:c,model:m,new:n,depth:4}).then(function(r){o.textContent=r.text||''}).catch(function(e){o.textContent='ошибка: '+e})}
 else if(a=='wiz_purge_preview'){var r=document.getElementById('wp_root').value,k=document.getElementById('wp_keep').value,o=document.getElementById('wp_out');if(!r){alert('укажи путь');return}var isNet=!/^[DE]:/i.test(r);if(isNet){if(!confirm("сетевой корень: скан медленный, перенос тронет сетевой диск"))return}o.innerHTML='<small style="color:#A6A8AB">'+(isNet?'считаю план… (сетевой корень может сканироваться минутами)':'считаю план…')+'</small>';J('/wiz_purge_preview',{token:TK,root:r,keep:k}).then(function(g){if(g.error){o.innerHTML='<span style="color:#C64E4E">'+esc(g.error)+'</span>';return}var table='<table style="width:100%;font-size:12px;border-collapse:collapse;margin-top:5px;"><tr style="color:#A6A8AB;text-align:left;"><th style="padding:2px 4px;">Старое</th><th style="padding:2px 4px;">Новое</th><th style="padding:2px 4px;">Версий</th></tr>';g.rows.forEach(function(row){table+='<tr><td style="padding:2px 4px;">'+esc(row.old)+'</td><td style="padding:2px 4px;">'+esc(row.new)+'</td><td style="padding:2px 4px;">'+row.versions+'</td></tr>'});table+='</table><p style="font-size:12px;margin-top:5px;">будет перенесено '+g.total+' файлов в backup</p>';o.innerHTML=table;}).catch(function(e){o.innerHTML='<span style="color:#C64E4E">ошибка: '+esc(e)+'</span>'})}

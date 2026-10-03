@@ -142,8 +142,6 @@ class Hd(BaseHTTPRequestHandler):
             # СПИСОК ИНСТРУМЕНТОВ (слово владельца 03.10.2026: «где вкладка, где инструменты
             # 100+?»). Раньше витрина знала ТОЛЬКО счётчики (`/status`: 180 инструментов),
             # а сам список был недоступен из интерфейса — вкладку негде было показать.
-            if not users.token_info(self.headers.get("X-Token") or ""):
-                return self._j({"error": "нужен вход"})
             import tools_registry as _TR
             try:
                 # Живой API реестра: `all()` тут нет, есть `iter_tools()` — отдаёт
@@ -663,6 +661,33 @@ class Hd(BaseHTTPRequestHandler):
             except Exception as _re_e:
                 return self._j({"error": "README не прочитан: %s" % _re_e})
             return self._j({"text": _t, "path": _p, "error": None})
+        elif p == "/wiz_setg":
+            # ТАБЛИЦА НАСТРОЕК ДОМА — по образцу B&W (конспект 17, §4 «Окно настроек
+            # SMARTUpdate»): Option | Value | Status | Description, вкладки, кнопки
+            # Default values / Discard changes / Apply. Раньше витрина не показывала
+            # настройки вообще — только счётчики.
+            # ВНИМАНИЕ: вход уже проверен выше (`cl = self._client(b)`). Дубль проверки по
+            # заголовку X-Token ломал маршрут: фронт шлёт токен в ТЕЛЕ, а не в заголовке,
+            # и живой запрос возвращал «нужен вход» при верном токоне (03.10.2026).
+            import settings as _st
+            try:
+                # ЖИВОЙ источник — `_st.REGISTRY` (пространство, ключ, название, тип,
+                # умолчание, описание, в_UI) плюс фактическое значение из config.json.
+                # Метода `settings.all()` в доме НЕТ — звать его было бы выдумкой.
+                _d = _st._raw()
+            except Exception as _se:
+                return self._j({"error": "настройки не прочитались: %s" % _se, "rows": []})
+            _rows = []
+            for _space, _k, _nm, _typ, _dfl, _desc, _ui in _st.REGISTRY:
+                _val = _d.get(_k, _dfl)
+                _rows.append({"space": _space, "option": _k, "name": _nm, "type": _typ,
+                              "value": ("••••••" if "password" in str(_k) else _val),
+                              "default": _dfl, "desc": _desc,
+                              "changed": _k in _d and _d.get(_k) != _dfl,
+                              "personal": _k in _st.PERSONAL_KEYS, "in_ui": bool(_ui)})
+            return self._j({"rows": _rows, "count": len(_rows),
+                            "changed": sum(1 for x in _rows if x["changed"]),
+                            "spaces": sorted({x["space"] for x in _rows}), "error": None})
         elif p == "/wiz_run_gui":
             # ЖИВАЯ ПРАВКА ВИТРИНЫ 03.10.2026 (слово владельца: «в основном окне должен быть
             # другой дизайн и другой вызов окон»): раньше окна программ запускались ТОЛЬКО
