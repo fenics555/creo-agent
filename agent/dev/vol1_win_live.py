@@ -58,7 +58,8 @@ def check_config_audit():
     ok("config_audit: «По умолчанию» вернул", app.tbl.changed("last_config") is False)
     # ЖИВАЯ проверка: путь берём у движка, а НЕ из настроек — иначе проба пройдёт
     # по битому пути и запишет его обратно (грабля 03.10.2026).
-    p = eng.CREO.find_config()[0]
+    # Волна 2: движок зовёт BOOT (creo_boot), а не CREO напрямую.
+    p = eng.BOOT.config_path()
     app.var_path.set(p)
     if p and Path(p).exists():
         t0 = time.time()
