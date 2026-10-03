@@ -45,28 +45,42 @@ def tool_guide(topic="", **kw):
     return _menu() + "\n\n(файл направления «%s» ещё не написан)" % topic
 
 
-def tool_tools_help(block="", **kw):
-    """Полное описание инструментов блока или всех: tools_help block=creo/web/trail/plm, пусто = все"""
-    import importlib
+def tool_tools_help(block="", kind="", group="", **kw):
+    """Описание инструментов: block=.../kind=check|report|act|read|admin, пусто = все.
+    kind/group берутся из карты инструментов (tools_registry), поля в блоках необязательны."""
     import tools_registry as TR
+    block = (block or "").strip()
+    kind = (kind or "").strip().lower()
+    group = (group or "").strip()
     out = []
-    for b in TR.BLOCKS:
-        if block and block.lower() not in b.lower():
+    for k, g, t in TR.iter_tools(kind or None, group or None):
+        b = t.get("source") or ""
+        if block and block.lower() not in str(b).lower():
             continue
-        try:
-            m = importlib.import_module(b)
-            for t in getattr(m, "TOOLS", []):
-                ps = ", ".join((t.get("params") or {}).keys())
-                out.append("- %s(%s) — %s%s" % (t["name"], ps, (t.get("desc") or "")[:80],
-                                                " [СОГЛАСОВАНИЕ]" if t.get("approval") else ""))
-        except Exception as e:
-            out.append("%s: ошибка %s" % (b, e))
-    return "\n".join(out) or ("Блок не найден. Блоки: " + ", ".join(TR.BLOCKS))
+        ps = ", ".join((t.get("params") or {}).keys())
+        out.append("- %s(%s) [%s%s%s] — %s%s" % (
+            t["name"], ps, k, "/" + g if g else "",
+            "/требует Creo" if TR.meta_of(t["name"])[2] else "", (t.get("desc") or "")[:80],
+            " [СОГЛАСОВАНИЕ]" if t.get("approval") else ""))
+    return "\n".join(out) or ("Ничего не найдено. Блоки: " + ", ".join(TR.BLOCKS)
+                              + ". Типы: " + ", ".join(TR.KINDS))
+
+
+def tool_tools_card(kind="", group="", **kw):
+    """Карта инструментов агента: сводка по типам и предметам + списки имён"""
+    import tools_registry as TR
+    return TR.card((kind or "").strip().lower() or None, (group or "").strip() or None)
 
 
 TOOLS = [
     {"name": "guide", "desc": "Справочник: меню направлений или тема (topic=db/creoson/creo/models/...)",
-     "params": {"topic": "ключ направления или пусто"}, "approval": False, "fn": tool_guide},
-    {"name": "tools_help", "desc": "Полное описание инструментов блока (block=creo/web/trail/plm, пусто = все)",
-     "params": {"block": "имя блока или пусто"}, "approval": False, "fn": tool_tools_help},
+     "params": {"topic": "ключ направления или пусто"}, "approval": False, "fn": tool_guide,
+     "kind": "read", "group": "справочник"},
+    {"name": "tools_help", "desc": "Описание инструментов: фильтр block=.../kind=check|report|act|read|admin, пусто = все",
+     "params": {"block": "имя блока или пусто", "kind": "тип инструмента или пусто",
+                "group": "предмет или пусто"},
+     "approval": False, "fn": tool_tools_help, "kind": "read", "group": "справочник"},
+    {"name": "tools_card", "desc": "Карта инструментов: сводка по типам (kind) и предметам (group), с числами",
+     "params": {"kind": "тип инструмента или пусто", "group": "предмет или пусто"},
+     "approval": False, "fn": tool_tools_card, "kind": "read", "group": "справочник"},
 ]

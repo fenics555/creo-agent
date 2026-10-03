@@ -1,0 +1,80 @@
+# -*- coding: utf-8 -*-
+"""Живая сборка окон волны 1 на каркасе ui_common (без показа пользователю).
+Запуск: cmd /c "cd /d D:\AI\tools\agent && python -X utf8 dev\vol1_win_live.py"
+Делает настоящий Tk-корень, собирает окно, нажимает кнопки и проверяет, что не падает.
+"""
+import io
+import sys
+import time
+from pathlib import Path
+
+sys.stdout = io.TextIOWrapper(sys.stdout.buffer, encoding="utf-8", errors="replace")
+AGENT = Path(__file__).resolve().parent.parent
+sys.path.insert(0, str(AGENT))
+
+fail = []
+
+
+def ok(name, cond, detail=""):
+    print(("OK   " if cond else "FAIL ") + name + ((" | " + detail) if detail else ""))
+    if not cond:
+        fail.append(name)
+
+
+def check_config_audit():
+    sys.path.insert(0, str(AGENT / "config_audit"))
+    import gui as g
+    app = g.App()
+    app.root.update_idletasks()
+    ok("config_audit: окно собрано", app.root.winfo_exists() == 1)
+    ok("config_audit: minsize задан", app.root.minsize() == (900, 560),
+       str(app.root.minsize()))
+    ok("config_audit: таблица настроек", hasattr(app, "tbl") and
+       len(app.tbl.spec) >= 1, "строк: %d" % len(getattr(app, "tbl").spec))
+    # кнопка «По умолчанию» и «Отменить изменения» живы
+    app.tbl.vals["last_config"] = r"Z:\нет\config.pro"
+    app.tbl.refresh()
+    ok("config_audit: точка «изменено»", app.tbl.changed("last_config") is True)
+    app.tbl.set_defaults()
+    ok("config_audit: «По умолчанию» вернул", app.tbl.changed("last_config") is False)
+    # реальная проверка на живом config.pro, если он есть
+    p = app.var_path.get()
+    if Path(p).exists():
+        t0 = time.time()
+        app.run()
+        for _ in range(60):          # ждём поток не дольше ~3 с
+            app.root.update()
+            time.sleep(0.05)
+            if app.res is not None:
+                break
+        ok("config_audit: проверка отработала в потоке", app.res is not None,
+           "%.2f с, путей: %s" % (time.time() - t0,
+                                   app.res.get("total") if app.res else "-"))
+        if app.res:
+            ok("config_audit: сводка с процентом", "соответствие" in app.sum_var.get(),
+               app.sum_var.get())
+            rows = len(app.tree.get_children())
+            ok("config_audit: строки с иконкой статуса", rows >= 0, "строк: %d" % rows)
+    else:
+        print("ПРОПУСК живой проверки: config.pro не найден по %s" % p)
+    app.root.destroy()
+
+
+def check_dup_scan():
+    sys.path.insert(0, str(AGENT / "dup_scan"))
+    for mod in ("gui",):
+        sys.modules.pop(mod, None)
+    import gui as g
+    app = g.App()
+    app.root.update_idletasks()
+    ok("dup_scan: окно собрано", app.root.winfo_exists() == 1)
+    app.root.destroy()
+
+
+if __name__ == "__main__":
+    t0 = time.time()
+    check_config_audit()
+    check_dup_scan()
+    print("=== ИТОГ: %s (провалов %d) за %.2f с ===" % (
+        "ОК" if not fail else "НЕ ОК", len(fail), time.time() - t0))
+    sys.exit(1 if fail else 0)

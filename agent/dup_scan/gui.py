@@ -16,16 +16,18 @@ from pathlib import Path
 from tkinter import filedialog, messagebox, ttk
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
+sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 import dup_scan as eng  # noqa: E402
+import ui_common as U  # noqa: E402  (волна 1: общий каркас окон, 6 дизайн-констант)
 
 SETTINGS = Path(r"D:\AI\tools\agent\data\dup_scan_settings.json")   # манифест п.19: настройки в data\
 
 
 class App:
-    def __init__(self, root):
-        self.root = root
-        self.root.title("V1 — ДВОЙНИКИ (одинаковые файлы)")
-        self.root.geometry("1000x640")
+    def __init__(self, root=None):
+        self.root = root or U.make_root("V1 — ДВОЙНИКИ (одинаковые файлы)",
+                                        "1020x660", minsize=(900, 580))
+        self.root.minsize(900, 580)
         self.st = self.load()
         self.res = None
         self.build()
@@ -63,58 +65,83 @@ class App:
             pass
 
     def build(self):
-        top = tk.LabelFrame(self.root, text="НАСТРОЙКИ", padx=10, pady=8)
-        top.pack(fill="x", padx=10, pady=8)
+        # --- каркас ui_common: результат СЛЕВА, настройки СПРАВА (константа 5) ---
+        U.head(self.root, "V1 — ДВОЙНИКИ (одинаковые файлы)",
+               "Ничего не удаляет: лишние копии уезжают в `_trash_dup` рядом с файлом. "
+               "Класс Р: Creo и агент не нужны.")
+        left, right = U.split_result_left(self.root, right_width=440)
 
-        tk.Label(top, text="Где искать:").grid(row=0, column=0, sticky="nw")
+        # --- слева: результат + сводка с процентом (константа 4) ---
+        _, self.btns = U.actions(left, primary=(("НАЙТИ ДВОЙНИКОВ", self.run_find),),
+                                 secondary=(("ПЕРЕНЕСТИ В УРНУ", self.run_apply),
+                                            ("Открыть папку отчётов",
+                                             lambda: self.open_dir(eng.LOG_DIR))))
+        self.b_apply = self.btns[1]
+        self.b_apply.config(state="disabled")
+        self.tree = U.result_tree(left, ("st", "size", "keep", "extra", "where"),
+                                  ("", "МБ", "Образец (оставляем самый свежий)",
+                                   "Двойников", "Где они лежат"),
+                                  [40, 70, 300, 90, 280])
+        self.sum_var, self.set_summary = U.summary(left)
+
+        # --- справа: вкладки по смыслу (константа 3) ---
+        nb, pages = U.tabs(right, ["Основное", "Папки", "Дополнительно"])
+
+        # основное: ТАБЛИЦА настроек Option|Value|Status|Description (константы 1 и 2)
+        self.var_ext = tk.StringVar(value=self.st["ext"])
+        self.var_min = tk.DoubleVar(value=self.st["min_mb"])
+        self.var_mode = tk.StringVar(value=self.st["mode"])
+        spec = [{"option": "ext", "value": self.st["ext"],
+                 "desc": "расширения через запятую: prt,asm,drw,pdf", "default": "prt,asm,drw,pdf"},
+                {"option": "min_mb", "value": str(self.st["min_mb"]),
+                 "desc": "не меньше, МБ (0 — искать всё)", "default": "0.0"},
+                {"option": "mode", "value": self.st["mode"],
+                 "desc": "report = только отчёт; apply = переносить в _trash_dup",
+                 "default": "report"}]
+        self.tbl = U.SettingsTable(pages[0], spec, log=self.log, on_apply=self._on_apply)
+        self.tbl.saved = dict(self.tbl.vals)
+
+        # папки: список остаётся списком (главное — сам список, а не таблица)
+        pl = pages[1]
+        tk.Label(pl, text="Где искать:", bg=U.BG, anchor="w").pack(anchor="w", padx=8)
         self.roots_var = tk.StringVar(value=self.st["roots"])
-        self.lst = tk.Listbox(top, listvariable=self.roots_var, height=4, width=70)
-        self.lst.grid(row=0, column=1, rowspan=2, sticky="we", padx=6)
-        tk.Button(top, text="Добавить папку…", command=self.add_root).grid(row=0, column=2, sticky="w")
-        tk.Button(top, text="Убрать", command=self.del_root).grid(row=1, column=2, sticky="w")
-        tk.Label(top, text="(двойной щелчок по папке — открыть в проводнике)", fg="#555").grid(
-            row=2, column=1, sticky="w")
+        self.lst = tk.Listbox(pl, listvariable=self.roots_var, height=6, bg="#ffffff")
+        self.lst.pack(fill="both", expand=True, padx=8)
+        row = tk.Frame(pl, bg=U.BG)
+        row.pack(fill="x", padx=8, pady=4)
+        tk.Button(row, text="Добавить папку…", command=self.add_root).pack(side="left", padx=2)
+        tk.Button(row, text="Убрать", command=self.del_root).pack(side="left", padx=2)
+        tk.Label(pl, text="(двойной щелчок по папке — открыть в проводнике)",
+                 bg=U.BG, fg=U.MUTED, font=("Segoe UI", 8)).pack(anchor="w", padx=8)
         self.lst.bind("<Double-1>", lambda e: self.open_dir(self.selected_root()))
 
-        tk.Label(top, text="Расширения:").grid(row=3, column=0, sticky="w", pady=4)
-        self.var_ext = tk.StringVar(value=self.st["ext"])
-        tk.Entry(top, textvariable=self.var_ext, width=40).grid(row=3, column=1, sticky="w", padx=6)
+        # дополнительно: отчёты и журнал
+        ex = pages[2]
+        tk.Button(ex, text="Папка отчётов", command=lambda: self.open_dir(eng.LOG_DIR)).pack(anchor="w", padx=8, pady=3)
+        U.readme_button(ex, Path(__file__).resolve().parent, self.log)
 
-        tk.Label(top, text="Не меньше, МБ:").grid(row=4, column=0, sticky="w")
-        self.var_min = tk.DoubleVar(value=self.st["min_mb"])
-        tk.Spinbox(top, from_=0, to=100000, increment=0.5, textvariable=self.var_min, width=8).grid(
-            row=4, column=1, sticky="w", padx=6)
+        self._log_box, self._log_write = U.log_view(self.root, height=6)
+        self.status = U.statusbar(self.root)
 
-        tk.Label(top, text="Что делать с двойниками:").grid(row=5, column=0, sticky="w", pady=4)
-        self.var_mode = tk.StringVar(value=self.st["mode"])
-        tk.Radiobutton(top, text="только отчёт (ничего не трогать)", variable=self.var_mode,
-                       value="report", command=self.save).grid(row=5, column=1, sticky="w", padx=6)
-        tk.Radiobutton(top, text="переносить в _trash_dup рядом с файлом", variable=self.var_mode,
-                       value="apply", command=self.save).grid(row=5, column=1, sticky="e", padx=6)
-
-        btns = tk.Frame(self.root)
-        btns.pack(fill="x", padx=10, pady=(0, 6))
-        tk.Button(btns, text="НАЙТИ ДВОЙНИКОВ", width=20, command=self.run_find).pack(side="left", padx=4)
-        self.b_apply = tk.Button(btns, text="ПЕРЕНЕСТИ В УРНУ", width=20, state="disabled", command=self.run_apply)
-        self.b_apply.pack(side="left", padx=4)
-        tk.Button(btns, text="Открыть папку отчётов", command=lambda: self.open_dir(eng.LOG_DIR)).pack(side="left", padx=4)
-        tk.Button(btns, text="README", command=self.show_readme).pack(side="left", padx=4)
-
-        cols = ("size", "keep", "extra", "where")
-        heads = ("МБ", "Образец (оставляем самый свежий)", "Двойников", "Где они лежат")
-        self.tree = ttk.Treeview(self.root, columns=cols, show="headings", height=13)
-        for c, h, w in zip(cols, heads, (70, 420, 90, 380)):
-            self.tree.heading(c, text=h)
-            self.tree.column(c, width=w)
-        self.tree.pack(fill="both", expand=True, padx=10, pady=8)
-
-        self.info = tk.Text(self.root, height=7, font=("Consolas", 9), bg="#f8f9fa")
-        self.info.pack(fill="x", padx=10, pady=(0, 8))
+    def _on_apply(self, vals):
+        """Кнопка «Применить»: значения таблицы идут в настройки окна (файл в data\\)."""
+        self.var_ext.set(vals.get("ext", self.st["ext"]))
+        try:
+            self.st["min_mb"] = float(vals.get("min_mb") or 0)
+        except ValueError:
+            self.st["min_mb"] = 0.0
+        if vals.get("mode") in ("report", "apply"):
+            self.st["mode"] = vals["mode"]
+            self.var_mode.set(self.st["mode"])
+        self.save()
+        return vals
 
     # ---------- вспомогательное ----------
     def log(self, s):
-        self.info.insert("end", s + "\n")
-        self.info.see("end")
+        try:
+            self._log_write(str(s))
+        except Exception:
+            pass
 
     def open_dir(self, p):
         try:
@@ -176,10 +203,18 @@ class App:
 
     def show(self, res):
         self.res = res
+        extra_files = sum(len(g["extra"]) for g in res["groups"])
+        total_files = extra_files + len(res["groups"])      # +1 образец на группу
         for g in res["groups"]:
             where = os.path.dirname(g["extra"][0][0]) if g["extra"] else ""
-            self.tree.insert("", "end", values=(round(g["size"] / 1048576, 2), g["keep"][0],
-                                                len(g["extra"]), where))
+            self.tree.insert("", "end", values=(U.ICON_WARN, round(g["size"] / 1048576, 2),
+                                                g["keep"][0], len(g["extra"]), where),
+                             tags=("warn",))
+        pct = self.set_summary(total_files, len(res["groups"]), extra_files,
+                               label="групп: %d, лишнего %.2f ГБ, файлов: %d"
+                                     % (len(res["groups"]), res["waste"] / 1073741824.0,
+                                        res["files"]))
+        self.status.set("найдено за %.1f с" % (time.time() - getattr(self, "_t0", time.time())))
         self.log("групп двойников: %d, лишнего объёма %.2f ГБ (проверено файлов %d, за %.1f с)"
                  % (len(res["groups"]), res["waste"] / 1073741824.0, res["files"],
                     time.time() - getattr(self, "_t0", time.time())))
@@ -209,24 +244,11 @@ class App:
                     self.log("   → в урну: %s" % os.path.basename(one[0]))
         self.log("перенесено файлов: %d" % moved)
         self.run_find()
-    def show_readme(self):
-        p = Path(__file__).resolve().parent / "README.md"
-        try:
-            text = p.read_text(encoding="utf-8")
-        except Exception as e:
-            self.log("README не прочитан: %s" % e)
-            return
-        self.log("=" * 100)
-        self.log("README: %s" % p)
-        self.log("=" * 100)
-        for line in text.splitlines():
-            self.log(line)
-        self.log("=" * 100)
-        self.log("конец README")
 
+    # README теперь показывает каркас (U.readme_button) — свой метод не нужен.
 
 
 if __name__ == "__main__":
-    r = tk.Tk()
+    r = U.make_root("V1 — ДВОЙНИКИ (одинаковые файлы)", "1020x660", minsize=(900, 580))
     App(r)
     r.mainloop()
