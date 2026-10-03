@@ -19,6 +19,7 @@ r"""checks.py — КАРКАС ПРОВЕРОК И ЕДИНЫЙ ПРОГОН (в
 (`hol_check.bat`, `config_audit.bat`) продолжает работать как раньше — это требование плана.
 """
 import io
+import shutil
 import subprocess
 import sys
 import time
@@ -238,6 +239,29 @@ def _run_hatch():
                 % (res["checked"], bad, warn), items)
 
 
+def _probe_root(source=r"D:\AI\PROBA\vol8_copy\vol8_probe.prt"):
+    """Папка пробы для проверок `cmnm_names` и `dup_files`.
+
+    ДОЛГ, закрытый 03.10.2026: обе проверки были привязаны к папке `D:\\AI\\PROBA\\vol7_copy`,
+    удалённой по слову владельца, и печатали «папки пробы нет» — прогон выглядел пустым.
+    Теперь папка создаётся самой проверкой: копия одного живого файла (продакшн-копия
+    `vol8_probe.prt` волны 8) + его версии. Ничего чужого не трогаем, только создаём.
+    Возвращает путь или None, если взять образец не удалось."""
+    root = Path(r"D:\AI\PROBA\checks_probe")
+    try:
+        root.mkdir(parents=True, exist_ok=True)
+        src = Path(source)
+        if not src.exists():
+            return root if any(root.iterdir()) else None
+        dst = root / src.name
+        if not dst.exists():
+            shutil.copy2(str(src), str(dst))
+        return root
+    except Exception as e:
+        print("ПРОБА: папку создать не удалось (%s) — проверка будет пропущена" % e)
+        return None
+
+
 @check("cmnm_names", "Внутреннее имя модели совпадает с именем файла", "check", "models", "warn",
        app="cmnm_scan")
 def _run_cmnm():
@@ -247,10 +271,10 @@ def _run_cmnm():
     уходит в минуты, а приёмке нужна скорость и воспроизводимость (живой факт 03.10.2026)."""
     sys.path.insert(0, str(AGENT / "cmnm_scan"))
     import cmnm_scan as eng
-    root = r"D:\AI\PROBA\vol7_copy"
-    if not Path(root).exists():
-        return _res(True, 0, 0, 1, "папки пробы нет: %s (создаётся волной 7)" % root)
-    res = eng.scan([root])
+    root = _probe_root()
+    if not root:
+        return _res(True, 0, 0, 1, "образец пробы недоступен — проверка пропущена")
+    res = eng.scan([str(root)])
     items = [{"icon": "❌", "verdict": "error",
               "what": "внутри %s, файл %s" % (Path(nm).name, Path(fn).name)}
              for _full, nm, fn in res["bad"]]
@@ -264,10 +288,10 @@ def _run_dup():
     """dup_scan: файлы-двойники одного размера и sha1. Только чтение, ничего не двигает."""
     sys.path.insert(0, str(AGENT / "dup_scan"))
     import dup_scan as eng
-    root = r"D:\AI\PROBA\vol7_copy"
-    if not Path(root).exists():
-        return _res(True, 0, 0, 1, "папки пробы нет: %s" % root)
-    res = eng.find_dups([root])
+    root = _probe_root()
+    if not root:
+        return _res(True, 0, 0, 1, "образец пробы недоступен — проверка пропущена")
+    res = eng.find_dups([str(root)])
     items = [{"icon": "⚠️", "verdict": "warn",
               "what": "образец %s, лишних копий: %d" % (Path(g["keep"][0]).name,
                                                         len(g["extra"]))}
