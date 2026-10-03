@@ -21,7 +21,7 @@ sys.path.insert(0, str(AGENT / "batch_params"))
 
 fail = []
 COPY_DIR = Path(r"D:\AI\PROBA\vol7_copy")
-COPY_MODEL = COPY_DIR / "din439.prt"
+COPY_MODEL = COPY_DIR / "vol7_probe.prt"   # УНИКАЛЬНОЕ имя: коллизия по стену — причина инцидента
 PARAM = "VOL7_PROBA"
 VALUE = "проверка_2026_10_03"
 
@@ -54,7 +54,12 @@ def main():
 
     # 2. Открыть копию в Creo
     t0 = time.time()
-    j = CT.creo_call("file", "open", {"file": str(COPY_MODEL)}, 60)
+    # КОНТРАКТ ИЗ ЖИВОГО КЛИЕНТА CREOSON (creoson_file.js): у FileObj есть поля
+    # `file` и `dirname`. Без dirname файл ищется в рабочей папке (pwd) — отсюда ошибка
+    # «Could not open file ... in directory Z:\PTC\CREO-START\START-STD\».
+    j = CT.creo_call("file", "open", {"file": COPY_MODEL.name,
+                                          "dirname": str(COPY_MODEL.parent),
+                                          "activate": True, "display": True}, 90)
     ok("копия открыта в Creo", CT.ok(j), CT.errmsg(j) if not CT.ok(j) else "%.1f с" % (time.time() - t0))
     time.sleep(2)
 

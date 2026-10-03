@@ -33,7 +33,7 @@ def main():
     print("  mtime: %s, размер: %d"
           % (time.strftime("%d.%m.%Y %H:%M", time.localtime(st.st_mtime)), st.st_size))
 
-    for f in sorted(list(ZAKI.glob("din439.prt*")) + list(PROBA.glob("din439*"))):
+    for f in sorted(list(ZAKI.glob("din439.prt*")) + list(PROBA.glob("*.prt*"))):
         try:
             raw = CR.read(str(f))
             pr = CR.params(raw, CR.parse_toc(raw))
