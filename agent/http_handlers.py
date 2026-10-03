@@ -661,6 +661,35 @@ class Hd(BaseHTTPRequestHandler):
             except Exception as _re_e:
                 return self._j({"error": "README не прочитан: %s" % _re_e})
             return self._j({"text": _t, "path": _p, "error": None})
+        elif p == "/wiz_rules":
+            # ПРАВИЛА ДВУСТОРОННИЕ — по образцу B&W (конспект 17, §3 «Диалог правил»):
+            # сверху ТЕКСТ (IF…THEN, его читает движок), снизу ФОРМА (её правит человек),
+            # порядок правил важен → Up/Down, кнопки New/Delete/Update/Close.
+            import rules_engine as _RE
+            op = (b.get("op") or "get")
+            try:
+                if op == "get":
+                    _doc, _err = _RE.load()
+                    if not _doc:
+                        return self._j({"error": "правила не прочитались: %s" % _err,
+                                        "rules": [], "text": ""})
+                    return self._j({"rules": _doc.get("rules") or [],
+                                    "text": _RE.all_text(_doc),
+                                    "file": str(_RE.RULES_FILE),
+                                    "stats": _RE.stats(_doc), "error": None})
+                # запись: принимаем ПОЛНЫЙ документ и пишем через движок (он же валидирует)
+                _new = b.get("doc")
+                if not isinstance(_new, dict):
+                    return self._j({"error": "пришли doc — объект правил"})
+                _e2 = _RE.validate(_new)
+                if _e2:
+                    return self._j({"error": "не сохранено — ошибки валидации: %s"
+                                    % "; ".join(map(str, _e2))})
+                _RE.save(_new)
+                return self._j({"ok": True, "saved": str(_RE.RULES_FILE),
+                                "stats": _RE.stats(_new), "error": None})
+            except Exception as _rx_e:
+                return self._j({"error": "%s: %s" % (type(_rx_e).__name__, _rx_e)})
         elif p == "/wiz_setg":
             # ТАБЛИЦА НАСТРОЕК ДОМА — по образцу B&W (конспект 17, §4 «Окно настроек
             # SMARTUpdate»): Option | Value | Status | Description, вкладки, кнопки

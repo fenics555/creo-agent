@@ -273,6 +273,59 @@ function sgDraw(){
   +' · изменено: '+sgRows.filter(function(x){return x.changed}).length+'</small>';
  box.innerHTML=h;
 }
+// ПРАВИЛА: ТЕКСТ + ФОРМА — по образцу B&W (конспект 17, §3 «Диалог правил»).
+// Сверху текст IF…THEN (его читает движок), снизу форма выбранного правила;
+// порядок важен → ↑/↓, кнопки New/Delete/Update/Close. Сохранение идёт ЧЕРЕЗ движок
+// (он же валидирует), минуя «записать JSON руками».
+var rDoc={rules:[]}, rSel=-1;
+function rulesOpen(){document.getElementById('wiz_rules').style.display='flex';rulesLoad()}
+function rulesLoad(){
+ var tx=document.getElementById('rl_text');tx.textContent='читаю правила…';
+ J('/wiz_rules',{token:TK,op:'get'}).then(function(r){
+  if(r.error){tx.innerHTML='<span style="color:#c62828">'+esc(r.error)+'</span>';return}
+  rDoc=r;rSel=(rDoc.rules||[]).length?0:-1;tx.textContent=rDoc.text||'';
+  rulesList();rulesForm()}).catch(function(e){tx.innerHTML='<span style="color:#c62828">ошибка: '+esc(e)+'</span>'});
+}
+function rulesList(){
+ var box=document.getElementById('rl_list');if(!box)return;
+ var h='';
+ (rDoc.rules||[]).forEach(function(x,i){
+  h+='<div class="pin" data-act="rl_pick" data-i="'+i+'" style="display:block;margin:2px;width:auto;'
+   +(i===rSel?'background:#1f6fb2;color:#fff':'')+'">'
+   +'['+(x.enabled===false?'выкл':'вкл')+'] '+esc(x.id)+'</div>'});
+ if(!h)h='<small style="color:#5a5a5a">правил нет</small>';
+ box.innerHTML=h;
+}
+function rulesForm(){
+ var f=document.getElementById('rl_form');if(!f)return;
+ var x=(rDoc.rules||[])[rSel];
+ if(!x){f.innerHTML='<small style="color:#5a5a5a">выбери правило слева или нажми New Rule</small>';return}
+ f.innerHTML='<table style="width:100%;font-size:12px">'
+  +'<tr><td style="color:#5a5a5a;padding:2px 4px">id</td><td><input id="rf_id" value="'+esc(x.id||'')+'" style="width:95%"></td></tr>'
+  +'<tr><td style="color:#5a5a5a;padding:2px 4px">label</td><td><input id="rf_label" value="'+esc(x.label||'')+'" style="width:95%"></td></tr>'
+  +'<tr><td style="color:#5a5a5a;padding:2px 4px">вкл</td><td><input type="checkbox" id="rf_en" '+(x.enabled!==false?'checked':'')+'></td></tr>'
+  +'<tr><td style="color:#5a5a5a;padding:2px 4px">target</td><td><input id="rf_tkind" value="'+esc((x.target||{}).kind||'')+'" style="width:42%"> <input id="rf_tname" value="'+esc((x.target||{}).name||'')+'" style="width:42%"></td></tr>'
+  +'<tr><td style="color:#5a5a5a;padding:2px 4px;vertical-align:top">criteria</td><td>';
+ var critRows='';((x.criteria)||[]).forEach(function(c,i){critRows+='<div style="margin-bottom:3px">'
+   +'<input id="rf_ct'+i+'" value="'+esc(c.type||'')+'" style="width:28%"> '
+   +'<input id="rf_co'+i+'" value="'+esc(c.op||'')+'" style="width:28%"> '
+   +'<input id="rf_cv'+i+'" value="'+esc(c.value==null?'':String(c.value))+'" style="width:36%"></div>'});
+ f.innerHTML+=critRows
+   +'<small style="color:#5a5a5a">по одной строке на критерий</small></td></tr>'
+   +'<tr><td style="color:#5a5a5a;padding:2px 4px">action</td><td><input id="rf_atype" value="'+esc((x.action||{}).type||'')+'" style="width:28%"> <input id="rf_aval" value="'+esc((x.action||{}).value||'')+'" style="width:60%"></td></tr>'
+   +'<tr><td style="color:#5a5a5a;padding:2px 4px">notes</td><td><textarea id="rf_notes" style="width:95%;height:44px">'+esc(x.notes||'')+'</textarea></td></tr>'
+   +'</table>';
+}
+function rulesCollect(){
+ var x=(rDoc.rules||[])[rSel];if(!x)return null;
+ var g=function(id){var e=document.getElementById(id);return e?e.value:''};
+ var crits=[];((x.criteria)||[]).forEach(function(c,i){crits.push({type:g('rf_ct'+i),op:g('rf_co'+i),value:g('rf_cv'+i)})});
+ var out={id:g('rf_id'),label:g('rf_label'),enabled:document.getElementById('rf_en')?document.getElementById('rf_en').checked:true,
+  target:{kind:g('rf_tkind'),name:g('rf_tname')},criteria:crits,
+  action:{type:g('rf_atype'),value:g('rf_aval')},notes:g('rf_notes')};
+ return out;
+}
+function rulesOut(m,bad){var o=document.getElementById('rl_out');if(!o)return;o.style.display='block';o.textContent=(bad?'❌ ':'✅ ')+m}
 function showZone(v){var z=document.getElementById('zone');if(!z)return;
 if(v=='chat'){z.style.display='none';chat.style.display='block';return}
 chat.style.display='none';z.style.display='block';
@@ -422,6 +475,14 @@ else if(a=='wiz_orphan_scan'){var oroot=document.getElementById('wo_root').value
 else if(a=='open_checks'){document.getElementById('wiz_checks').style.display='flex'}
        else if(a=='gzl_reload'){gzlLoad()}
        else if(a=='gzl_run'){var gp=el.getAttribute('data-p');gzlOut('запускаю '+gp+'…');J('/wiz_run_gui',{token:TK,program:gp}).then(function(r){if(r.error){gzlOut(r.error,true);return}gzlOut(r.msg||('запущено: '+gp))}).catch(function(e){gzlOut('ошибка: '+e,true)})}
+       else if(a=='open_rules'){rulesOpen()}
+       else if(a=='rl_reload'){rulesLoad()}
+       else if(a=='rl_pick'){rSel=parseInt(el.getAttribute('data-i'),10)||0;rulesList();rulesForm()}
+       else if(a=='close_rules'){document.getElementById('wiz_rules').style.display='none'}
+       else if(a=='rl_new'){rDoc.rules=rDoc.rules||[];rDoc.rules.push({id:'new_rule',label:'Новое правило',enabled:true,target:{kind:'parameter',name:''},criteria:[{type:'',op:'',value:''}],action:{type:'report',value:''},notes:''});rSel=rDoc.rules.length-1;rulesList();rulesForm();rulesOut('новое правило добавлено в форму — нажми Update Rule, чтобы записать на диск')}
+       else if(a=='rl_del'){if(rSel<0){rulesOut('не выбрано правило',true);return}var d=(rDoc.rules||[])[rSel];if(!confirm('Удалить правило '+d.id+'?'))return;rDoc.rules.splice(rSel,1);rSel=Math.min(rSel,rDoc.rules.length-1);rulesList();rulesForm();rulesOut('удалено из формы: '+d.id+' — нажми Update Rule для записи')}
+       else if(a=='rl_up'||a=='rl_dn'){if(rSel<0){rulesOut('не выбрано правило',true);return}var i2=rSel+(a=='rl_up'?-1:1);var rs=rDoc.rules||[];if(i2<0||i2>=rs.length){rulesOut('край списка',true);return}var tmp=rs[i2];rs[i2]=rs[rSel];rs[rSel]=tmp;rSel=i2;rulesList();rulesForm();rulesOut('порядок: '+(rSel+1)+' из '+rs.length+' — нажми Update Rule для записи')}
+       else if(a=='rl_save'){var nc=rulesCollect();if(!nc){rulesOut('не выбрано правило',true);return}var doc={schema:rDoc.schema||1,source:rDoc.source||'витрина',updated:rDoc.updated||'',rules:rDoc.rules};doc.rules[rSel]=nc;J('/wiz_rules',{token:TK,op:'save',doc:doc}).then(function(r){if(r.error){rulesOut('не сохранено: '+r.error,true);return}rulesLoad();rulesOut('записано: '+(r.saved||'')+' · правил '+((r.stats||{}).rules||'?'))}).catch(function(e){rulesOut('ошибка: '+e,true)})}
        else if(a=='open_setg'){setgOpen()}
        else if(a=='sg_reload'){sgLoad()}
        else if(a=='sg_tab'){sgSpace=el.getAttribute('data-v')||'';sgDraw()}
