@@ -627,6 +627,16 @@ class Hd(BaseHTTPRequestHandler):
                     pass
                 return self._j({"result": None, "report": None,
                                 "error": "%s: %s" % (type(_chk_e).__name__, _chk_e)})
+        elif p == "/ui_readme":
+            # Слой 7 канона ОКНА (01_СТРОЕНИЕ_ОКНА.md): «кнопка README — обязательна:
+            # читает README.md и печатает в лог построчно; при ошибке — честная строка».
+            # Для витрины README — это её собственный документ.
+            _p = os.path.join(os.path.dirname(os.path.abspath(__file__)), "README.md")
+            try:
+                _t = open(_p, encoding="utf-8").read()
+            except Exception as _re_e:
+                return self._j({"error": "README не прочитан: %s" % _re_e})
+            return self._j({"text": _t, "path": _p, "error": None})
         elif p == "/wiz_run_gui":
             # ЖИВАЯ ПРАВКА ВИТРИНЫ 03.10.2026 (слово владельца: «в основном окне должен быть
             # другой дизайн и другой вызов окон»): раньше окна программ запускались ТОЛЬКО
