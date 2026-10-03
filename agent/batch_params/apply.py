@@ -28,6 +28,36 @@ import plan as P   # noqa: E402
 STOP = {"flag": False}
 
 
+def creoson_ready(timeout=3):
+    """Готов ли стек к записи: (готов?, причина).
+
+    Проверяются ДВА условия, потому что на машине они расходятся (живой факт 03.10.2026):
+      1. порт 8080 (CREOSON поднят) — иначе поднимаем `creoson_run.bat`;
+      2. процесс `parametric.exe` (сам Creo запущен) — без него `parameter:set`
+         невозможен, даже когда сервер отвечает.
+    Возвращаем ЧЕСТНЫЙ отказ с указанием, что именно не так, а не «прогон успешен».
+    """
+    import socket
+    s = socket.socket()
+    s.settimeout(timeout)
+    try:
+        s.connect(("127.0.0.1", 8080))
+    except Exception:
+        return False, "CREOSON не отвечает (порт 8080). Подними: creoson_run.bat"
+    finally:
+        s.close()
+    try:
+        import subprocess
+        ps = subprocess.run(["tasklist", "/FI", "IMAGENAME eq parametric.exe"],
+                            capture_output=True, text=True, timeout=20)
+        if "parametric.exe" not in ps.stdout:
+            return False, ("CREOSON отвечает, но Creo не запущен (parametric.exe нет). "
+                           "Запись параметров без него невозможна.")
+    except Exception as e:
+        return False, "не удалось проверить parametric.exe: %s" % e
+    return True, "стек готов: CREOSON отвечает, Creo запущен"
+
+
 def creoson_alive(timeout=3):
     """Жив ли CREOSON (порт 8080). Не выдумываем: спрашиваем сокет и отвечаем честно."""
     import socket
@@ -75,9 +105,10 @@ def apply_plan(plan, approve=False, copy_only=True, dry_run=False, on_log=None):
     if dry_run:
         return {"rc": 0, "detail": "пробный прогон (dry_run): записи не было",
                 "planned": len(steps), "done": 0}
-    if not creoson_alive():
-        return {"rc": 2, "detail": "CREOSON не отвечает (порт 8080) - запись НЕ выполнена. "
-                "Подними CREOSON и повтори; боевые файлы не тронуты.", "planned": len(steps)}
+    ready, why = creoson_ready()
+    if not ready:
+        return {"rc": 2, "detail": "%s - запись НЕ выполнена; боевые файлы не тронуты."
+                % why, "planned": len(steps), "stack_ready": False}
 
     results = []
     seen = set()

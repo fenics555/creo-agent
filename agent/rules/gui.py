@@ -71,7 +71,7 @@ class App:
         self.sum_var, self.set_summary = U.summary(left)
         self._fill_tree()
 
-        nb, pages = U.tabs(right, ["Текст правил", "Форма", "О файле"])
+        nb, pages = U.tabs(right, ["Текст правил", "Форма", "Критерий", "О файле"])
         self.txt = tk.Text(pages[0], height=16, font=("Consolas", 9), wrap="none",
                            bg="#101418", fg="#d8e2e8", insertbackground="#d8e2e8")
         self.txt.pack(fill="both", expand=True)
@@ -89,7 +89,28 @@ class App:
                          ("Вкл/Выкл", self.toggle), ("Удалить", self.delete_rule)):
             tk.Button(row, text=txt, width=12, command=cmd).pack(side="left", padx=2)
 
-        about = pages[2]
+        # --- ВКЛАДКА «КРИТЕРИЙ»: правка самих условий правила (долг волны 4) ---
+        # Раньше окно меняло только порядок и включение; критерии были неправимы.
+        cr = pages[2]
+        tk.Label(cr, text="Правка критериев выбранного правила", bg=U.BG,
+                 font=("Segoe UI", 9, "bold"), anchor="w").pack(anchor="w", padx=8,
+                                                                   pady=(8, 2))
+        tk.Label(cr, text="Типы: %s\nОперации: %s\nСписок — по одному критерию в строке, "
+                          "через «;». Пустая строка удаляет критерий."
+                   % (", ".join(RE.CRITERIA_TYPES), ", ".join(RE.OPS)),
+                 bg=U.BG, fg=U.MUTED, font=("Segoe UI", 8), justify="left",
+                 anchor="w").pack(anchor="w", padx=8)
+        self.crit = tk.Text(cr, height=12, font=("Consolas", 9), wrap="none",
+                            bg="#101418", fg="#d8e2e8", insertbackground="#d8e2e8")
+        self.crit.pack(fill="both", expand=True, padx=8, pady=6)
+        crow = tk.Frame(cr, bg=U.BG)
+        crow.pack(fill="x", padx=8, pady=(0, 6))
+        for txt, cmd in (("Загрузить в поля", self.load_criteria),
+                         ("Записать критерии", self.save_criteria),
+                         ("Применить к живой модели", self.run)):
+            tk.Button(crow, text=txt, width=22, command=cmd).pack(side="left", padx=2)
+
+        about = pages[3]
         info = ("Движок: rules_engine.py\nДанные: %s\nСхема: %d\n\n"
                 "Операции: %s\n\nТипы критериев: %s\n\n"
                 "Порядок правил ВАЖЕН: первое совпавшее правило идёт первым в отчёте.\n"
@@ -150,6 +171,53 @@ class App:
     def sel(self):
         i = self.lst.curselection()
         return self.rules()[i[0]] if i else None
+
+    def load_criteria(self):
+        """Показать критерии выбранного правила в полях правки (по одному в строке)."""
+        r = self.sel()
+        if not r:
+            return self.log("сначала выбери правило во вкладке «Форма»")
+        self.crit.delete("1.0", "end")
+        self.crit.insert("1.0", "\n".join(
+            "%s %s %s" % (c.get("type", ""), c.get("op", ""), c.get("value", ""))
+            for c in (r.get("criteria") or [])))
+        self.status.set("критерии правила %s в полях" % r.get("id"))
+        self.log("загружены критерии %s: %d" % (r.get("id"), len(r.get("criteria") or [])))
+
+    def save_criteria(self):
+        """Записать критерии из полей в правило. Проверка схемы — до сохранения."""
+        r = self.sel()
+        if not r:
+            return self.log("сначала выбери правило во вкладке «Форма»")
+        new = []
+        for line in self.crit.get("1.0", "end").splitlines():
+            parts = line.split(None, 2)
+            if not parts:
+                continue
+            if len(parts) < 3:
+                return self.log("критерий неполный (нужно: тип операция значение): %s" % line)
+            new.append({"type": parts[0], "op": parts[1], "value": parts[2].strip()})
+        r["criteria"] = new
+        # ЖИВАЯ ПРОБА 03.10.2026: _fill_list сбрасывает выделение, и после записи
+        # правило «терялось» — второй критерий уже не попал бы в то же правило.
+        keep = r.get("id")
+        self._fill_list()
+        self._fill_tree()
+        if keep:
+            ids = [x.get("id") for x in self.rules()]
+            if keep in ids:
+                self.lst.selection_set(ids.index(keep))
+                self.lst.activate(ids.index(keep))
+        self.show_text()
+        errs = RE.validate(self.doc)
+        if errs:
+            self.status.set("критерии записаны, но схема нарушена: %d" % len(errs))
+            self.log("✗ после правки критериев: %s" % errs[0])
+        else:
+            self.status.set("критерии записаны: %d" % len(new))
+            self.log("критерии правила %s записаны: %d (схема в порядке)"
+                     % (r.get("id"), len(new)))
+        return True
 
     def validate(self):
         errs = RE.validate(self.doc)

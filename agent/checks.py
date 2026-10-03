@@ -238,6 +238,63 @@ def _run_hatch():
                 % (res["checked"], bad, warn), items)
 
 
+@check("cmnm_names", "Внутреннее имя модели совпадает с именем файла", "check", "models", "warn",
+       app="cmnm_scan")
+def _run_cmnm():
+    """cmnm_scan: сверка внутреннего имени CREO с именем файла (только чтение).
+
+    Проба на изолированной копии моделей, а не по всей сети: обход Z: на 12 666 файлов
+    уходит в минуты, а приёмке нужна скорость и воспроизводимость (живой факт 03.10.2026)."""
+    sys.path.insert(0, str(AGENT / "cmnm_scan"))
+    import cmnm_scan as eng
+    root = r"D:\AI\PROBA\vol7_copy"
+    if not Path(root).exists():
+        return _res(True, 0, 0, 1, "папки пробы нет: %s (создаётся волной 7)" % root)
+    res = eng.scan([root])
+    items = [{"icon": "❌", "verdict": "error",
+              "what": "внутри %s, файл %s" % (Path(nm).name, Path(fn).name)}
+             for _full, nm, fn in res["bad"]]
+    return _res(not res["bad"], res["files"], len(res["bad"]), res["nofield"],
+                "файлов %d, расхождений %d, без поля имени %d (%.1f с)"
+                % (res["files"], len(res["bad"]), res["nofield"], res["seconds"]), items)
+
+
+@check("dup_files", "Двойники версий Creo", "check", "house", "warn", app="dup_scan")
+def _run_dup():
+    """dup_scan: файлы-двойники одного размера и sha1. Только чтение, ничего не двигает."""
+    sys.path.insert(0, str(AGENT / "dup_scan"))
+    import dup_scan as eng
+    root = r"D:\AI\PROBA\vol7_copy"
+    if not Path(root).exists():
+        return _res(True, 0, 0, 1, "папки пробы нет: %s" % root)
+    res = eng.find_dups([root])
+    items = [{"icon": "⚠️", "verdict": "warn",
+              "what": "образец %s, лишних копий: %d" % (Path(g["keep"][0]).name,
+                                                        len(g["extra"]))}
+             for g in res["groups"][:20]]
+    return _res(True, res["files"], 0, len(res["groups"]),
+                "файлов %d, групп-двойников %d, лишних байт %d"
+                % (res["files"], len(res["groups"]), res["waste"]), items)
+
+
+@check("registry_contracts", "Реестр программ соответствует контрактам", "check", "house", "warn")
+def _run_registry():
+    """Каждая программа агента с контрактом проходит validate и не теряет id.
+
+    Это «живая связка» волны 2: контракт должен не просто лежать, а читаться и проходить."""
+    import tool_contract as TC
+    cs = TC.all_contracts(AGENT)
+    bad = []
+    for pid, (c, path, err) in sorted(cs.items()):
+        if err:
+            bad.append("%s: %s" % (pid, err))
+        elif not c.get("engine") or not c.get("kind"):
+            bad.append("%s: нет engine/kind" % pid)
+    return _res(not bad, len(cs), len(bad), 0,
+                "контрактов %d, с замечаниями %d" % (len(cs), len(bad)),
+                [{"icon": "⚠️", "verdict": "warn", "what": b} for b in bad[:20]])
+
+
 def registry(as_text=True):
     """Список всех зарегистрированных проверок."""
     if not as_text:
