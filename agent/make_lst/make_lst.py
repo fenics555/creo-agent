@@ -27,6 +27,29 @@ import sys
 
 TARGET = r"Z:\PTC\CREO-START\НАСТРОЙКИ\ФАЙЛЫ_ОГРАНИЧЕНИЙ_ПАРАМЕТРОВ\list.lst"
 LOG_DIR = r"D:\AI\log\make_lst"
+BACKUP_KEEP = 20        # сколько бэкапов храним в `_pre` рядом с файлом (живая правка 03.10.2026)
+
+
+def rotate_backups(target, keep=BACKUP_KEEP, log=print):
+    """Оставляем `keep` последних бэкапов, остальные убираем — папка `_pre` на Z: иначе копится вечно.
+    Удаляются ТОЛЬКО файлы с нашей меткой имени (`<дата>_<время>[_N]_list.lst`)."""
+    d = os.path.join(os.path.dirname(target), "_pre")
+    if not os.path.isdir(d):
+        return 0
+    import re
+    pat = re.compile(r"^\d{4}-\d{2}-\d{2}_\d{6}(_\d+)?_list\.lst$")
+    ours = [os.path.join(d, f) for f in os.listdir(d) if pat.match(f)]
+    ours.sort(key=lambda p: (os.path.getmtime(p), p))
+    removed = 0
+    for p in ours[:-keep] if len(ours) > keep else []:
+        try:
+            os.remove(p)
+            removed += 1
+        except Exception:
+            pass
+    if removed:
+        log("бэкапов убрано (старше %d последних): %d" % (keep, removed))
+    return removed
 
 # ВАЖНО: PTC_MATERIAL_NAME/PTC_MASTER_MATERIAL сюда НЕ пишем — в шаблоне они ограничены одним
 # материалом (STEEL_40X), но в доме есть и другие (STAL_45 и т.д.); глобальное ограничение их бы заблокировало.
@@ -83,14 +106,32 @@ def check_against_refs(refs_path, log):
             log("   %-24s ок (шаблон '%s' есть в списке)" % (name, v))
 
 
+def _backup_path(target):
+    """Путь бэкапа С МЕТКОЙ СЕКУНД и без перезаписи.
+
+    Живая находка 03.10.2026 (аудит): метка была с точностью до МИНУТЫ (`%Y-%m-%d_%H%M`), поэтому два
+    прогона в одну минуту писали бэкап в одно и то же имя. Второй затирал первый, и если между ними
+    файл правили руками, оригинал исчезал безвозвратно — живая проба: файл 48 байт, после двух
+    прогонов в одной минуте в `_pre` лежал один бэкап на 697 байт (уже перезаписанный)."""
+    d = os.path.join(os.path.dirname(target), "_pre")
+    os.makedirs(d, exist_ok=True)
+    base = datetime.datetime.now().strftime("%Y-%m-%d_%H%M%S")
+    p = os.path.join(d, base + "_list.lst")
+    n = 1
+    while os.path.exists(p):          # та же секунда — добавляем номер, старый НЕ трогаем
+        p = os.path.join(d, "%s_%d_list.lst" % (base, n))
+        n += 1
+    return p
+
+
 def write_file(target, text, log=print):
     """Записать файл: бэкап прежнего (в `_pre` рядом), запись в cp1251, проверка чтением.
     Вынесено из main(), чтобы этим пользовалось и окно программы."""
-    os.makedirs(os.path.dirname(target), exist_ok=True)
+    parent = os.path.dirname(target)
+    if parent:
+        os.makedirs(parent, exist_ok=True)
     if os.path.exists(target):
-        bak = os.path.join(os.path.dirname(target), "_pre",
-                           datetime.datetime.now().strftime("%Y-%m-%d_%H%M") + "_list.lst")
-        os.makedirs(os.path.dirname(bak), exist_ok=True)
+        bak = _backup_path(target)
         shutil.copy2(target, bak)
         log("бэкап прежнего файла: %s" % bak)
     with open(target, "wb") as f:
@@ -101,6 +142,7 @@ def write_file(target, text, log=print):
         if ("Name = %s" % name) not in got:
             log("   ПРОВЕРКА: имя %s в файле НЕ найдено!" % name)
     log("проверка чтением: ок (cp1251, %d записей)" % len(DEFS))
+    rotate_backups(target, BACKUP_KEEP, log)
     return True
 
 

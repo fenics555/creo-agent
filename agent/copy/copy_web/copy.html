@@ -163,6 +163,7 @@
                 if (res.copied.length) msg += `✅ Скопировано: ${res.copied.length}\n`;
                 if (res.occupied.length) msg += `⚠️ Уже занято: ${res.occupied.length}\n`;
                 if (res.missing.length) msg += `❌ Пропущено (нет файла): ${res.missing.length}\n`;
+                if (res.refused && res.refused.length) msg += `⛔ Отказ (имя уходит из папки): ${res.refused.length}\n`;
                 log(msg);
             } else if (res.ok === true && res.path === undefined) {
                 log("ok");

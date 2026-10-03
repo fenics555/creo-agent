@@ -20,7 +20,7 @@ except ImportError:
     def preview(root, keep, creo_mode): return {"groups": [], "singles": []}
     def execute(root, keep, creo_mode, backup_dir): return {}
 
-SETTINGS_FILE = Path(__file__).resolve().parent / "gui_settings.json"
+SETTINGS_FILE = Path(r"D:\AI\tools\agent\data\purge_versions_settings.json")   # манифест п.19: настройки в data\ (было в папке программы — файла там не было)
 LOG_FILE = Path(r"D:\AI\log\purge_versions\purge.log")
 LAST_PURGE_FILE = Path(r"D:\AI\log\purge_versions\last_purge.json")
 LOCK_FILE = Path(r"D:\AI\log\purge_versions\purge.lock")

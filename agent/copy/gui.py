@@ -20,6 +20,7 @@ SERVER = HERE / "copy_server.py"
 # Настройки окна — в data\ (манифест п.19). До 02.10.2026 окно искало `gui_settings.json`
 # в папке программы, которого там НИКОГДА не было: настройки просто не сохранялись.
 SETTINGS = Path(r"D:\AI\tools\agent\data\copy_settings.json")
+LOG_DIR = r"D:\AI\log\copy"
 DEFAULTS = {"port": 8000, "bind": "127.0.0.1"}
 
 
@@ -85,7 +86,9 @@ class App:
             self.log(s + "\n")
         self._pending = []
         self.log("настройки: %s\n" % SETTINGS)
-        self.log("журнал службы: %s\n" % (HERE.parent.parent / "log"))
+        # 03.10.2026: было HERE.parent.parent/"log" = D:\AI\tools\log — такой папки нет вовсе
+        # (Test-Path -> False), журнал службы лежит в D:\AI\log\copy.
+        self.log("журнал службы: %s\n" % LOG_DIR)
 
     # ---------- вспомогательное ----------
     def log(self, s):

@@ -19,15 +19,19 @@ PORT = 8000
 HERE = Path(__file__).resolve().parent
 WEB = HERE / "copy_web"
 LOG_DIR = r"D:\AI\log\copy"
-SETTINGS_PATH = r"D:\AI\tools\agent\data\copy_settings.json"
+# Временные папки службы — в ДОМАШНЕЙ урне (03.10.2026: было `%TEMP%` = D:\PTC\CREO-LOCAL-SETUP\TEMP,
+# где копи накапливались годами и папка выглядела чужой; замер: 10 осиротевших папок за одну ночь).
+TMP_DIR = r"D:\AI\data\tmp"
 TMP_PREFIX = "creo_copy_"
 TMP_MARK = ".copy_server_tmp"     # метка «эту папку создала наша служба»
+QUIET = False
 
 
 def log_line(s):
     """Журнал службы; ошибка записи не должна ронять службу."""
     line = "%s %s" % (time.strftime("%Y-%m-%d %H:%M:%S"), s)
-    print(line, flush=True)
+    if not QUIET:
+        print(line, flush=True)
     try:
         os.makedirs(LOG_DIR, exist_ok=True)
         with open(os.path.join(LOG_DIR, "run_%s.txt" % time.strftime("%Y-%m-%d")), "a",
@@ -35,6 +39,36 @@ def log_line(s):
             f.write(line + "\n")
     except Exception:
         pass
+
+
+def sweep_tmp(hours=24):
+    """Уборка осиротевших временных папок службы при старте.
+
+    03.10.2026: папки копились в %TEMP% (= D:\\PTC\\CREO-LOCAL-SETUP\\TEMP) месяцами —
+    10 штук за одну ночь, их чистил только пользователь кнопкой на странице.
+    Свою урну чистим сами; чужое не трогаем: только префикс + метка внутри + возраст.
+    """
+    n = 0
+    try:
+        root = Path(TMP_DIR)
+        if not root.is_dir():
+            return 0
+        now = time.time()
+        for d in root.glob(TMP_PREFIX + "*"):
+            try:
+                if not d.is_dir() or not (d / TMP_MARK).exists():
+                    continue
+                if now - d.stat().st_mtime < hours * 3600:
+                    continue
+                shutil.rmtree(d, ignore_errors=True)
+                n += 1
+            except Exception:
+                pass
+    except Exception:
+        pass
+    if n:
+        log_line("убрал осиротевших временных папок: %d (из %s)" % (n, TMP_DIR))
+    return n
 
 
 def port_busy(host, port):
@@ -109,7 +143,8 @@ class H(BaseHTTPRequestHandler):
                 if f.is_file():
                     new_name = f.stem + "_copy" + f.suffix
                     plan.append({"old": f.name, "new": new_name})
-            td = str(tempfile.mkdtemp(prefix=TMP_PREFIX))
+            os.makedirs(TMP_DIR, exist_ok=True)
+            td = str(tempfile.mkdtemp(prefix=TMP_PREFIX, dir=TMP_DIR))
             # МЕТКА «эту папку создала наша служба» (живая проверка 02.10.2026: раньше cleanup
             # удалял ЛЮБУЮ папку, в имени которой встречается `creo_copy_`)
             try:
@@ -120,18 +155,33 @@ class H(BaseHTTPRequestHandler):
         if a == "collect":
             src, dst = Path(v.get("source", "")), Path(v.get("target", ""))
             items = json.loads(v.get("names") or "[]")
-            cp, oc, mi = [], [], []
+            # 03.10.2026: пустой target = текущий каталог процесса (Path("") -> "."), а несуществующая
+            # папка давала WinError 3 без слов. Теперь — понятный отказ ДО копирования.
+            if not v.get("target"):
+                return {"ok": False, "error": "не указан target (папка назначения)"}
+            if not src.is_dir():
+                return {"ok": False, "error": "источник не найден"}
+            if not dst.is_dir():
+                return {"ok": False, "error": "папка назначения не найден: %s" % dst}
+            base = dst.resolve()
+            cp, oc, mi, rf = [], [], [], []
             for item in items:
                 if isinstance(item, dict):
                     n_old, n_new = item.get("old"), item.get("new")
-                    s, d = src / n_old, dst / n_new
                 else:
-                    n = item
-                    s, d = src / n, dst / n
+                    n_old = n_new = item
+                s, d = src / n_old, dst / n_new
+                # 03.10.2026 (живая проба): имя с `..` уводило копирование ЗА пределы target —
+                # проба создала файл D:\\AI\\data\\tmp\\copy_probe_escape.prt. Теперь такие имена — отказ.
+                try:
+                    if not d.resolve().is_relative_to(base):
+                        rf.append(str(d)); continue
+                except Exception:
+                    rf.append(str(d)); continue
                 if not s.exists(): mi.append(str(s)); continue
                 if d.exists(): oc.append(str(d)); continue
                 shutil.copy2(s, d); cp.append(str(d))
-            return {"ok": True, "copied": cp, "occupied": oc, "missing": mi}
+            return {"ok": True, "copied": cp, "occupied": oc, "missing": mi, "refused": rf}
         if a == "cleanup":
             d = Path(v.get("directory", ""))
             # Защита 02.10.2026: раньше было достаточно, чтобы в имени ЛЮБОЙ папки стояло
@@ -146,7 +196,7 @@ class H(BaseHTTPRequestHandler):
                         "error": "не моя временная папка — не удаляю: %s" % d}
             shutil.rmtree(d, ignore_errors=True)
             return {"ok": True}
-        return {"ok": False, "error": "bad action"}
+        return {"ok": False, "error": "неизвестное действие: %s" % a}
     def _copies(self, v):
         f = Path(v.get("directory", "")) / "rename_copies.json"
         e = []
@@ -170,8 +220,10 @@ if __name__ == "__main__":
     ap = argparse.ArgumentParser(description="copy_server — служба копирования/переименования для веб-страниц дома")
     ap.add_argument("--port", type=int, default=PORT, help="порт (по умолчанию %d)" % PORT)
     ap.add_argument("--bind", default="127.0.0.1", help="адрес привязки (по умолчанию только своя машина)")
-    ap.add_argument("--quiet", action="store_true", help="не печатать строку запуска")
+    ap.add_argument("--quiet", action="store_true", help="не печатать строки в консоль (в журнал пишем всегда)")
     a = ap.parse_args()
+    globals()["QUIET"] = a.quiet   # 03.10.2026: флаг был объявлен, но нигде не читался — молчаливый обман CLI
+    sweep_tmp()           # своя урна чистится сама при каждом старте
     # Живая проверка 02.10.2026: на Windows второй экземпляр на занятом порту НЕ падал —
     # bind проходил (allow_reuse_address), процесс печатал «запущено» и висел молча.
     if port_busy(a.bind, a.port):

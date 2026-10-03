@@ -10,14 +10,76 @@
 Базы дома — ТОЛЬКО ЧТЕНИЕ: `data\\agent.sqlite` (`models`, `bom`, `usage`) и `data\\harvest.db`
 (`models_raw`, `pairs`). Своих таблиц движок не создаёт.
 """
+import json
 import os
 import re
 import sqlite3
+import time
 from pathlib import Path
 
 AG_DB = Path(r"D:\AI\tools\agent\data\agent.sqlite")
 HV_DB = Path(r"D:\AI\tools\agent\data\harvest.db")
 CREO_RE = re.compile(r"\.(prt|asm|drw|frm|sec|lay)(\.\d+)?$", re.I)
+
+# --- единый файл настроек (живая находка 02.10.2026, аудит) ---------------------
+# Раньше пути к базам и размеры превью были ЗАШИТЫ в коде, а в agent\data\ не было
+# ни navigator_settings.json, ни лога: единственная программа в audit_tools_canon.txt
+# с Log: False. Теперь значения читаются отсюда, кодированные — только умолчания.
+SETTINGS = Path(r"D:\AI\tools\agent\data\navigator_settings.json")
+LOG_DIR = Path(r"D:\AI\log\navigator")
+
+DEFAULTS = {"agent_db": str(AG_DB), "harvest_db": str(HV_DB),
+            "preview_w": 300, "max_zoom": 8.0, "last_query": "turn"}
+
+
+def load_settings():
+    """Настройки: файл → умолчания. Мусорный файл не роняет программу."""
+    d = dict(DEFAULTS)
+    try:
+        if SETTINGS.exists():
+            d.update(json.loads(SETTINGS.read_text(encoding="utf-8-sig")))
+    except Exception:
+        pass
+    for key in ("agent_db", "harvest_db"):
+        try:
+            d[key] = str(d[key])
+        except Exception:
+            d[key] = DEFAULTS[key]
+    try:
+        d["preview_w"] = max(120, min(4000, int(d["preview_w"])))
+    except Exception:
+        d["preview_w"] = DEFAULTS["preview_w"]
+    try:
+        d["max_zoom"] = max(1.5, min(16.0, float(d["max_zoom"])))
+    except Exception:
+        d["max_zoom"] = DEFAULTS["max_zoom"]
+    return d
+
+
+def save_settings(d):
+    try:
+        SETTINGS.parent.mkdir(parents=True, exist_ok=True)
+        SETTINGS.write_text(json.dumps(d, ensure_ascii=False, indent=1), encoding="utf-8")
+        return True
+    except Exception:
+        return False
+
+
+def log_line(msg):
+    """Журнал прогона в D:\\AI\\log\\navigator\\run_*.txt (как у остальных программ дома)."""
+    try:
+        LOG_DIR.mkdir(parents=True, exist_ok=True)
+        p = LOG_DIR / ("run_%s.txt" % time.strftime("%Y-%m-%d"))
+        with open(p, "a", encoding="utf-8") as f:
+            f.write("%s %s\n" % (time.strftime("%H:%M:%S"), msg))
+    except Exception:
+        pass
+
+
+# применяем настройки один раз при загрузке
+_S = load_settings()
+AG_DB = Path(_S["agent_db"])
+HV_DB = Path(_S["harvest_db"])
 
 
 def base_of(name):
@@ -195,12 +257,24 @@ def bom_live(model, path=None, open_if_needed=True, cleanup=True, timeout=30):
     return rows, None
 
 
+def bom_root(model):
+    """Имя сборки в том виде, в каком оно лежит в таблице `bom`: `xxx.asm.1`.
+    Правило ОДНО и здесь — раньше версию дописывали в двух местах (здесь и в navigator_tools),
+    и они путались: `d25` -> `d25.1` -> 0 позиций, хотя `d25.asm.1` -> 3 (живая проба 02.10.2026).
+    Порядок: снять версию Creo (`.1`), пристроить тип (`.asm`, если его нет), вернуть версию."""
+    n = os.path.basename(str(model or "")).strip().lower()
+    if not n:
+        return ""
+    n = re.sub(r"\.\d+$", "", n)
+    if not re.search(r"\.(prt|asm|drw|frm|sec|lay)$", n):
+        n += ".asm"
+    return n + ".1"
+
+
 def bom(model, depth=2, limit=2000):
     """Деталировка: состав сборки из индекса дома (таблица `bom`, ТОЛЬКО ЧТЕНИЕ).
     Возвращает список {level, name, base, qty, path, kind, has_pdf, pdf}. Пусто — состава в индексе нет."""
-    root = os.path.basename(str(model)).lower()
-    if "." not in root:
-        root = root + ".asm.1"
+    root = bom_root(model)
     c = _connect(AG_DB)
     out, seen = [], set()
 
@@ -256,7 +330,13 @@ def _path_of(c, name):
 
 
 def pdf_for(path_or_name, conn=None):
-    """PDF модели/чертежа: сначала рядом («имя.pdf»), потом по таблице `pairs` (модель -> pdf)."""
+    """PDF модели/чертежа: сначала рядом («имя.pdf»), потом по таблице `pairs` (модель -> pdf).
+
+    ВНИМАНИЕ (живая находка 02.10.2026, аудит): `conn` — это соединение с ИНДЕКСОМ моделей
+    (`agent.sqlite`), и таблицы `pairs` в нём НЕТ. Раньше bom() передавал сюда свой conn,
+    и если PDF не лежал рядом, поиск по pairs падал с «no such table: pairs» и возвращал None —
+    деталировка молча показывала «PDF нет» у позиций, у которых PDF есть в реестре.
+    Поэтому пары всегда читаем из СВОЕГО соединения с harvest.db, независимо от conn."""
     p = str(path_or_name or "")
     if not p:
         return None
@@ -268,8 +348,9 @@ def pdf_for(path_or_name, conn=None):
     name = os.path.basename(p).lower()
     bases = [os.path.basename(p).lower(), os.path.basename(stem).lower(),
              base_of(p).lower()]
+    c = None
     try:
-        c = conn or _connect(HV_DB)
+        c = _connect(HV_DB)
         for b in bases:
             for like in (b, b + ".%", "%\\" + b + ".drw.%", "%\\" + b + ".prt.%", "%\\" + b + ".asm.%"):
                 r = c.execute("SELECT pdf_path FROM pairs WHERE LOWER(model) LIKE ? LIMIT 1", (like,)).fetchone()
@@ -278,7 +359,7 @@ def pdf_for(path_or_name, conn=None):
     except Exception:
         return None
     finally:
-        if conn is None:
+        if c is not None:
             try:
                 c.close()
             except Exception:
@@ -328,22 +409,49 @@ def render_pdf(pdf_path, width=520, page=0):
 if __name__ == "__main__":
     import sys
 
+    USAGE = """navigator — НАВИГАТОР ПО ДОМУ (класс Р, индекс дома только на чтение)
+
+  python navigator.py find <слова>     поиск по имени и путям
+  python navigator.py bom  <сборка> [N] деталировка до N уровней (по умолчанию 2)
+  python navigator.py pdf  <чертёж>     где PDF и рисуется ли страница
+
+Коды возврата: 0 — нашли; 1 — пусто (состава/совпадений нет); 2 — неверный вызов."""
     if len(sys.argv) < 2:
-        print(__doc__)
-        raise SystemExit(0)
+        print(USAGE)
+        raise SystemExit(2)
     cmd = sys.argv[1]
+    log_line("CLI: %s" % " ".join(sys.argv[1:]))
     if cmd == "find":
-        for r in find(sys.argv[2] if len(sys.argv) > 2 else "", limit=25):
+        if len(sys.argv) < 3:
+            print(USAGE)
+            raise SystemExit(2)
+        rows = find(sys.argv[2], limit=25)
+        for r in rows:
             print("%-10s %-38s %s" % (r["kind"], r["name"], r["folder"]))
+        print("найдено: %d" % len(rows))
+        raise SystemExit(0 if rows else 1)
     elif cmd == "bom":
+        if len(sys.argv) < 3:
+            print(USAGE)
+            raise SystemExit(2)
         rows = bom(sys.argv[2], depth=int(sys.argv[3]) if len(sys.argv) > 3 else 2)
-        print("позиций: %d" % len(rows))
+        print("позиций: %d (искали как %s)" % (len(rows), bom_root(sys.argv[2])))
         for r in rows[:40]:
             print("%s%-8s %-34s qty=%-4s pdf=%s" % ("  " * (r["level"] - 1), r["kind"], r["name"],
                                                     r["qty"], "да" if r["has_pdf"] else "нет"))
+        raise SystemExit(0 if rows else 1)
     elif cmd == "pdf":
+        if len(sys.argv) < 3:
+            print(USAGE)
+            raise SystemExit(2)
         p = pdf_for(sys.argv[2])
         print("PDF: %s (%s)" % (p, pdf_status(p) or "нет в pairs"))
-        if p:
-            data, info = render_pdf(p, 400)
-            print("страница отрисована: %s" % (info,))
+        if not p:
+            raise SystemExit(1)
+        data, info = render_pdf(p, 400)
+        print("страница отрисована: %s" % (info,))
+        raise SystemExit(0 if data else 1)
+    else:
+        print("неизвестная команда: %s" % cmd)
+        print(USAGE)
+        raise SystemExit(2)

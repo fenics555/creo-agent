@@ -47,14 +47,15 @@ def tool_nav_bom(q="", depth=2, **kw):
     if not q:
         return "укажи сборку: nav_bom q=<имя сборки>"
     name = str(q).strip()
-    if not name.lower().endswith((".1", ".2", ".3")):
-        name = name + ".1"
+    # Версию Creo больше НЕ дописываем здесь: это делает navigator.bom_root() — одно правило на оба вызова.
+    # Раньше было `name + ".1"`, и имя без точки давало `d25.1` -> 0 позиций (живая проба 02.10.2026).
     rows = NAV.bom(name, depth=int(depth) or 2)
+    shown = NAV.bom_root(name)
     if not rows:
-        return ("состава в индексе нет для «%s». Возможные причины: модель не проиндексирована "
-                "(помогает ночной скан) или это не сборка." % name)
+        return ("состава в индексе нет для «%s» (искали как %s). Возможные причины: модель не "
+                "проиндексирована (помогает ночной скан) или это не сборка." % (name, shown))
     withpdf = sum(1 for r in rows if r["has_pdf"])
-    out = ["ДЕТАЛИРОВКА %s: позиций %d (с PDF %d) — глубина %s:" % (name, len(rows), withpdf, depth)]
+    out = ["ДЕТАЛИРОВКА %s: позиций %d (с PDF %d) — глубина %s:" % (shown, len(rows), withpdf, depth)]
     for n, r in enumerate(rows[:40], 1):
         out.append("   %2d) %-8s %-36s кол-во %-4s %s" % (n, r["kind"], r["name"], r["qty"],
                                                            "PDF: " + os.path.basename(r["pdf"]) if r["has_pdf"] else "PDF нет"))

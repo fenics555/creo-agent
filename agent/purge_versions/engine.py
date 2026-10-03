@@ -6,7 +6,7 @@ EXTS = {'.prt', '.asm', '.drw', '.frm', '.lay', '.sec'}
 # --- автономная программа: всё своё рядом, логи по закону дома ---
 PROG_DIR = Path(__file__).resolve().parent
 LOG_DIR = Path(r"D:\AI\log\purge_versions")
-SETTINGS_FILE = PROG_DIR / "gui_settings.json"
+SETTINGS_FILE = Path(r"D:\AI\tools\agent\data\purge_versions_settings.json")
 
 class Lock:
     def __init__(self, p): self.p = Path(p)
@@ -149,24 +149,47 @@ def main():
     a = p.parse_args()
     
     root = Path(a.root).resolve()
+    # 02.10.2026 (аудит): раньше несуществующая папка давала ПУСТОЙ план и код выхода 0 —
+    # выглядело как «проверил, чисто». Теперь честный отказ.
+    if not root.is_dir():
+        print(f"НЕТ ТАКОЙ ПАПКИ: {root}")
+        print("Проверь путь (окно берёт его из настроек или диалога).")
+        sys.exit(2)
+    if a.keep < 1:
+        print(f"НЕВЕРНЫЙ --keep: {a.keep}. Оставлять 0 версий нельзя — минимум 1.")
+        sys.exit(3)
     ld = LOG_DIR
     ld.mkdir(parents=True, exist_ok=True)
     l = Lock(ld / "purge.lock")
-    
+
     ok, err = l.acq()
     if not ok: print(f"Err: {err}"); sys.exit(1)
-    
+
+    # Журнал прогона: до 02.10.2026 его не было вовсе (только last_purge.json).
+    _run_log = ld / ("run_%s.txt" % datetime.datetime.now().strftime("%Y-%m-%d_%H%M%S"))
+    def _say(s):
+        print(s)
+        try:
+            with open(_run_log, "a", encoding="utf-8") as f:
+                f.write("%s %s\n" % (datetime.datetime.now().strftime("%H:%M:%S"), s))
+        except Exception:
+            pass
+
     try:
         if a.execute:
             bd = Path(a.backup_dir or root / "_purge_backup" / datetime.datetime.now().strftime("%Y%m%d"))
             rep = execute(root, a.keep, a.creo_mode, bd)
             with open(ld / "last_purge.json", "w", encoding="utf-8") as f:
                 json.dump(rep, f, ensure_ascii=False, indent=2)
-            print(f"Done. Report: {ld / 'last_purge.json'}")
+            _say(f"ВЫПОЛНЕНО: было версий {rep['было_версий']}, перенесено "
+                 f"{len(rep['перенесено_парами'])}, освобождено {rep['освобождено_байт']} б "
+                 f"за {rep['seconds']:.2f} с")
+            _say(f"Отчёт: {ld / 'last_purge.json'} | бэкап: {bd}")
         else:
             res = preview(root, a.keep, a.creo_mode)
+            _say("ПЛАН (ничего не переносится): группы=%d, одиночных=%d"
+                 % (len(res["groups"]), len(res["singles"])))
             print(json.dumps(res, ensure_ascii=False))
-            
     finally: l.rel()
 
 if __name__ == "__main__":

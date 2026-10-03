@@ -45,7 +45,7 @@
 === navigator ===
   README: # navigator — НАВИГАТОР ПО ДОМУ (поиск → деталировка → PDF)
   Title: ['"V1 — НАВИГАТОР ПО ДОМУ — поиск, деталировка, PDF"', '"README — Навигатор"']
-  Log: False | Time: True | Readme_btn: True
+  Log: True | Time: True | Readme_btn: True
 === orphan_scan ===
   README: # ORPHAN SCAN (orphan_scan)
   Title: ['"V1 — ЧЕРТЕЖИ-СИРОТЫ (нет модели рядом']

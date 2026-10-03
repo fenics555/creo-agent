@@ -21,8 +21,8 @@ from tkinter import filedialog, messagebox, ttk
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 import navigator as eng  # noqa: E402
 
-PREVIEW_W = 300          # ширина маленького превью, px
-MAX_ZOOM = 8.0
+PREVIEW_W = eng.load_settings()["preview_w"]      # из navigator_settings.json, не зашито
+MAX_ZOOM = eng.load_settings()["max_zoom"]
 
 
 class App:
@@ -36,11 +36,20 @@ class App:
         self.zoom = 1.0
         self.img = None
         self.build()
+        st = eng.load_settings()
+        self.st_last = st.get("last_query") or ""
+        self.root.after(200, self._remember_last)
         # агент может передать запрос через nav_show: окно сразу ищет и показывает результат
         start_q = os.environ.get("NAV_START_QUERY", "").strip()
         if start_q:
             self.var_q.set(start_q)
             self.root.after(200, self.search)
+        eng.log_line("окно запущено · настройки: %s · база: %s" % (eng.SETTINGS, eng.AG_DB))
+
+    def _remember_last(self):
+        """Запрос из прошлого запуска — чтобы окно открывалось на том, чем человек занимался."""
+        if not os.environ.get("NAV_START_QUERY", "").strip() and self.st_last:
+            self.var_q.set(self.st_last)
 
     # ---------- интерфейс ----------
     def build(self):
@@ -158,7 +167,18 @@ class App:
             hit = ("  (слов %d/%d)" % (r["words_hit"], r["words_all"])) if r.get("words_all") else ""
             self.tree.insert("", "end", values=(r["kind"], r["name"] + hit, r["folder"]))
         self.say("найдено: %d за %.1f с (двойной щелчок — открыть папку, выбор — деталировка)"
-                 % (len(res), time.time() - getattr(self, "_t0", time.time())))
+                 % (len(res), self._elapsed()))
+        # запоминаем запрос и пишем след: раньше окно не оставляло НИКАКОГО следа (аудит 02.10.2026)
+        st = eng.load_settings()
+        st["last_query"] = self.var_q.get().strip()
+        eng.save_settings(st)
+        eng.log_line("поиск «%s»: найдено %d за %.1f с"
+                     % (self.var_q.get().strip(), len(res), self._elapsed()))
+
+    def _elapsed(self):
+        """Время поиска. Без метки (прямой вызов из автотеста) — 0, а не отрицательное число."""
+        t0 = getattr(self, "_t0", None)
+        return max(0.0, time.time() - t0) if t0 else 0.0
 
     def picked_model(self):
         sel = self.tree.selection()
@@ -168,10 +188,8 @@ class App:
         if not (0 <= i < len(self.results)):
             return
         rec = self.results[i]
-        name = rec["name"]
-        if not name.lower().endswith((".1", ".2", ".3")):
-            name = name + ".1"
-        self.show_bom(name, depth=2)
+        # версию дописывает navigator.bom_root() — одно правило на окно, CLI и агента
+        self.show_bom(rec["name"], depth=2)
 
     def show_bom(self, model, depth=2):
         self.tree_bom.delete(*self.tree_bom.get_children())
