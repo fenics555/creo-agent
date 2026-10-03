@@ -193,10 +193,59 @@ function gzlOut(msg,bad){
  var o=document.getElementById('gzl_out');if(!o)return;
  o.style.display='block';o.textContent=(bad?'❌ ':'✅ ')+msg;
 }
+// ЗОНА «ИНСТРУМЕНТЫ» (слово владельца: «где вкладка, где инструменты 100+?»).
+// Раньше витрина знала только счётчик (180), а список был недоступен из интерфейса.
+var tlAll=[], tlFlt='', tlGrp='';
+function toolsZone(){
+ var z=document.getElementById('zone');
+ z.innerHTML='<div class="grp"><h4> НАСТРОЙКИ </h4>'
+  +'<small style="color:#5a5a5a">поиск по имени и описанию; группа — фильтр второго уровня. '
+  +'Кнопка «в чат» подставляет вызов в поле вопроса.</small>'
+  +'<div style="display:flex;gap:8px;margin-top:8px;align-items:center">'
+  +'<input id="tl_f" placeholder="например: rename, копир, провер…" style="flex:1">'
+  +'<select id="tl_g" style="width:220px"><option value="">все группы</option></select>'
+  +'<button class="sec" data-act="tl_reload">🔄 Обновить</button></div></div>'
+  +'<div class="grp" id="tl_list"><h4> ИСПОЛНИТЕЛИ </h4><small style="color:#5a5a5a">читаю реестр…</small></div>'
+  +'<div class="grp"><h4> ОТЧЁТ </h4><div id="tl_out" style="display:none;background:#fff1c7;color:#856404;font:11px Arial;padding:6px 8px;border-radius:4px"></div>'
+  +'<small style="color:#5a5a5a">Найдено: инструментов в списке. Клик по строке кладёт вызов в чат — '
+  +'инструмент исполняется агентом, а не витриной.</small></div>';
+ var f=document.getElementById('tl_f'); if(f)f.addEventListener('input',function(){tlFlt=f.value;tlDraw()});
+ var g=document.getElementById('tl_g'); if(g)g.addEventListener('change',function(){tlGrp=g.value;tlDraw()});
+ tlLoad();
+}
+function tlLoad(){
+ var box=document.getElementById('tl_list');if(!box)return;
+ box.innerHTML='<h4> ИСПОЛНИТЕЛИ </h4><small style="color:#5a5a5a">читаю реестр инструментов…</small>';
+ fetch('/api/tools',{headers:{'X-Token':TK||''}}).then(function(r){return r.json()}).then(function(r){
+  if(r.error){box.innerHTML='<h4> ИСПОЛНИТЕЛИ </h4><span style="color:#c62828">'+esc(r.error)+'</span>';return}
+  tlAll=r.tools||[];window.NTOOLS=tlAll.length;
+  var g=document.getElementById('tl_g');if(g){var seen={};tlAll.forEach(function(t){seen[t.group]=(seen[t.group]||0)+1});
+   Object.keys(seen).sort().forEach(function(n){var o=document.createElement('option');o.value=n;o.textContent=n+' ('+seen[n]+')';g.appendChild(o)})}
+  tlDraw()}).catch(function(e){box.innerHTML='<h4> ИСПОЛНИТЕЛИ </h4><span style="color:#c62828">ошибка: '+esc(e)+'</span>'});
+}
+function tlDraw(){
+ var box=document.getElementById('tl_list');if(!box)return;
+ var f=(tlFlt||'').toLowerCase();
+ var list=tlAll.filter(function(t){
+  if(tlGrp&&t.group!==tlGrp)return false;
+  if(!f)return true;
+  return (t.name+' '+t.desc+' '+t.group).toLowerCase().indexOf(f)>=0});
+ var h='<h4> ИСПОЛНИТЕЛИ <small style="color:#5a5a5a">показано '+list.length+' из '+tlAll.length+'</small></h4>'
+  +'<table style="width:100%;font-size:12px;border-collapse:collapse">';
+ list.slice(0,300).forEach(function(t){
+  h+='<tr><td style="padding:2px 4px;white-space:nowrap"><b style="color:#1f6fb2">'+esc(t.name)+'</b>'
+   +(t.approval?' 🔒':'')+(t.needs_creo?' ⚙':'')+'</td>'
+   +'<td style="padding:2px 4px;color:#5a5a5a">'+esc(t.desc)+'</td>'
+   +'<td style="padding:2px 4px;color:#5a5a5a;white-space:nowrap">'+esc(t.group)+'</td></tr>'});
+ if(!list.length)h+='<tr><td style="padding:6px;color:#5a5a5a">ничего не найдено</td></tr>';
+ if(list.length>300)h+='<tr><td colspan="3" style="padding:6px;color:#5a5a5a">…ещё '+(list.length-300)+' — уточните поиск</td></tr>';
+ box.innerHTML=h+'</table>';
+}
 function showZone(v){var z=document.getElementById('zone');if(!z)return;
 if(v=='chat'){z.style.display='none';chat.style.display='block';return}
 chat.style.display='none';z.style.display='block';
 if(v=='gui'){guiZone();return}
+if(v=='tools'){toolsZone();return}
 if(v=='prog'){z.innerHTML='<div class="grp">⏳ читаю список программ дома…</div>';
 J('/api/programs').then(function(d){if(!d||!d.programs){z.innerHTML=rlNeed();return}
 var h='<div class="grp"><h4>🧰 ПРОГРАММЫ ДОМА <small style="color:#A6A8AB">список от '+esc(d.updated||'')+'</small></h4>'
@@ -228,6 +277,10 @@ var z=document.getElementById('zone');
 if(v=='v3'){zonePult()}
 else if(z&&z.classList.contains('pult')){z.classList.remove('pult');z.style.display='none';chat.style.display='block'}}
 function fillPstate(){var el=document.getElementById('pstate');var s=window.ST;if(!el||!s)return;
+// счётчики в меню — из ЖИВОГО /status, а не зашитые числа (они протухают каждый ход)
+var nt=document.getElementById('rl_ntools');if(nt)nt.textContent=s.tools||'—';
+var np=document.getElementById('rl_nprog');if(np){if(window.NPROG==null)np.textContent='…';
+ else np.textContent=window.NPROG}
 el.innerHTML='хост: '+esc(s.host||'')+'\nмодель: '+esc(s.model||'')+'\nпользователь: '+esc((s.user&&(s.user.display_name||s.user.login))||'нет входа')
 +'\nрежим: '+(s.mode==2?'собеседник':'инженер')+'\nOllama: '+(s.up_ollama?'жива':'молчит')+' · CREOSON: '+(s.up_creoson?'жив':'молчит')
 +'\nблоков: '+s.blocks+' · инструментов: '+s.tools+(s.model_ctx?('\nОКНО: модель '+s.model_ctx+' · агент просит '+(s.ctx_requested||'0 (как в модели)')+' · в сессии сейчас '+(s.ctx_session||'модель не загружена')):'')}
@@ -337,6 +390,7 @@ else if(a=='wiz_orphan_scan'){var oroot=document.getElementById('wo_root').value
 else if(a=='open_checks'){document.getElementById('wiz_checks').style.display='flex'}
        else if(a=='gzl_reload'){gzlLoad()}
        else if(a=='gzl_run'){var gp=el.getAttribute('data-p');gzlOut('запускаю '+gp+'…');J('/wiz_run_gui',{token:TK,program:gp}).then(function(r){if(r.error){gzlOut(r.error,true);return}gzlOut(r.msg||('запущено: '+gp))}).catch(function(e){gzlOut('ошибка: '+e,true)})}
+       else if(a=='tl_reload'){tlLoad()}
        else if(a=='ui_readme'){ /* слой 7 канона ОКНА: README внутри окна, при ошибке — честная строка */
   J('/ui_readme',{token:TK}).then(function(r){var w=document.getElementById('wiz_readme');
    if(!w){return}

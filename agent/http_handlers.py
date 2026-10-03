@@ -138,6 +138,32 @@ class Hd(BaseHTTPRequestHandler):
                 return self._j({"error": "нужен вход"})
             self._j(prog_tools.prog_list(as_json=True))
             return
+        elif p == "/api/tools":
+            # СПИСОК ИНСТРУМЕНТОВ (слово владельца 03.10.2026: «где вкладка, где инструменты
+            # 100+?»). Раньше витрина знала ТОЛЬКО счётчики (`/status`: 180 инструментов),
+            # а сам список был недоступен из интерфейса — вкладку негде было показать.
+            if not users.token_info(self.headers.get("X-Token") or ""):
+                return self._j({"error": "нужен вход"})
+            import tools_registry as _TR
+            try:
+                # Живой API реестра: `all()` тут нет, есть `iter_tools()` — отдаёт
+                # (kind, group, tool). Считать из выдуманного метода нельзя.
+                _lst = [{"name": t.get("name"), "desc": t.get("desc") or "",
+                         "group": g or "", "kind": k or "",
+                         "approval": bool(t.get("approval")),
+                         "needs_creo": bool(t.get("needs_creo"))}
+                        for k, g, t in _TR.iter_tools()]
+            except Exception as _tr_e:
+                return self._j({"error": "реестр не прочитан: %s" % _tr_e, "tools": []})
+            _out = sorted(_lst, key=lambda x: ((x["group"] or ""), (x["name"] or "")))
+            _gs = {}
+            for _x in _out:
+                _gs.setdefault(_x["group"], 0)
+                _gs[_x["group"]] += 1
+            return self._j({"tools": _out, "count": len(_out),
+                            "groups": [{"id": g, "title": g, "icon": "•", "n": n}
+                                       for g, n in sorted(_gs.items(), key=lambda kv: -kv[1])],
+                            "error": None})
         elif p == "/api/bases":
             if not users.token_info(self.headers.get("X-Token") or ""):
                 return self._j({"error": "нужен вход"})
