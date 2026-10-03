@@ -97,6 +97,20 @@ def deps_of(prog_dir):
     return list((c or {}).get("deps") or [])
 
 
+def save(contract, path):
+    """Записывает контракт. Перед записью проверяет: мусор не пишем.
+
+    (Добавлено в волне 5 при генерации контрактов для 11 программ.)"""
+    errs = validate(contract)
+    if errs:
+        raise ValueError("не сохранено: %s" % "; ".join(errs[:5]))
+    p = Path(path)
+    p.parent.mkdir(parents=True, exist_ok=True)
+    p.write_text(json.dumps(contract, ensure_ascii=False, indent=2), encoding="utf-8")
+    _CACHE.pop(str(p), None)
+    return str(p)
+
+
 def card(c):
     """Краткая строка контракта для витрины и журналов."""
     if not c:

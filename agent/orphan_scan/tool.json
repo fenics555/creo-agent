@@ -1,0 +1,24 @@
+{
+  "id": "orphan_scan",
+  "title": "ЧЕРТЕЖИ-СИРОТЫ",
+  "version": 1,
+  "kind": "act",
+  "group": "human",
+  "needs_creo": false,
+  "class": "Р",
+  "engine": "orphan_scan.py",
+  "gui": "gui.py",
+  "gui_bat": "orphan_scan_gui.bat",
+  "readme": "README.md",
+  "cli": [],
+  "inputs": [],
+  "outputs": {
+    "report": "",
+    "log": "D:\\AI\\log\\orphan_scan"
+  },
+  "settings": "orphan_scan_settings.json",
+  "deps": [],
+  "approval": false,
+  "ui": "ui_common",
+  "notes": "Сгенерировано gen_contracts.py из programs.json и состава папки; проверить глазами. входы не описаны — заполнить."
+}

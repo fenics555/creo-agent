@@ -1,0 +1,24 @@
+{
+  "id": "log_clean",
+  "title": "УБОРКА ЛОГОВ (в корзину)",
+  "version": 1,
+  "kind": "act",
+  "group": "human",
+  "needs_creo": false,
+  "class": "Р",
+  "engine": "log_clean.bat",
+  "gui": "gui.py",
+  "gui_bat": "log_clean_gui.bat",
+  "readme": "README.md",
+  "cli": [],
+  "inputs": [],
+  "outputs": {
+    "report": "",
+    "log": "D:\\AI\\log\\log_clean"
+  },
+  "settings": "log_clean_settings.json",
+  "deps": [],
+  "approval": false,
+  "ui": "ui_common",
+  "notes": "Сгенерировано gen_contracts.py из programs.json и состава папки; проверить глазами. входы не описаны — заполнить."
+}

@@ -1,0 +1,24 @@
+{
+  "id": "make_lst",
+  "title": "ОГРАНИЧЕНИЯ ПАРАМЕТРОВ (list.lst)",
+  "version": 1,
+  "kind": "act",
+  "group": "human",
+  "needs_creo": false,
+  "class": "Р",
+  "engine": "make_lst.py",
+  "gui": "gui.py",
+  "gui_bat": "make_lst_gui.bat",
+  "readme": "README.md",
+  "cli": [],
+  "inputs": [],
+  "outputs": {
+    "report": "",
+    "log": "D:\\AI\\log\\make_lst"
+  },
+  "settings": "",
+  "deps": [],
+  "approval": false,
+  "ui": "ui_common",
+  "notes": "Сгенерировано gen_contracts.py из programs.json и состава папки; проверить глазами. входы не описаны — заполнить."
+}

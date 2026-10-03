@@ -164,6 +164,28 @@ def _run_hol_bak():
                 % (len(files), bad), items)
 
 
+@check("model_facts", "Факты из живой модели для правил", "check", "models", "warn")
+def _run_facts():
+    """Собирает факты из ЖИВОЙ модели через creo_read (без Creo) — основа применения правил.
+
+    Проверяет не саму модель, а связку: файл читается → параметры извлекаются →
+    движок правил принимает факты. Если цепочка живая, правила волны 4 применимы к деталям."""
+    import facts as FT
+    facts, info = FT.collect("G11074")
+    if not facts:
+        return _res(False, 0, 1, 0, info.get("error") or "факты не собраны")
+    import rules_engine as RE
+    doc, err = RE.load()
+    ok_rules = doc is not None and not err
+    return _res(ok_rules, info["params"], 0 if ok_rules else 1, 0,
+                "живой файл %s: параметров %d, фактов %d, правил применимы: %s"
+                % (Path(info["file"]).name, info["params"], len(facts),
+                   "да" if ok_rules else "нет"),
+                [{"icon": "✅", "verdict": "ok",
+                  "what": "%s = %s" % (f["parameter"], str(f["param_value"])[:40])}
+                 for f in facts[:5]])
+
+
 def registry(as_text=True):
     """Список всех зарегистрированных проверок."""
     if not as_text:

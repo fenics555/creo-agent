@@ -58,7 +58,13 @@ class App:
         left, right = U.split_result_left(self.root, right_width=470)
 
         U.actions(left, primary=(("ПРОВЕРИТЬ ФОРМУ", self.validate),),
-                  secondary=(("Сохранить", self.save), ("Показать текстом", self.show_text)))
+                  secondary=(("Сохранить", self.save), ("Показать текстом", self.show_text),
+                             ("Прогнать на модели", self.run)))
+        tk.Label(left, text="Код изделия для прогона на живой модели (без Creo):",
+                 bg=U.BG, fg=U.MUTED, font=("Segoe UI", 8)).pack(anchor="w", padx=8)
+        self.code = tk.Entry(left, width=24, font=("Consolas", 9))
+        self.code.pack(anchor="w", padx=8, pady=(0, 6))
+        self.code.insert(0, "G11074")
         self.tree = U.result_tree(left, ("n", "id", "label", "action"),
                                   ("№", "id", "Подпись", "Что применить"),
                                   [40, 170, 240, 280])
@@ -105,6 +111,41 @@ class App:
             self._log_write(str(s))
         except Exception:
             pass
+
+    def run(self):
+        """Применяет правила к ЖИВОЙ модели (код из таблицы) — в потоке каркаса."""
+        code = self.code.get().strip() if hasattr(self, "code") else ""
+        if not code:
+            return self.log("введи код изделия, например G11074")
+        self.status.set("собираю факты из %s…" % code)
+        t0 = time.time()
+
+        def work():
+            import facts as FT
+            import rules_engine as RE2
+            objs, info = FT.collect(code)
+            doc = RE2.load()[0]
+            return objs, info, RE2.run(objs, doc) if doc else {"hits": []}
+
+        U.run_in_thread(self.root, work, on_done=lambda r: self.show_rules(r, t0, code),
+                        on_error=lambda e: self.status.set("ошибка прогона"), log=self.log)
+
+    def show_rules(self, r, t0, code):
+        objs, info, res = r
+        if not objs:
+            self.status.set("факты не собраны")
+            self.tree.delete(*self.tree.get_children())
+            return self.log("факты не собраны: %s" % info.get("error", "?"))
+        self.tree.delete(*self.tree.get_children())
+        for h in res["hits"]:
+            self.tree.insert("", "end", values=(h["rule"], h["label"], h["object"]),
+                             tags=("ok",))
+        self.set_summary(len(objs), len(res["hits"]), 0,
+                         label="совпадений: %d, %.2f с" % (len(res["hits"]), time.time() - t0))
+        self.status.set("%s: объектов %d, совпадений %d" % (code, len(objs), len(res["hits"])))
+        self.log("живая модель %s (%s): параметров %d, фактов %d, совпадений правил %d"
+                 % (code, Path(info["file"]).name, info["params"], len(objs), len(res["hits"])))
+        self.show_text()
 
     def sel(self):
         i = self.lst.curselection()

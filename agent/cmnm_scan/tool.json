@@ -1,0 +1,24 @@
+{
+  "id": "cmnm_scan",
+  "title": "ВНУТРЕННИЕ ИМЕНА Creo (CMNM)",
+  "version": 1,
+  "kind": "act",
+  "group": "human",
+  "needs_creo": false,
+  "class": "Р",
+  "engine": "cmnm_scan.py",
+  "gui": "gui.py",
+  "gui_bat": "cmnm_scan_gui.bat",
+  "readme": "README.md",
+  "cli": [],
+  "inputs": [],
+  "outputs": {
+    "report": "",
+    "log": "D:\\AI\\log\\cmnm_scan"
+  },
+  "settings": "gui_settings.json",
+  "deps": [],
+  "approval": false,
+  "ui": "ui_common",
+  "notes": "Сгенерировано gen_contracts.py из programs.json и состава папки; проверить глазами. входы не описаны — заполнить."
+}

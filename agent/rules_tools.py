@@ -48,16 +48,24 @@ def tool_rules_text(rule_id="", **kw):
         rule_id, ", ".join(x.get("id") for x in doc.get("rules") or []))
 
 
-def tool_rules_check(objects_json="", rule_id="", **kw):
+def tool_rules_check(objects_json="", rule_id="", model="", **kw):
     """ПРОГОН правил по объектам (фактах модели).
 
-    objects_json — JSON-список словарей-фактов, например
-    '[{"parameter":"EMX_SURFACE_FUNCTION","param_value":"HOLE_BORE_FIRST"}]'.
-    Пусто — пробный прогон на демонстрационных фактах, чтобы увидеть работу движка."""
+    objects_json — JSON-список словарей-фактов.
+    model — код изделия (напр. G11074): берём живые параметры из файла модели
+    БЕЗ Creo (creo_read). Пусто — демо-факты, чтобы увидеть работу движка."""
     doc, err = RE.load()
     if err and not doc:
         return "правила не прочитаны: %s" % err
-    if objects_json:
+    src = "демо-факты"
+    if model:
+        import facts as FT
+        objs, info = FT.collect(model)
+        if not objs:
+            return "факты не собраны: %s" % info.get("error", "?")
+        objects, src = objs, ("живая модель %s: %s (%d параметров)"
+                              % (model, Path(info["file"]).name, info["params"]))
+    elif objects_json:
         try:
             objects = json.loads(objects_json)
         except Exception as e:
@@ -65,13 +73,14 @@ def tool_rules_check(objects_json="", rule_id="", **kw):
     else:
         objects = DEMO_OBJECTS
     res = RE.run(objects, doc, only={rule_id} if rule_id else None)
-    out = ["ПРОГОН ПРАВИЛ: правил %d, объектов %d, совпадений %d"
-           % (res["rules"], res["objects"], len(res["hits"]))]
+    out = ["ПРОГОН ПРАВИЛ по «%s»" % src,
+           "правил %d, объектов %d, совпадений %d" % (res["rules"], res["objects"], len(res["hits"]))]
     for h in res["hits"]:
         out.append("  ✅ %s (%s) → объект «%s»: %s" % (h["rule"], h["label"],
                                                        h["object"], h["action"]))
     if not res["hits"]:
-        out.append("  ни одно правило не совпало.")
+        out.append("  ни одно правило не совпало (модель не содержит таких признаков — "
+                   "это нормально, правила молчат честно).")
     return "\n".join(out)
 
 
@@ -96,7 +105,8 @@ TOOLS = [
     {"name": "rules_text", "desc": "Правила текстом IF…THEN…END_IF (пусто = все, rule_id = одно)",
      "params": {"rule_id": "id правила или пусто"}, "fn": tool_rules_text,
      "kind": "read", "group": "справочник", "source": "rules_tools"},
-    {"name": "rules_check", "desc": "Прогнать правила по фактам модели (objects_json — JSON; пусто = демо-прогон)",
-     "params": {"objects_json": "JSON-список фактов", "rule_id": "только это правило"},
+    {"name": "rules_check", "desc": "Прогнать правила по фактам модели: model=G11074 (живая модель без Creo), objects_json — свои факты, пусто — демо",
+     "params": {"objects_json": "JSON-список фактов", "rule_id": "только это правило",
+                "model": "код изделия для живых фактов"},
      "fn": tool_rules_check, "kind": "check", "group": "диагностика", "source": "rules_tools"},
 ]

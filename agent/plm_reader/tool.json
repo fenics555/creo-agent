@@ -1,0 +1,26 @@
+{
+  "id": "plm_reader",
+  "title": "PLM Reader — данные изделий ИЗ ФАЙЛОВ (без Creo)",
+  "version": 1,
+  "kind": "act",
+  "group": "human",
+  "needs_creo": false,
+  "class": "Р",
+  "engine": "plm_reader.py",
+  "gui": "plm_reader_gui.bat",
+  "gui_bat": "plm_reader_gui.bat",
+  "readme": "README.md",
+  "cli": [],
+  "inputs": [],
+  "outputs": {
+    "report": "",
+    "log": "D:\\AI\\log\\plm_reader"
+  },
+  "settings": "",
+  "deps": [
+    "creo_read"
+  ],
+  "approval": false,
+  "ui": "ui_common",
+  "notes": "Сгенерировано gen_contracts.py из programs.json и состава папки; проверить глазами. входы не описаны — заполнить."
+}

@@ -29,6 +29,12 @@ WINDOWS = [
      "dir": AGENT / "config_audit", "settings": "config_audit_settings.json"},
     {"name": "dup_scan", "path": AGENT / "dup_scan" / "gui.py", "module": "gui",
      "dir": AGENT / "dup_scan", "settings": "dup_scan_settings.json"},
+    {"name": "hol_check", "path": AGENT / "hol_check" / "gui.py", "module": "gui",
+     "dir": AGENT / "hol_check", "settings": "hol_check_settings.json"},
+    {"name": "rules", "path": AGENT / "rules" / "gui.py", "module": "gui",
+     "dir": AGENT / "rules", "settings": ""},
+    {"name": "checks", "path": AGENT / "checks" / "gui.py", "module": "gui",
+     "dir": AGENT / "checks", "settings": ""},
 ]
 
 fail = []

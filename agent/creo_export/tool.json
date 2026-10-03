@@ -1,0 +1,24 @@
+{
+  "id": "creo_export",
+  "title": "ВЫГРУЗКА из сессии (step, pdf, stl…)",
+  "version": 1,
+  "kind": "act",
+  "group": "creo",
+  "needs_creo": true,
+  "class": "Ж",
+  "engine": "creo_export.bat",
+  "gui": "gui.py",
+  "gui_bat": "creo_export_gui.bat",
+  "readme": "README.md",
+  "cli": [],
+  "inputs": [],
+  "outputs": {
+    "report": "",
+    "log": "D:\\AI\\log\\creo_export"
+  },
+  "settings": "",
+  "deps": [],
+  "approval": false,
+  "ui": "ui_common",
+  "notes": "Сгенерировано gen_contracts.py из programs.json и состава папки; проверить глазами. входы не описаны — заполнить."
+}

@@ -1,0 +1,26 @@
+{
+  "id": "creo_pdf",
+  "title": "PDF ЧЕРТЕЖЕЙ (скан и обновление)",
+  "version": 1,
+  "kind": "act",
+  "group": "creo",
+  "needs_creo": true,
+  "class": "Ж",
+  "engine": "creo_pdf.bat",
+  "gui": "creo_pdf_gui.bat",
+  "gui_bat": "creo_pdf_gui.bat",
+  "readme": "README.md",
+  "cli": [],
+  "inputs": [],
+  "outputs": {
+    "report": "",
+    "log": "D:\\AI\\log\\creo_pdf"
+  },
+  "settings": "",
+  "deps": [
+    "creo_path"
+  ],
+  "approval": false,
+  "ui": "ui_common",
+  "notes": "Сгенерировано gen_contracts.py из programs.json и состава папки; проверить глазами. входы не описаны — заполнить."
+}

@@ -1,0 +1,26 @@
+{
+  "id": "purge_versions",
+  "title": "ЧИСТИЛЬЩИК ВЕРСИЙ Creo",
+  "version": 1,
+  "kind": "act",
+  "group": "human",
+  "needs_creo": false,
+  "class": "Р",
+  "engine": "purge_versions.bat",
+  "gui": "gui.py",
+  "gui_bat": "purge_gui.bat",
+  "readme": "README.md",
+  "cli": [],
+  "inputs": [],
+  "outputs": {
+    "report": "",
+    "log": "D:\\AI\\log\\purge_versions"
+  },
+  "settings": "purge_versions_settings.json",
+  "deps": [
+    "purge_versions"
+  ],
+  "approval": false,
+  "ui": "ui_common",
+  "notes": "Сгенерировано gen_contracts.py из programs.json и состава папки; проверить глазами. входы не описаны — заполнить."
+}
