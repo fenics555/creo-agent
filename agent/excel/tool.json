@@ -1,0 +1,25 @@
+{
+  "id": "excel",
+  "title": "Спецификации XLSX: чтение и сборка",
+  "version": 1,
+  "kind": "act",
+  "group": "human",
+  "needs_creo": false,
+  "class": "Р",
+  "engine": "excel_export.py",
+  "gui": "gui.py",
+  "gui_bat": "excel_gui.bat",
+  "readme": "README.md",
+  "cli": [],
+  "inputs": [
+    {"name": "xlsx", "type": "path", "default": "",
+     "desc": "файл спецификации XLSX для чтения (окно просмотра)"}
+  ],
+  "outputs": {"xlsx": "файл спецификации по пути агента", "log": "нет (модули без журнала)"},
+  "settings": "",
+  "deps": [],
+  "approval": false,
+  "ui": "ui_common",
+  "rc": {"0": "прочитан", "2": "файл не XLSX или не читается"},
+  "notes": "Класс Р, автономна: только стандартная библиотека Python, ни Creo, ни агента. Движок — два модуля: excel_import.read_specification_xlsx (чтение) и excel_export.create_xlsx / create_report_xlsx (сборка, её зовёт агент spec_tools). Окно только читает и показывает — запись требует данных живой сборки, их даёт агент (spec_create_active)."
+}
