@@ -590,6 +590,34 @@ class Hd(BaseHTTPRequestHandler):
                     _eng.do_tree(b.get("model") or "", int(b.get("depth") or 4))
             self._j({"text": buf.getvalue()})
 
+        elif p == "/wiz_check_run":
+            # Третья рука checks (манифест п.19, долг волны 11): экран «Проверки» в витрине.
+            # ТОЛЬКО ЧТЕНИЕ — проверки ничего не меняют. Всё тело в try/except, иначе
+            # исключение рвёт соединение и клиент видит RemoteDisconnected без причины
+            # (живой отказ 02.10.2026 на /wiz_config_audit — тот же приём).
+            # ВНИМАНИЕ: в ветке /wiz_plmtree выше есть `import os as _os` — из-за него `_os`
+            # становится ЛОКАЛЬНОЙ переменной всей do_POST. Здесь имена свои.
+            try:
+                import checks as _chk37
+                scope = (b.get("scope") or "").strip()
+                only = (b.get("only") or "").strip()
+                res = _chk37.checks_run(scope, only, as_json=True)
+                report = None
+                if b.get("report") == "true":
+                    try:
+                        report = _chk37.write_report(res)
+                    except Exception as _wr_e:
+                        report = "отчёт не записан: %s" % _wr_e
+                return self._j({"result": res, "report": report, "error": None})
+            except Exception as _chk_e:
+                import traceback as _chk_tb
+                trace = traceback.format_exc()[-800:]
+                try:
+                    log("wiz_check_run FAILED: %s" % trace)
+                except Exception:
+                    pass
+                return self._j({"result": None, "report": None,
+                                "error": "%s: %s" % (type(_chk_e).__name__, _chk_e)})
         elif p == "/setname":
             okf, msg = users.update_display_name(cl, b.get("name"))
             self._j({"ok": okf, "msg": msg})

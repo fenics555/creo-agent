@@ -171,6 +171,15 @@ RC 4 `wrong_active_model`, запись прервана. Проба: `python de
   Агент перезапущен 03.10.2026 12:27 (PID 16024), приёмка рестарта трёхчастная — пройдена.
   Перезапуск делается точечно: `taskkill /PID <из agent.pid>` + `python ctl.py up --hidden`.
   `AI_RESTART.bat` и `ctl.py down` НЕ применять без нужды — они сносят CREOSON и Ollama.
+- 03.10.2026 — **витрина: экран «Проверки дома» (`wiz_check_run`), долг волны 11 закрыт.**
+  Маршрут `POST /wiz_check_run` в `http_handlers.py` — поля `scope` (пусто = все),
+  `only` (id через запятую), `report:"true"` (записать отчёт в `log\reports`);
+  отдаёт `{result, report, error}`, где `result` = `checks.checks_run(..., as_json=True)`.
+  Только чтение, всё тело в `try/except` (иначе исключение рвёт соединение — тот же приём,
+  что на `/wiz_config_audit`). Фронт: кнопка `open_checks` и окно `wiz_checks` в
+  `ui\index.html`, три обработчика в `ui\app.js` (`open_checks` / `close_checks` /
+  `wiz_check_run`; вызов идёт через `J()`, токен она берёт сама).
+  Приёмка: `python dev\wiz_check_live.py` → 19 критериев, 0 провалов (живой HTTP).
 ## Ссылки
 - Паспорт дома: `D:\AI\repo\PASSPORT.md` · Карта скиллов: `D:\AI\repo\SKILL_index.md`
 - Правила: `D:\AI\repo\MANIFEST.md` и `D:\AI\.clinerules`
