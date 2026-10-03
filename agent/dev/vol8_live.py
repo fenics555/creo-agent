@@ -152,8 +152,10 @@ def main():
        not any(f["parameter"] == PARAM for f in back),
        "параметров в %s: %d" % (last2.name, len(back)))
 
-    # 12. Закрыть окно копии — file:close_window (file:close НЕ существует)
-    CT.creo_call("file", "close_window", {"file": str(COPY_MODEL)}, 30)
+    # 12. Убрать копию из сессии. ЖИВАЯ ПРАВКА 03.10.2026: `file:close_window` отвечает
+    # «успех», но модель ОСТАЁТСЯ в сессии (проверено пробой `dev\probe_close`). Убирает
+    # только `file:erase`. Проба обязана оставлять сессию чистой.
+    CT.creo_call("file", "erase", {"file": str(COPY_MODEL)}, 30)
 
     print("-" * 78)
     print("ИТОГ ЖИВОЙ ЗАПИСИ plan_run: %s (провалов %d)"
