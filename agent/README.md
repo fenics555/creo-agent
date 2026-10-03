@@ -38,6 +38,31 @@ RC 3, `--dry_run` — RC 0 без записи. Окно: `batch_params\batch_pa
 Инструменты: `batch_params_plan`, `batch_params_apply`, `feature_rename_plan`.
 Приёмка: `python dev\vol7_check.py`, живое окно: `python dev\vol7_win_live.py`.
 
+## ЗАПУСК СТЕКА И ЖИВАЯ ЗАПИСЬ (03.10.2026, проверено вживую)
+```bat
+:: 1. Creo (живой bat на сетевом пути — источник истины по старту)
+start "" /D "Z:\PTC\CREO-START\START-STD" CREO-START.bat
+:: 2. CREOSON — ОТДЕЛЬНО (CREO-START его НЕ поднимает, иначе 8080 гаснет)
+start "" /B /D "D:\PTC\CREO-LOCAL-SETUP\creoson" creoson_run.bat
+:: 3. Проверка: стек готов?
+python -X utf8 dev\creoson_probe.py
+```
+**Три правила CREOSON, найденные живой пробой (без них запись идёт не туда):**
+1. `file:open` требует **`dirname` ОТДЕЛЬНО** от `file` — иначе файл ищется в рабочей папке
+   (`Z:/PTC/CREO-START/START-STD/`) и приходит ошибка `Could not open file ... in directory ...`.
+2. **Копия обязана иметь уникальное имя.** С тем же стемом, что у открытой в сессии модели,
+   `file:open` не переключает окно — активируется та, что уже открыта (был инцидент).
+3. `file:save` создаёт **новую версию** `prt.N`, базовый файл не меняется — проверять
+   результат надо на последней версии.
+4. Закрыть окна без сохранения: `file:close_window` (функции `file:close` НЕ существует).
+
+**Щит «только копия»:** `batch_params\apply.py::ensure_active()` сверяет активную модель
+**по полному пути** (имя + папка, нормализация `Z:Z:`) перед каждым шагом; не совпало —
+RC 4 `wrong_active_model`, запись прервана. Проба: `python dev\shield_live.py`.
+
+**Живая запись доказана:** `python dev\vol7_live_apply.py` — 10 критериев, 0 провалов
+(запись видна в `vol7_probe.prt.N`, откат работает). Копия: `D:\AI\PROBA\vol7_copy`.
+
 ## Как работать с домом
 - **Управление:** `python ctl.py up [--browser] [--hidden]` — подъём стека
   (Ollama 11434, CREOSON 8080, copy-server 8000, агент 8765).

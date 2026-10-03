@@ -33,6 +33,18 @@ def ok(name, cond, detail=""):
         fail.append(name)
 
 
+def latest_version(model):
+    """Последняя версия файла модели (prt.N). Creo при save создаёт новую версию,
+    а базовый файл не меняется — проверять надо её (живой факт 03.10.2026)."""
+    model = Path(model)
+    vers = []
+    for f in model.parent.glob(model.name + ".*"):
+        tail = f.name[len(model.name) + 1:]
+        if tail.isdigit():
+            vers.append((int(tail), f))
+    return sorted(vers)[-1][1] if vers else model
+
+
 def main():
     print("ЖИВАЯ ЗАПИСЬ ПАКЕТНЫХ ПАРАМЕТРОВ НА КОПИИ")
     import apply as A
@@ -84,11 +96,15 @@ def main():
     ok("модель сохранена", CT.ok(js), CT.errmsg(js) if not CT.ok(js) else "сохранена")
     time.sleep(3)
 
-    # 6. ПРОВЕРКА ПО ФАЙЛУ — главная, а не по ответу сервера
-    after, n_after = FT.facts_from_file(COPY_MODEL)
+    # 6. ПРОВЕРКА ПО ФАЙЛУ — главная, а не по ответу сервера.
+    # ВАЖНО (живой факт 03.10.2026): Creo при save создаёт НОВУЮ ВЕРСИЮ (prt.N),
+    # базовый файл не меняется. Проверять надо последнюю версию, иначе «запись не видна».
+    latest = latest_version(COPY_MODEL)
+    ok("после save появилась новая версия", latest != COPY_MODEL, str(latest))
+    after, n_after = FT.facts_from_file(latest)
     hit = [f for f in after if f["parameter"] == PARAM]
     ok("параметр виден в файле на диске (запись реальна)", bool(hit),
-       "значение: %s" % (hit[0]["param_value"] if hit else "НЕ НАЙДЕН"))
+       "%s: значение %s" % (latest.name, hit[0]["param_value"] if hit else "НЕ НАЙДЕН"))
     ok("значение совпадает", bool(hit) and str(hit[0]["param_value"]) == VALUE,
        str(hit[0]["param_value"]) if hit else "—")
 
