@@ -137,8 +137,13 @@ def tabs(parent, titles):
 
 
 def log_view(parent, height=8, title="ЖУРНАЛ"):
-    """Панель журнала внизу окна. Возвращает виджет и функцию log(msg)."""
-    box = tk.LabelFrame(parent, text=title, bg=BG, padx=6, pady=4)
+    """Панель журнала внизу окна. Возвращает виджет и функцию log(msg).
+
+    ЖИВАЯ НАХОДКА 03.10.2026 (проверка дизайна окон): заголовок рамки шёл БЕЗ пробелов
+    (`text="ЖУРНАЛ"`), а канон дома — «заголовок секции в ПРОБЕЛАХ» (` НАСТРОЙКИ `).
+    Это расходилось во всех 8 окнах волны 1 сразу, потому что они зовут каркас."""
+    box = tk.LabelFrame(parent, text=" %s " % (title or "ЖУРНАЛ").strip(), bg=BG,
+                        padx=6, pady=4)
     box.pack(fill="both", side="bottom", padx=8, pady=6)
     txt = tk.Text(box, height=height, bg="#101418", fg="#d8e2e8", wrap="word",
                   font=("Consolas", 9), relief="flat")
@@ -199,7 +204,7 @@ class SettingsTable:
         self.log = log or (lambda m: None)
         self.on_apply = on_apply
         self.vals = {s["option"]: str(s.get("value", "")) for s in spec}
-        self.box = tk.LabelFrame(parent, text="НАСТРОЙКИ", bg=BG, padx=8, pady=6)
+        self.box = tk.LabelFrame(parent, text=" НАСТРОЙКИ ", bg=BG, padx=8, pady=6)
         self.box.pack(fill="both", expand=True, padx=4, pady=4)
 
         self.tree = ttk.Treeview(self.box, columns=("option", "value", "status", "desc"),
@@ -430,7 +435,7 @@ class RulesEditor:
         self._sel = 0
         self.log = log or (lambda m: None)
         self.on_apply = on_apply
-        box = tk.LabelFrame(parent, text="ПРАВИЛА — текст сверху, форма снизу", bg=BG,
+        box = tk.LabelFrame(parent, text=" ПРАВИЛА — текст сверху, форма снизу ", bg=BG,
                             padx=8, pady=6)
         box.pack(fill="both", expand=True, padx=4, pady=4)
 

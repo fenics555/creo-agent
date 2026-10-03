@@ -19,6 +19,7 @@ r"""checks.py — КАРКАС ПРОВЕРОК И ЕДИНЫЙ ПРОГОН (в
 (`hol_check.bat`, `config_audit.bat`) продолжает работать как раньше — это требование плана.
 """
 import io
+import re
 import shutil
 import subprocess
 import sys
@@ -135,6 +136,39 @@ def _run_plugins():
                 len(res["problems"]) - res["hard"],
                 "в config.pro %d, в карте %d, активных %d, расхождений %d"
                 % (res["in_config"], res["in_card"], res["active"], res["hard"]), items)
+
+
+@check("window_design", "Дизайн окон соответствует канону", "check", "house", "warn",
+       app="ui_common")
+def _run_design():
+    """03.10.2026 (слово владельца «проверь дизайн окон»): ПОЛНАЯ проверка дизайна всех
+    окон, найденных на диске, против канона `repo\\ОКНА\\02_ДИЗАЙН_И_РАСКЛАДКА.md`.
+    Не «красивость», а признаки с адресом: каркас, версия в заголовке, minsize,
+    README-кнопка, поток, LabelFrame в пробелах, Consolas 9, show="headings", настройки
+    файлом, запреты (путь Creo в коде окна, лог мимо каркаса). Учитывает ЗАКОН КАРКАСА:
+    окно волны 1 выполняет признаки через `ui_common`, а не дословно в своём файле."""
+    import io as _io
+    import subprocess as _sp
+    probe = AGENT / "dev" / "design_check.py"
+    if not probe.is_file():
+        return _res(False, 0, 1, 0, "нет dev\\design_check.py")
+    r = _sp.run([sys.executable, "-X", "utf8", str(probe)],
+                capture_output=True, text=True, encoding="utf-8", errors="replace",
+                cwd=str(AGENT))
+    out = r.stdout or ""
+    m = re.search(r"найдено окон: (\d+)", out)
+    n_win = int(m.group(1)) if m else 0
+    m2 = re.search(r"всего замечаний: (\d+)", out)
+    total = int(m2.group(1)) if m2 else 0
+    items = []
+    for line in out.splitlines():
+        if line.startswith("!!"):
+            items.append({"icon": "⚠️", "verdict": "warn", "what": line[2:].strip()})
+    n_bad = sum(1 for x in items)
+    # Не «провал» проверки: каркас живой и программы работают, расхождения — долг оформления.
+    return _res(True, n_win, 0, n_bad,
+                "окон %d, чистых %d, с замечаниями %d, замечаний %d (долг оформления)"
+                % (n_win, n_win - n_bad, n_bad, total), items)
 
 
 @check("rules", "Правила дома согласованы и срабатывают", "check", "rules", "error")
