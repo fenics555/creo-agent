@@ -3,11 +3,20 @@ import tkinter as tk
 from tkinter import ttk, messagebox
 import json
 import os
+import sys
 import ctypes
+from pathlib import Path
 from harvest_gui_panels import AppPanelsMixin
 
+# Каркас окон дома. 03.10.2026 (дизайн по конспекту ОКНА): у окна НЕ БЫЛО заголовка с
+# версией, minsize и README-кнопки — три признака канона. Теперь даёт их каркас.
+_AGENT_ROOT = Path(__file__).resolve().parent
+if str(_AGENT_ROOT) not in sys.path:
+    sys.path.insert(0, str(_AGENT_ROOT))
+import ui_common as U  # noqa: E402
+
 # Constants (Davydovka Palette)
-BG = '#ffffff'
+BG = U.BG
 CARD = '#f0f0f0'
 BORDER = '#cccccc'
 RUN_BG = '#ffcccc'
@@ -40,8 +49,11 @@ def lock_alive():
 class HarvestGUI(AppPanelsMixin):
     def __init__(self, root):
         self.root = root
-        self.root.title('Harvest GUI')
-        self.root.geometry('600x500')
+        # 03.10.2026: были title='Harvest GUI' без версии и geometry без minsize —
+        # окно можно было сжать в полосу. Теперь заголовок по канону и минимальный размер.
+        self.root.title('V2 — СБОР ДАННЫХ (harvest)')
+        self.root.geometry('1020x640')
+        self.root.minsize(760, 520)
         self.root.configure(bg=BG)
         self._build_info_panel()
         self._setup_controls()
@@ -50,10 +62,38 @@ class HarvestGUI(AppPanelsMixin):
     def _setup_controls(self):
         ctrl = tk.Frame(self.root, bg=BG)
         ctrl.pack(fill='x', padx=5, pady=5)
-        self.stop_btn = tk.Button(ctrl, text='STOP', command=self.on_stop, bg='#ff4444', fg='white')
+        # КАНОН ОКНА: README-кнопка обязательна (манифест п.19 — окно самостоятельно).
+        # Свой мини-вариант, потому что README программы лежит как `HARVEST_README.md`,
+        # а каркас ищет `README.md` (у harvest нет своей папки — движок лежит в корне агента).
+        tk.Button(ctrl, text='README', width=12, command=self._show_readme,
+                  bg=BG, relief='flat', fg=U.ACCENT, cursor='hand2').pack(side='right', padx=4)
+        self.stop_btn = tk.Button(ctrl, text='СТОП', command=self.on_stop, bg='#ff4444', fg='white')
         self.stop_btn.pack(side='right')
         self.badge_lbl = tk.Label(ctrl, text='', bg=CARD, relief='sunken')
         self.badge_lbl.pack(side='left', padx=5)
+
+    def _show_readme(self):
+        """README программы в лог окна (канон: при ошибке — честная строка, не падение)."""
+        p = Path(__file__).resolve().parent / 'HARVEST_README.md'
+        try:
+            text = p.read_text(encoding='utf-8')
+        except Exception as e:
+            return self._log('README не прочитан: %s' % e)
+        self._log('=' * 90)
+        for line in text.splitlines():
+            self._log(line)
+        self._log('=' * 90)
+        self._log('конец README')
+
+    def _log(self, msg=''):
+        """Каркасный лог окна: пишем в текст панели, если он уже создан."""
+        try:
+            self.log_txt.configure(state='normal')
+            self.log_txt.insert('end', str(msg) + '\n')
+            self.log_txt.see('end')
+            self.log_txt.configure(state='disabled')
+        except Exception:
+            pass
 
     def update_badge(self, text):
         self.badge_lbl.configure(text=text)

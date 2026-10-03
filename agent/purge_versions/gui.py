@@ -9,6 +9,12 @@ import sys
 
 # движок лежит рядом с окном (программа автономна)
 sys.path.insert(0, str(Path(__file__).resolve().parent))
+# Каркас окон дома лежит в корне агента. 03.10.2026 (дизайн по конспекту ОКНА): окно
+# переведено на ui_common — раньше у него НЕ БЫЛО minsize (сжималось в полосу) и тяжёлая
+# работа («ПЛАН» и «ЧИСТИТЬ») шла В ГЛАВНОМ ПОТОКЕ, т.е. окно висело на минуты.
+_AGENT_ROOT = Path(__file__).resolve().parents[1]
+sys.path.append(str(_AGENT_ROOT))
+import ui_common as U  # noqa: E402
 try:
     from purge_versions import preview, execute, Lock
 except ImportError:
@@ -28,9 +34,11 @@ LOCK_FILE = Path(r"D:\AI\log\purge_versions\purge.lock")
 class PurgeGUI:
     def __init__(self, root):
         self.root = root
-        self.root.title("V1 — ОКНО ЧИСТИЛЬЩИКА")
+        # 03.10.2026: minsize добавлен — окно можно было сжать в полосу (лог пропадал).
+        self.root.minsize(700, 520)
+        self.root.title("V2 — ОКНО ЧИСТИЛЬЩИКА")
         self.root.geometry("850x650")
-        self.root.configure(bg="#e9edf1")
+        self.root.configure(bg=U.BG)
         
         self.settings = self.load_settings()
         self.current_plan = None
@@ -90,7 +98,7 @@ class PurgeGUI:
         self.warn_label = tk.Label(self.root, text="", bg="#fff1c7", fg="#856404", font=("Arial", 10, "bold"))
         self.warn_label.pack(fill="x", padx=10)
 
-        self.tree_frame = tk.Frame(self.root, bg="#e9edf1")
+        self.tree_frame = tk.Frame(self.root, bg=U.BG)
         self.tree_frame.pack(fill="both", expand=True, padx=10, pady=5)
         self.tree = ttk.Treeview(self.tree_frame, columns=("group", "members", "target"), show="headings")
         for col, head in zip(("group", "members", "target"), ("Группа", "Версии", "Уйдёт")):
@@ -98,7 +106,7 @@ class PurgeGUI:
             self.tree.column(col, width=200)
         self.tree.pack(fill="both", expand=True)
 
-        self.info_panel = tk.LabelFrame(self.root, text="ИНФО", bg="#ffffff", padx=10, pady=10)
+        self.info_panel = tk.LabelFrame(self.root, text=" ИНФО ", bg=U.BG, padx=10, pady=10)
         self.info_panel.pack(fill="x", padx=10, pady=10)
         self.info_text = tk.Text(self.info_panel, height=6, width=80, state="disabled", font=("Consolas", 9), bg="#f8f9fa")
         self.info_text.pack(fill="x")
@@ -126,31 +134,68 @@ class PurgeGUI:
         lock = Lock(LOCK_FILE)
         ok, err = lock.acq()
         if not ok: return self.show_error(err)
-        try:
-            for i in self.tree.get_children(): self.tree.delete(i)
-            self.current_plan = preview(Path(root), self.keep_var.get(), self.creo_var.get())
-            for g in self.current_plan.get("groups", []): self.tree.insert("", "end", values=(g["base"], ", ".join(g["members"]), g.get("target", "")))
-            for s in self.current_plan.get("singles", []): self.tree.insert("", "end", values=("---", s, "---"))
-            self.btn_execute.config(state="normal")
-        except Exception as e: messagebox.showerror("Ошибка", str(e))
-        finally: lock.rel()
+        # 03.10.2026: было В ГЛАВНОМ ПОТОКЕ — на сетевом корне окно висело на минуты.
+        # Теперь план считается в потоке (ui_common.run_in_thread), UI трогает только главный.
+        keep, creo_mode = self.keep_var.get(), self.creo_var.get()
+
+        def work():
+            return preview(Path(root), keep, creo_mode)
+
+        def done(plan):
+            try:
+                for i in self.tree.get_children(): self.tree.delete(i)
+                self.current_plan = plan
+                for g in plan.get("groups", []): self.tree.insert("", "end", values=(g["base"], ", ".join(g["members"]), g.get("target", "")))
+                for s in plan.get("singles", []): self.tree.insert("", "end", values=("---", s, "---"))
+                self.btn_execute.config(state="normal")
+                self.info("план готов: групп %d, файлов %d" % (len(plan.get("groups", [])), len(plan.get("singles", []))))
+            finally:
+                lock.rel()
+
+        U.run_in_thread(self.root, work, on_done=done, on_error=lambda e: (self.show_error(e), lock.rel()))
 
     def show_error(self, err):
         self.info_text.config(state="normal"); self.info_text.delete("1.0", tk.END); self.info_text.insert(tk.END, f"!!! {err}"); self.info_text.config(state="disabled")
 
     def confirm_execute(self):
         bd = self.backup_var.get() or (Path(self.root_var.get()) / "_purge_backup" / datetime.datetime.now().strftime("%Y%m%d"))
-        if messagebox.askyesno("Подтверждение", f"Начать очистку в:\n{bd}?"):
-            lock = Lock(LOCK_FILE)
-            if not lock.acq()[0]: return messagebox.showerror("Ошибка", "Уже запущено")
-            _t0 = time.time()
-            try:
-                rep = execute(Path(self.root_var.get()), self.keep_var.get(), self.creo_var.get(), Path(bd))
-                self.refresh_info_panel()
-                messagebox.showinfo("Готово", "Очистка завершена. (за %.1f с)" % (time.time() - _t0))
-                self.btn_execute.config(state="disabled")
-            except Exception as e: messagebox.showerror("Ошибка", str(e))
-            finally: lock.rel()
+        if not messagebox.askyesno("Подтверждение", f"Начать очистку в:\n{bd}?"):
+            return
+        lock = Lock(LOCK_FILE)
+        if not lock.acq()[0]: return messagebox.showerror("Ошибка", "Уже запущено")
+        # 03.10.2026: очистка переносит файлы — на минуты. Раньше блокировала главный поток,
+        # теперь идёт в потоке, а кнопки блокируются (окно живо, но «одна кнопка»).
+        keep, creo_mode = self.keep_var.get(), self.creo_var.get()
+        root_p, bd_p = Path(self.root_var.get()), Path(bd)
+        self.btn_execute.config(state="disabled")
+        self.btn_plan.config(state="disabled")
+
+        def work():
+            return execute(root_p, keep, creo_mode, bd_p)
+
+        def done(rep):
+            self.btn_plan.config(state="normal")
+            self.refresh_info_panel()
+            messagebox.showinfo("Готово", "Очистка завершена. Перенесено: %s"
+                                % len((rep or {}).get("перенесено_парами", [])))
+
+        def failed(e):
+            self.btn_plan.config(state="normal")
+            self.btn_execute.config(state="disabled")
+            messagebox.showerror("Ошибка", str(e)[:400])
+
+        U.run_in_thread(self.root, work, on_done=done, on_error=failed,
+                        log=lambda m: self.info(m))
+
+    def info(self, msg):
+        """Строка в лог-панель окна (общий помощник после перевода на потоки)."""
+        try:
+            self.info_text.config(state="normal")
+            self.info_text.insert(tk.END, "%s\n" % msg)
+            self.info_text.see(tk.END)
+            self.info_text.config(state="disabled")
+        except Exception:
+            pass
 
     def refresh_info_panel(self):
         self.info_text.config(state="normal"); self.info_text.delete("1.0", tk.END)

@@ -139,10 +139,40 @@ FORBIDDEN = [
 # НЕ пользуется общим поиском: тогда путь в коде = настоящий хардкод.
 CREO_COMMON_SEARCH = re.compile(r"BOOT\.|creo_boot|creo_path|creo_pdf_env|config_paths\(")
 def read(w):
+    """Текст окна ВМЕСТЕ с подключаемыми им модулями.
+
+    ЖИВАЯ НАХОДКА 03.10.2026: `purge_gui.py` — это ШИМ (510 Б, `runpy.run_path`), он
+    перезапускает настоящее окно `purge_versions\\gui.py`; читать только шим бессмысленно.
+    И `harvest_gui.py` — только вход, а признаки дизайна (LabelFrame, Consolas, Treeview)
+    лежат в подключаемом `harvest_gui_panels.py`. Поэтому текст окна = его файл + все
+    `import` локальные модули того же каталога."""
     g = w["gui"]
     if not g or not Path(g).is_file():
         return None
-    return Path(g).read_text(encoding="utf-8", errors="replace")
+    g = Path(g)
+    parts = [g.read_text(encoding="utf-8", errors="replace")]
+    # Если файл — шим (маленький и зовёт run_path), берём цель из него.
+    if g.stat().st_size < 2000 and "run_path" in parts[0]:
+        import re as _re
+        m = _re.search(r'run_path\(str\(Path\(__file__\)\.resolve\(\)\.parent\s*/\s*"([^"]+)"',
+                       parts[0])
+        if m:
+            tgt = g.parent / m.group(1) / "gui.py"
+            if tgt.is_file():
+                g = tgt
+                parts = [tgt.read_text(encoding="utf-8", errors="replace")]
+    for extra in sorted(g.parent.glob("*.py")):
+        if extra == g or extra.stat().st_size > 20000:
+            continue
+        nm = extra.stem
+        if nm in ("gui", "runpy"):
+            continue
+        try:
+            if ("import %s" % nm) in parts[0] or ("from %s" % nm) in parts[0]:
+                parts.append(extra.read_text(encoding="utf-8", errors="replace"))
+        except Exception:
+            pass
+    return "\n".join(parts)
 
 
 def main():
@@ -154,6 +184,10 @@ def main():
     print("=" * 78)
     for w in wins:
         src = read(w)
+        # Текст САМОГО файла входа (без склейки) — для запретов.
+        g0 = w["gui"]
+        w["own_text"] = (Path(g0).read_text(encoding="utf-8", errors="replace")
+                         if g0 and Path(g0).is_file() else "")
         if src is None:
             print("?? %-16s ФАЙЛА ОКНА НЕТ (bat: %s)" % (w["name"], w["bat"]))
             rows.append((w["name"], "НЕТ ФАЙЛА", 0, 0))
@@ -162,9 +196,13 @@ def main():
         miss = check_one(src)
         forb = []
         for lab, rx in FORBIDDEN:
-            if not rx.search(src):
+            # Запреты смотрим ТОЛЬКО по файлу входа, а не по склейке с подключёнными
+            # модулями: ложное срабатывание 03.10.2026 — движок программы в склейке приносил
+            # свой путь, а запрет адресован коду ОКНА.
+            hay = w.get("own_text") or src
+            if not rx.search(hay):
                 continue
-            if lab == "путь Creo в коде окна" and CREO_COMMON_SEARCH.search(src):
+            if lab == "путь Creo в коде окна" and CREO_COMMON_SEARCH.search(hay):
                 continue          # путь стоит ЗА общим поиском — это правильно, не хардкод
             forb.append(lab)
         bad = miss + forb
@@ -185,8 +223,8 @@ def main():
         print("   %-34s %2d" % (lab, cnt.get(lab, 0)))
     for lab, rx in FORBIDDEN:
         if lab == "путь Creo в коде окна":
-            n = sum(1 for w in wins if read(w) is not None and rx.search(read(w))
-                    and not CREO_COMMON_SEARCH.search(read(w)))
+            n = sum(1 for w in wins if (w.get("own_text") or "") and rx.search(w["own_text"])
+                    and not CREO_COMMON_SEARCH.search(w["own_text"]))
         else:
             n = sum(1 for w in wins if read(w) is not None and rx.search(read(w)))
         print("   %-34s %2d (запрет)" % ("ЗАПРЕТ: " + lab, n))
