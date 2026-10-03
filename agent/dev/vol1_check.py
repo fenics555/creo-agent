@@ -22,11 +22,12 @@ def chk(name, cond, detail=""):
         fail.append(name)
 
 
-# 1. реестр цел: старые инструменты на месте (+7 = tools_card, prog_contract, hol_check, hol_report, rules_list, rules_text, rules_check)
+# 1. реестр цел: старые инструменты на месте (+10 = tools_card, prog_contract, hol_check, hol_report,
+#    rules_list, rules_text, rules_check, checks_list, checks_run, checks_report)
 TOTAL = len(TR.TOOLS)
-chk("реестр: 169 инструментов (162 старых + 7 новых волн 1–4)", TOTAL == 169,
+chk("реестр: 172 инструмента (162 старых + 10 новых волн 1–5)", TOTAL == 172,
     "фактически %d" % TOTAL)
-chk("реестр: 48 блоков (46 + hol_tools + rules_tools)", len(TR.BLOCKS) == 48,
+chk("реестр: 49 блоков (46 + hol_tools, rules_tools, checks_tools)", len(TR.BLOCKS) == 49,
     "фактически %d" % len(TR.BLOCKS))
 
 # 2. карта: все инструменты получили тип, ни один не «other»

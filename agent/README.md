@@ -16,6 +16,11 @@
 модуль сама; в `tools_registry.py` появились типы инструментов (`kind/group/needs_creo/source`)
 и карта `tools_card`.
 
+**Движок правил и каркас проверок (волны 4–5, 03.10.2026):** `rules_engine.py` — правила
+(`data\rules.json`, 10 правил; правило читается и JSON, и текстом IF…THEN…END_IF) + `RulesEditor`
+в каркасе; `checks.py` — паспорт проверки и **единый прогон** всех проверок дома с одним
+отчётом и процентом соответствия (`python checks.py`, инструменты `checks_*`).
+
 ## Как работать с домом
 - **Управление:** `python ctl.py up [--browser] [--hidden]` — подъём стека
   (Ollama 11434, CREOSON 8080, copy-server 8000, агент 8765).
