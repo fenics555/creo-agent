@@ -20,6 +20,19 @@ REPORT = Path(r"D:\AI\log\harvest\last_harvest.json")
 DEFAULT_ROOTS = AG / "kb_roots.txt"
 BATCH = 500
 
+# ЖИВАЯ НАХОДКА 03.10.2026 (аудит data\, Д4): этот журнал писался в ДВА места — здесь
+# (D:\AI\log\harvest\harvest.log) и в harvest_gui.py (data\harvest.log). Теперь одна цель:
+# LOGF выше, harvest_gui.py указывает на неё же.
+
+# ЖИВАЯ НАХОДКА 03.10.2026 (аудит data\, Д5): в kb_roots.txt лежали плейсхолдеры
+# `<WORK_ROOT>` и `<CREO_START>`, а read_roots их НЕ разрешал — скан молча шёл мимо
+# (живой вызов возвращал их как есть). Теперь плейсхолдер подставляется, и если папки
+# нет — пишем внятную строку в журнал и корень пропускаем.
+ROOT_PLACEHOLDERS = {
+    "<WORK_ROOT>": [r"Z:\PTC\Work"],
+    "<CREO_START>": [r"Z:\PTC\CREO-START"],
+}
+
 def log(msg):
     line = "%s | %s" % (datetime.now().isoformat(timespec="seconds"), msg)
     print(line, flush=True)
@@ -94,6 +107,15 @@ def read_roots(path, allow_z=False):
     for line in (text or "").splitlines():
         line = line.replace("\ufeff", "").strip()
         if line and not line.startswith("#"):
+            # Д5 (03.10.2026): плейсхолдер → реальный путь; если пути нет — честно в журнал.
+            if line in ROOT_PLACEHOLDERS:
+                for real in ROOT_PLACEHOLDERS[line]:
+                    if os.path.isdir(real):
+                        log("корень %s → %s" % (line, real))
+                        roots.append(real)
+                    else:
+                        log("корень %s → %s ПРОПУЩЕН (папки нет)" % (line, real))
+                continue
             if not allow_z and line[:2].upper() == "Z:":
                 log("Z запрещён словом: %s пропущен" % line)
                 continue

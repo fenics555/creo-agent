@@ -6,7 +6,10 @@ r"""КУЛЬТУРА ДОМА: проверка адресов файлов (24.
 Проверяем ФАКТЫ на диске, а не текст правил: отчёты — в отчётах, логи — в логах,
 временное — в урне, конспекты — в памяти дома под гитом, обе копии правил совпадают.
 
-Зов: python dev\culture_check.py    (код возврата 0 = чисто, 1 = есть нарушения)
+Зов: python dev\culture_check.py                 (код возврата 0 = чисто, 1 = есть нарушения)
+     python dev\culture_check.py --root D:\AI\PROBA\kultura_test
+       — ПЕСОЧНИЦА (03.10.2026): проверка целиком идёт по копии дома, боевые пути не читаются.
+       Все разделы (1-10) переезжают на --root; пути внутри программы относительные.
 """
 import hashlib
 import sys
@@ -17,13 +20,19 @@ try:      # консоль Windows (cp1251/cp866) роняет вывод с э�
 except Exception:
     pass
 
-ROOT = Path(r"D:\AI")
+# 03.10.2026: `--root` — песочница. По умолчанию боевой дом, но проверку можно целиком
+# увести на копию: правки и «сломанные» образцы проверяются без риска для дома.
+_args = [a for a in sys.argv[1:] if not a.startswith("-")]
+ROOT = Path(_args[0]) if _args else Path(r"D:\AI")
+IN_SANDBOX = ROOT != Path(r"D:\AI")
 LOG = ROOT / "log"
 URN = LOG / "urn"
 REPORTS = LOG / "reports"
 REPO = ROOT / "repo"
 STUDY = ROOT / "ИЗУЧИТЬ"
 BAD, WARN = [], []
+if IN_SANDBOX:
+    print("ПЕСОЧНИЦА: %s (боевой дом не читается и не пишется)\n" % ROOT)
 
 
 def bad(msg):

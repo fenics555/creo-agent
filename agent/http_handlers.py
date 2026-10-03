@@ -475,9 +475,17 @@ class Hd(BaseHTTPRequestHandler):
             import purge_versions
             from pathlib import Path
             root = b.get("root")
+            # ЖИВАЯ НАХОДКА 03.10.2026 (аудит data\, Д3): без ключа root шёл Path(None) ->
+            # TypeError -> соединение рвалось ("Remote end closed connection"), и в окне это
+            # выглядело как «агент завис». Теперь — внятный ответ с кодом 400.
+            if not root:
+                return self._j({"error": "укажите корень (root) — папку, где чистильщик ищет версии"}, code=400)
             keep = int(b.get("keep") or 1)
             creo_mode = b.get("creo_mode") == "true"
-            res = purge_versions.preview(Path(root), keep, creo_mode)
+            try:
+                res = purge_versions.preview(Path(root), keep, creo_mode)
+            except Exception as e:
+                return self._j({"error": "не разобрал корень %s: %s" % (root, e)}, code=400)
             rows = []
             total = 0
             for g in res["groups"]:

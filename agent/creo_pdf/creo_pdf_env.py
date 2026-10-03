@@ -191,7 +191,7 @@ def find_creo():
     """
     try:
         import sys as _sys
-        _shared_dir = os.path.join(os.path.dirname(HERE), "agent")
+        _shared_dir = os.path.dirname(HERE)          # корень агента: там лежит creo_path.py
         if _shared_dir not in _sys.path:
             _sys.path.insert(0, _shared_dir)
         import creo_path as _shared

@@ -19,7 +19,8 @@ ERR_BD = 1
 TXT = '#000000'
 LOCK = os.path.join('data', 'harvest.lock')
 REPORT = os.path.join('data', 'harvest_settings.json')
-LOGF = os.path.join('data', 'harvest.log')
+# ЖИВАЯ НАХОДКА 03.10.2026 (аудит data\, Д4): журнал был ещё и тут (data\harvest.log), а harvest.py писал в D:\AI\log\harvest\ — два файла одного журнала. Теперь одна цель.
+LOGF = r'D:\AI\log\harvest\harvest.log'
 
 def lock_alive():
     if not os.path.exists(LOCK):

@@ -22,7 +22,7 @@ import time
 
 _HERE = os.path.dirname(os.path.abspath(__file__))
 _AGENT = os.path.dirname(_HERE)                                   # ...\\tools\\agent
-for _p in (os.path.join(_AGENT, "agent"), _AGENT):                  # общий модуль + корень
+for _p in (_AGENT,):                                   # общий модуль лежит в корне агента
     if _p not in sys.path:
         sys.path.insert(0, _p)
 

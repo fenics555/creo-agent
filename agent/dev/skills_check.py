@@ -2,21 +2,35 @@
 # skills_check: crash\ instances + root/Prog name headers. Report is written by python in UTF-8.
 # 03.10.2026: консоль больше не ломает кириллицу (было `\u041e\u0428\u0418\u0411\u041a\u0410`
 # вместо слова «ОШИБКА»), код возврата стал 0 чисто / 1 нарушения / 2 нечего проверять
-# (постоянный 0 не позволял отличить «нарушений нет» от «нарушений 13»).
+# (постоянный 0 не позволял отличить «нарушений нет» от «нарушений 13»),
+# добавлен режим ПЕСОЧНИЦЫ: `python skills_check.py <корень дома>` — проверка идёт
+# по копии (repo\crash, repo\SKILL_*, repo\Prog\SKILL_*, эталон и отчёт — внутри песочницы).
 import os
 import re
 import sys
 import time
+
+SANDBOX = None
+for _a in sys.argv[1:]:
+    if not _a.startswith("-"):
+        SANDBOX = _a
+        break
 
 try:                                    # Windows-консоль cp1251: печатаем UTF-8, но без жёсткого краша
     sys.stdout.reconfigure(encoding="utf-8", errors="backslashreplace")
 except Exception:
     pass
 
-BASELINE = r"D:\AI\tools\agent\data\skills_check_baseline.txt"
-REPORT = r"D:\AI\log\skills_check\skills_check_report.txt"
-CRASH = r"D:\AI\repo\crash"
-ROOTS = [r"D:\AI\repo", r"D:\AI\repo\Prog"]
+if SANDBOX:      # песочница: и проверяем, и пишем (эталон/отчёт) ТОЛЬКО внутри копии
+    BASELINE = os.path.join(SANDBOX, "baseline.txt")
+    REPORT = os.path.join(SANDBOX, "skills_check_report.txt")
+    CRASH = os.path.join(SANDBOX, "repo", "crash")
+    ROOTS = [os.path.join(SANDBOX, "repo"), os.path.join(SANDBOX, "repo", "Prog")]
+else:
+    BASELINE = r"D:\AI\tools\agent\data\skills_check_baseline.txt"
+    REPORT = r"D:\AI\log\skills_check\skills_check_report.txt"
+    CRASH = r"D:\AI\repo\crash"
+    ROOTS = [r"D:\AI\repo", r"D:\AI\repo\Prog"]
 PTR = "\u044d\u0442\u043e\u0442 \u0444\u0430\u0439\u043b \u2014 \u0443\u043a\u0430\u0437\u0430\u0442\u0435\u043b\u044c"
 ERRF = "\u041e\u0428\u0418\u0411\u041a\u0410"
 NAMERX = re.compile(r"^\s*#?\s*name:\s*([\w\-]+)", re.M)
@@ -89,7 +103,8 @@ for root in ROOTS:
             violations.append("%s/%s: name mismatch (found %s, expected %s)" % (label, fn, m.group(1), exp))
 
 lines = []
-lines.append("skills_check report  %s" % time.strftime("%Y-%m-%d %H:%M:%S"))
+lines.append("skills_check report  %s%s" % (time.strftime("%Y-%m-%d %H:%M:%S"),
+                                           ("  ПЕСОЧНИЦА " + SANDBOX) if SANDBOX else ""))
 lines.append("canon: дефис и подчёркивание в именах эквивалентны; переименование файла ради прохождения проверки = нарушение, цитаты дома старше проверки (решение 22.09)")
 lines.append("грабли: после правки .py обязателен ПРОГОН (не только py_compile); вывод читать процессом без переадресации «>» (PowerShell отдаёт пустой файл); кириллический путь в git-командах передавать питоном")
 lines.append("")
@@ -130,6 +145,8 @@ with open(REPORT, "w", encoding="utf-8") as f:
     f.write("\n".join(lines) + "\n")
 
 print("violations=%d notes=%d report=%s" % (len(violations), len(notes), REPORT))
+if SANDBOX:
+    print("ПЕСОЧНИЦА: %s (боевой эталон и отчёт не тронуты)" % SANDBOX)
 for v in violations:
     print("V: " + v)
 for n in notes:

@@ -17,6 +17,21 @@ from urllib.parse import parse_qs, unquote_plus
 
 PORT = 8000
 HERE = Path(__file__).resolve().parent
+# ЖИВАЯ НАХОДКА 03.10.2026 (аудит data\, Д1): порт жил ТРЁЖДЫ — здесь константой, в
+# data\copy_settings.json (его пишет окно) и в config.json (`copy_port`, который не читал
+# никто). Теперь источник ОДИН: файл настроек службы; константа осталась только как
+# последний рубеж, когда файла ещё нет (первый запуск).
+SETTINGS_FILE = Path(r"D:\AI\tools\agent\data\copy_settings.json")
+
+
+def load_port(default=PORT):
+    try:
+        with open(SETTINGS_FILE, encoding="utf-8") as f:
+            v = int((json.load(f) or {}).get("port") or default)
+        return v
+    except Exception:
+        return default
+HERE = Path(__file__).resolve().parent
 WEB = HERE / "copy_web"
 LOG_DIR = r"D:\AI\log\copy"
 # Временные папки службы — в ДОМАШНЕЙ урне (03.10.2026: было `%TEMP%` = D:\PTC\CREO-LOCAL-SETUP\TEMP,
@@ -218,7 +233,9 @@ if __name__ == "__main__":
     import argparse
 
     ap = argparse.ArgumentParser(description="copy_server — служба копирования/переименования для веб-страниц дома")
-    ap.add_argument("--port", type=int, default=PORT, help="порт (по умолчанию %d)" % PORT)
+    # Д1 (03.10.2026): дефолт порта — из data\copy_settings.json (его пишет окно), а не из
+    # константы. Так значение, набранное в окне, действительно применяется к службе.
+    ap.add_argument("--port", type=int, default=load_port(), help="порт (по умолчанию берётся из data\\copy_settings.json)")
     ap.add_argument("--bind", default="127.0.0.1", help="адрес привязки (по умолчанию только своя машина)")
     ap.add_argument("--quiet", action="store_true", help="не печатать строки в консоль (в журнал пишем всегда)")
     a = ap.parse_args()

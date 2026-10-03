@@ -1,4 +1,4 @@
-# -*- coding: utf-8 -*-
+﻿# -*- coding: utf-8 -*-
 r"""
 ТРАНСФОРМЕР v15 — НАСТРОЙКИ (settings.py)
 Единственный хозяин config.json. Только ресурсы, ноль поведения.
@@ -49,7 +49,6 @@ REGISTRY = [
     ("Визия", "vision_gpu", "GPU-слоёв", "int", 0, "Слоёв на GPU.", False),
     ("Визия", "image_days", "Хранить скрины дней", "int", 7, "Срок хранения.", True),
     ("Creo", "creo_allow_start", "Разрешить агенту стартовать Creo", "bool", False, "Выкл: Creo поднимает только человек (CREO-START.bat). Вкл (админ): агент может поднять Creo — появится его синий сплеш.", True),
-    ("Creo", "copy_port", "Порт копии", "int", 8000, "Сервер страницы «Копия сборки».", True),
     ("Creo", "audit_limit", "Лимит аудита", "int", 20, "Моделей за аудит.", True),
     ("Creo", "audit_params", "Параметры аудита", "list", ["ОБОЗНАЧЕНИЕ", "НАИМЕНОВАНИЕ", "MASS"], "Что требуем от модели.", True),
     ("Память", "history_days", "Дней хранить историю", "int", 365, "Автоочистка истории.", False),
@@ -62,7 +61,7 @@ REGISTRY = [
     ("Web", "web_render", "Рендер браузером (Playwright)", "bool", False, "Вкл: при сбое fetch — headless Chrome.", True),
     ("Web", "web_test_url", "URL для diag_web", "str", "https://ya.ru", "Внешняя цель для diag_web.", True),
     ("Пути", "creoson_url", "URL CREOSON", "str", "http://127.0.0.1:8080/creoson", "Мост Creo.", True),
-    ("Пути", "creoson_dir", "Папка CREOSON", "str", r"D:\AI\creoson", "Где creoson_run.bat.", True),
+    ("Пути", "creoson_dir", "Папка CREOSON", "str", r"D:\PTC\CREO-LOCAL-SETUP\creoson", "Где creoson_run.bat. Дефолт обязан совпадать с ctl.py:40 — иначе при пересоздании config.json агент стартует несуществующий путь (живая находка 03.10.2026).", True),
     ("Пути", "pdf_out", "Папка PDF", "str", "", "Пусто = рядом с чертежом.", True),
     ("Пути", "backup_dir", "Папка бэкапов", "str", "", "Пусто = agent/data/backups.", True),
     ("Пути", "trail_dirs", "Папки трейлов", "list", [], "Пусто = trail_dir из Creo + локальная папка Creo.", True),
