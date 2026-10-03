@@ -39,6 +39,8 @@ WINDOWS = [
      "dir": AGENT / "drawing_audit", "settings": "drawing_audit_settings.json"},
     {"name": "batch_params", "path": AGENT / "batch_params" / "gui.py", "module": "gui",
      "dir": AGENT / "batch_params", "settings": "batch_params_settings.json"},
+    {"name": "plan_run", "path": AGENT / "plan_run" / "gui.py", "module": "gui",
+     "dir": AGENT / "plan_run", "settings": "plan_run_settings.json"},
 ]
 
 fail = []

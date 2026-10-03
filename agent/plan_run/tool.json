@@ -1,0 +1,32 @@
+{
+ "id": "plan_run",
+ "title": "Планы задач: единый plan.json и исполнение по шагам (plan_run)",
+ "version": 1,
+ "kind": "act",
+ "group": "Creo",
+ "needs_creo": true,
+ "class": "Ж",
+ "engine": "runner.py",
+ "gui": "gui.py",
+ "gui_bat": "plan_run_gui.bat",
+ "readme": "README.md",
+ "cli": ["<plan.json>", "--approve", "--dry_run"],
+ "inputs": [
+   {"name": "plan_json", "type": "path", "default": "",
+    "desc": "файл плана в едином формате plan.json"},
+   {"name": "approve", "type": "bool", "default": "0",
+    "desc": "согласие на исполнение шагов (без 1 - RC 3)"},
+   {"name": "dry_run", "type": "bool", "default": "1",
+    "desc": "1 - показать, что будет, без записи"}
+ ],
+ "outputs": {"plan": "log\\plans\\plan_*.json", "log": "log\\plans\\plan_run.log",
+             "report": "REPORT_plan_run_*.md"},
+ "settings": "plan_run_settings.json",
+ "deps": ["plan_fmt", "batch_params.apply", "ui_common"],
+ "approval": true,
+ "ui": "ui_common",
+ "rc": {"0": "выполнено или проба", "1": "часть шагов не вышла",
+        "2": "нет CREOSON или план не прошёл проверку", "3": "нет согласия",
+        "4": "щит: активна не та модель"},
+ "notes": "Класс Ж. Шаг = n · what · where · args · risk · rollback · verdict. rollback обязателен. Первый носитель формата - план batch_params (from_batch_params). Запись идёт доказанным путём batch_params\\apply; своего вызова CREOSON здесь нет."
+}

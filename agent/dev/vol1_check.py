@@ -22,14 +22,17 @@ def chk(name, cond, detail=""):
         fail.append(name)
 
 
-# 1. реестр цел: старые инструменты на месте (+15 = tools_card, prog_contract, hol_check,
+# 1. реестр цел: старые инструменты на месте (+18 = tools_card, prog_contract, hol_check,
 #    hol_report, rules_list, rules_text, rules_check, checks_list, checks_run, checks_report,
-#    drawing_audit, drawing_report, batch_params_plan, batch_params_apply, feature_rename_plan)
+#    drawing_audit, drawing_report, batch_params_plan, batch_params_apply, feature_rename_plan,
+#    plan_build, plan_run, plan_report — волна 8)
+# ЧИСЛА СТАРЕЮТ КАЖДЫЙ ХОД (грабля волн 6-7): пересчитаны 03.10.2026 живым прогоном.
 TOTAL = len(TR.TOOLS)
-chk("реестр: 177 инструмента (162 старых + 15 новых волн 1–7)", TOTAL == 177,
+chk("реестр: 180 инструментов (162 старых + 18 новых волн 1–8)", TOTAL == 180,
     "фактически %d" % TOTAL)
-chk("реестр: 51 блок (46 + hol_tools, rules_tools, checks_tools, drawing_audit_tools, "
-    "batch_params_tools)", len(TR.BLOCKS) == 51, "фактически %d" % len(TR.BLOCKS))
+chk("реестр: 52 блока (46 + hol_tools, rules_tools, checks_tools, drawing_audit_tools, "
+    "batch_params_tools, plan_run_tools)", len(TR.BLOCKS) == 52,
+    "фактически %d" % len(TR.BLOCKS))
 
 # 2. карта: все инструменты получили тип, ни один не «other»
 kinds = {}
