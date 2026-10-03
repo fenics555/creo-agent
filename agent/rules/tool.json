@@ -1,0 +1,24 @@
+{
+ "id": "rules",
+ "title": "Правила дома: редактор (текст + форма)",
+ "version": 1,
+ "kind": "act",
+ "group": "справочник",
+ "needs_creo": false,
+ "class": "Р",
+ "engine": "rules_engine.py",
+ "gui": "gui.py",
+ "gui_bat": "rules_gui.bat",
+ "readme": "README.md",
+ "cli": [],
+ "inputs": [
+  {"name": "rules.json", "type": "file", "default": "data\\rules.json",
+   "desc": "файл правил: схема 1, список правил с критериями"}
+ ],
+ "outputs": {"report": "нет (правила — данные)", "log": "журнал окна"},
+ "settings": "",
+ "deps": ["rules_engine", "ui_common"],
+ "approval": false,
+ "ui": "ui_common",
+ "notes": "Класс Р: правила читают и агент (rules_*), и окно, и консоль — из одного файла. Архитектура правила взята у вендора (B&W-13)."
+}
