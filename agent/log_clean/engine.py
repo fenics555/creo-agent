@@ -18,6 +18,7 @@ import datetime
 import json
 import os
 import shutil
+import sys
 import time
 from pathlib import Path
 
@@ -192,6 +193,14 @@ if __name__ == "__main__":
     p.add_argument("--delete", action="store_true", help="удалять навсегда (по умолчанию — в корзину)")
     p.add_argument("--trash-days", type=int, default=7, help="сколько дней держать корзину")
     a = p.parse_args()
+    # 03.10.2026 (аудит): несуществующий корень раньше давал пустой вывод и код 0 —
+    # выглядело как «убрать нечего». Теперь честный отказ (как у purge_versions).
+    if not Path(a.root).is_dir():
+        print("НЕТ ТАКОЙ ПАПКИ: %s" % a.root)
+        sys.exit(2)
+    if a.days < 1:
+        print("НЕВЕРНЫЙ --days: %s (минимум 1)" % a.days)
+        sys.exit(3)
     if a.apply:
         r = clean(a.root, "delete" if a.delete else "trash", a.days)
         print("сделано: перенесено %d, удалено %d, пропущено %d, освобождено %.1f МБ"

@@ -18,7 +18,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parent))
 import engine  # noqa: E402
 
 PROG_DIR = Path(__file__).resolve().parent
-SETTINGS_FILE = PROG_DIR / "gui_settings.json"
+SETTINGS_FILE = Path(r"D:\AI\tools\agent\data\log_clean_settings.json")   # манифест п.19: настройки в data\ (было в папке программы)
 
 
 class App:
