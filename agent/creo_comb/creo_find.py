@@ -103,3 +103,22 @@ def find(verbose=False):
 if __name__ == "__main__":
     com, why = find(verbose=("-v" in sys.argv))
     print(com or "")
+# ---------------------------------------------------------------------------
+# 02.10.2026, позднее перекрытие: поиск вынесен в ОБЩИЙ модуль
+# `agent\creo_path.py` (приоритет: бат запуска → реестр PTC → диск → настройки).
+# Живая находка: реестр PTC на этой машине указывает на CREO12, а бат запуска —
+# на CREO13 (дом работает на 13). Поэтому лаунчер стоит ПЕРВЫМ.
+# Функции выше оставлены как запасной вариант (работают, но вызываться не будут).
+# ---------------------------------------------------------------------------
+_AGENT_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))   # ...\tools\agent
+sys.path.insert(0, os.path.join(_AGENT_DIR, "agent"))   # папка с общими модулями агента
+sys.path.insert(0, _AGENT_DIR)
+import creo_path as _shared        # noqa: E402  (общий поиск дома, импорт по прямому пути)
+
+
+def find(verbose=False):
+    """Единая точка поиска: общий модуль дома `agent\\creo_path`."""
+    com, par, why = _shared.find()
+    if verbose:
+        sys.stderr.write("creo_find: %s (%s) | parametric=%s\n" % (com, why, par))
+    return com, why

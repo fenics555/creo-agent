@@ -181,7 +181,26 @@ def find_all_creo():
 
 
 def find_creo():
-    """Возвращает (install_dir, common_files, источник) — первая годная установка."""
+    """Возвращает (install_dir, common_files, источник) — первая годная установка.
+
+    02.10.2026: ПЕРВЫМ источником стал общий поиск дома `agent\\creo_path`
+    (бат запуска → реестр PTC → диск → настройки). Живая находка: реестр PTC на этой
+    машине указывает на CREO12, а бат запуска — на CREO13 (дом работает на 13), поэтому
+    лаунчер должен быть первым. Прежний поиск инструмента (реестр/Program Files/диск)
+    сохранён как запасной — если общий модуль ничего не дал, работает как раньше.
+    """
+    try:
+        import sys as _sys
+        _shared_dir = os.path.join(os.path.dirname(HERE), "agent")
+        if _shared_dir not in _sys.path:
+            _sys.path.insert(0, _shared_dir)
+        import creo_path as _shared
+        com, par, why = _shared.find()
+        if com:
+            install = par or os.path.join(os.path.dirname(com), "Parametric")
+            return install, com, ("общий поиск дома: %s" % why)
+    except Exception as e:
+        print("WARN: общий поиск Creo не сработал (%s) — ищу сам" % e)
     cands = find_all_creo()
     for e in cands:
         if e["ok"]:
