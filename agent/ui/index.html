@@ -136,7 +136,94 @@ body{min-height:100vh}
 #chat,#zone,#panel,#rail{max-width:100%;overflow-wrap:break-word}
 #inp{flex-wrap:wrap}
 #inp #q{min-width:180px}
-/* ==== ПАЛИТРА ПО КАНОНУ ОКНА (repo\ОКНА\02_ДИЗАЙН_И_РАСКЛАДКА.md) ====
+/* ===================== ДИЗАЙН-СИСТЕМА ВИТРИНЫ (03.10.2026, слово владельца
+   «нужно не доработать, а сделать красиво») ===================== Единые токены вместо
+   разрозненных цветов; типографика; карточки с мягкими тенями; отступы по шкале. */
+:root{
+ --bg:#f4f4f2; --surface:#ffffff; --surface-2:#fbfbfa; --line:#e4e4df; --line-2:#cfcfca;
+ --ink:#1c1c1c; --ink-2:#5a5a5a; --ink-3:#9a9a9a;
+ --accent:#1f6fb2; --accent-d:#195a91; --accent-soft:#eaf2fa;
+ --ok:#2e7d32; --warn:#b8860b; --err:#c62828; --warn-bg:#fff1c7; --warn-ink:#856404;
+ --r-s:6px; --r-m:10px; --r-l:14px;
+ --sh-1:0 1px 2px rgba(20,24,30,.06),0 1px 3px rgba(20,24,30,.04);
+ --sh-2:0 4px 12px rgba(20,24,30,.10),0 1px 3px rgba(20,24,30,.06);
+ --f-ui:"Segoe UI",system-ui,-apple-system,sans-serif;
+ --f-mono:"Cascadia Mono",Consolas,"Courier New",monospace;
+}
+body{font-family:var(--f-ui);color:var(--ink);background:var(--bg);-webkit-font-smoothing:antialiased}
+button{font-family:var(--f-ui);border-radius:var(--r-s)}
+/* --- ШАПКА --- */
+#top{height:52px;background:var(--surface);border-bottom:1px solid var(--line);box-shadow:var(--sh-1);
+ padding:0 16px;gap:10px}
+#top b{font-size:14px;font-weight:600;letter-spacing:.2px;color:var(--ink);display:flex;align-items:center;gap:8px}
+#top b::before{content:"";width:9px;height:9px;border-radius:50%;background:var(--accent);
+ box-shadow:0 0 0 3px var(--accent-soft)}
+#hdr{font-size:12.5px;color:var(--ink-2)}
+.lay{border:1px solid var(--line-2)!important;background:var(--surface-2)!important;color:var(--ink-2)!important;
+ border-radius:999px!important;padding:4px 11px!important;font-size:12px;transition:all .15s}
+.lay:hover{background:var(--accent-soft)!important;color:var(--accent-d)!important;border-color:var(--accent)!important}
+.lay.on{background:var(--accent)!important;border-color:var(--accent)!important;color:#fff!important;
+ box-shadow:0 2px 6px rgba(31,111,178,.28)}
+.stc{font-size:12px;padding:3px 9px;border-radius:999px;background:var(--surface-2);
+ border:1px solid var(--line);color:var(--ink-3);margin-left:6px}
+.stc.ok{color:var(--ok);border-color:#cfe3d1;background:#f1f8f2}
+.stc.bad{color:var(--err);border-color:#f0d4d4;background:#fdf4f4}
+/* --- КНОПКИ --- */
+button{background:var(--accent);color:#fff;border:0;border-radius:var(--r-s);padding:8px 14px;
+ font-size:13px;font-weight:500;transition:background .15s,box-shadow .15s,transform .08s}
+button:hover{background:var(--accent-d);box-shadow:0 2px 8px rgba(31,111,178,.25)}
+button:active{transform:translateY(1px)}
+button.sec{background:var(--surface);color:var(--ink);border:1px solid var(--line-2)}
+button.sec:hover{background:var(--accent-soft);border-color:var(--accent);color:var(--accent-d);box-shadow:none}
+button:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+/* --- РЕЙЛ --- */
+#rail{background:var(--surface);border-right:1px solid var(--line);padding:10px 8px;width:212px}
+#rail .item{border-radius:var(--r-s);padding:9px 11px;color:var(--ink);font-size:13.5px;
+ border-left:3px solid transparent;transition:background .12s,border-color .12s}
+#rail .item:hover{background:var(--surface-2)}
+#rail .item.on{background:var(--accent-soft);color:var(--accent-d);font-weight:600;border-left-color:var(--accent)}
+#rail .rl-h{color:var(--ink-3);font-size:11px;font-weight:600;letter-spacing:.6px;margin:14px 8px 6px}
+/* --- ОБЛАСТЬ ЧАТА --- */
+#chat{margin:62px 312px 86px 220px;padding:8px 4px}
+.msg{background:var(--surface);color:var(--ink);border-radius:var(--r-l);padding:11px 15px;
+ box-shadow:var(--sh-1);border:1px solid var(--line);max-width:820px}
+.msg.me{background:var(--accent);color:#fff;border-color:transparent;box-shadow:0 2px 10px rgba(31,111,178,.24)}
+.think,.thinkbody{background:var(--surface-2);border:1px solid var(--line);border-radius:var(--r-m);
+ color:var(--ink-2);font-size:12.5px}
+.log{color:var(--ink-2);font-size:12.5px}
+/* --- ПОЛЯ ВВОДА --- */
+#inp{background:var(--surface);border-top:1px solid var(--line);padding:12px 16px;gap:10px}
+#q{background:var(--surface-2);border:1px solid var(--line-2);border-radius:var(--r-m);
+ padding:11px 14px;font-size:14px;color:var(--ink);transition:border-color .15s,background .15s}
+#q:focus{background:var(--surface);border-color:var(--accent);outline:none;box-shadow:0 0 0 3px var(--accent-soft)}
+/* --- КАРТОЧКИ, ТАБЛИЦЫ, ПОЛЯ --- */
+#panel{background:var(--surface);border-left:1px solid var(--line);padding:12px}
+.grp{background:var(--surface);border:1px solid var(--line);border-radius:var(--r-m);
+ box-shadow:var(--sh-1);padding:12px;margin:8px 0}
+.grp h4{color:var(--accent);font-size:11.5px;font-weight:600;letter-spacing:.5px;margin:0 0 8px}
+.tool{background:var(--surface-2);border:1px solid var(--line);border-radius:var(--r-s);
+ padding:8px 10px;margin:4px 0;transition:background .12s,border-color .12s}
+.tool:hover{background:var(--accent-soft);border-color:var(--accent)}
+.tool b{color:var(--accent)}
+.tool small{color:var(--ink-2);font-size:12px}
+.pin{background:var(--surface);border:1px solid var(--line-2);border-radius:999px;
+ padding:4px 10px;font-size:12px;color:var(--ink-2);transition:all .14s}
+.pin:hover{background:var(--accent-soft);border-color:var(--accent);color:var(--accent-d)}
+table{font-variant-numeric:tabular-nums}
+th{color:var(--ink-3);font-weight:600;font-size:11px;letter-spacing:.4px;text-transform:uppercase}
+input,select,textarea{font-family:var(--f-mono);background:var(--surface);border:1px solid var(--line-2);
+ border-radius:var(--r-s);padding:6px 8px;color:var(--ink)}
+input:focus,select:focus{outline:none;border-color:var(--accent);box-shadow:0 0 0 3px var(--accent-soft)}
+/* --- МОДАЛЬНЫЕ ОКНА --- */
+#login,#wiz,#pro,#adm,#wiz_checks,#wiz_guis,#wiz_setg,#wiz_rules,#wiz_batch,#wiz_conf,#wiz_tools,#wiz_readme,
+#wiz_purge,#wiz_cfaudit,#wiz_orphan,#wiz_plmtree{background:rgba(24,28,34,.42)}
+#login>div,#wiz>div,#wiz_checks>div,#wiz_guis>div,#wiz_setg>div,#wiz_rules>div,#wiz_batch>div,
+#wiz_conf>div,#wiz_tools>div,#wiz_readme>div{background:var(--surface);border:1px solid var(--line);
+ border-radius:var(--r-l);box-shadow:var(--sh-2);padding:22px}
+::-webkit-scrollbar{width:11px;height:11px}
+::-webkit-scrollbar-thumb{background:#d3d3cd;border-radius:6px;border:3px solid transparent;background-clip:content-box}
+::-webkit-scrollbar-thumb:hover{background:#bfbfb8;background-clip:content-box}
+::-webkit-scrollbar-track{background:transparent}
    Константы цитатой из конспекта и из каркаса ui_common.py:
      фон окна #f4f4f2 · логи #f8f9fa · приглушённый текст #5a5a5a · акцент #1f6fb2 ·
      ошибка #c62828 · плашка состояния #fff1c7 с текстом #856404 · окно README #666.
