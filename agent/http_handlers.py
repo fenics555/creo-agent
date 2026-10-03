@@ -627,6 +627,54 @@ class Hd(BaseHTTPRequestHandler):
                     pass
                 return self._j({"result": None, "report": None,
                                 "error": "%s: %s" % (type(_chk_e).__name__, _chk_e)})
+        elif p == "/wiz_run_gui":
+            # ЖИВАЯ ПРАВКА ВИТРИНЫ 03.10.2026 (слово владельца: «в основном окне должен быть
+            # другой дизайн и другой вызов окон»): раньше окна программ запускались ТОЛЬКО
+            # руками — bat надо было знать и искать. Теперь витрина запускает окно сама.
+            # Правила: имя программы сверяется со СПИСКОМ НА ДИСКЕ (никакого произвольного
+            # запуска команд из запроса — иначе маршрут станет дырой), окно стартует
+            # ОТДЕЛЬНЫМ процессом и НЕ блокирует агента, результат пишется в общий журнал.
+            import glob as _glb
+            import subprocess as _spp
+            _agent_dir = os.path.dirname(os.path.abspath(__file__))
+            _skip = ("backup", "_legacy", "_disabled", "__pycache__")
+            _bats = {}
+            for _b in _glb.glob(os.path.join(_agent_dir, "*", "*gui*.bat")):
+                _rel = os.path.relpath(_b, _agent_dir)
+                if any(("\\%s\\" % s) in _rel or _rel.startswith("%s\\" % s) for s in _skip):
+                    continue
+                _name = os.path.splitext(os.path.basename(_b))[0].replace("_gui", "")
+                _bats.setdefault(_name, _b)
+            for _nm2, _fn2 in (("harvest", "harvest_gui.py"), ("purge", "purge_gui.py")):
+                _p2 = os.path.join(_agent_dir, _fn2)
+                if os.path.isfile(_p2):
+                    _bats.setdefault(_nm2, _fn2)
+            if p == "/wiz_run_gui" and b.get("list") == "true":
+                return self._j({"programs": sorted(_bats.keys()), "count": len(_bats),
+                                "error": None})
+            _want = (b.get("program") or "").strip()
+            if not _want:
+                return self._j({"error": "укажите program"}, 400)
+            if _want not in _bats:
+                return self._j({"error": "нет такого окна: %s (доступно: %s)"
+                                % (_want, ", ".join(sorted(_bats)))}, 400)
+            _target = _bats[_want]
+            try:
+                if _target.endswith(".bat"):
+                    _proc = _spp.Popen(["cmd", "/c", os.path.basename(_target)],
+                                        cwd=os.path.dirname(_target),
+                                        creationflags=getattr(_spp, "CREATE_NO_WINDOW", 0))
+                else:
+                    _proc = _spp.Popen([sys.executable, "-X", "utf8", _target], cwd=_agent_dir,
+                                       creationflags=getattr(_spp, "CREATE_NO_WINDOW", 0))
+            except Exception as _rp_e:
+                return self._j({"error": "не запустил %s: %s" % (_want, _rp_e)}, 500)
+            try:
+                log("витрина: запущено окно %s (PID %s)" % (_want, _proc.pid))
+            except Exception:
+                pass
+            return self._j({"ok": True, "program": _want, "pid": _proc.pid,
+                            "msg": "окно «%s» запущено (PID %s)" % (_want, _proc.pid)})
         elif p == "/setname":
             okf, msg = users.update_display_name(cl, b.get("name"))
             self._j({"ok": okf, "msg": msg})
