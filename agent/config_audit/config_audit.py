@@ -8,114 +8,73 @@ $CREO_COMMON_FILES) и проверяет его существование на
 Запуск:  python config_audit.py [путь\\к\\config.pro]
 Вывод:   отчёт в stdout (строки ОК / НЕТ / подозрительно) + итог; код выхода 0 — всё на месте,
           1 — есть битые пути, 2 — файл конфига не найден или не читается.
+
+ГДЕ ИЩЕТСЯ CREO (03.10.2026): поиск установки и рабочего config.pro живёт ОДИН раз на дом —
+`agent\\agent\\creo_path.py` (приоритет: бат запуска → реестр → диск → настройки).
+Здесь собственных копий поиска больше нет: раньше в коде и в настройках стоял путь
+`D:\\PTC\\CREO12\\Creo 12.4.2.0` — на машине дом работает на CREO13, и при переезде домена
+программа проверяла бы несуществующие пути и писала «ЕСТЬ БИТЫЕ ПУТИ».
 """
 import os
 import re
 import sys
 import time
 
-CONFIG = sys.argv[1] if len(sys.argv) > 1 else r"Z:\PTC\CREO-START\START-STD\config.pro"
+_HERE = os.path.dirname(os.path.abspath(__file__))
+_AGENT = os.path.dirname(_HERE)                                   # ...\\tools\\agent
+for _p in (os.path.join(_AGENT, "agent"), _AGENT):                  # общий модуль + корень
+    if _p not in sys.path:
+        sys.path.insert(0, _p)
+
+import creo_path as CREO                                        # noqa: E402  (единый поиск дома)
+
 # Журнал и отчёт программы (закон трёх рук, манифест п.19: одна база — один лог, один отчёт).
 LOG_DIR = r"D:\AI\log\config_audit"
 REPORT_DIR = r"D:\AI\log\reports"
 REPORT_PREFIX = "REPORT_config_audit"
-# Подстановки переменных Creo. До 02.10.2026 это был СЛОВАРЬ-КОНСТАНТА с путём
-# `Creo 12.4.2.0` внутри кода. На машине стоят ОБЕ версии (D:\PTC\CREO12\Creo 12.4.2.0
-# и D:\PTC\CREO13\Creo 13.4.1.0) — при переходе дома на Creo 13 программа проверяла бы
-# несуществующие пути и написала бы «ЕСТЬ БИТЫЕ ПУТИ». Пути теперь в настройках
-# (agent\data\config_audit_settings.json), а сверху — автоопределение по диску.
-VAR = {
-    "$PRO_DIRECTORY": r"D:\PTC\CREO12\Creo 12.4.2.0\Parametric",
-    "$CREO_COMMON_FILES": r"D:\PTC\CREO12\Creo 12.4.2.0\Common Files",
-    "$PROSTD": r"Z:\PTC\CREO-START\НАСТРОЙКИ",
-}
-DEFAULT_CREO_ROOT = r"D:\PTC"
+SETTINGS_FILE = os.path.normpath(os.path.join(_AGENT, "data", "config_audit_settings.json"))
+# Путь к config.pro по умолчанию — через общий поиск (рядом с батом запуска).
+CONFIG = sys.argv[1] if len(sys.argv) > 1 else (CREO.find_config()[0] or "")
+# $PROSTD не зависит от версии Creo: это папка настроек дома.
+VAR_DEFAULT = {"$PROSTD": r"Z:\PTC\CREO-START\НАСТРОЙКИ"}
 
 
-def _find_creo(version_hint="12"):
-    """Ищет установку Creo на диске: D:\\PTC\\CREO*\\Creo <версия>\\Parametric.
-    Возвращает (parametric, common_files) или (None, None)."""
-    try:
-        families = sorted(os.listdir(DEFAULT_CREO_ROOT), reverse=True)
-    except OSError:
-        return None, None
-    for fam in families:
-        base = os.path.join(DEFAULT_CREO_ROOT, fam)
-        if not os.path.isdir(base) or not fam.upper().startswith("CREO"):
-            continue
-        try:
-            vers = sorted(os.listdir(base), reverse=True)
-        except OSError:
-            continue
-        for v in vers:
-            p = os.path.join(base, v, "Parametric")
-            if os.path.isdir(p):
-                return p, os.path.join(base, v, "Common Files")
-    return None, None
-
-
-def _from_start_bat():
-    """Путь установки ИЗ БАТА, которым дом реально запускает Creo (источник истины).
-
-    Живая находка 02.10.2026: боевой `Z:\\PTC\\CREO-START\\START-STD\\CREO-START.bat` содержит
-    `set CREO_EXE=D:\\PTC\\CREO13\\Creo 13.4.1.0\\Parametric\\bin\\parametric.exe`, а программа
-    подставляла CREO12 — потому что «та папка тоже есть на диске». Проверять конфиг нужно
-    против того Creo, на котором дом РАБОТАЕТ, а не против любой установки, найденной на диске.
-    """
-    for bat in (r"Z:\PTC\CREO-START\START-STD\CREO-START.bat",
-                r"Z:\PTC\CREO-START\START-Config\CREO-START.bat"):
-        try:
-            if not os.path.isfile(bat):
-                continue
-            with open(bat, encoding="utf-8", errors="replace") as f:
-                text = f.read()
-        except Exception:
-            continue
-        m = re.search(r"CREO_EXE\s*=\s*([^\r\n]+)", text)
-        if not m:
-            continue
-        exe = m.group(1).strip().strip('"')
-        # ...\\Creo 13.4.1.0\\Parametric\\bin\\parametric.exe -> ...\\Creo 13.4.1.0\\Parametric
-        par = os.path.dirname(os.path.dirname(exe))
-        if os.path.isdir(par):
-            root = os.path.dirname(par)                      # ...\\Creo 13.4.1.0
-            return par, os.path.join(root, "Common Files")
-    return None, None
+# 03.10.2026: собственные копии поиска удалены. Их работу делает общий `creo_path.find()`:
+# бат запуска -> реестр -> диск. Вторая копия поиска = расхождение версий через месяц.
 
 
 def load_vars():
-    """Подстановки переменных Creo. Приоритет источников:
-    1) БАТ запуска `CREO-START.bat` — чем дом РЕАЛЬНО стартует Creo (главный источник);
-    2) настройки дома (`data\\config_audit_settings.json`, блок `creo_vars`);
-    3) путь из кода, ЕСЛИ он реально есть на диске;
-    4) автоопределение по диску `D:\\PTC\\CREO*\\Creo *\\Parametric` — страховка.
+    """Подстановки переменных Creo. 03.10.2026 — ЕДИНЫЙ источник, общий поиск дома:
+    1) `agent\\agent\\creo_path.find()` — бат запуска → реестр → диск → настройки;
+    2) блок `creo_vars` в настройках программы (только для $PROSTD и прочего нестандартного).
+
+    Пути к установке НЕ зашиты: на машине стоят CREO12 и CREO13, дом работает на CREO13.
     """
     import json
-    out = dict(VAR)
+    out = dict(VAR_DEFAULT)
     try:
-        sfile = os.path.normpath(os.path.join(
-            os.path.dirname(os.path.abspath(__file__)), os.pardir, "data",
-            "config_audit_settings.json"))
-        with open(sfile, encoding="utf-8") as f:
+        with open(SETTINGS_FILE, encoding="utf-8") as f:
             st = json.load(f)
         for k, v in (st.get("creo_vars") or {}).items():
-            if k.startswith("$") and v:
+            # Пути установки из настроек НЕ принимаются: они устаревают при переезде
+            # домена. Из настроек берём только то, что не является путём к Creo.
+            if k.startswith("$") and v and k not in ("$PRO_DIRECTORY", "$CREO_COMMON_FILES"):
                 out[k] = v
     except Exception:
         pass
-    par, com = _from_start_bat()          # ← главный источник: боевой CREO-START.bat
+    com, par, why = CREO.find()
     if par:
         out["$PRO_DIRECTORY"] = par
-        if com and os.path.isdir(com):
-            out["$CREO_COMMON_FILES"] = com
-        return out
-    if os.path.isdir(out["$PRO_DIRECTORY"]):
-        return out
-    par, com = _find_creo()
-    if par:
-        out["$PRO_DIRECTORY"] = par
+    if com:
         out["$CREO_COMMON_FILES"] = com
     return out
+
+
+def find_install():
+    """(parametric, common_files, откуда) — для окна и отчёта, чтобы было видно,
+    ПРОТИВ какого Creo шла проверка (при переезде домена это главный вопрос)."""
+    com, par, why = CREO.find()
+    return par, com, why
 PATHY = re.compile(r"(?:[A-Za-z]:[\\/]|\$[A-Z_]+[\\/]|\\\\)")
 
 _VARS = None
@@ -219,8 +178,14 @@ def write_report(res, config_path, secs, quiet=False):
 
 
 def main():
+    if not CONFIG:
+        print("НЕЧЕГО ПРОВЕРЯТЬ: рабочий config.pro не найден — %s" % CREO.find_config()[1])
+        print("укажи его вручную:  config_audit.bat \"<путь>\\config.pro\"")
+        return 2
     print("АУДИТ CONFIG.PRO: %s" % CONFIG)
     print("=" * 78)
+    par, com, why = find_install()
+    print("проверка ПРОТИВ: %s (%s)" % (par or "установка не найдена", why))
     _t0 = time.time()
     try:
         res = audit(CONFIG)

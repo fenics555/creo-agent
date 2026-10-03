@@ -20,20 +20,15 @@ import config_audit as eng  # noqa: E402
 # вовсе: выбранный config.pro терялся при закрытии, это был самый частый сценарий — открыть,
 # посмотреть, закрыть, снова выбирать.
 SETTINGS = Path(r"D:\AI\tools\agent\data\config_audit_settings.json")
-# Известные места дома. Живая проверка 02.10.2026: START-Config НЕ существует на диске —
-# держать его в списке значило предлагать пользователю заведомо мёртвый путь.
-KNOWN = [
-    r"Z:\PTC\CREO-START\START-STD\config.pro",
-    r"D:\PTC\CREO-LOCAL-SETUP\CREO-LOCAL-START\config.pro",
-]
-DEFAULTS = {"last_config": KNOWN[0]}
-# Подстановки переменных Creo живут в настройках (манифест п.19: одна база — одно место).
-# Если блока нет, движок сам найдёт установку на диске (D:\PTC\CREO*\Creo *\Parametric).
-CREO_VARS = {
-    "$PRO_DIRECTORY": r"D:\PTC\CREO12\Creo 12.4.2.0\Parametric",
-    "$CREO_COMMON_FILES": r"D:\PTC\CREO12\Creo 12.4.2.0\Common Files",
-    "$PROSTD": r"Z:\PTC\CREO-START\НАСТРОЙКИ",
-}
+# Известные места config.pro — 03.10.2026: список даёт ОБЩИЙ поиск дома
+# (`agent\agent\creo_path.config_paths()`), он же отсеивает несуществующие пути.
+# Раньше список был зашит здесь, и при переезде домена окно предлагало мёртвые пути.
+KNOWN = eng.CREO.config_paths() or [r"Z:\PTC\CREO-START\START-STD\config.pro"]
+DEFAULTS = {"last_config": eng.CREO.find_config()[0] or KNOWN[0]}
+# Подстановки переменных Creo (манифест п.19: одна база — одно место). Пути к УСТАНОВКЕ
+# здесь больше не хранятся: их даёт общий поиск `creo_path.find()` (бат запуска → реестр →
+# диск). Хранить их в настройках = хранить версию, которая протухнет при переезде домена.
+CREO_VARS = {"$PROSTD": r"Z:\PTC\CREO-START\НАСТРОЙКИ"}
 
 
 class App:

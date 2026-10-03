@@ -16,6 +16,8 @@ r"""creo_path.py — ОБЩИЙ ПОИСК УСТАНОВКИ CREO ДЛЯ ВСЕ
   find()          -> (creo_common, parametric, source_where)
   common_only()   -> строка пути (пустая строка, если не нашли)
   to_set_lines()  -> ['set "CREO_COMMON=..."', 'set "CREO_PARAMETRIC=..."'] (для bat)
+  find_config()   -> (config_pro_path, source_where) — рабочий config.pro боевого запуска
+  config_paths()  -> список существующих config.pro, которые можно показать в окне
 """
 import json
 import os
@@ -28,6 +30,13 @@ PTC_ROOT = r"D:\PTC"
 REG_KEY = r"HKLM\SOFTWARE\PTC\PTC Creo Parametric"
 SETTINGS_HINT = ("D:\\AI\\tools\\agent\\data\\creo_common.json",
                  "D:\\AI\\tools\\agent\\creo_pdf\\settings\\creo_pdf_settings.json")
+# Известные места рабочих config.pro (03.10.2026). Порядок = от боевого к запасному;
+# каждое место проверяется TestPath, мёртвые в выдачу не попадают.
+CONFIG_HINT = (
+    r"Z:\PTC\CREO-START\START-STD\config.pro",
+    r"Z:\PTC\CREO-START\START-Config\config.pro",
+    r"D:\PTC\CREO-LOCAL-SETUP\CREO-LOCAL-START\config.pro",
+)
 
 
 def _alive(common_files):
@@ -144,6 +153,34 @@ def to_set_lines():
     if par:
         lines.append('set "CREO_PARAMETRIC=%s"' % par)
     return lines
+
+
+def config_paths():
+    """Существующие config.pro: сначала рядом с батом запуска, потом известные места."""
+    out = []
+    for bat in START_BATS:
+        cand = os.path.join(os.path.dirname(bat), "config.pro")
+        if os.path.isfile(cand) and cand not in out:
+            out.append(cand)
+    for cand in CONFIG_HINT:
+        if os.path.isfile(cand) and cand not in out:
+            out.append(cand)
+    return out
+
+
+def find_config(prefer=None):
+    """Рабочий config.pro.
+
+    `prefer` — что предложил пользователь (из настроек): берётся, только если файл есть,
+    иначе берётся первый живой из `config_paths()`. Возвращает (путь, откуда).
+    Ничего не выдумывает: если живых нет — (None, причина).
+    """
+    if prefer and os.path.isfile(prefer):
+        return prefer, "выбрано в настройках"
+    paths = config_paths()
+    if paths:
+        return paths[0], "поиск: %s" % paths[0]
+    return None, "живых config.pro не найдено (проверены: %s)" % ", ".join(CONFIG_HINT)
 
 
 if __name__ == "__main__":
