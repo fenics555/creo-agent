@@ -32,12 +32,24 @@ def db_state(verbose=0):
     c = core.db()
     f = (_q(c, "SELECT COUNT(*), MAX(mtime) FROM files") or [(0, None)])[0]
     chunks_n = (_q(c, "SELECT COUNT(*) FROM fts_index") or [(0,)])[0][0]
-    links_n = (_q(c, "SELECT COUNT(*) FROM usage") or _q(c, "SELECT COUNT(*) FROM bom") or [(0,)])[0][0]
-    names_n = (_q(c, "SELECT COUNT(DISTINCT parent) FROM usage") or [(0,)])[0][0]
-    roots_n = (_q(c, "SELECT COUNT(*) FROM usage WHERE parent NOT IN (SELECT child FROM usage)") or [(0,)])[0][0]
+    # 03.10.2026: `usage`/`usage_meta` удалены из agent.sqlite — ПЛМ ведёт PLM-READER.
+    # Показываем ЖИВЫЕ цифры новой базы, а не остатки старой `bom` агента.
+    plm_note = "ПЛМ-READER: н/д"
+    try:
+        import plm_reader_tools as PRT
+        s = PRT.engine().summary()
+        plm_note = ("ПЛМ (ПЛМ-READER): %s изделий, %s связей, %s изменений, база %s"
+                    % (s.get("models"), s.get("links"), s.get("changes"),
+                       os.path.basename(PRT._where_db())))
+    except Exception as e:
+        plm_note = "ПЛМ (ПЛМ-READER): не прочитан (%s)" % e
+    links_n = 0
+    names_n = 0
+    roots_n = 0
+    roots_list = []
     hist_n = (_q(c, "SELECT COUNT(*) FROM history") or [(0,)])[0][0]
     fb_n = (_q(c, "SELECT COUNT(*) FROM feedback") or [(0,)])[0][0]
-    roots_list = [r[0] for r in _q(c, "SELECT parent FROM usage WHERE parent NOT IN (SELECT child FROM usage) LIMIT 10")]
+    roots_list = []          # 03.10.2026: было чтение `usage` — таблицы больше нет
     c.close()
     files_n, files_ts = f[0], f[1]
     bak_n = _count_dir(os.path.join(AGENT_DIR, "data", "backups"))
@@ -52,12 +64,12 @@ def db_state(verbose=0):
     stale = bool(files_ts) and (datetime.datetime.now() - datetime.datetime.fromtimestamp(files_ts)).days > 3
     v_files = "пусто, наполни сканом" if not files_n else ("устарело, обнови скан" if stale else "актуально")
     v_chunks = "пусто, переиндексируй" if not chunks_n else "актуально"
-    v_links = "пусто, пересобери" if not links_n else ("пересобери связи" if (not names_n or not roots_n) else "актуально")
+    v_links = "пересбор не нужен — связи ведёт ПЛМ-READER"
     v_trails = "пусто, никто не работал" if not jlines else "актуально"
     out = ["🗄 СОСТОЯНИЕ БАЗ ДАННЫХ (полное):"]
     out.append("1. Файловый индекс: %d строк; скан %s → %s" % (files_n, _fmt_ts(files_ts), v_files))
     out.append("2. База знаний: %d фрагментов → %s" % (chunks_n, v_chunks))
-    out.append("3. База связей: %d связей; имён %d; корней %d → %s" % (links_n, names_n, roots_n, v_links))
+    out.append("3. %s" % plm_note)
     out.append("4. Трейлы: журнал %d строк → %s" % (jlines, v_trails))
     out.append("5. История диалогов: %d; feedback: %d → ОК" % (hist_n, fb_n))
     out.append("6. Бэкапы sqlite: %d; pdf-кэш: %d → ОК" % (bak_n, pdf_n))

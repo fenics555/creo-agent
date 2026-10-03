@@ -63,8 +63,14 @@
 - **Отключено 03.10.2026** (перенесено в `_disabled\`, код не удалён): `plm_tools.py` (`plm_mine`,
   `plm_bom`, `plm_audit`, `models_where`) и `usage_tools.py` (`usage_build`, `usage_state`,
   `models_where`). Причина — индекс `usage` пуст с 27.09 (`usage=0`), а `plm_bom=1324` строки держались
-  на выгрузке из него. Таблицы `plm_items/plm_bom/plm_changes` в `agent.sqlite` оставлены как архив —
-  новая запись в них не идёт.
+  на выгрузке из него.
+- **Legacy-таблицы из `agent.sqlite` удалены 03.10.2026** (слово владельца «всё удаляй»):
+  `plm_items` (31 670 изделий), `plm_bom` (1324), `plm_changes`, `plm_revisions`, `usage`, `usage_meta`.
+  Перед удалением сделан дамп **`data\archive\plm_legacy_<дата>.sqlite`** (3,5 МБ, вне git) — удалить
+  его можно одним словом. Остались: `plm_statuses` (статусы агента), `bom`/`links` агента (их ещё
+  читают `navigator.py` и `http_handlers.py`). `db_state` теперь берёт цифры ПЛМ из ПЛМ-READER.
+  Бэкапы боевой базы `data\backups` ужаты с 7 до 2 копий (1,47 → 0,42 ГБ): две свежайшие оставлены
+  как откат.
 - **Ночной прогон** больше не строит `usage` (`agent_sched.py`, `nightly_tools.py`), `db_index_links`
   отсылает к `plm_scan`.
 - **Песочница приёмки:** переменные окружения `PLM_SETTINGS` (настройки) и `PLM_DB_DIR` (папка базы).
