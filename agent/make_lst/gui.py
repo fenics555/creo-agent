@@ -20,6 +20,11 @@ class App:
         self.root = root
         self.root.title("V1 — ОГРАНИЧЕНИЯ ПАРАМЕТРОВ (list.lst)")
         self.root.geometry("980x660")
+        # Живая находка 03.10.2026 (аудит): окно не писало журнал ВООБЩЕ — след оставался только
+        # от консольных прогонов, и по журналу нельзя было понять, что файл трогали из окна.
+        # Теперь окно и консоль пишут в ОДИН и тот же журнал (eng.make_logger).
+        self.flog, self.logpath = eng.make_logger()
+        self.flog("окно make_lst запущено · цель по умолчанию: %s" % eng.TARGET)
         self.build()
 
     def build(self):
@@ -59,6 +64,7 @@ class App:
     def log(self, s):
         self.txt.insert("end", s + "\n")
         self.txt.see("end")
+        self.flog(s)              # и в журнал на диск — окно больше не работает «невидимо»
 
     def clear(self):
         self.txt.delete("1.0", "end")
@@ -88,7 +94,8 @@ class App:
             eng.check_against_refs(self.var_refs.get(), self.log)
         self.log("")
         self.log(eng.build())
-        self.sum.config(text="показано за %.1f с (на диск ничего не записано)" % (time.time() - _t0))
+        self.sum.config(text="показано за %.1f с (на диск ничего не записано); журнал: %s"
+                     % (time.time() - _t0, self.logpath))
 
     def show_current(self):
         self.clear()

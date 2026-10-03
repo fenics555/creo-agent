@@ -25,6 +25,14 @@ for name, p, gui in tools:
     readme = os.path.join(p, 'README.md')
     r_first = open(readme, encoding='utf-8-sig', errors='replace').readline().strip() if os.path.exists(readme) else 'NO README'
     gui_file = os.path.join(p, gui)
+    # Живая находка 03.10.2026 (аудит): программы в списке может НЕ БЫТЬ — и тогда скрипт падал
+    # с FileNotFoundError и НЕ пересобирал канон вовсе (тихо устаревший отчёт хуже отсутствия).
+    if not os.path.exists(gui_file):
+        out.append(f"=== {name} ===")
+        out.append(f"  README: {r_first}")
+        out.append(f"  Title: ['НЕТ ФАЙЛА {gui}']")
+        out.append("  Log: False | Time: False | Readme_btn: False")
+        continue
     gui_code = open(gui_file, encoding='utf-8', errors='replace').read()
     
     # Check title

@@ -1,6 +1,6 @@
 === cmnm_scan ===
-  README: # cmnm_scan — внутренние имена Creo-файлов (класс Р, без Creo)
-  Title: ['"V1 — ВНУТРЕННИЕ ИМЕНА (CMNM']
+  README: # cmnm_scan V2 — внутренние имена Creo-файлов (класс Р, без Creo)
+  Title: ['"cmnm_scan V2 — ВНУТРЕННИЕ ИМЕНА (CMNM']
   Log: True | Time: False | Readme_btn: True
 === config_audit ===
   README: # config_audit — проверка путей config.pro (класс Р, без Creo)
@@ -15,12 +15,12 @@
   Title: ['"V1 — ЧЕСАЛКА CREO (creo_comb']
   Log: True | Time: True | Readme_btn: True
 === creo_export ===
-  README: # CREO EXPORT — экспорт модели из ЖИВОГО Creo (JLINK, без CREOSON)
-  Title: ['"V1 — ВЫГРУЗКА ИЗ CREO (JLINK']
+  README: # CREO EXPORT V2 — экспорт модели из ЖИВОГО Creo (JLINK, без CREOSON)
+  Title: ['"CREO EXPORT V2 — выгрузка из живого Creo (JLINK']
   Log: True | Time: True | Readme_btn: True
 === creo_pdf ===
-  README: # CREO PDF V1 — скан и обновление PDF чертежей (JLINK, без CREOSON)
-  Title: ['"CREO PDF V1 — чертежи, дубли, PDF без модели  ·  дизайн 2"']
+  README: (версия V7: скан и экспорт классифицируют ЧЕРТЕЖИ по внутренним ссылкам `.drw` и не врут)
+  Title: ['"CREO PDF V7 — чертежи, дубли, PDF без модели  ·  дизайн 2"', '"Выбор установки Creo"']
   Log: True | Time: True | Readme_btn: True
 === skills_check ===
   README: # dev — служебные проверки дома
@@ -47,7 +47,7 @@
   Title: ['"V1 — НАВИГАТОР ПО ДОМУ — поиск, деталировка, PDF"', '"README — Навигатор"']
   Log: True | Time: True | Readme_btn: True
 === orphan_scan ===
-  README: # ORPHAN SCAN (orphan_scan)
+  README: # ORPHAN SCAN (orphan_scan) — чертежи-сироты (нет модели)
   Title: ['"V1 — ЧЕРТЕЖИ-СИРОТЫ (нет модели рядом']
   Log: True | Time: True | Readme_btn: True
 === purge_versions ===
@@ -55,10 +55,10 @@
   Title: ['"V1 — ОКНО ЧИСТИЛЬЩИКА"', '"README — Очистка версий Creo"']
   Log: True | Time: True | Readme_btn: True
 === plm_reader ===
-  README: # PLM Reader — V1
-  Title: ['title', 'title']
-  Log: True | Time: True | Readme_btn: False
-=== plm_tree ===
-  README: # plm_tree — V1
-  Title: ['"PLM-ДЕРЕВО %s — паспорт · дерево · входимость · изменения" % VERSION']
+  README: # PLM Reader V37 — читаем изделия «в лоб» (без Creo)
+  Title: ['title', '"Пути, исключения и база данных"']
   Log: True | Time: True | Readme_btn: True
+=== plm_tree ===
+  README: NO README
+  Title: ['НЕТ ФАЙЛА plm_tree_gui.py']
+  Log: False | Time: False | Readme_btn: False

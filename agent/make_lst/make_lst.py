@@ -146,6 +146,32 @@ def write_file(target, text, log=print):
     return True
 
 
+def make_logger(log_dir=LOG_DIR):
+    """Журнал прогона: консоль + файл `run_<дата>_<время>.txt`.
+
+    Живая находка 03.10.2026 (аудит): раньше журнал создавался ТОЛЬКО в main(), то есть писала
+    только консоль — ОКНО не оставляло следа вовсе (а канон `audit_tools_canon.txt` показывал
+    `Log: True`, потому что искал слово 'log' в коде, а не след на диске). Теперь функция общая:
+    окно зовёт её же. Имя — с МЕТКОЙ СЕКУНД, иначе два прогона в одну минуту затирают журнал."""
+    try:
+        os.makedirs(log_dir, exist_ok=True)
+        path = os.path.join(log_dir, "run_" + datetime.datetime.now().strftime("%Y-%m-%d_%H%M%S") + ".txt")
+    except Exception:
+        path = None
+    lines = []
+
+    def log(s):
+        print(s)
+        lines.append(s)
+        if path:                       # пишем сразу — след виден, даже если программу прервали
+            try:
+                with open(path, "a", encoding="utf-8") as f:
+                    f.write(s + "\n")
+            except Exception:
+                pass
+    return log, path
+
+
 def main():
     args = sys.argv[1:]
     target = TARGET
@@ -164,33 +190,37 @@ def main():
             target = args[i]
         else:
             print("неизвестный ключ: %s" % a)
+            print("ключи: --dry | --from <refs.txt> | --target <путь>")
             return 2
         i += 1
 
-    os.makedirs(LOG_DIR, exist_ok=True)
-    logpath = os.path.join(LOG_DIR, "run_" + datetime.datetime.now().strftime("%Y-%m-%d_%H%M") + ".txt")
-    lines = []
-
-    def log(s):
-        print(s)
-        lines.append(s)
-
+    log, logpath = make_logger()
     log("make_lst: цель %s" % target)
     log("режим: %s" % ("СУХОЙ (ничего не пишем)" if dry else "запись + бэкап"))
-    text = build()
+    try:
+        text = build()
+    except Exception as e:
+        log("НЕ СОБРАН файл: %s" % e)
+        return 2
     if refs:
         check_against_refs(refs, log)
 
+    rc = 0
     if dry:
         log("--- содержимое, которое было бы записано ---")
         log(text)
     else:
-        write_file(target, text, log)
+        try:
+            write_file(target, text, log)
+        except Exception as e:
+            log("НЕ ЗАПИСАН файл: %s" % e)
+            return 2
+        if not os.path.exists(target):
+            log("НЕ ЗАПИСАН файл: цель не появилась на диске: %s" % target)
+            rc = 2
 
-    with open(logpath, "w", encoding="utf-8") as f:
-        f.write("\n".join(lines) + "\n")
-    print("журнал: %s" % logpath)
-    return 0
+    log("готово (%s), журнал: %s" % ("сухой прогон" if dry else "запись выполнена", logpath))
+    return rc
 
 
 if __name__ == "__main__":
