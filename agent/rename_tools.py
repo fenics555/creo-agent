@@ -39,6 +39,20 @@ def _base(name):
     return re.sub(r"\.(prt|asm|drw)(\.\d+)?$", "", str(name or "").strip(), flags=re.I)
 
 
+def _split(name):
+    """Разделить «путь/имя» на (папка, база). Живая находка 03.10.2026 (волна 8):
+    механизм принимал ТОЛЬКО имя и работал в рабочей папке Creo, поэтому шаг плана
+    `rename_model` не мог писать в произвольную папку. Теперь папка допустима."""
+    s = str(name or "").strip()
+    if not s:
+        return "", ""
+    if any(ch in s for ch in ("\\", "/")) or (len(s) > 2 and s[1] == ":"):
+        p = Path(s)
+        folder = str(p.parent).rstrip("\\/") if str(p.parent) not in (".", "") else ""
+        return folder, _base(p.name)
+    return "", _base(s)
+
+
 def _latest(wd, base, ext):
     best, bv = None, -1
     for p in Path(wd).glob(base + ext + ".*"):
@@ -115,16 +129,24 @@ def _parents(wd, base):
 
 def build_plan(old="", new="", drawings=1):
     """План операции (только чтение): что переименуется и что сохранётся."""
-    old_b, new_b = _base(old), _base(new)
+    old_folder, old_b = _split(old)
+    new_folder, new_b = _split(new)
     if not old_b or not new_b:
         return {"error": "нужны old и new"}
     if not re.match(r"^[A-Za-z0-9_\-<>]+$", new_b):
         return {"error": "новое имя: латиница/цифры/_-, без пробелов"}
     if old_b.lower() == new_b.lower():
         return {"error": "новое имя совпадает со старым"}
-    wd = _wd()
+    # ПАПКА: заданная пользователем важнее рабочей папки Creo (живая правка
+    # 03.10.2026, волна 8). Если папка не задана — берём рабочую, как раньше.
+    if old_folder and new_folder and old_folder.lower() != new_folder.lower():
+        return {"error": "старое и новое имя в разных папках (%s и %s) — "
+                         "переименование не переносит файл" % (old_folder, new_folder)}
+    wd = old_folder or _wd()
     if not wd:
         return {"error": "не определил рабочую папку Creo (нет сессии CREOSON)"}
+    if not Path(wd).exists():
+        return {"error": "папка не найдена: %s" % wd}
     ext = _source_ext(wd, old_b)
     if not ext:
         return {"error": "в %s нет файлов %s (prt/asm)" % (wd, old_b)}
@@ -153,12 +175,20 @@ def _rename_session(file_name, new_base):
     return ok(j), errmsg(j)
 
 
-def _open(file_name):
-    return ok(cc("file", "open", {"file": file_name, "display": False}, 30))
+def _open(file_name, dirname=""):
+    """Открыть модель. ВНЕ рабочей папки `dirname` обязателен отдельным полем —
+    иначе CREOSON ищет файл в рабочей папке (живой факт 03.10.2026)."""
+    args = {"file": file_name, "display": False}
+    if dirname:
+        args["dirname"] = dirname
+    return ok(cc("file", "open", args, 30))
 
 
-def _save(file_name):
-    return ok(cc("file", "save", {"file": file_name}, 20))
+def _save(file_name, dirname=""):
+    args = {"file": file_name}
+    if dirname:
+        args["dirname"] = dirname
+    return ok(cc("file", "save", args, 20))
 
 
 def _erase(file_name):
@@ -192,7 +222,11 @@ def tool_rename_model(old_name="", new_name="", drawings=1, parents=1, dry_run=1
     plan = build_plan(old_name, new_name, drawings)
     if "error" in plan:
         return plan["error"]
-    old_b, new_b, wd, ext = _base(old_name), _base(new_name), plan["wd"], plan["ext"]
+    _, old_b = _split(old_name)
+    _, new_b = _split(new_name)
+    wd, ext = plan["wd"], plan["ext"]
+    # Если папка отличается от рабочей — CREOSON требует `dirname` отдельно.
+    dn = "" if wd.lower() == _wd().lower() else wd
     if plan["conflict"]:
         return "цель уже существует: %s — выберите другое имя" % ", ".join(plan["conflict"])
     draw = str(drawings) in ("1", "true", "да") and any(r["kind"] == "чертёж" for r in plan["rows"])
@@ -208,18 +242,18 @@ def tool_rename_model(old_name="", new_name="", drawings=1, parents=1, dry_run=1
     log = []
     opened = []
     first = old_b + ext
-    if not _open(first):
-        return "не открылась модель %s (проверьте имя и рабочую папку %s)" % (first, wd)
+    if not _open(first, dn):
+        return "не открылась модель %s (проверьте имя и папку %s)" % (first, wd)
     opened.append(first)
     if draw:
-        if _open(old_b + ".drw"):
+        if _open(old_b + ".drw", dn):
             opened.append(old_b + ".drw")
         else:
             log.append("чертёж %s.drw не открылся — модель переименую без него" % old_b)
             draw = False
     live_par = []
     for p in par:
-        if _open(p + ".asm"):
+        if _open(p + ".asm", dn):
             live_par.append(p)
             opened.append(p + ".asm")
         else:
@@ -235,12 +269,12 @@ def tool_rename_model(old_name="", new_name="", drawings=1, parents=1, dry_run=1
         log.append("чертёж: %s" % ("переименован в %s.drw" % new_b if okd else "ошибка " + msgd))
         if okd:
             cc("drawing", "regenerate", {"drawing": new_b + ".drw"}, 30)
-    if not _save(new_b + ext):
+    if not _save(new_b + ext, dn):
         log.append("модель %s%s не сохранилась" % (new_b, ext))
     for p in live_par:
-        if not _save(p + ".asm"):
+        if not _save(p + ".asm", dn):
             log.append("сборка-владелец %s.asm не сохранилась" % p)
-    if draw and not _save(new_b + ".drw"):
+    if draw and not _save(new_b + ".drw", dn):
         log.append("чертёж %s.drw не сохранился" % new_b)
     for f in opened:
         _erase(f)
