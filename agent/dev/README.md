@@ -18,7 +18,9 @@
 | `vol1_check.py` | приёмка типов инструментов (волна 1): 163 инструмента, разметка `kind`, фильтры `tools_help`, `tools_card` | `python dev\vol1_check.py` |
 | `vol1_win_live.py` | живая сборка окон волны 1 (`config_audit`, `dup_scan`) + нажатие кнопок таблицы и запуск проверки в потоке | `python dev\vol1_win_live.py` |
 | `vol1_probe_hang.py` | проба с замером по шагам: находит шаг, на котором окно зависает. Писать с `flush=True` и запускать `python -u` | по надобности |
-| `perf_probe.py`, `netdiag.ps1`, `creo_gate_*.py`, `fix_users.py`, `skills_charge.py`, `GIT_SYNC_ALL.bat`, `PROGRAM_REGISTRY.md` | замеры, сеть, щит Creo, починка логинов, заряд скиллов, синк репо, реестр программ | по надобности |
+| `perf_probe.py`, `netdiag.ps1`, `creo_gate_*.py`, `fix_users.py`, `skills_charge.py`, `GIT_SYNC_ALL.bat` | замеры, сеть, щит Creo, починка логинов, заряд скиллов, синк репо | по надобности |
+| `gen_registry.py` | **ГЕНЕРАТОР таблицы программ в `PROGRAM_REGISTRY.md`** (волна 11): собирает её из контрактов `tool.json` и `data\programs.json`; руками таблицу не правят | `python dev\gen_registry.py` (проба) / `--write` (записать секцию между маркерами `REGISTRY:BEGIN/END`) |
+| `PROGRAM_REGISTRY.md` | реестр программ дома: классы Р/Ж/Г, паспорт класса Р и **сгенерированная таблица** между маркерами `REGISTRY:BEGIN/END` (плюс снимок ручной таблицы на 03.10.2026 для истории) | `python dev\gen_registry.py --write` |
 
 Отчёт проверки скиллов: `D:\AI\log\skills_check\skills_check_report.txt`.
 
