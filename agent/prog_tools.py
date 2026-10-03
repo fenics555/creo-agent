@@ -90,6 +90,19 @@ def prog_list(group="", as_json=False, **kw):
             lines.append("      состояние: %s" % p.get("status", "—"))
     if d.get("error"):
         lines.append("ОШИБКА СПИСКА: %s" % d["error"])
+    # Волна 2: программы с контрактом `tool.json` помечаются — источник правды о них
+    # теперь контракт, а не ручная строка в programs.json.
+    try:
+        import tool_contract as TC
+        have = {pid: c for pid, (c, p, err) in TC.all_contracts(AGENT).items()}
+    except Exception as e:
+        have = {}
+        lines.append("контракты не прочитаны (%s) — работаем по programs.json" % e)
+    if have:
+        lines.append("\nКОНТРАКТЫ tool.json: %d программ описывают себя сами: %s"
+                     % (len(have), ", ".join(sorted(have))))
+        for pid, c in sorted(have.items()):
+            lines.append("  %-16s %s" % (pid, TC.card(c)))
     return "\n".join(lines)
 
 
@@ -110,6 +123,48 @@ def prog_state(prog_id="", tail=20, **kw):
     else:
         out.append("своего файла запуска нет (%s)" % lf)
     return "\n".join(out)
+
+
+def prog_contract(prog_id="", as_json=False, **kw):
+    """Контракт программы из `tool.json`: что умеет, настройки, переносимость.
+
+    Пусто — список всех программ с контрактом. Читает файл, а не код программы."""
+    try:
+        import tool_contract as TC
+    except Exception as e:
+        return "читатель контрактов недоступен: %s" % e
+    if not prog_id:
+        cs = TC.all_contracts(AGENT)
+        if not cs:
+            return ("Контрактов tool.json в доме нет ни у одной программы. "
+                    "Формат: спеки волны 2; образец: config_audit\\tool.json")
+        lines = ["КОНТРАКТЫ ДОМА (%d):" % len(cs)]
+        for pid, (c, p, err) in sorted(cs.items()):
+            lines.append("  %-16s %s%s" % (pid, TC.card(c), "  ⚠ %s" % err if err else ""))
+        return "\n".join(lines)
+    d = AGENT / prog_id
+    c, err = TC.load_dir(d)
+    if c is None:
+        return "у программы %r нет контракта (%s). Формат: спеки волны 2." % (prog_id, err)
+    if as_json:
+        return c
+    lines = ["КОНТРАКТ %s — %s" % (prog_id, TC.card(c))]
+    if err:
+        lines.append("⚠ %s" % err)
+    for k in ("title", "class", "kind", "group", "needs_creo", "engine", "gui", "readme",
+              "settings", "approval"):
+        if c.get(k) not in (None, ""):
+            lines.append("  %-12s %s" % (k, c[k]))
+    if c.get("inputs"):
+        lines.append("  входы:")
+        for i in c["inputs"]:
+            lines.append("    %-12s %-8s %s" % (i.get("name"), i.get("type", ""),
+                                              i.get("desc", "")))
+    if c.get("deps"):
+        lines.append("  зависимости (класть рядом при переносе): %s" % ", ".join(c["deps"]))
+    if c.get("ui"):
+        lines.append("  каркас окна: %s.py" % c["ui"])
+    return "\n".join(lines)
 
 
 def prog_run(prog_id="", args="", **kw):
@@ -195,6 +250,9 @@ def jobs_show(tail=JOBS_TAIL, **kw):
 TOOLS = [
     {"name": "prog_list", "desc": "Программы дома по группам: движок, окно, журнал, состояние",
      "params": {"group": "human/creo/ai/legacy", "as_json": "для витрины"}, "fn": prog_list},
+    {"name": "prog_contract", "desc": "Контракт программы из tool.json: что умеет, входы, настройки, зависимости (пусто = список всех)",
+     "params": {"prog_id": "имя программы или пусто", "as_json": "для витрины"}, "fn": prog_contract,
+     "kind": "read", "group": "справочник"},
     {"name": "prog_run", "desc": "Запустить движок программы В ФОНЕ (докладывает в общий журнал)",
      "params": {"prog_id": "имя программы", "args": "аргументы"}, "approval": True, "fn": prog_run},
     {"name": "prog_state", "desc": "Работает ли программа и что в её журнале запуска",

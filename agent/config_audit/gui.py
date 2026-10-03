@@ -25,8 +25,8 @@ SETTINGS = Path(r"D:\AI\tools\agent\data\config_audit_settings.json")
 # Известные места config.pro — 03.10.2026: список даёт ОБЩИЙ поиск дома
 # (`agent\agent\creo_path.config_paths()`), он же отсеивает несуществующие пути.
 # Раньше список был зашит здесь, и при переезде домена окно предлагало мёртвые пути.
-KNOWN = eng.CREO.config_paths() or [r"Z:\PTC\CREO-START\START-STD\config.pro"]
-DEFAULTS = {"last_config": eng.CREO.find_config()[0] or KNOWN[0]}
+KNOWN = eng.BOOT.config_paths() or [r"Z:\PTC\CREO-START\START-STD\config.pro"]
+DEFAULTS = {"last_config": eng.BOOT.config_path() or KNOWN[0]}
 # Подстановки переменных Creo (манифест п.19: одна база — одно место). Пути к УСТАНОВКЕ
 # здесь больше не хранятся: их даёт общий поиск `creo_path.find()` (бат запуска → реестр →
 # диск). Хранить их в настройках = хранить версию, которая протухнет при переезде домена.

@@ -26,7 +26,10 @@ for _p in (_AGENT,):                                   # общий модуль
     if _p not in sys.path:
         sys.path.insert(0, _p)
 
-import creo_path as CREO                                        # noqa: E402  (единый поиск дома)
+# Волна 2: программа зовёт ЕДИНУЮ точку входа, а не ищет модуль сам.
+# `creo_boot` сам добавит свои пути и честно переживёт отсутствие `creo_path`
+# (грабля волны 1: перенос падал с ModuleNotFoundError).
+import creo_boot as BOOT                                            # noqa: E402
 
 # Журнал и отчёт программы (закон трёх рук, манифест п.19: одна база — один лог, один отчёт).
 LOG_DIR = r"D:\AI\log\config_audit"
@@ -34,7 +37,7 @@ REPORT_DIR = r"D:\AI\log\reports"
 REPORT_PREFIX = "REPORT_config_audit"
 SETTINGS_FILE = os.path.normpath(os.path.join(_AGENT, "data", "config_audit_settings.json"))
 # Путь к config.pro по умолчанию — через общий поиск (рядом с батом запуска).
-CONFIG = sys.argv[1] if len(sys.argv) > 1 else (CREO.find_config()[0] or "")
+CONFIG = sys.argv[1] if len(sys.argv) > 1 else (BOOT.config_path() or "")
 # $PROSTD не зависит от версии Creo: это папка настроек дома.
 VAR_DEFAULT = {"$PROSTD": r"Z:\PTC\CREO-START\НАСТРОЙКИ"}
 
@@ -62,7 +65,7 @@ def load_vars():
                 out[k] = v
     except Exception:
         pass
-    com, par, why = CREO.find()
+    com, par, why = BOOT.find()
     if par:
         out["$PRO_DIRECTORY"] = par
     if com:
@@ -73,7 +76,7 @@ def load_vars():
 def find_install():
     """(parametric, common_files, откуда) — для окна и отчёта, чтобы было видно,
     ПРОТИВ какого Creo шла проверка (при переезде домена это главный вопрос)."""
-    com, par, why = CREO.find()
+    com, par, why = BOOT.find()
     return par, com, why
 PATHY = re.compile(r"(?:[A-Za-z]:[\\/]|\$[A-Z_]+[\\/]|\\\\)")
 
@@ -179,7 +182,7 @@ def write_report(res, config_path, secs, quiet=False):
 
 def main():
     if not CONFIG:
-        print("НЕЧЕГО ПРОВЕРЯТЬ: рабочий config.pro не найден — %s" % CREO.find_config()[1])
+        print("НЕЧЕГО ПРОВЕРЯТЬ: рабочий config.pro не найден")
         print("укажи его вручную:  config_audit.bat \"<путь>\\config.pro\"")
         return 2
     print("АУДИТ CONFIG.PRO: %s" % CONFIG)

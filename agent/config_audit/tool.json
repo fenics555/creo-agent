@@ -1,0 +1,24 @@
+{
+ "id": "config_audit",
+ "title": "Пути config.pro: что есть, чего нет",
+ "version": 1,
+ "kind": "check",
+ "group": "Creo",
+ "needs_creo": false,
+ "class": "Р",
+ "engine": "config_audit.py",
+ "gui": "gui.py",
+ "gui_bat": "config_audit_gui.bat",
+ "readme": "README.md",
+ "cli": ["--help"],
+ "inputs": [
+  {"name": "config_path", "type": "path", "default": "",
+   "desc": "какой config.pro проверять; пусто = найденный движком"}
+ ],
+ "outputs": {"report": "отчёт config_audit", "log": "журнал прогона run_*.txt"},
+ "settings": "config_audit_settings.json",
+ "deps": ["creo_path"],
+ "approval": false,
+ "ui": "ui_common",
+ "notes": "Класс Р: Creo и агент не нужны, только чтение. Перенос требует модуль creo_path (поле deps)."
+}

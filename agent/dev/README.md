@@ -13,6 +13,7 @@
 | `doctor.py` | ⛔ **ПРАВИТ ЖИВОЕ**: перезаписывает боевой `Z:\PTC\CREO-START\START-STD\CREO-START.bat` и запускает `GIT_SYNC.bat`. **Не запускать ради проверки** — только по слову владельца | по слову владельца |
 | `make_spec_one.py` | сборщик `spec_tools.py` (изменять источники, не результат) | вручную |
 | `prog_runner.py` | обёртка запуска движка в фоне (зовёт `prog_tools.py`) | из агента |
+| `vol2_check.py` | **ПРИЁМКА ВОЛНЫ 2:** контракты валидны, перенос по `deps` в `PROBA\portable_vol2_*`, движок и окно из копии (RC 0), недоступный путь → RC 2, битый контракт не роняет читатель | `python dev\vol2_check.py` |
 | `win_check.py` | **ОКНА (волна 1, 03.10.2026):** 6 признаков каждого окна (каркас `ui_common`, кнопка README, minsize, заголовок, тяжёлое в потоке, настройки в `data\`) + **живая сборка Tk** каркаса. Отчёт в `D:\AI\log\win_check\` | `python dev\win_check.py` |
 | `vol1_check.py` | приёмка типов инструментов (волна 1): 163 инструмента, разметка `kind`, фильтры `tools_help`, `tools_card` | `python dev\vol1_check.py` |
 | `vol1_win_live.py` | живая сборка окон волны 1 (`config_audit`, `dup_scan`) + нажатие кнопок таблицы и запуск проверки в потоке | `python dev\vol1_win_live.py` |
