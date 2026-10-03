@@ -4,14 +4,22 @@
 
 | Файл | Что делает | Как звать |
 |---|---|---|
-| `skills_check.py` | проверяет **скиллы** репозитория: шапка `name:`/`description:`, дубли имён, файлы в `repo\crash`; сравнивает с эталоном `data\skills_check_baseline.txt` (показывает `NEW:` и закрытые) | `skills_check_gui.bat` (окно) / `python dev\skills_check.py` |
+| `skills_check.py` | проверяет **скиллы** репозитория: шапка `name:`/`description:`, дубли имён, файлы в `repo\crash`; сравнивает с эталоном `data\skills_check_baseline.txt` (показывает `NEW:` и закрытые). **Код возврата: 0 чисто · 1 нарушения · 2 нечего проверять** | `skills_check_gui.bat` (окно) / `python dev\skills_check.py` |
 | `skills_check_gui.py` + `.bat` | окно: кнопки **ПРОВЕРИТЬ**, **СТОП**, **Открыть отчёт**, **Обновить эталон** (с подтверждением), живой вывод движка | `dev\skills_check_gui.bat` |
-| `ui_check.py`, `ui_probe.py` | проверки интерфейса витрины (запускать после правок в `..\ui\`) | `python dev\ui_check.py` |
+| `ui_check.py`, `ui_probe.py`, `js_balance.py` | проверки интерфейса витрины (запускать после правок в `..\ui\`). `js_balance` — сканер баланса JS **без node**, его зовёт `ui_check.py` | `python dev\ui_check.py` |
 | `stop_button_check.py` | кнопка «■ СТОП»: флаг отмены, обрыв потока к модели, живой HTTP `/ask_cancel`, «история не портится» | `python dev\stop_button_check.py` |
 | `study_check.py` | конспект изучения (`study_*`): заведение, куски, неудачи, ход по папке, заготовки скиллов | `python dev\study_check.py` |
 | `culture_check.py` | КУЛЬТУРА ДОМА: отчёты в отчётах, логи в логах, временное в урне, конспекты в `repo\ИЗУЧЕНО`, обе копии `.clinerules` совпадают | `python dev\culture_check.py` |
+| `doctor.py` | ⛔ **ПРАВИТ ЖИВОЕ**: перезаписывает боевой `Z:\PTC\CREO-START\START-STD\CREO-START.bat` и запускает `GIT_SYNC.bat`. **Не запускать ради проверки** — только по слову владельца | по слову владельца |
+| `make_spec_one.py` | сборщик `spec_tools.py` (изменять источники, не результат) | вручную |
+| `prog_runner.py` | обёртка запуска движка в фоне (зовёт `prog_tools.py`) | из агента |
+| `perf_probe.py`, `netdiag.ps1`, `creo_gate_*.py`, `fix_users.py`, `skills_charge.py`, `GIT_SYNC_ALL.bat`, `PROGRAM_REGISTRY.md` | замеры, сеть, щит Creo, починка логинов, заряд скиллов, синк репо, реестр программ | по надобности |
 
 Отчёт проверки скиллов: `D:\AI\log\skills_check\skills_check_report.txt`.
+
+**С чего начать новой ноге:** `skills_check.py` (шапки скиллов) → `culture_check.py` (гигиена файлов) →
+`ui_check.py` (если правил витрину). Читай **первые 15 строк** файла, а не запускай его: в папке
+есть правящие скрипты (см. `doctor.py`).
 
 **Правило (карта дома — `D:\AI\repo\CULTURE_files.md`):**
 - **вывод пробы пишем в урну**: `D:\AI\log\urn\cline\<тема>\…` — не в `log\reports` (там только отчёты
@@ -23,4 +31,4 @@
 **Правило:** эталон (`skills_check_baseline.txt`) обновляют **только после разбора** текущих нарушений —
 иначе «мусор» станет нормой. Окно об этом спрашивает отдельным вопросом.
 
-Обновлено: 23.09.2026
+Обновлено: 03.10.2026

@@ -128,7 +128,8 @@ else:
 import json  # noqa: E402
 
 try:
-    ret = json.loads((LOG / "retention.json").read_text(encoding="utf-8"))
+    ret = json.loads((LOG / "retention.json").read_text(encoding="utf-8-sig"))   # 03.10.2026: был utf-8 —
+        # в файле BOM, проверка падала с «Unexpected UTF-8 BOM» и не видела остальные нарушения
     dirs = {d.name for d in LOG.iterdir() if d.is_dir()}
     dead = [k for k in ret if k not in dirs and k != "root"]
     if dead:

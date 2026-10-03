@@ -1,3 +1,7 @@
+# ВНИМАТЕЛЬНО, ФАЙЛ ПРАВИТ ЖИВОЕ. НЕ ЗАПУСКАТЬ РАДИ «ПРОВЕРКИ, ЧТО ОН ДЕЛАЕТ».
+# Запуск = перезапись боевого Z:\PTC\CREO-START\START-STD\CREO-START.bat + запуск GIT_SYNC.bat
+# (случай 03.10.2026: 7331 -> 7197 б, откат из data\backup\pre_d12b_Z_creostart.bat).
+# Запускать ТОЛЬКО по слову владельца.
 # doctor12b.py — правка ЖИВОГО CREO-START.bat на Z: + обновление зеркала в репо
 # -*- coding: utf-8 -*-
 import os, sys, shutil, re, subprocess, socket, time
