@@ -1,7 +1,17 @@
 # -*- coding: utf-8 -*-
 # skills_check: crash\ instances + root/Prog name headers. Report is written by python in UTF-8.
+# 03.10.2026: консоль больше не ломает кириллицу (было `\u041e\u0428\u0418\u0411\u041a\u0410`
+# вместо слова «ОШИБКА»), код возврата стал 0 чисто / 1 нарушения / 2 нечего проверять
+# (постоянный 0 не позволял отличить «нарушений нет» от «нарушений 13»).
 import os
 import re
+import sys
+import time
+
+try:                                    # Windows-консоль cp1251: печатаем UTF-8, но без жёсткого краша
+    sys.stdout.reconfigure(encoding="utf-8", errors="backslashreplace")
+except Exception:
+    pass
 
 BASELINE = r"D:\AI\tools\agent\data\skills_check_baseline.txt"
 REPORT = r"D:\AI\log\skills_check\skills_check_report.txt"
@@ -23,7 +33,9 @@ def canon(s):
     # canon: дефис и подчёркивание в именах эквивалентны; переименование файла ради
     # прохождения проверки = нарушение, цитаты дома старше проверки (решение 22.09)
     return s.replace("-", "_")
-ERRRX = re.compile(r"^\s*" + ERRF + r"\s*[(:]", re.M)
+ERRRX = re.compile(r"^\s*#*\s*" + ERRF + r"\s*[(:]", re.M)   # 03.10.2026: было без `#*` —
+# файл `crash_path-guessed-by-analogy.md` с блоком `## ОШИБКА (дословно…)` попадал в violations,
+# хотя блок есть: проверка ругалась на ЛИЧНОСТЬ оформления, а не на содержание
 
 
 def read(p):
@@ -77,7 +89,7 @@ for root in ROOTS:
             violations.append("%s/%s: name mismatch (found %s, expected %s)" % (label, fn, m.group(1), exp))
 
 lines = []
-lines.append("skills_check report  " + "date: see file mtime")
+lines.append("skills_check report  %s" % time.strftime("%Y-%m-%d %H:%M:%S"))
 lines.append("canon: дефис и подчёркивание в именах эквивалентны; переименование файла ради прохождения проверки = нарушение, цитаты дома старше проверки (решение 22.09)")
 lines.append("грабли: после правки .py обязателен ПРОГОН (не только py_compile); вывод читать процессом без переадресации «>» (PowerShell отдаёт пустой файл); кириллический путь в git-командах передавать питоном")
 lines.append("")
@@ -119,6 +131,11 @@ with open(REPORT, "w", encoding="utf-8") as f:
 
 print("violations=%d notes=%d report=%s" % (len(violations), len(notes), REPORT))
 for v in violations:
-    print("V: " + v.encode("ascii", "backslashreplace").decode("ascii"))
+    print("V: " + v)
 for n in notes:
-    print("N: " + n.encode("ascii", "backslashreplace").decode("ascii"))
+    print("N: " + n)
+# 03.10.2026: код возврата стал различать состояния (был всегда 0 — планировщик и ночь
+# не могли отличить «чисто» от «13 нарушений»).
+if not os.path.isdir(CRASH) and not any(os.path.isdir(r) for r in ROOTS):
+    sys.exit(2)              # проверять нечего: ни крахов, ни корней скиллов
+sys.exit(1 if violations else 0)

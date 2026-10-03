@@ -111,8 +111,14 @@ class App:
         self.done()
 
     def done(self):
+        # 03.10.2026: эти две строки стояли ОШИБКОЙ внутри show_readme() — из-за этого после
+        # проверки кнопка СТОП не гасла, а строка состояния «готов» обновлялась только
+        # кнопкой README. Теперь состояние окна приводит сам прогон.
         self.proc = None
         self.b_run.config(state="normal")
+        self.b_stop.config(state="disabled")
+        self.sum.config(text="готов · отчёт: %s" % REPORT)
+
     def show_readme(self):
         p = Path(__file__).resolve().parent / "README.md"
         try:
@@ -127,9 +133,6 @@ class App:
             self.log(line + "\n")
         self.log("=" * 100 + "\n")
         self.log("конец README\n")
-
-        self.b_stop.config(state="disabled")
-        self.sum.config(text="готов · отчёт: %s" % REPORT)
 
 
 if __name__ == "__main__":
