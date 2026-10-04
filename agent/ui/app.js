@@ -715,4 +715,18 @@ else if(a=='bp_plan'||a=='bp_apply'){
    o.innerHTML=h;
   }).catch(function(e){o.innerHTML='<span style="color:#C64E4E">ошибка: '+esc(e)+'</span>'})
 }
+else if(a=='appr'){
+ // КНОПКА СОГЛАСОВАНИЯ (слово владельца 04.10.2026: «не все вкладки работают»).
+ // Кнопки «✅ выполнить» / «❌ отмена» рисуются при `[СОГЛАСОВАНИЕ]`, а обработчика НЕ БЫЛО —
+ // клик ничего не делал, то есть операцию нельзя было ни подтвердить, ни отменить.
+ // Маршрут `/approve` на сервере есть (`http_handlers.py:482`) — витрина его просто не звала.
+ var pid3=el.getAttribute('data-pid'),ok3=el.getAttribute('data-ok');
+ if(!pid3){alert('согласование без id — обратись к агенту');return}
+ el.disabled=true;
+ J('/approve',{token:TK,pid:pid3,ok:ok3}).then(function(r){
+  addMsg(ok3==='1'?'✅ выполнено (pid '+pid3+')':'❌ отменено (pid '+pid3+')',false);
+  if(r&&r.error)addMsg('ответ сервера: '+esc(r.error),true);
+ }).catch(function(e){addMsg('ошибка согласования: '+esc(e),true)})
+   .then(function(){el.disabled=false})
+}
 else if(a=='chatsend'){var t=document.getElementById('cin').value;J('/chat/send',{token:TK,text:t}).then(function(r){if(r.ok)document.getElementById('cin').value='';chatPoll()})}});
