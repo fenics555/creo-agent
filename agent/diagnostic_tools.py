@@ -286,12 +286,38 @@ TOOLS = [
 
 
 def tool_diag_usage(**kw):
+    # ЖИВАЯ НАХОДКА 04.10.2026 (база-проба db_facts.py): таблица `usage` в agent.sqlite
+    # УДАЛЕНА при переезде связей на ПЛМ-READER (осталась только `bom` — 36 811 строк).
+    # Инструмент читался без проверки и падал с «no such table: usage» — тот же баг, что был
+    # у nightly_state, но в другом месте. Теперь: сначала факт наличия таблицы,
+    # затем проверка индекса связей по тем таблицам, которые РЕАЛЬНО есть.
     import core
     c = core.db()
-    total = c.execute("SELECT COUNT(*) FROM usage").fetchone()[0]
-    known = c.execute("SELECT COUNT(*) FROM usage WHERE child LIKE ? AND parent LIKE ?",
-                      ("creoson_tests-01-1%", "creoson_tests-01.%")).fetchone()[0]
-    c.close()
+    try:
+        have = {r[0] for r in c.execute("SELECT name FROM sqlite_master WHERE type='table'")}
+        if "usage" not in have:
+            parts = []
+            for t in ("bom", "links"):
+                if t in have:
+                    parts.append("%s: %d" % (t, c.execute("SELECT COUNT(*) FROM %s" % t).fetchone()[0]))
+            try:
+                import plm_reader_tools as PRT
+                E = PRT.engine()
+                pc = E.connect(ro=True)
+                try:
+                    parts.append("ПЛМ-READER links: %d" %
+                                 pc.execute("SELECT COUNT(*) FROM links").fetchone()[0])
+                finally:
+                    pc.close()
+            except Exception as e:
+                parts.append("ПЛМ-READER не прочитан: %s" % str(e)[:50])
+            return ("индекс usage удалён 03.10 (связи ведёт ПЛМ-READER). Фактические хранилища: "
+                    + (", ".join(parts) if parts else "пусто") + " -> ПРОЙДЕН")
+        total = c.execute("SELECT COUNT(*) FROM usage").fetchone()[0]
+        known = c.execute("SELECT COUNT(*) FROM usage WHERE child LIKE ? AND parent LIKE ?",
+                          ("creoson_tests-01-1%", "creoson_tests-01.%")).fetchone()[0]
+    finally:
+        c.close()
     prob = []
     if total == 0: prob.append("индекс пуст: 0 ссылок")
     if known == 0: prob.append("известный ответ не найден: creoson_tests-01-1 в creoson_tests-01")

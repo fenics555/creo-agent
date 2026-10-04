@@ -197,8 +197,11 @@ class Hd(BaseHTTPRequestHandler):
             out = []
             try:
                 c = core.db()
-                for sql in ("SELECT child FROM usage WHERE parent LIKE ?",
-                            "SELECT child FROM bom WHERE parent LIKE ?",
+                # 04.10.2026 (база-проба db_facts.py): таблица `usage` УДАЛЕНА из agent.sqlite
+                # при переезде связей на ПЛМ-READER. Здесь она стояла первой в списке и падала
+                # на каждом запросе — молча, потому что отказ глотает except ниже. Убрана:
+                # читаем только реально существующие хранилища (bom — 36 811 строк).
+                for sql in ("SELECT child FROM bom WHERE parent LIKE ?",
                             "SELECT child FROM links WHERE parent LIKE ?"):
                     try:
                         rows = c.execute(sql, ("%" + name + "%",)).fetchall()
