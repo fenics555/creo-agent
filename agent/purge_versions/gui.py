@@ -1,10 +1,8 @@
 import tkinter as tk
 from tkinter import ttk, messagebox, filedialog
 import json
-import os
 from pathlib import Path
 from datetime import datetime
-import time
 import sys
 
 # движок лежит рядом с окном (программа автономна)
@@ -32,17 +30,15 @@ LAST_PURGE_FILE = Path(r"D:\AI\log\purge_versions\last_purge.json")
 LOCK_FILE = Path(r"D:\AI\log\purge_versions\purge.lock")
 
 class PurgeGUI:
-    def __init__(self, root):
-        self.root = root
+    def __init__(self, root=None):
+        # ПЕРЕВОД НА КАРКАС 04.10.2026 (долив последнего окна вне каркаса).
         # 03.10.2026: minsize добавлен — окно можно было сжать в полосу (лог пропадал).
-        self.root.minsize(700, 520)
-        self.root.title("V2 — ОКНО ЧИСТИЛЬЩИКА")
-        self.root.geometry("850x650")
-        self.root.configure(bg=U.BG)
-        
+        # Теперь окно создаёт каркас: заголовок с версией, размеры, minsize и фон разом.
+        self.root = root or U.make_root("V3 — ОКНО ЧИСТИЛЬЩИКА", "1020x680", minsize=(700, 520))
+
         self.settings = self.load_settings()
         self.current_plan = None
-        
+
         self.setup_ui()
         self.refresh_info_panel()
 
@@ -92,8 +88,10 @@ class PurgeGUI:
         self.btn_plan.pack(side="left", padx=5)
         self.btn_execute = tk.Button(btn_frame, text="ЧИСТИТЬ", width=15, state="disabled", command=self.confirm_execute)
         self.btn_execute.pack(side="left", padx=5)
-        self.btn_readme = tk.Button(btn_frame, text="README", width=15, command=self.show_readme)
-        self.btn_readme.pack(side="left", padx=5)
+        # Кнопку README даёт каркас (U.readme_button). Свой дубль с отдельным окном Toplevel
+        # удалён 04.10.2026: у каркаса README пишется в свою панель, второе окно не нужно.
+        self.btn_readme = U.readme_button(btn_frame, str(Path(__file__).resolve().parent),
+                                          self.show_error)
 
         self.warn_label = tk.Label(self.root, text="", bg="#fff1c7", fg="#856404", font=("Arial", 10, "bold"))
         self.warn_label.pack(fill="x", padx=10)
@@ -212,28 +210,11 @@ class PurgeGUI:
             try:
                 for l in LOG_FILE.read_text(encoding='utf-8', errors='replace').splitlines()[-10:]: self.info_text.insert(tk.END, f"{l}\n")
             except: pass
-    def show_readme(self):
-        p = Path(__file__).resolve().parent / "README.md"
-        try:
-            text = p.read_text(encoding="utf-8")
-        except Exception as e:
-            self.show_error("README не прочитан: %s" % e)
-            return
-        w = tk.Toplevel(self.root)
-        w.title("README — Очистка версий Creo")
-        w.geometry("900x600")
-        txt = tk.Text(w, font=("Consolas", 10), padx=8, pady=8)
-        sb = ttk.Scrollbar(w, command=txt.yview)
-        txt.configure(yscrollcommand=sb.set)
-        txt.pack(side="left", fill="both", expand=True)
-        sb.pack(side="right", fill="y")
-        txt.insert("1.0", text)
-        txt.config(state="disabled")
+# Метод show_readme удалён 04.10.2026: кнопку README даёт каркас (U.readme_button),
+# поэтому собственный дубль с отдельным окном Toplevel остался бы мёртвым кодом.
 
-        self.info_text.config(state="disabled")
 
 if __name__ == "__main__":
-    root = tk.Tk()
-    app = PurgeGUI(root)
-    root.mainloop()
+    # Окно создаёт САМ каркас (make_root) — раньше здесь создавался tk.Tk() вручную.
+    PurgeGUI().root.mainloop()
 
