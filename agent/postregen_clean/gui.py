@@ -55,7 +55,9 @@ DEFAULTS = [
 
 class App:
     def __init__(self, root=None):
-        self.root = root or U.make_root("ОЧИСТКА ПОСТ-РЕГЕНЕРАЦИИ", "1200x740",
+        # ПРАВКА 04.10.2026: окно найдено дизайн-сканером — «title с версией V<N>» (единственное
+    # замечание из 23 окон). Окно уже на каркасе, но версия в заголовок не передавалась.
+        self.root = root or U.make_root("V1 — ОЧИСТКА ПОСТ-РЕГЕНЕРАЦИИ", "1200x740",
                                         minsize=(1020, 640))
         self.plan = None
         self.res = None
@@ -75,6 +77,12 @@ class App:
                                   [60, 100, 190, 190, 430])
         self.sum_var, self.set_summary = U.summary(left)
 
+        # ПОРЯДОК ВАЖЕН (живой краш 04.10.2026): журнал создаётся ДО таблицы настроек,
+        # потому что SettingsTable.refresh() пишет в log при самом создании, а
+        # раньше self._log_write ещё не существовал -> AttributeError, окно падало.
+        self._log_box, self._log_write = U.log_view(self.root, height=6)
+        self.status = U.statusbar(self.root)
+
         # Настройки окна живут файлом (манифест п.19) и подставляются В SPEC:
         # SettingsTable берёт значения из spec, параметра values у него нет.
         saved = U.load_settings(SETTINGS) or {}
@@ -86,9 +94,6 @@ class App:
                                    on_apply=self.save_settings)
         self.tbl.saved = dict(self.tbl.vals)
         U.readme_button(right, _HERE, self.log)
-
-        self._log_box, self._log_write = U.log_view(self.root, height=6)
-        self.status = U.statusbar(self.root)
         self.log("сначала ПРОВЕРИТЬ: план ничего не пишет, только показывает")
 
     def log(self, s):
@@ -244,6 +249,6 @@ class App:
 
 if __name__ == "__main__":
     sys.stdout = io.TextIOWrapper(sys.stdout.buffer, encoding="utf-8", errors="replace")
-    r = U.make_root("ОЧИСТКА ПОСТ-РЕГЕНЕРАЦИИ", "1200x740", minsize=(1020, 640))
+    r = U.make_root("V1 — ОЧИСТКА ПОСТ-РЕГЕНЕРАЦИИ", "1200x740", minsize=(1020, 640))
     App(r)
     r.mainloop()
