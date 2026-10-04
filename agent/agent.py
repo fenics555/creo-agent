@@ -33,17 +33,37 @@ def read_kb_roots():
 
 if __name__ == "__main__":
     import atexit
+    import sys as _sys
+    _PID = os.getpid()
     log("=== старт АГЕНТ v15 на %s ===" % socket.gethostname())
+    # ДИАГНОСТИКА ТИХОЙ СМЕРТИ (04.10.2026, крах agent_silent-death_noport-8765): агент умер
+    # без единой строки в журнале, и по нему нельзя было понять — сам упал или убит снаружи.
+    # Три факта теперь пишутся всегда: PID старта, PID завершения, код возврата.
+    log("ДИАГНОСТИКА: старт, PID %d, python %s" % (_PID, _sys.version.split()[0]))
     _roots = read_kb_roots()
     log("kb_roots: %d папок" % len(_roots))
     pidfile = core.BASE / "agent" / "agent.pid"
-    pidfile.write_text(str(os.getpid()), encoding="ascii")
+
+    def _bye():
+        # Сработает и при исключении, и при нормальном выходе. НЕ сработает при `taskkill /F`
+        # и жёстком убийстве процесса — именно это и отличает «упал» от «убили снаружи».
+        log("ДИАГНОСТИКА: завершение, PID %d, код %s" % (_PID, str(_bye.code)))
+
+    _bye.code = 0
+    pidfile.write_text(str(_PID), encoding="ascii")
     atexit.register(lambda: pidfile.unlink(missing_ok=True))
+    atexit.register(_bye)
     threading.Thread(target=agent_sched._scheduler, daemon=True).start()
     threading.Thread(target=agent_sched._watchdog, daemon=True).start()
     try:
         from http.server import ThreadingHTTPServer
         ThreadingHTTPServer((HOST, PORT), Hd).serve_forever()
+    except BaseException as e:
+        _bye.code = 1
+        log("ДИАГНОСТИКА: АГЕНТ УПАЛ, PID %d, %s: %s"
+            % (_PID, type(e).__name__, e))
+        raise
     finally:
+        log("ДИАГНОСТИКА: сервер остановлен, PID %d, код %s" % (_PID, str(_bye.code)))
         try: pidfile.unlink(missing_ok=True)
         except Exception: pass
