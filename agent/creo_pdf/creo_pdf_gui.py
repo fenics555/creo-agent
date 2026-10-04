@@ -26,6 +26,13 @@ import datetime, json, os, queue, subprocess, sys, threading
 import tkinter as tk
 from tkinter import ttk, filedialog, messagebox
 
+# ПЕРЕВОД НА КАРКАС 04.10.2026: общий каркас окон дома лежит уровнем выше (tools\agent).
+# Окно очень большое (своя многосекционная разметка групп), поэтому берём от каркаса общие
+# признаки дома — окно с версией в заголовке, размеры, minsize, общий фон и тема — и не
+# переписываем собственную раскладку: она несёт смысл инструмента (пути, конфиг, списки).
+sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+import ui_common as U  # noqa: E402
+
 HERE = os.path.dirname(os.path.abspath(__file__))
 BAT = os.path.join(HERE, "creo_pdf.bat")
 ENV_PY = os.path.join(HERE, "creo_pdf_env.py")     # ЕДИНЫЙ источник путей (Creo, Java, config.pro)
@@ -106,9 +113,13 @@ class Win:
         self.lines = []
         self.s = self._load()
 
-        root.title("CREO PDF V7 — чертежи, дубли, PDF без модели  ·  дизайн 2")
-        root.geometry("1180x740")
-        root.minsize(900, 560)
+        # ПЕРЕВОД НА КАРКАС 04.10.2026: было `tk.Tk()` + title/geometry/minsize вручную.
+        # Теперь каркас даёт то же разом (заголовок с версией, размеры, minsize, фон, тема).
+        self.root = root or U.make_root("V8 — CREO PDF — чертежи, дубли, PDF без модели",
+                                        "1180x740", minsize=(900, 560))
+        # Окно ниже строится через локальное имя `root` (так было и раньше) — связываем его
+        # с созданным каркасом, иначе при root=None всё дальнейшее пошло бы в None.
+        root = self.root
         self._style()
 
         # ===================== НАСТРОЙКИ =====================
@@ -796,6 +807,5 @@ def selftest(folder):
 if __name__ == "__main__":
     if len(sys.argv) > 2 and sys.argv[1] == "--selftest":
         sys.exit(0 if selftest(sys.argv[2]) else 1)
-    root = tk.Tk()
-    Win(root)
-    root.mainloop()
+    # Окно создаёт САМ каркас (make_root) — раньше здесь создавался tk.Tk() вручную.
+    Win().root.mainloop()

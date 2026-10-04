@@ -160,20 +160,20 @@ def check_one(src):
         for m in re.finditer(r"Treeview\(", text):
             nxt = text.find("Treeview(", m.end())
             win = text[m.end():(nxt if nxt != -1 else min(len(text), m.end() + 400))]
-            if re.search(r"show\s*=\s*['\"]headings['\"]", win):
+            if re.search(r"show\s*=\s*['\"][^'\"]*\bheadings\b['\"]", win):
                 found_ok += 1
             else:
                 found_bad += 1
         return found_ok, found_bad
 
+    # ЧЕСТНОЕ ПРАВИЛО (04.10.2026, вскрыто на creo_pdf): канон требует заголовки У ТАБЛИЦЫ.
+    # Проверяем ровно это: если у окна есть деревья — все должны быть с `show="headings"`;
+    # если деревьев нет (вывод текстовый) — нечего оформлять, и это НЕ долг.
+    # Так ушло вскрытое противоречие «у harvest дерево было, проверка его не видела, а у
+    # make_lst/creo_pdf дерева нет вовсе, а проверка требовала его».
     _ok_trees, _bad_trees = _trees_with_headings(src)
-    has_own_tree = _bad_trees + _ok_trees > 0
-    if uses_tree or _ok_trees:
-        pass                                          # каркасное result_tree или все свои деревья с заголовками
-    elif has_own_tree:
+    if _bad_trees and not uses_tree:
         res.append('Treeview(show="headings")')         # своё дерево без заголовков — долг
-    elif not uses_log:
-        res.append('Treeview(show="headings")')         # ни дерева, ни текстового вывода — долг
     # Уточнение 03.10.2026: `win_check` для окон на каркасе пишет «settings=ок», потому что
     # настройки ведёт каркас (`ui_common.load_settings/save_settings`), а в коде окна их нет.
     # Требовать от окна буквальный `_settings.json` — ложь. Засчитываем и данные программы
