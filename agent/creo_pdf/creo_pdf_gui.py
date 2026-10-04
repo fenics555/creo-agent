@@ -106,8 +106,7 @@ def env_show():
 
 
 class Win:
-    def __init__(self, root):
-        self.root = root
+    def __init__(self, root=None):
         self.proc = None
         self.q = queue.Queue()
         self.lines = []
@@ -115,6 +114,10 @@ class Win:
 
         # ПЕРЕВОД НА КАРКАС 04.10.2026: было `tk.Tk()` + title/geometry/minsize вручную.
         # Теперь каркас даёт то же разом (заголовок с версией, размеры, minsize, фон, тема).
+        # ГРАБЛЯ, ПОЙМАННАЯ ЖИВОЙ ПРОБОЙ (04.10.2026): я оставил подпись `def __init__(self, root)`
+        # и вызвал внизу `Win()` — окно перестало запускаться совсем («Win.__init__() missing 1
+        # required positional argument: 'root'»). Компиляция и design_check молчали: подпись
+        # не менялась, а замечаний не было. Поймала только проба, которая реально построила окно.
         self.root = root or U.make_root("V8 — CREO PDF — чертежи, дубли, PDF без модели",
                                         "1180x740", minsize=(900, 560))
         # Окно ниже строится через локальное имя `root` (так было и раньше) — связываем его
