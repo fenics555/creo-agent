@@ -1,0 +1,13 @@
+{
+ "settings_version": 3,
+ "config": "Z:\\PTC\\CREO-START\\START-STD\\config.pro",
+ "folder": "Z:/PTC/Work",
+ "pdf_out": "",
+ "dup_near": false,
+ "limit": "5000",
+ "open_pdf": false,
+ "del_dups": true,
+ "del_nomodel": false,
+ "creo_install": "D:\\PTC\\CREO13\\Creo 13.4.1.0\\Parametric",
+ "config_pro": "Z:\\PTC\\CREO-START\\START-STD\\config.pro"
+}
