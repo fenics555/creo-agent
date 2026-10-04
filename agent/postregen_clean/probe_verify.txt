@@ -1,0 +1,16 @@
+  OK  00080-03.asm.1 1 уравнений (уравнения пост-регенерации сняты)
+  OK  00080-03.prt.1 1 уравнений (уравнения пост-регенерации сняты)
+Traceback (most recent call last):
+  File "D:\AI\tools\agent\postregen_clean\apply.py", line 327, in <module>
+    sys.exit(main(sys.argv))
+             ~~~~^^^^^^^^^^
+  File "D:\AI\tools\agent\postregen_clean\apply.py", line 317, in main
+    res = apply_plan(plan, approve=approve, dry_run=dry,
+                     on_log=lambda s: print("  " + s))
+  File "D:\AI\tools\agent\postregen_clean\apply.py", line 279, in apply_plan
+    ok, note = _finish_model(path)
+               ~~~~~~~~~~~~~^^^^^^
+  File "D:\AI\tools\agent\postregen_clean\apply.py", line 195, in _finish_model
+    if not path_done.get("postregen"):
+           ^^^^^^^^^
+NameError: name 'path_done' is not defined

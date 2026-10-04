@@ -1,0 +1,13 @@
+  OK  00080-03.asm.1 1 уравнений (уравнения пост-регенерации сняты)
+  OK  00080-03.prt.1 1 уравнений (уравнения пост-регенерации сняты)
+Traceback (most recent call last):
+  File "D:\AI\tools\agent\postregen_clean\apply.py", line 360, in <module>
+    sys.exit(main(sys.argv))
+             ~~~~^^^^^^^^^^
+  File "D:\AI\tools\agent\postregen_clean\apply.py", line 350, in main
+    res = apply_plan(plan, approve=approve, dry_run=dry,
+                     on_log=lambda s: print("  " + s))
+  File "D:\AI\tools\agent\postregen_clean\apply.py", line 312, in apply_plan
+    ok, note = _finish_model(path, check_postregen=bool(path_done.get(path)))
+               ^^^^^^^^^^^^^
+NameError: name '_finish_model' is not defined

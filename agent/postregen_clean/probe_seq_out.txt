@@ -1,0 +1,13 @@
+старт                                          активная: {"status": {"error": false}, "data": {}}
+close_window -> {"status": {"error": false}, "data": null}
+после close_window                             активная: {"status": {"error": false}, "data": {}}
+erase_not_displayed -> {"status": {"error": false}, "data": null}
+после erase                                    активная: {"status": {"error": false}, "data": {}}
+open -> {"status": {"error": false}, "data": {"revision": 1, "files": ["00080-03.asm"], "dirname": "D:D:/AI/PROBA/postregen_clean/00080/"}}
+после open                                     активная: {"status": {"error": false}, "data": {}}
+display -> {"status": {"error": false}, "data": null}
+после display                                  активная: {"status": {"error": false}, "data": {}}
+open display=True -> {"status": {"error": false}, "data": {"revision": 1, "files": ["00080-03.asm"], "dirname": "D:D:/AI/PROBA/postregen_clean/00080/"}}
+после open display=True                        активная: {"status": {"error": false}, "data": {"file": "00080-03.asm", "dirname": "D:D:/AI/PROBA/postregen_clean/00080/"}}
+после повторного display                       активная: {"status": {"error": false}, "data": {"file": "00080-03.asm", "dirname": "D:D:/AI/PROBA/postregen_clean/00080/"}}
+view:list -> {"status": {"error": false}, "data": {"viewlist": ["BACK", "BOTTOM", "DEFAULT", "FRONT", "LEFT", "RIGHT", "TOP"]}}

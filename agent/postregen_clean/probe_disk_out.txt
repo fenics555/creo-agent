@@ -1,0 +1,4 @@
+после закрытия всех окон — читаем с ДИСКА:
+  00080-03.asm     -> {"status": {"error": false}, "data": {"relations": ["mass=pro_mp_mass"]}}
+  00080-03.prt     -> {"status": {"error": false}, "data": {"relations": ["MASS=PRO_MP_MASS"]}}
+  00080-03-z.prt   -> {"status": {"error": false}, "data": {}}

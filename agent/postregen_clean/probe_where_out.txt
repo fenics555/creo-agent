@@ -1,0 +1,12 @@
+1) как есть
+   postregen: ["MASS=PRO_MP_MASS"]
+   обычные : ["/*", "Обозначение=rel_model_name"]
+2) после postregen_relations_set([])
+   postregen: null
+   обычные : ["/*", "Обозначение=rel_model_name"]
+3) после save (без выгрузки)
+   postregen: null
+   обычные : ["/*", "Обозначение=rel_model_name"]
+4) после выгрузки и повторного открытия
+   postregen: ["MASS=PRO_MP_MASS"]
+   обычные : ["/*", "Обозначение=rel_model_name"]

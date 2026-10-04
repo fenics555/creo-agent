@@ -56,7 +56,10 @@ def ensure_active(target_file, retries=3, pause=1.0):
     сессии. Сверяем по ПОЛНОМУ пути, а не по имени файла."""
     import time as _t
     import creo_tools as CT
-    want_name = str(Path(target_file).name).lower()
+    # ЖИВАЯ НАХОДКА 04.10.2026: на диске файл `00080-03.asm.1`, а активной
+    # моделью в Creo называется `00080-03.asm`. Сверять надо по ИМЕНИ МОДЕЛИ,
+    # иначе щит ругается «активна другая модель» на свою же копию.
+    want_name = str(P.model_name(target_file)).lower()
     want_dir = _norm_dir(Path(target_file).parent)
     for _i in range(int(retries)):
         j = CT.creo_call("file", "get_active", {}, 20)
@@ -128,8 +131,10 @@ def _open_model(path):
          после `file:display`;
       2) если модель с тем же именем уже загружена из ДРУГОЙ папки, `file:open`
          открывает ИМЕННО ТУ (из Z:), а не копию — и запись ушла бы в боевую
-         модель. Именно это поймал щит (RC 4).
-    Поэтому порядок: убрать из памяти сессии -> открыть -> показать.
+         модель. Именно это поймал щит (RC 4);
+      3) без `display:true` окно НЕ создаётся, и `get_active` отдаёт пустой `data`
+         даже после `file:display` — признака «активна целевая модель» нет.
+    Поэтому порядок: убрать из памяти сессии -> открыть С ОКНОМ -> показать.
     """
     import creo_tools as CT
     p = Path(path)
@@ -141,7 +146,8 @@ def _open_model(path):
     except Exception:
         pass
     j = CT.creo_call("file", "open",
-                     {"dirname": str(p.parent), "file": name}, 60)
+                     {"dirname": str(p.parent), "file": name,
+                      "display": True, "activate": True}, 60)
     if not CT.ok(j):
         return False, CT.errmsg(j)
     d = CT.creo_call("file", "display", {"file": name}, 60)
@@ -150,17 +156,86 @@ def _open_model(path):
     return True, "открыта и активна %s" % name
 
 
-def _finish_model(path):
-    """Пересчёт + сохранение. Возвращает (ok, причина)."""
+def _verify_postregen(path):
+    """КОНТРОЛЬ ЗАПИСИ НА ДИСК: остались ли уравнения пострегенерации.
+
+    ЖИВАЯ НАХОДКА 04.10.2026 (probe_where, на боевой сборке): `postregen_relations_set`
+    снимает уравнения В ПАМЯТИ (get отдаёт null), но `file:save` НЕ ПИШЕТ ИХ НА ДИСК —
+    после выгрузки модели из памяти уравнение возвращается. То есть вызов save
+    отвечает «ok», а данные не сохранены. Проверять результат по ответу save
+    нельзя — проверяем чтением.
+    """
     import creo_tools as CT
-    p = Path(path)
-    r = CT.creo_call("file", "refresh", {"file": P.model_name(path)}, 40)
+    j = CT.creo_call("file", "postregen_relations_get",
+                     {"file": P.model_name(path)}, 30)
+    if not CT.ok(j):
+        return None, "не прочиталось для проверки: %s" % CT.errmsg(j)
+    rels = (j.get("data") or {}).get("relations") or []
+    if isinstance(rels, str):
+        rels = [rels]
+    if rels:
+        return False, "уравнения ОСТАЛИСЬ в модели после сохранения: %s" \
+            % "; ".join(str(x) for x in rels)[:120]
+    return True, "уравнений на диске нет"
+
+
+def _verify_from_disk(path):
+    """НАСТОЯЩАЯ ПРИЁМКА: выгрузить модель из памяти и прочитать с ДИСКА.
+
+    Проверка «в памяти» обманывает: `postregen_relations_get` отдаёт пусто сразу
+    после set, а на диске уравнение лежит (живая находка 04.10.2026,
+    probe_where / probe_save_path: три порядка сохранения — save, regenerate+save,
+    refresh+regenerate+save — и все три вернули уравнение обратно после выгрузки).
+    Значит CREOSON-путь пострегенерацию на диск НЕ ПИШЕТ. Здесь мы это честно
+    обнаруживаем и возвращаем провал, а не рапортуем об успехе.
+    """
+    import time
+    import creo_tools as CT
+    name = P.model_name(path)
+    try:
+        CT.creo_call("file", "close_window", {"file": name}, 30)
+        time.sleep(1)
+        CT.creo_call("file", "erase_not_displayed", {}, 30)
+        time.sleep(2)
+        o = CT.creo_call("file", "open",
+                         {"dirname": str(Path(path).parent), "file": name}, 60)
+        if not CT.ok(o):
+            return None, "после выгрузки модель не открылась: %s" % CT.errmsg(o)
+        j = CT.creo_call("file", "postregen_relations_get", {"file": name}, 30)
+        if not CT.ok(j):
+            return None, "после выгрузки не прочиталось: %s" % CT.errmsg(j)
+        rels = (j.get("data") or {}).get("relations") or []
+        if isinstance(rels, str):
+            rels = [rels]
+        if rels:
+            return False, ("с ДИСКА уравнения вернулись: %s — CREOSON их не записал"
+                           % "; ".join(str(x) for x in rels)[:100])
+        return True, "с диска уравнений нет"
+    except Exception as e:
+        return None, "приёмка с диска не выполнилась: %s" % e
+
+
+def _finish_model(path, check_postregen=False):
+    """Пересчёт + сохранение + КОНТРОЛЬ, что уравнения действительно легли на диск.
+
+    Возвращает (ok, причина). Контроль обязателен: ответ save «ok» ещё ничего
+    не значит (см. доктринг _verify_postregen)."""
+    import creo_tools as CT
+    name = P.model_name(path)
+    r = CT.creo_call("file", "refresh", {"file": name}, 40)
     if not CT.ok(r):
         return False, "refresh: %s" % CT.errmsg(r)
-    r = CT.creo_call("file", "save", {"file": P.model_name(path)}, 40)
+    r = CT.creo_call("file", "save", {"file": name}, 40)
     if not CT.ok(r):
         return False, "save: %s" % CT.errmsg(r)
-    return True, "пересчитано и сохранено"
+    if not check_postregen:
+        return True, "пересчитано и сохранено (пострегенерация не трогалась)"
+    ok, why = _verify_from_disk(path)
+    if ok is None:
+        return False, "сохранено, но приёмка с диска НЕ ПРОШЛА: %s" % why
+    if ok is False:
+        return False, "сохранено, но %s" % why
+    return True, "пересчитано, сохранено и ПРИНЯТО С ДИСКА: уравнений нет"
 
 
 TO_WRITE = ("clear", "delete", "rename")
@@ -200,6 +275,9 @@ def apply_plan(plan, approve=False, dry_run=False, on_log=None):
         return {"rc": 2, "detail": "%s - запись НЕ выполнена; файлы не тронуты." % why,
                 "planned": len(steps), "stack_ready": False}
     results, saved = [], set()
+    # path_done[путь] = True, если по этой модели трогали пострегенерацию:
+    # для неё после save обязателен контроль чтением.
+    path_done = {}
     for i, s in enumerate(steps):
         if STOP["flag"]:
             log("СТОП на шаге %d из %d" % (i, len(steps)))
@@ -225,6 +303,8 @@ def apply_plan(plan, approve=False, dry_run=False, on_log=None):
                         "stopped": True, "shield": "wrong_active_model"}
             saved.add(path)
         ok, note = _act(s["kind"], path, s["target"])
+        if s["kind"] == "postregen":
+            path_done[path] = True
         results.append({"file": s["name"], "kind": s["kind"], "target": s["target"],
                         "ok": ok, "note": note})
         log("%s %s %s (%s)" % ("OK " if ok else "FAIL", s["name"], s["target"], note))
@@ -232,7 +312,7 @@ def apply_plan(plan, approve=False, dry_run=False, on_log=None):
     # Сохраняем каждую изменённую модель один раз - снизу вверх не нужно,
     # сборки не трогаем на диске иначе, а через file:save.
     for path in list(saved):
-        ok, note = _finish_model(path)
+        ok, note = _finish_model(path, check_postregen=bool(path_done.get(path)))
         log("%s сохранение %s (%s)" % ("OK " if ok else "FAIL", Path(path).name, note))
         if not ok:
             results.append({"file": Path(path).name, "kind": "save",

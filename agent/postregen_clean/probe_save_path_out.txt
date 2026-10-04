@@ -1,0 +1,16 @@
+проба порядка сохранения на модели 00080-03.prt
+ПОПЫТКА 1: relations_set([]) -> save
+   postregen_relations_set -> {"status": {"error": false}, "data": null}
+   save -> {"status": {"error": false}, "data": null}
+   НА ДИСКЕ: ["MASS=PRO_MP_MASS"]
+ПОПЫТКА 2: relations_set([]) -> regenerate -> save
+   postregen_relations_set -> {"status": {"error": false}, "data": null}
+   regenerate -> {"status": {"error": false}, "data": null}
+   save -> {"status": {"error": false}, "data": null}
+   НА ДИСКЕ: ["MASS=PRO_MP_MASS"]
+ПОПЫТКА 3: relations_set([]) -> refresh -> regenerate -> save
+   postregen_relations_set -> {"status": {"error": false}, "data": null}
+   refresh -> {"status": {"error": false}, "data": null}
+   regenerate -> {"status": {"error": false}, "data": null}
+   save -> {"status": {"error": false}, "data": null}
+   НА ДИСКЕ: ["MASS=PRO_MP_MASS"]
