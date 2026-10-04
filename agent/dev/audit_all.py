@@ -139,9 +139,17 @@ def main():
     say("   расхождений по типу/наличию: %d" % len(bad))
     for k, p in bad[:20]:
         say("      %-24s %s" % (k, p))
+    # Кто читает настройки. ДЕФЕКТ АУДИТА (03.10.2026, найден на себе): сканировались только
+    # файлы в корне агента, поэтому настройки, которые читает ДВИЖОК В ПАПКЕ (log_days ->
+    # log_clean\engine.py), ошибочно попадали в «никем не читается». Теперь обход рекурсивный
+    # и без служебных папок.
+    SKIP_DIRS = {"__pycache__", "data", "_legacy", "_disabled", "log"}
     readers = {}
-    for py in AGENT.glob("*.py"):
-        if py.name == "settings.py":
+    for py in AGENT.rglob("*.py"):
+        rel = py.relative_to(AGENT)
+        if any(part in SKIP_DIRS for part in rel.parts):
+            continue
+        if py.name == "settings.py" or py.name == "audit_all.py":
             continue
         try:
             s = py.read_text(encoding="utf-8", errors="replace")
@@ -149,7 +157,7 @@ def main():
             continue
         for space, k, *_ in ST.REGISTRY:
             if k in s:
-                readers.setdefault(k, []).append(py.name)
+                readers.setdefault(k, []).append(str(rel).replace("\\", "/"))
     say("   настроек, которые ЧИТАЕТ хотя бы один модуль: %d из %d" % (len(readers), len(ST.REGISTRY)))
     orphans = [k for space, k, *_ in ST.REGISTRY if k not in readers]
     say("   объявлено, но никем не читается: %d%s"

@@ -93,7 +93,14 @@ def alerts_mark():
 def trace(what, verdict, ms=None, detail=None):
     line = "%s ТРЕЙС %s -> %s" % (datetime.datetime.now().strftime("%m-%d %H:%M:%S"), what, verdict)
     if ms is not None: line += " (%dмс)" % ms
-    if detail: line += " | %s" % str(detail)[:120]
+    # 03.10.2026 (аудит): настройка `verbose_trace` была объявлена, но НИ НА ЧТО не влияла —
+    # сырой `detail` писался всегда. Теперь настройка работает: выключена → детали не пишем.
+    try:
+        import settings as _st
+        _verbose = bool(_st.get("verbose_trace", False))
+    except Exception:
+        _verbose = False
+    if detail and _verbose: line += " | %s" % str(detail)[:120]
     try:
         with open(LOGF, "a", encoding="utf-8") as f:
             f.write(line + "\n")

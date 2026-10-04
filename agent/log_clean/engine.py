@@ -27,6 +27,26 @@ RETENTION_FILE = LOG_ROOT / "retention.json"
 PROG_DIR = Path(__file__).resolve().parent
 TRASH = LOG_ROOT / "_trash_clean"
 DEFAULT_DAYS = 30
+# 03.10.2026 (аудит настроек): срок «Дней хранить лог» (`log_days`) был объявлен в настройках
+# агента, но уборка резала по своей константе — человек ставил 14, а движок чистил по 30.
+# Теперь настройка УПРАВЛЯЕТ уборкой, если retention.json её ещё не переопределил.
+def _setting_days(default=DEFAULT_DAYS):
+    """Срок хранения из настроек агента; при отказе — константа движка."""
+    try:
+        import sys as _s
+        _agent = Path(__file__).resolve().parents[1]
+        if str(_agent) not in _s.path:
+            _s.path.append(str(_agent))
+        import settings as _st
+        v = _st.get("log_days", None)
+        if isinstance(v, int) and v > 0:
+            return v
+        if isinstance(v, str) and v.strip().isdigit() and int(v) > 0:
+            return int(v)
+    except Exception:
+        pass
+    return default
+DEFAULT_DAYS = _setting_days(DEFAULT_DAYS)
 NEVER = {"_trash_clean", "log_clean"}          # свои каталоги — не трогаем
 NEVER_FILES = {"retention.json"}               # служебные файлы корня log
 ROOT_LABEL = "root"                            # псевдокаталог: файлы прямо в D:\AI\log
