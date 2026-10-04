@@ -1,7 +1,8 @@
 ﻿# -*- coding: utf-8 -*-
 import tkinter as tk
-from tkinter import ttk, messagebox
-import json
+# `ttk` и `messagebox` были импортированы «на всякий случай» и не использовались: их больше
+# никто не берёт отсюда (панели с 04.10.2026 зовут messagebox прямо из tkinter), поэтому
+# убраны при полном переводе окна на каркас.
 import os
 import sys
 import ctypes
@@ -56,6 +57,10 @@ class HarvestGUI(AppPanelsMixin):
                                         minsize=(760, 520))
         self._build_info_panel()
         self._setup_controls()
+        # Паспорт программы лежит рядом с агентом как HARVEST_README.md (его так назвали,
+        # чтобы не путать с README.md агента, который показывает каркасная кнопка).
+        # Поэтому путь к нему печатаем в журнал — иначе о нём никто не узнает.
+        self._log('паспорт программы: %s' % (_AGENT_ROOT / 'HARVEST_README.md'))
         self._refresh_loop()
 
     def _setup_controls(self):
@@ -88,6 +93,16 @@ class HarvestGUI(AppPanelsMixin):
     #   · старый `_log` писал в самодельный `self.log_txt`, а каркасная панель создаётся выше —
     #     оставься оба, нижний перебил бы верхний (Python: последнее определение побеждает).
 
+    def _clear_log(self):
+        """Очистка каркасной панели журнала. Панель создаётся лениво, поэтому при первом
+        вызове её может ещё не быть — тогда очищать нечего, и следующая строка её создаст."""
+        if not hasattr(self, '_logbox'):
+            return
+        try:
+            self._logbox.winfo_children()[0].delete('1.0', 'end')
+        except Exception:
+            pass
+
     def update_badge(self, text):
         self.badge_lbl.configure(text=text)
 
@@ -98,9 +113,8 @@ class HarvestGUI(AppPanelsMixin):
         self.root.after(5000, self._refresh_loop)
 
 def main():
-    root = tk.Tk()
-    app = HarvestGUI(root)
-    root.mainloop()
+    # Окно создаёт САМ каркас (make_root) — раньше здесь создавался tk.Tk() вручную.
+    HarvestGUI().root.mainloop()
 
 if __name__ == '__main__':
     main()

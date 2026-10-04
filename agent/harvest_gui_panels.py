@@ -38,10 +38,13 @@ class AppPanelsMixin:
 
         # Log text area
         self.log_txt = None   # каркас даёт лог (U.log_view) — панель создаётся лениво, см. _log
-        self.log_txt.pack(fill='x', padx=5, pady=5)
+        # Раньше здесь был `self.log_txt.pack(...)`: после перевода на каркас панели ещё нет,
+        # и pack по None упал бы — поэтому он удалён вместе с самодельным виджетом.
 
     def on_stop(self):
-        from harvest_gui import messagebox
+        # 04.10.2026: было `from harvest_gui import messagebox` — переопределение импорта,
+        # уже есть в шапке файла (отсюда предупреждение pyflakes о redefinition). Теперь
+        # messagebox берётся прямо из tkinter: цепочка через harvest_gui не нужна.
         if not messagebox.askyesno('STOP', 'Stop current scan?'):
             return
         try:
@@ -82,11 +85,12 @@ class AppPanelsMixin:
             if os.path.exists(LOGF):
                 with open(LOGF, encoding='utf-8', errors='ignore') as f:
                     tail = f.read().splitlines()[-30:]
-                self.log_txt.configure(state='normal')
-                self.log_txt.delete('1.0', 'end')
-                self.log_txt.insert('1.0', '\n'.join(tail))
-                self.log_txt.see('end')
-                self.log_txt.configure(state='disabled')
+                self._clear_log()   # каркасная панель вместо самодельного log_txt
+                for _line in tail:
+                    self._log(_line)
+
+                self._log('=' * 60)   # граница между хвостами журнала (каркасная панель)
+
         except Exception: pass
         
         self.root.after(5000, self._refresh_loop)
