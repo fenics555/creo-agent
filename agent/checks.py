@@ -171,6 +171,38 @@ def _run_design():
                 % (n_win, n_win - n_bad, n_bad, total), items)
 
 
+@check("ui_integrity", "Витрина цела: JS сбалансирован, экранирование в порядке", "check", "house", "error")
+def _run_ui_integrity():
+    """04.10.2026 (слово владельца «доделывай», третий раз): витрина правилась три волны подряд,
+    а ПРОВЕРКИ ЕЁ СИНТАКСИСА В ЕДИНОМ ПРОГОНЕ НЕ БЫЛО. Инструмент `dev\\js_balance.py` (сканер без
+    node: строки, комментарии, регулярки, шаблонные строки) и обвязка `dev\\ui_check.py` в доме
+    ЕСТЬ и зелёные — но они звались только вручную, а блок `window_design` про окна tkinter
+    витрину не покрывает. То есть сломанный `app.js` проходил мимо `checks.py` тихо.
+    Этот блок закрывает дыру: живой прогон `ui_check.py`, вердикт — честный провал (error),
+    потому что нечитаемый app.js = витрина не открывается у человека."""
+    import subprocess as _sp
+    probe = AGENT / "dev" / "ui_check.py"
+    if not probe.is_file():
+        return _res(False, 0, 1, 0, "нет dev\\ui_check.py")
+    r = _sp.run([sys.executable, "-X", "utf8", str(probe)],
+                capture_output=True, text=True, encoding="utf-8", errors="replace",
+                cwd=str(AGENT), timeout=60)
+    out = (r.stdout or "") + (r.stderr or "")
+    files = sorted(p.name for p in (AGENT / "ui").glob("*")
+                   if p.suffix in (".js", ".html"))
+    items = []
+    for line in out.splitlines():
+        if line.strip() and not line.startswith("ALL GREEN"):
+            items.append({"icon": "❌" if r.returncode else "⚠️",
+                          "verdict": "error" if r.returncode else "warn",
+                          "what": line.strip()})
+    green = "ALL GREEN" in out
+    n_bad = len(items)
+    return _res(green and r.returncode == 0, len(files), n_bad, 0,
+                "файлов витрины %d, замечаний %d%s"
+                % (len(files), n_bad, " — зелёная" if green else " — ЕСТЬ ПРОВАЛ"), items)
+
+
 @check("rules", "Правила дома согласованы и срабатывают", "check", "rules", "error")
 def _run_rules():
     """rules_engine: правила валидны, включённые находят совпадения на демо-фактах."""
