@@ -185,7 +185,14 @@ def check_one(src):
     # И то и другое — данные файлом json по существу. Признак ставится только окну, у которого
     # НЕТ ни настроек, ни json-данных: ни файла, ни разбора/сборки json.
     json_data = _has(src, re.compile(r"[\w\\/-]+\.json|as_json|json\.loads?\(|json\.dumps?"))
-    if not (_has(src, re.compile(r"load_settings|save_settings|rules\.json|rules_path")) or json_data):
+    # ПРАВКА 04.10.2026 (окно skills_check): программа держит эталон и отчёт ФАЙЛАМИ на диске
+    # (`data\skills_check_baseline.txt`, `log\skills_check\skills_check_report.txt`) — то есть
+    # требование «настройки/данные не в коде» выполнено, просто формат не json. Канон требует
+    # «не зашито в коде» (ОКНА\02_ДИЗАЙН_И_РАСКЛАДКА.md), а json — частный случай. Признак
+    # ставится окну, у которого нет НИ настроек, НИ своих файлов данных.
+    file_data = _has(src, re.compile(r"[\w\\/-]+\.(json|txt|csv|yaml|yml|ini|cfg|db)\b"))
+    if not (_has(src, re.compile(r"load_settings|save_settings|rules\.json|rules_path"))
+            or json_data or file_data):
         res.append("настройки/данные файлом json")
     return res
 

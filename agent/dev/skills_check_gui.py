@@ -1,6 +1,7 @@
 # -*- coding: utf-8 -*-
 """skills_check — ОКНО проверки скиллов (шапки, дубли имён, «краши»).
 
+ВЕРСИЯ ОКНА: V2 (04.10.2026 — перевод на каркас ui_common).
 Запуск: skills_check_gui.bat. Класс Р: Creo и агент не нужны.
 Движок — `skills_check.py` рядом: он проверяет скиллы репозитория, сравнивает с эталоном
 (`data\\skills_check_baseline.txt`) и пишет отчёт `D:\\AI\\log\\skills_check\\skills_check_report.txt`.
@@ -15,43 +16,44 @@ import tkinter as tk
 from pathlib import Path
 
 HERE = Path(__file__).resolve().parent
+AGENT = HERE.parent
+sys.path.insert(0, str(AGENT))
+import ui_common as U  # noqa: E402  (общий каркас окон дома)
+
 ENGINE = HERE / "skills_check.py"
 REPORT = Path(r"D:\AI\log\skills_check\skills_check_report.txt")
+TITLE = "ПРОВЕРКА СКИЛЛОВ (skills_check)"
 
 
 class App:
-    def __init__(self, root):
-        self.root = root
-        self.root.title("V1 — ПРОВЕРКА СКИЛЛОВ (skills_check)")
-        self.root.geometry("980x600")
+    def __init__(self, root=None):
+        self.root = root or U.make_root("V2 — " + TITLE, "1020x640", minsize=(900, 560))
         self.proc = None
         self.build()
 
     def build(self):
-        tk.Label(self.root, text="Проверяются шапки скиллов и «краши» репозитория; отчёт — "
-                                 "D:\\AI\\log\\skills_check\\skills_check_report.txt",
-                 anchor="w", fg="#555").pack(fill="x", padx=10, pady=(10, 4))
+        # --- каркас: действие СЛЕВА, справка СПРАВА (константа 5) ---
+        U.head(self.root, TITLE,
+               "Проверяет шапки скиллов, дубли имён и «краши» репозитория. "
+               "Класс Р: Creo и агент не нужны. Отчёт: %s" % REPORT)
+        left, right = U.split_result_left(self.root, right_width=360)
 
-        btns = tk.Frame(self.root)
-        btns.pack(fill="x", padx=10, pady=(0, 6))
-        self.b_run = tk.Button(btns, text="ПРОВЕРИТЬ", width=16, command=self.run)
-        self.b_run.pack(side="left", padx=4)
-        self.b_stop = tk.Button(btns, text="СТОП", width=10, state="disabled", command=self.stop)
-        self.b_stop.pack(side="left", padx=4)
-        tk.Button(btns, text="Открыть отчёт", command=self.open_report).pack(side="left", padx=4)
-        tk.Button(btns, text="Обновить эталон (после разбора нарушений)",
-                  command=self.rebaseline).pack(side="left", padx=4)
-        tk.Button(btns, text="README", command=self.show_readme).pack(side="left", padx=4)
+        box, btns = U.actions(left,
+                              primary=(("ПРОВЕРИТЬ", self.run),),
+                              secondary=(("СТОП", self.stop),
+                                         ("Открыть отчёт", self.open_report),
+                                         ("Обновить эталон", self.rebaseline)))
+        self.b_run, self.b_stop = btns[0], btns[1]
+        self.b_stop.config(state="disabled")
+        self.sum_var, self.set_summary = U.summary(left)
+        # Кнопка README — каркасная. Подпись сокращена: полная — в подсказке и в самом README.
+        U.readme_button(box, str(HERE), self.log)
 
-        self.sum = tk.Label(self.root, text="готов", anchor="w", bg="#fff1c7", padx=8, pady=4)
-        self.sum.pack(fill="x", padx=10, pady=(6, 0))
-
-        self.info = tk.Text(self.root, font=("Consolas", 9), bg="#f8f9fa")
-        self.info.pack(fill="both", expand=True, padx=10, pady=8)
+        # --- вывод проверки: моноширинный (признак канона), справа во всю высоту ---
+        self.info, self._log = U.log_view(right, height=18, title="ВЫВОД ПРОВЕРКИ")
 
     def log(self, s):
-        self.info.insert("end", s)
-        self.info.see("end")
+        self._log(s)
 
     def open_report(self):
         try:
@@ -78,10 +80,11 @@ class App:
             self.log("не обновить эталон: %s\n" % e)
 
     def run(self):
-        self.info.delete("1.0", "end")
+        self.info.winfo_children()[0].delete("1.0", "end")
         self.log("запускаю: python skills_check.py\n\n")
         self.b_run.config(state="disabled")
         self.b_stop.config(state="normal")
+        self.sum_var.set("идёт проверка…")
         try:
             self.proc = subprocess.Popen([sys.executable, str(ENGINE)], cwd=str(HERE),
                                          stdout=subprocess.PIPE, stderr=subprocess.STDOUT,
@@ -117,25 +120,12 @@ class App:
         self.proc = None
         self.b_run.config(state="normal")
         self.b_stop.config(state="disabled")
-        self.sum.config(text="готов · отчёт: %s" % REPORT)
+        self.sum_var.set("готов · отчёт: %s" % REPORT)
 
-    def show_readme(self):
-        p = Path(__file__).resolve().parent / "README.md"
-        try:
-            text = p.read_text(encoding="utf-8")
-        except Exception as e:
-            self.log("README не прочитан: %s\n" % e)
-            return
-        self.log("=" * 100 + "\n")
-        self.log("README: %s\n" % p)
-        self.log("=" * 100 + "\n")
-        for line in text.splitlines():
-            self.log(line + "\n")
-        self.log("=" * 100 + "\n")
-        self.log("конец README\n")
+# Метод show_readme удалён 04.10.2026: кнопку README даёт каркас (U.readme_button),
+# поэтому собственный дубль остался бы мёртвым кодом.
 
 
 if __name__ == "__main__":
-    r = tk.Tk()
-    App(r)
-    r.mainloop()
+    # Окно создаёт САМ каркас (make_root) — раньше здесь создавался tk.Tk() вручную.
+    App().root.mainloop()
