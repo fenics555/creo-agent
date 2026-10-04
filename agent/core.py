@@ -165,8 +165,16 @@ def post(u, p, t=600):
         raise
 
 def embed(t):
+    # 04.10.2026 (аудит настроек): модель эмбеддингов была ЗАШИТА как "nomic-embed-text",
+    # а настройка `model_index` («Модель индексации») не читалась НИГДЕ — в панели это была
+    # обещание впустую: сменить модель индекса было нечем. Теперь берётся из настройки.
+    try:
+        import settings as _st
+        _emb = _st.get("model_index") or "nomic-embed-text:latest"
+    except Exception:
+        _emb = "nomic-embed-text:latest"
     for _ in range(3):
-        try: return post("/api/embeddings", {"model": "nomic-embed-text", "prompt": t, "keep_alive": "30m"}, 120)["embedding"]
+        try: return post("/api/embeddings", {"model": _emb, "prompt": t, "keep_alive": "30m"}, 120)["embedding"]
         except Exception: import time; time.sleep(2)
     return None
 
