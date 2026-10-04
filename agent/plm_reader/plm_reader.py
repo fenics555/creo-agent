@@ -31,7 +31,7 @@ import time
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 import ui_common as U  # noqa: E402
 
-APP_VERSION = "V37"
+APP_VERSION = "V38"
 APP_TITLE = "PLM Reader " + APP_VERSION          # версия ОДНА: заголовок берёт её из константы
 DATA_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "db")          # данные — в подпапке db\
 SETTINGS_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "settings")  # настройки — в подпапке settings\
@@ -450,6 +450,168 @@ def outline_mm(raw, sec):
         if vals:
             return vals
     return []
+
+
+# --- 04.10.2026: связь чертёж → модель (`model_names\0 \xf8 <байт> <ИМЯ>\0`) -------------
+# ГРАБЛИ, учтённые здесь (проверены на байтах, давали 0 % / 49 % разбора):
+#   1) поле — `model_names` (с S), не `model_name`;
+#   2) кириллица в UTF-8 = D0 9A, а 0x9A не входит в [\x20-\x7e] → нужен \x80-\xff;
+#   3) байт после \xf8 не всегда 0x01 (бывают 0x08, 0x09, 0x0B).
+DRW_MODEL_RE = re.compile(rb"model_names\x00\xf8[\x01-\x0f]([\x20-\x7e\x80-\xff]{3,160}?)\x00",
+                          re.S)
+MDL_NAME_RE = re.compile(r"^[A-Za-z0-9А-Яа-яЁё_\-.? ]{4,80}\.(?:prt|asm|PRT|ASM)$")
+
+
+def dwg_models(raw):
+    """Из чёртежа (.drw): модели (детали/сборки), которые он показывает.
+
+    Возвращает список имён файлов, напр. ['A887-94-1500-01.PRT'].
+    В 75 % имён часть символов нечитаема ('?') — это потеря данных в самом файле Creo,
+    последний компонент пути берётся как есть."""
+    out = []
+    if not raw or b"model_names" not in raw:
+        return out
+    for m in DRW_MODEL_RE.finditer(raw):
+        try:
+            nm = m.group(1).decode("utf-8")
+        except UnicodeDecodeError:
+            continue
+        nm = nm.replace("/", "\\").split("\\")[-1]
+        nm = " ".join(nm.split()).strip()
+        if len(nm) < 4 or nm.endswith("?") or not MDL_NAME_RE.match(nm):
+            continue
+        if nm not in out:
+            out.append(nm)
+        if len(out) >= 8:
+            break
+    return out
+
+
+# --- 04.10.2026: техтребования и ЧИСЛОВЫЕ параметры из тела файла --------------------
+# Штатный parameters() даёт 3 параметра там, где из файла читается 9: он ищет только
+# в секциях NeuPrtSld/LargeText и по другому шаблону. Ниже — проверенный разбор.
+TEXT_VALUE_RE = re.compile(rb"text_value\x00([^\x00]{2,600}?)\x00", re.S)
+PARAM_NUM_RE = re.compile(rb"\xe3([\x20-\x7e\xc0-\xff]{2,48}?)\x00\xe2\x32", re.S)
+# служебные имена в техтребованиях: DTM1, A_1, RIGHT, ASM_DEF_CSYS …
+_NOTES_JUNK = re.compile(r"^(DTM\d*|A_?\d+|D\d+|PRT|ASM|MFG)\b|"
+                         r"^(RIGHT|LEFT|TOP|BOTTOM|FRONT|BACK|DEFAULT|USER_DEF|"
+                         r"DEF_CSYS|CSYS|HOLDER|TIP|SHEET)\b", re.IGNORECASE)
+
+
+def tech_notes(raw, limit=8):
+    """Технические требования из секции Notes (`text_value\\0<текст>\\0`).
+
+    Отсекаются служебные подписи (`RIGHT`, `PRT_CSYS_DEF`, `DTM1`, `\\поле\\`)
+    — без этого в вывод идёт больше мусора, чем текста."""
+    out = []
+    if not raw or b"text_value" not in raw:
+        return out
+    for m in TEXT_VALUE_RE.finditer(raw):
+        try:
+            s = " ".join(m.group(1).decode("utf-8").split())
+        except UnicodeDecodeError:
+            continue                      # нечитаемый хвост — пропускаем
+        if not (2 < len(s) < 500):
+            continue
+        if s.startswith("\\") or s.endswith("\\"):
+            continue
+        if _NOTES_JUNK.match(s):
+            continue
+        if not any(ch.isdigit() for ch in s):
+            continue                      # слово без цифр — служебное имя вида
+        if s not in out:
+            out.append(s)
+        if len(out) >= limit:
+            break
+    return out
+
+
+def _dec_num(t):
+    """Число после метки e2 32: 1 байт / 3 байта / 8 байт. None — не угадываем."""
+    if not t:
+        return None
+    if t[0] == 0xF7:                     # служебный префикс
+        t = t[1:]
+        if not t:
+            return None
+    v = {0x18: 0.0, 0x07: 0.001, 0x0D: 0.25, 0x0E: 0.5, 0x0F: 1.0}.get(t[0])
+    if v is not None:
+        return v
+    if len(t) >= 3 and t[0] in (0x2F, 0x48):
+        # ⚠️ знак байта 0x2F на живых файлах означает «плюс» (THREAD_DIAMETER=+12 при М12),
+        # поэтому знак выбираем по «круглости»: без минуса целое или кратное 0.5 → берём плюс
+        E, F = (t[1] >> 4) & 0x0F, ((t[1] & 0x0F) << 8) | (t[2] & 0xFF)
+        mag = (2.0 ** (E + 1)) * (1.0 + F / 4096.0)
+        if abs(mag - round(mag)) < 1e-9 or abs(mag * 2 - round(mag * 2)) < 1e-9:
+            return mag
+        return -mag if t[0] == 0x2F else mag
+    if len(t) >= 8 and t[0] == 0x2D:
+        sign = -1 if t[1] & 0x80 else 1
+        E, F = (t[1] >> 4) & 0x0F, t[1] & 0x0F
+        frac = int.from_bytes(t[2:7], "big")
+        return sign * (2.0 ** (E + 1)) * (1.0 + (F + frac / 2.0 ** 40) / 4096.0)
+    if t[0] == 0xED and len(t) >= 9:      # прямой double за маркером
+        try:
+            v = struct.unpack(">d", t[1:9])[0]
+            return v if 1e-9 < abs(v) < 1e9 else None
+        except Exception:
+            return None
+    return None
+
+
+def numeric_params(raw, limit=60):
+    """Числовые параметры детали: {имя: число}.
+
+    Имя = `\\xe3<ИМЯ>\\0\\xe2\\x32`, значение — за ним. Значения за служебными байтами
+    не угадываются (лучше пусто, чем мусор в выводе)."""
+    out = {}
+    if not raw or b"\xe2\x32" not in raw:
+        return out
+    for m in PARAM_NUM_RE.finditer(raw):
+        try:
+            nm = m.group(1).decode("utf-8").strip()
+        except UnicodeDecodeError:
+            continue
+        if not nm or not all(ch.isprintable() for ch in nm):
+            continue
+        v = _dec_num(raw[m.end():m.end() + 20])
+        if v is not None and abs(v) < 1e7:
+            out.setdefault(nm, round(v, 6))
+        if len(out) >= limit:
+            break
+    return out
+
+
+def latest_path(model):
+    """Путь к ПОСЛЕДНЕЙ версии файла изделия из активной базы (или None).
+
+    ⚠️ В базе имена в ВЕРХНЕМ регистре ('A348-6-E1'), а из GUI приходят как угодно
+    ('a887-94-1500-01') — ищем регистронезависимо (04.10.2026)."""
+    model = (model or "").strip()
+    if not model:
+        return None
+    try:
+        con = db_conn(ro=True)
+    except Exception:
+        return None
+    rows = []
+    try:
+        rows = con.execute("SELECT path FROM snapshots WHERE model=? ORDER BY mtime DESC",
+                           (model,)).fetchall()
+        if not rows:
+            rows = con.execute("SELECT path FROM snapshots WHERE UPPER(model)=UPPER(?) "
+                               "ORDER BY mtime DESC", (model,)).fetchall()
+    except Exception:
+        return None
+    finally:
+        try:
+            con.close()
+        except Exception:
+            pass
+    for (p,) in rows:
+        if p and os.path.isfile(p):
+            return p
+    return rows[0][0] if rows else None
 
 
 def history(raw):
@@ -2678,6 +2840,84 @@ def run_gui():
     ltv2.bind("<<TreeviewOpen>>", lambda ev: ltv2_open())
     lout = tk.Text(llinks, height=4, font=("Consolas", 9), bg="#fbfbfb")   # вывод кнопок (перенесено из «Дерева»)
     lout.pack(fill="x")
+    # ==== 04.10.2026: вкладка «Свойства детали» — площадь, техтребования, параметры, чертежи ====
+    lprop = ttk.Frame(lnb, padding=4)
+    lnb.add(lprop, text=" Свойства детали ")
+    lpsum = ttk.Label(lprop, text="выбери изделие — покажу площадь, техтребования, "
+                                   "числовые параметры и связанные чертежи")
+    lpsum.pack(anchor="w")
+    pbox = ttk.Frame(lprop)
+    pbox.pack(fill="both", expand=True)
+    PROPCOLS = ("Показатель", "Значение")
+    ptv = ttk.Treeview(pbox, columns=PROPCOLS, show="headings", height=8)
+    ptv.heading("Показатель", text="Показатель")
+    ptv.heading("Значение", text="Значение")
+    ptv.column("Показатель", width=250, anchor="w")
+    ptv.column("Значение", width=620, anchor="w")
+    pvs = ttk.Scrollbar(pbox, orient="vertical", command=ptv.yview)
+    ptv.configure(yscrollcommand=pvs.set)
+    ptv.pack(side="left", fill="both", expand=True)
+    pvs.pack(side="left", fill="y")
+
+    def _fmt(x):
+        """Число — без хвостовых нулей; строка — как есть."""
+        if isinstance(x, float):
+            return ("%.2f" % x).rstrip("0").rstrip(".")
+        return x
+
+    def _prop_show(model):
+        """Показать сводные свойства изделия из файла модели (без базы PLM)."""
+        ptv.delete(*ptv.get_children())
+        model = eng.stem(model or "")
+        if not model:
+            lpsum.config(text="выбери изделие — покажу площадь, техтребования, "
+                               "числовые параметры и связанные чертежи")
+            return
+        # путь берём из базы (активной), последняя версия изделия
+        path = latest_path(model)
+        if not path:
+            lpsum.config(text="в базе нет ни одного файла изделия: %s" % model)
+            return
+        if not os.path.isfile(path):
+            lpsum.config(text="файл указан в базе, но отсутствует на диске: %s" % path)
+            return
+        try:
+            raw = read_bytes(path, 0)          # 0 = без ограничения размера: свойства нужны всегда
+        except Exception as e:
+            lpsum.config(text="не прочитать файл: %s (%s)" % (os.path.basename(path), e))
+            return
+        if not raw:
+            lpsum.config(text="пустой/битый файл: %s" % os.path.basename(path))
+            return
+
+        sec = sections(raw)
+        area = real_value(raw, "surfarea")
+        notes = tech_notes(raw)               # 04.10.2026: с отсевом служебных подписей
+        nums = sorted(numeric_params(raw).items(), key=lambda kv: kv[0])
+
+        def add(k, v, bold=False):
+            ptv.insert("", "end", values=(k, v),
+                       tags=("hdr",) if bold else ())
+
+        add("Файл", os.path.basename(path), True)
+        add("Полный путь", path)
+        v = real_value(raw, "volume")
+        add("Объём, мм³", _fmt(v) if v else "— нет в файле")
+        add("Площадь поверхности, мм²", _fmt(area) if area else "— нет в файле")
+        # ⚠️ штатный outline_mm на живых файлах даёт не габарит (одно число 31.59 у детали
+        # с резьбой М12), поэтому показываем его честно — как «неподтверждённый разбор»
+        ol = outline_mm(raw, sec)
+        add("Габарит, мм", ("%s  ← штатный разбор, НЕ подтверждён" % ", ".join(
+            "%.2f" % x for x in ol)) if ol else "— формат не подтверждён")
+        add("Технические требования", "  |  ".join(notes) if notes else "— нет")
+        add("Числовых параметров", str(len(nums)))
+        for k, val in nums[:60]:
+            add("   " + k, _fmt(val))
+        dwg = dwg_models(raw)
+        add("Показывает модели (если это чертёж)", ", ".join(dwg) if dwg else "— не чертёж")
+        lpsum.config(text="%s — свойства из ФАЙЛА модели (площадь, ТТ, параметры, чертежи)"
+                      % model)
+
 
     def _live_vals(m, i, qty=""):
         role = (i[5] or "") if len(i) > 5 else ""
@@ -2862,6 +3102,16 @@ def run_gui():
             active = lnb.index(lnb.select())
         except Exception:
             active = 0
+        if active == 2:
+            # 04.10.2026: «Свойства детали» — площадь, ТТ, параметры, чертежи
+            try:
+                _prop_show(model)
+            except Exception as e:      # вкладка не должна ронять всё окно
+                ptv.delete(*ptv.get_children())
+                ptv.insert("", "end", values=("Ошибка разбора",
+                                               "%s: %s" % (type(e).__name__, e)))
+                lpsum.config(text="не удалось показать свойства: %s" % e)
+            return
         if not model:
             if active == 1:
                 ltv2.delete(*ltv2.get_children())
@@ -3042,7 +3292,8 @@ def run_gui():
             try:
                 root.after(0, lambda: show_check(r))
             except Exception:
-                pass                    # окно уже закрыто — молча
+                pass                    # окно уже закрыто — молча
+
 
         threading.Thread(target=work, daemon=True).start()
 

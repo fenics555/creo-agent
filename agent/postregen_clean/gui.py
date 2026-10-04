@@ -176,6 +176,14 @@ class App:
                 self.log("ошибка плана: %s" % pl["error"])
                 messagebox.showerror("Ошибка плана", pl["error"])
                 return
+            # ЩИТ ЗАПИСИ виден ДО согласия (аудит 04.10.2026).
+            if not pl.get("write_ok", True):
+                self.status.set("запись ЗАПРЕЩЕНА щитом")
+                self.log("ЩИТ ЗАПИСИ: %s" % pl.get("write_why"))
+                messagebox.showwarning(
+                    "Запись запрещена щитом",
+                    "Для этой папки запись запрещена:\n\n%s\n\n"
+                    "Скопируй модели в D:\\AI\\PROBA и укажи туда." % pl.get("write_why"))
             self.show_plan(pl)
             rp, jp = P.write_plan(pl)
             self.log("план записан: %s / %s (%.2f с)" % (rp, jp, time.time() - t0))

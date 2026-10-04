@@ -1,0 +1,3 @@
+  СТОП-ЩИТ: активна ДРУГАЯ модель: probe_regen_20261004.prt (D:D:/AI/PROBA/postregen_clean/) — запись прервана, цель была 00080-03.asm.1 (D:\AI\PROBA\postregen_clean\00080)
+ПРИМЕНЕНИЕ ПЛАНА: RC 4 - активна ДРУГАЯ модель: probe_regen_20261004.prt (D:D:/AI/PROBA/postregen_clean/) — запись прервана, цель была 00080-03.asm.1 (D:\AI\PROBA\postregen_clean\00080)
+отчёт: D:\AI\log\reports\REPORT_postregen_clean_apply_2026-10-04_205706.md

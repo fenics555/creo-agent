@@ -38,21 +38,29 @@ MAX_FILES = 100
 
 def models_in(root=None, limit=MAX_FILES, mask="*.asm"):
     """Файлы моделей под корнем под маской. os.walk + сверка вниз: в доме имена
-    в нижнем регистре (`g11074.prt.1`), а pathlib.rglob сравнивает регистр строго."""
+    в нижнем регистре (`g11074.prt.1`), а pathlib.rglob сравнивает регистр строго.
+
+    ЖИВАЯ НАХОДКА 04.10.2026: на складе Z:\\PTC\\Work файлы ВЕРСИОНИРОВАНЫ —
+    не `00080-03.asm`, а `00080-03.asm.1`. Маска `*.asm` по полному имени их
+    не видела, и программа на боевых сборках не находила НИЧЕГО. Поэтому маска
+    сверяется и с полным именем, и с именем без номера версии."""
     root = Path(root or DEFAULT_ROOT)
     if not root.exists():
         return [], "папки нет: %s" % root
     import fnmatch
     import os
-    pat = (mask or "*.*").lower().strip()
+    import re
+    pats = [p.strip() for p in str(mask or "*.*").lower().replace(",", ";").split(";")
+            if p.strip()]
     out = []
     for dirpath, _dirs, files in os.walk(str(root)):
         for f in files:
             low = f.lower()
-            if not (low.endswith(".prt") or low.endswith(".asm")
-                    or low.endswith(".prt.1") or low.endswith(".asm.1")):
+            base = re.sub(r"\.\d+$", "", low)      # имя БЕЗ номера версии
+            if not (base.endswith(".prt") or base.endswith(".asm")):
                 continue
-            if not fnmatch.fnmatch(low, pat):
+            if not any(fnmatch.fnmatch(low, p) or fnmatch.fnmatch(base, p)
+                       for p in pats):
                 continue
             out.append(os.path.join(dirpath, f))
             if len(out) >= int(limit):
@@ -100,30 +108,71 @@ def creoson_url():
     return u.hostname or "127.0.0.1", int(u.port or 8080)
 
 
-def write_allowed(path):
+def drive_is_remote(letter):
+    """Тип диска по Windows: сетевой или нет. (ok, чем).
+
+    АУДИТ-НАХОДКА 04.10.2026: проверки «существует ли буква диска» НЕДОСТАТОЧНЫ —
+    сетевой диск Z: тоже существует, поэтому `Z:` проходил как локальный. Настоящий
+    признак сетевого диска — только GetDriveTypeW: DRIVE_REMOTE (4)."""
+    import ctypes
+    try:
+        t = ctypes.windll.kernel32.GetDriveTypeW(ctypes.c_wchar_p(letter + ":\\"))
+    except Exception as e:
+        return None, "GetDriveTypeW не ответил: %s" % e
+    kinds = {0: "неизвестный", 1: "нет корня", 2: "съёмный", 3: "локальный",
+             4: "СЕТЕВОЙ", 5: "CD/DVD"}
+    return (t == 4), kinds.get(t, "код %s" % t)
+
+
+# КОРНИ, КУДА ЗАПИСЬ ЗАПРЕЩЕНА (слово владельца: SKILL_creo_index.md, «ЗОНЫ РАБОТЫ
+# С ФАЙЛАМИ» — на Z:\PTC только чтение; пробы только в PROBA).
+#
+# АУДИТ-НАХОДКА 04.10.2026: думали, что Z: — сетевой диск, и проверяли это по
+# GetDriveTypeW. ЖИВАЯ ПРОВЕРКА (wmic logicaldisk) опровергла: у Z: DriveType=3,
+# то есть ЛОКАЛЬНЫЙ диск; сетевой в этой машине Y: (\\backup\Public, DriveType=4).
+# Значит запрет Z: держится не системой, а только правилом дома — и проверять его
+# надо ПО ПУТИ, а не по типу диска.
+FORBIDDEN_ROOTS = (r"Z:",)
+
+
+def _under(path, root):
+    """Путь внутри корня? Сравнение без учёта регистра и со слэшами."""
+    try:
+        p = str(Path(str(path))).replace("\\", "/").rstrip("/").upper()
+        r = str(root).replace("\\", "/").rstrip("/").upper()
+        return p == r or p.startswith(r + "/")
+    except Exception:
+        return False
+
+
+def write_allowed(path, forbidden=None):
     """ЩИТ ЗАПИСИ: можно ли писать в эту модель. Возвращает (можно?, причина).
 
     АУДИТ 04.10.2026: запрет «на Z: только чтение» был ТОЛЬКО в комментариях и
-    README, а кода не было — указав сетевую папку, программа переписала бы
-    боевые модели. Теперь запрет настоящий: сетевой диск и UNC-путь не пишутся
-    (сломать их можно только прямой правкой этой строки)."""
+    README, а кода не было. Теперь запрет настоящий и на двух признаках сразу:
+      1) путь внутри запрещённого корня (по умолчанию Z:);
+      2) сетевой диск (GetDriveTypeW = DRIVE_REMOTE) или UNC-путь."""
+    roots = tuple(forbidden or FORBIDDEN_ROOTS)
+    for r in roots:
+        if _under(path, r):
+            return False, ("корень %s по правилам дома только для чтения — запись запрещена: %s"
+                           % (r, path))
     p = Path(str(path))
     raw = str(p)
     if raw.startswith("\\\\") or raw.startswith("//"):
         return False, "сетевой путь UNC не пишется: %s" % raw
     drive = p.drive.rstrip(":").upper()
-    # Локальные диски — те, что физически на этой машине (жёсткий/SSD).
     import string
-    if drive not in [chr(c) for c in string.ascii_uppercase]:
+    if not drive or drive not in list(string.ascii_uppercase):
         return False, "неизвестный диск %r: %s" % (drive, raw)
     import os
-    try:
-        if not os.path.exists(drive + ":\\"):
-            return False, "диска %s: нет на этой машине (сетевой?) — запись запрещена: %s" \
-                % (drive, raw)
-    except Exception as e:
-        return False, "не удалось проверить диск %s: (%s)" % (drive, e)
-    return True, "диск %s: локальный" % drive
+    if not os.path.exists(drive + ":\\"):
+        return False, "диска %s: нет на этой машине — запись запрещена: %s" % (drive, raw)
+    remote, kind = drive_is_remote(drive)
+    if remote:
+        return False, "диск %s: %s — запись запрещена: %s" % (drive, kind, raw)
+    return True, "диск %s: %s; не в запрещённых корнях (%s)" % (
+        drive, kind, ", ".join(roots) or "нет")
 
 
 def stack_ready(timeout=3):
@@ -151,6 +200,18 @@ def stack_ready(timeout=3):
     return True, "стек готов: CREOSON отвечает, Creo запущен"
 
 
+def model_name(path):
+    """Имя модели для Creo: без номера версии.
+
+    ЖИВАЯ НАХОДКА 04.10.2026: на складе лежат файлы вида `00080-03.asm.1`.
+    Если открыть такой файл по имени как есть — CREOSON отвечает
+    «Error: Unknown Model Extension», потому что для Creo расширение тут .asm,
+    а .1 он воспринимает как часть имени. В диске файл версионированный,
+    а в Creo модель называется БЕЗ номера."""
+    import re
+    return re.sub(r"\.\d+$", "", str(Path(str(path)).name))
+
+
 def open_read(path, timeout=30):
     """Открыть модель в сессии ДЛЯ ЧТЕНИЯ. Возвращает (ok, причина).
 
@@ -162,7 +223,7 @@ display:false. Открытие само по себе на диск не пиш
     import creo_tools as CT
     p = Path(path)
     j = CT.creo_call("file", "open",
-                     {"dirname": str(p.parent), "file": p.name,
+                     {"dirname": str(p.parent), "file": model_name(path),
                       "activate": True}, timeout)
     if CT.ok(j):
         return True, "открыта %s" % p.name
@@ -178,7 +239,7 @@ def read_postregen(path):
     opened, why = open_read(path)
     if not opened:
         return False, [], "модель не открыта: %s" % why
-    j = CT.creo_call("file", "postregen_relations_get", {"file": str(path)}, 25)
+    j = CT.creo_call("file", "postregen_relations_get", {"file": model_name(path)}, 25)
     if not CT.ok(j):
         return False, [], CT.errmsg(j)
     d = (j.get("data") or {}).get("relations") or []
@@ -196,7 +257,7 @@ def read_params(path):
     opened, why = open_read(path)
     if not opened:
         return False, [], "модель не открыта: %s" % why
-    j = CT.creo_call("parameter", "list", {"file": str(path)}, 25)
+    j = CT.creo_call("parameter", "list", {"file": model_name(path)}, 25)
     if not CT.ok(j):
         return False, [], CT.errmsg(j)
     d = (j.get("data") or {}).get("paramlist") or []
@@ -210,7 +271,7 @@ def read_features(path, mask=None):
     opened, why = open_read(path)
     if not opened:
         return False, [], "модель не открыта: %s" % why
-    data = {"file": str(path)}
+    data = {"file": model_name(path)}
     if mask:
         data["name"] = mask
     j = CT.creo_call("feature", "list", data, 25)
@@ -292,12 +353,16 @@ def build_plan(root=None, mask="*.asm", limit=MAX_FILES, postregen=True,
     for s in steps:
         per[s["verdict"]] = per.get(s["verdict"], 0) + 1
     will = sum(per.get(v, 0) for v in ("clear", "delete", "rename"))
+    # ПРЕДУПРЕЖДЕНИЕ ДО ЗАПИСИ (аудит 04.10.2026): если цель под запрещённым
+    # корнем, человек должен увидеть это в плане, а не отказ после согласия.
+    root_ok, root_why = write_allowed(root or DEFAULT_ROOT)
     return {"root": str(root or DEFAULT_ROOT), "mask": mask,
             "opts": {"postregen": opts["postregen"],
                      "param_masks": opts["param_masks"],
                      "rename_map": [list(x) for x in opts["rename_map"]]},
             "files": files, "steps": steps, "counts": per,
             "total": len(steps), "will_change": will,
+            "write_ok": bool(root_ok), "write_why": root_why,
             "generated": time.strftime("%Y-%m-%d %H:%M:%S")}
 
 
@@ -316,9 +381,12 @@ def write_plan(plan):
     rp = LOG_DIR / ("PLAN_postregen_clean_%s.md" % stamp)
     jp = LOG_DIR / ("plan_postregen_clean_%s.json" % stamp)
     o = plan.get("opts", {})
+    shield = ("запись РАЗРЕШЕНА: %s" % plan.get("write_why", "н/д") if plan.get("write_ok")
+              else "запись ЗАПРЕЩЕНА щитом: %s" % plan.get("write_why", "н/д"))
     out = ["# ПЛАН ОЧИСТКИ ПОСТ-РЕГЕНЕРАЦИИ (записи ещё НЕ было)", "",
            "Собран: **%s** · корень: `%s` · маска: `%s`" % (
                plan.get("generated"), plan.get("root"), plan.get("mask")), "",
+           "- ЩИТ ЗАПИСИ: **%s**" % shield,
            "- уравнения пост-регенерации: **%s**" % ("чистить" if o.get("postregen") else "не трогать"),
            "- маски параметров: **%s**" % (", ".join(o.get("param_masks") or []) or "нет"),
            "- переименования: **%s**" % (

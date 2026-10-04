@@ -1,0 +1,7 @@
+активная ДО: {"status": {"error": false}, "data": {"file": "probe_regen_20261004.prt", "dirname": "D:D:/AI/PROBA/postregen_clean/"}}
+1) open activate=true -> {"status": {"error": false}, "data": {"revision": 1, "files": ["00080-03.asm"], "dirname": "Z:Z:/PTC/Work/00080/"}}
+   активная: {"status": {"error": false}, "data": {"file": "probe_regen_20261004.prt", "dirname": "D:D:/AI/PROBA/postregen_clean/"}}
+2) file:display -> {"status": {"error": false}, "data": null}
+   активная: {"status": {"error": false}, "data": {"file": "00080-03.asm", "dirname": "Z:Z:/PTC/Work/00080/"}}
+3) open display=true activate=true -> {"status": {"error": false}, "data": {"revision": 1, "files": ["00080-03.asm"], "dirname": "Z:Z:/PTC/Work/00080/"}}
+   активная: {"status": {"error": false}, "data": {"file": "00080-03.asm", "dirname": "Z:Z:/PTC/Work/00080/"}}

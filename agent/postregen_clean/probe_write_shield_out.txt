@@ -1,0 +1,10 @@
+адрес CREOSON из настроек: ('127.0.0.1', 8080)
+запрещённые корни: ('Z:',)
+write_allowed(Z:\PTC\Work\00080\sborka.asm) -> False | корень Z: по правилам дома только для чтения — запись запрещена: Z:\PTC\Work\00080\sborka.asm
+write_allowed(Y:\Public\sborka.asm) -> False | диск Y: СЕТЕВОЙ — запись запрещена: Y:\Public\sborka.asm
+write_allowed(\\server\share\model.asm) -> False | сетевой путь UNC не пишется: \\server\share\model.asm
+write_allowed(D:\AI\PROBA\postregen_clean\probe_regen_20261004.prt) -> True | диск D: локальный; не в запрещённых корнях (Z:)
+write_allowed(X:\net\model.asm) -> False | диска X: нет на этой машине — запись запрещена: X:\net\model.asm
+план с сетевой целью: RC 5 — ЗАПИСЬ ЗАПРЕЩЕНА щитом: Z:\PTC\Work\00080\sborka.asm (корень Z: по правилам дома только для чтения — запись запрещена: Z:\PTC\Work\00080\sborka.asm). Всего запрещённых целей: 1. Запись НЕ выполнялась.
+локальная цель без согласия: RC 3 — НЕ СОГЛАСОВАНО: запись не начиналась
+локальная цель dry_run: RC 0 — пробный прогон (dry_run): записи не было

@@ -1,0 +1,15 @@
+путь настроек: D:\AI\tools\agent\data\postregen_clean_settings.json
+файл существует ДО пробы: True
+файл существует ПОСЛЕ пробы: True
+содержимое: {
+ "root": "D:\\AI\\PROBA\\postregen_clean",
+ "mask": "*.asm",
+ "only": "",
+ "postregen": "да",
+ "param_masks": "",
+ "rename_map": "",
+ "limit": "42",
+ "approve": "нет",
+ "dry_run": "да"
+}
+значение limit возвращено: 100

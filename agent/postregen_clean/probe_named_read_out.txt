@@ -1,0 +1,8 @@
+OPEN 00080-03.asm.1   -> {"status": {"error": true, "message": "Error: Unknown Model Extension"}, "data": null}
+OPEN 00080-03.asm     -> {"status": {"error": false}, "data": {"revision": 1, "files": ["00080-03.asm"], "dirname": "Z:Z:/PTC/Work/00080/"}}
+   активная: {"status": {"error": false}, "data": {"file": "probe_regen_20261004.prt", "dirname": "D:D:/AI/PROBA/postregen_clean/"}}
+   postregen(00080-03.asm) -> {"status": {"error": false}, "data": {"relations": ["mass=pro_mp_mass"]}}
+OPEN 00080-03         -> {"status": {"error": true, "message": "Error: Invalid File Name"}, "data": null}
+OPEN 00080-03.PRT     -> {"status": {"error": false}, "data": {"revision": 1, "files": ["00080-03.prt"], "dirname": "Z:Z:/PTC/Work/00080/"}}
+   активная: {"status": {"error": false}, "data": {"file": "probe_regen_20261004.prt", "dirname": "D:D:/AI/PROBA/postregen_clean/"}}
+   postregen(00080-03.PRT) -> {"status": {"error": false}, "data": {"relations": ["MASS=PRO_MP_MASS"]}}

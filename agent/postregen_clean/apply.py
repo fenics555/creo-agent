@@ -81,7 +81,7 @@ def clear_postregen(model):
     список relations = очистка, а не «оставить как было»."""
     import creo_tools as CT
     j = CT.creo_call("file", "postregen_relations_set",
-                     {"file": str(model), "relations": []}, 25)
+                     {"file": P.model_name(model), "relations": []}, 25)
     if CT.ok(j):
         return True, "уравнения пост-регенерации сняты"
     return False, CT.errmsg(j)
@@ -91,7 +91,7 @@ def delete_param(model, mask):
     """Удалить параметры по маске. Возвращает (ok, причина)."""
     import creo_tools as CT
     j = CT.creo_call("parameter", "delete",
-                     {"file": str(model), "name": mask}, 25)
+                     {"file": P.model_name(model), "name": mask}, 25)
     if CT.ok(j):
         return True, "параметры %s удалены" % mask
     return False, CT.errmsg(j)
@@ -101,7 +101,7 @@ def rename_feature(model, old, new):
     """Переименовать элемент модели. Возвращает (ok, причина)."""
     import creo_tools as CT
     j = CT.creo_call("feature", "rename",
-                     {"file": str(model), "name": old, "new_name": new}, 25)
+                     {"file": P.model_name(model), "name": old, "new_name": new}, 25)
     if CT.ok(j):
         return True, "%s -> %s" % (old, new)
     return False, CT.errmsg(j)
@@ -122,27 +122,42 @@ def _act(kind, path, target, rename_to=""):
 def _open_model(path):
     """Открыть модель в сессии и СДЕЛАТЬ АКТИВНОЙ — запись идёт по активной модели.
 
-    ЖИВАЯ НАХОДКА 04.10.2026 (probe_open_active): при `display:false` модель
-    грузится, но активного окна нет — `file:get_active` отдаёт пустой `data`,
-    и щит ensure_active справедливо refuses. Поэтому activate БЕЗ display:false."""
+    ЖИВЫЕ НАХОДКИ 04.10.2026 (probe_activate, на боевой сборке 00080-03):
+      1) `activate:true` НЕ переключает активную модель — после вызова
+         get_active отдавал ПРЕЖНЮЮ модель; активной становится модель только
+         после `file:display`;
+      2) если модель с тем же именем уже загружена из ДРУГОЙ папки, `file:open`
+         открывает ИМЕННО ТУ (из Z:), а не копию — и запись ушла бы в боевую
+         модель. Именно это поймал щит (RC 4).
+    Поэтому порядок: убрать из памяти сессии -> открыть -> показать.
+    """
     import creo_tools as CT
     p = Path(path)
+    name = P.model_name(path)
+    # 1. убираем одноимённые модели из памяти, иначе откроется не та
+    try:
+        CT.creo_call("file", "close_window", {"file": name}, 30)
+        CT.creo_call("file", "erase_not_displayed", {}, 30)
+    except Exception:
+        pass
     j = CT.creo_call("file", "open",
-                     {"dirname": str(p.parent), "file": p.name,
-                      "activate": True}, 40)
-    if CT.ok(j):
-        return True, "открыта и активна %s" % p.name
-    return False, CT.errmsg(j)
+                     {"dirname": str(p.parent), "file": name}, 60)
+    if not CT.ok(j):
+        return False, CT.errmsg(j)
+    d = CT.creo_call("file", "display", {"file": name}, 60)
+    if not CT.ok(d):
+        return False, "открыта, но не показана: %s" % CT.errmsg(d)
+    return True, "открыта и активна %s" % name
 
 
 def _finish_model(path):
     """Пересчёт + сохранение. Возвращает (ok, причина)."""
     import creo_tools as CT
     p = Path(path)
-    r = CT.creo_call("file", "refresh", {"file": p.name}, 40)
+    r = CT.creo_call("file", "refresh", {"file": P.model_name(path)}, 40)
     if not CT.ok(r):
         return False, "refresh: %s" % CT.errmsg(r)
-    r = CT.creo_call("file", "save", {"file": p.name}, 40)
+    r = CT.creo_call("file", "save", {"file": P.model_name(path)}, 40)
     if not CT.ok(r):
         return False, "save: %s" % CT.errmsg(r)
     return True, "пересчитано и сохранено"
