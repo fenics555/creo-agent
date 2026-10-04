@@ -241,6 +241,39 @@ def _run_culture():
                 % (n_checked, n_bad, n_warn), items)
 
 
+@check("window_launch", "У каждого окна есть bat — человек запускает двойным щелчком", "check", "house", "error")
+def _run_window_launch():
+    """04.10.2026 (слово владельца «все долги! все окна»): два окна в корне агента —
+    `harvest_gui.py` и `purge_gui.py` — ЛЕЖАЛИ БЕЗ БАТА. Человек мог открыть их только
+    вручную командой, зная имя файла. Сканер дизайна это не смотрит: он проверяет СОДЕРЖИМОЕ
+    окна, а не доступность запуска.
+
+    Закрываем КЛАСС проблемы, а не два симптома: если правило «у окна есть bat» не проверяется
+    автоматически, третье окно без bat появится снова и снова всплывёт при мне. Проверка
+    дешёвая — файловая, окна не запускаются (окна дома — общий ресурс, их нельзя поднимать
+    пачками в общем прогоне).
+
+    Порог `error`: окно, которое человек не может открыть, для человека не существует."""
+    import glob as _gb
+    skip = ("backup", "_legacy", "_disabled", "__pycache__", "tools")
+    items = []
+    n_win = 0
+    for f in AGENT.rglob("*.py"):     # rglob, а не glob: «**/*.py» без recursive=True не заходит
+        p = Path(f)                  # в подпапки и проверка радостно рапортовала «окон 0»
+        if any(s in p.parts for s in skip):
+            continue
+        if not (p.name.endswith("gui.py") or p.name.endswith("_gui.py")):
+            continue
+        n_win += 1
+        if any(p.parent.glob("*.bat")):
+            continue
+        items.append({"icon": "❌", "verdict": "error",
+                      "what": "%s — нет bat рядом (человек не откроет окно)"
+                              % str(p.relative_to(AGENT))})
+    return _res(not items, n_win, len(items), 0,
+                "окон найдено %d, без bat %d" % (n_win, len(items)), items)
+
+
 @check("rules", "Правила дома согласованы и срабатывают", "check", "rules", "error")
 def _run_rules():
     """rules_engine: правила валидны, включённые находят совпадения на демо-фактах."""
