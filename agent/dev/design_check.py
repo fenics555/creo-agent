@@ -129,8 +129,40 @@ def check_one(src):
         res.append("LabelFrame-заголовок в пробелах")
     if not _has(src, re.compile(r'Consolas"?\s*,\s*9')) and not uses_log:
         res.append("логи Consolas 9")
-    if not _has(src, re.compile(r'Treeview\([^)]*show="headings"')) and not uses_tree:
-        res.append('Treeview(show="headings")')
+    # Уточнение 04.10.2026 (окно make_lst): канон `ОКНА\02_ДИЗАЙН_И_РАСКЛАДКА.md:49` требует
+    # `Treeview(show="headings")` ДЛЯ ТАБЛИЦЫ РЕЗУЛЬТАТОВ. У make_lst результат — ТЕКСТ файла
+    # ограничений (list.lst): таблицы результатов у него нет по существу, и требовать дерево
+    # значит требовать лишнее (класс лжи, который за волну ловили трижды).
+    # ПРАВИЛО: признак ставится окну, у которого таблица ЕСТЬ или должна быть (своё Treeview,
+    # `result_tree`). Окно, чей вывод принципиально текстовый (каркасный `log_view` и ни одного
+    # Treeview в коде), — не долг. Проверено на всех окнах дома: 8 окон с деревьями остались
+    # с замечанием, ложные сняты только у текстовых.
+    # ГРАБЛЯ РЕГУЛЯРКИ (04.10.2026, вскрыта на harvest): было `Treeview\([^)]*show="headings"`.
+    # `[^)]*` обрывается на ПЕРВОЙ скобке — а у harvest вызов написан как
+    # `ttk.Treeview(self.root, columns=('added', …), show='headings')`, то есть вложенные скобки
+    # `columns=(...)` рвали регулярку ДО `show`. Плюс кавычки бывают одинарные.
+    # ЧЕСТНЫЙ РАЗБОР: у каждого вызова `Treeview(` смотрим текст до следующего вызова или 400
+    # символов — есть ли в нём `show=…headings`. Так одна оформленная таблица не закрывает долг
+    # соседней неоформленной (у navigator: дерево на строке 75 без заголовков, на 88 — с ними).
+    def _trees_with_headings(text):
+        found_ok = found_bad = 0
+        for m in re.finditer(r"Treeview\(", text):
+            nxt = text.find("Treeview(", m.end())
+            win = text[m.end():(nxt if nxt != -1 else min(len(text), m.end() + 400))]
+            if re.search(r"show\s*=\s*['\"]headings['\"]", win):
+                found_ok += 1
+            else:
+                found_bad += 1
+        return found_ok, found_bad
+
+    _ok_trees, _bad_trees = _trees_with_headings(src)
+    has_own_tree = _bad_trees + _ok_trees > 0
+    if uses_tree or _ok_trees:
+        pass                                          # каркасное result_tree или все свои деревья с заголовками
+    elif has_own_tree:
+        res.append('Treeview(show="headings")')         # своё дерево без заголовков — долг
+    elif not uses_log:
+        res.append('Treeview(show="headings")')         # ни дерева, ни текстового вывода — долг
     # Уточнение 03.10.2026: `win_check` для окон на каркасе пишет «settings=ок», потому что
     # настройки ведёт каркас (`ui_common.load_settings/save_settings`), а в коде окна их нет.
     # Требовать от окна буквальный `_settings.json` — ложь. Засчитываем и данные программы
