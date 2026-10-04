@@ -131,7 +131,11 @@ def main():
             print("   запись  <- %s" % w)
         for r in e["R"][:3]:
             print("   чтение -> %s" % r)
-    out = Path(r"D:\AI\log\reports\io_map_cline.json")
+    # ПРАВКА 04.10.2026 (слово владельца «делай», нарушение культуры №1): файл уходил в
+    # `log\reports`, где по закону дома лежат только `REPORT_<задача>_<исполнитель>_<дата>.md`
+    # (проверка `dev\culture_check.py`). Машиночитаемый json — в папку инструмента `log\dev\`.
+    out = Path(r"D:\AI\log\dev\io_map_cline.json")
+    out.parent.mkdir(parents=True, exist_ok=True)
     out.write_text(json.dumps({k: {m: v[m] for m in v} for k, v in store.items()},
                               ensure_ascii=False, indent=1), encoding="utf-8")
     print("\nJSON: %s" % out)

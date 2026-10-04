@@ -175,7 +175,10 @@ def main():
     print("\nДИНАМИЧЕСКИЕ КЛЮЧИ (поиском по имени не видны):")
     for d in sorted(set(dynamics))[:20]:
         print("   %s" % d)
-    out = Path(r"D:\AI\log\reports\settings_audit_cline.json")
+    # ПРАВКА 04.10.2026 (слово владельца «делай», нарушение культуры №1): файл уходил в
+    # `log\reports`, где по закону дома лежат только `REPORT_<задача>_<исполнитель>_<дата>.md`
+    # (проверка `dev\culture_check.py`). Машиночитаемый json — в папку инструмента `log\dev\`.
+    out = Path(r"D:\AI\log\dev\settings_audit_cline.json")
     out.parent.mkdir(parents=True, exist_ok=True)
     out.write_text(json.dumps({"rows": rows, "dynamic": sorted(set(dynamics))},
                               ensure_ascii=False, indent=1), encoding="utf-8")
