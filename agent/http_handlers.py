@@ -773,6 +773,85 @@ class Hd(BaseHTTPRequestHandler):
                             "summary": "Пакетный режим, %d прогонов — %d успешно, %d с ошибкой, "
                                        "%.1f с суммарно" % (len(out), done, bad, tot),
                             "secs_total": round(tot, 1), "error": None})
+        elif p == "/wiz_bparams":
+            # ПАКЕТНЫЕ ПАРАМЕТРЫ В ВИТРИНЕ — четвёртая рука batch_params (манифест п.19).
+            # ПРАВИЛА КАНОНА (class Ж, живой движок batch_params\\plan.py + apply.py):
+            #   1) План НИЧЕГО не пишет — build_plan() только читает модели.
+            #   2) Фильтр отбирает ФАЙЛЫ плана (`only=`), а не меняет параметры: человек
+            #      видит ровно те модели, которые собирается записать.
+            #   3) Запись — только при approve=1 (без неё движок сам вернёт RC 3).
+            #   4) Движок не переписывается: витрина зовёт его функции, а не копирует логику.
+            import sys as _sb
+            import re as _re3
+            _bp = os.path.join(os.path.dirname(os.path.abspath(__file__)), "batch_params")
+            if _bp not in _sb.path:
+                _sb.path.insert(0, _bp)
+            try:
+                import plan as _bpp
+                import apply as _bpa
+            except Exception as _bpe:
+                return self._j({"error": "движок batch_params не импортировался: %s" % _bpe,
+                                "rows": []})
+
+            def _b_filter(raw):
+                """Фильтр по имени модели: текст или /шаблон/флаги (как btMatch в app.js)."""
+                raw = (raw or "").strip()
+                if not raw:
+                    return None
+                m = _re3.match(r"^/(.*)/([a-z]*)$", raw)
+                if m:
+                    try:
+                        rx = _re3.compile(m.group(1), _re3.I if "i" in (m.group(2) or "i") else 0)
+                    except _re3.error:
+                        return "BAD"
+                    return lambda s: bool(rx.search(s))
+                low = raw.lower()
+                return lambda s: low in s.lower()
+
+            _raw = b.get("filter") or ""
+            _match = _b_filter(_raw)
+            if _match == "BAD":
+                return self._j({"error": "кривой шаблон фильтра /%s/ — план не строился"
+                                % _raw, "rows": []})
+
+            if b.get("action") == "apply":
+                # ЗАПИСЬ. Без approve=1 движок честно вернёт RC 3 и ничего не напишет.
+                _params = [x for x in (b.get("params") or "").split(";") if x.strip()]
+                _plan = _bpp.build_plan((b.get("root") or "").strip() or None, _params)
+                if _plan.get("error"):
+                    return self._j({"error": _plan["error"], "rc": 2, "rows": []})
+                if _match:
+                    _plan["steps"] = [s for s in _plan["steps"] if _match(s["name"])]
+                    _plan["total"] = len(_plan["steps"])
+                    _plan["will_change"] = sum(1 for s in _plan["steps"]
+                                               if s["verdict"] in ("change", "miss"))
+                _res = _bpa.apply_plan(_plan, approve=(b.get("approve") == "true"),
+                                      dry_run=(b.get("dry_run") == "true"))
+                _rows = [{"name": r.get("file"), "param": r.get("param"),
+                          "ok": bool(r.get("ok")), "note": r.get("note", "")}
+                         for r in _res.get("results", [])]
+                return self._j({"rc": _res.get("rc", 0), "detail": _res.get("detail", ""),
+                                "rows": _rows, "done": _res.get("done", 0),
+                                "planned": _res.get("planned", len(_rows)), "error": None})
+
+            # ПЛАН — только чтение.
+            _params = [x for x in (b.get("params") or "").split(";") if x.strip()]
+            _plan = _bpp.build_plan((b.get("root") or "").strip() or None, _params)
+            if _plan.get("error"):
+                return self._j({"error": _plan["error"], "rows": []})
+            _steps = _plan["steps"]
+            if _match:
+                _steps = [s for s in _steps if _match(s["name"])]
+            _rp, _jp = _bpp.write_plan(_plan)
+            return self._j({"rows": [{"name": s["name"], "param": s["param"],
+                                      "value": s["value"], "old": s["old"][:40],
+                                      "verdict": s["verdict"]} for s in _steps[:400]],
+                            "shown": len(_steps[:400]), "total": len(_steps),
+                            "counts": _plan.get("counts", {}),
+                            "will_change": sum(1 for s in _steps if s["verdict"] in ("change", "miss")),
+                            "models": len(_plan.get("files", [])), "root": _plan.get("root"),
+                            "plan_md": _rp, "plan_json": _jp,
+                            "filter": _raw, "error": None})
         elif p == "/wiz_setg":
             # ТАБЛИЦА НАСТРОЕК ДОМА — по образцу B&W (конспект 17, §4 «Окно настроек
             # SMARTUpdate»): Option | Value | Status | Description, вкладки, кнопки

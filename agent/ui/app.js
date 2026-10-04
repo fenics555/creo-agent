@@ -553,6 +553,7 @@ else if(a=='wizard'){document.getElementById('wiz').style.display='flex'}
 else if(a=='open_purge'){document.getElementById('wiz_purge').style.display='flex'}
 else if(a=='open_orphan'){document.getElementById('wiz_orphan').style.display='flex'}
 else if(a=='open_cfaudit'){document.getElementById('wiz_cfaudit').style.display='flex'}
+else if(a=='open_bparams'){document.getElementById('wiz_bparams').style.display='flex'}
 else if(a=='open_plmtree'){document.getElementById('wiz_plmtree').style.display='flex'}
 else if(a=='w_close'){document.getElementById('wiz').style.display='none'}
 else if(a=='w_prev'){var o=document.getElementById('w_old').value,n=document.getElementById('w_new').value;if(!o||!n){alert('заполни old и new');return}var out=document.getElementById('w_out');out.innerHTML='<small style="color:#A6A8AB">считаю план…</small>';J('/wiz_preview',{token:TK,old:o,new:n,template:document.getElementById('w_tpl').value,family:document.getElementById('w_family').checked?1:0,drawings:document.getElementById('w_draw').checked?1:0}).then(function(r){if(r.error){out.innerHTML='<span style="color:#C64E4E">'+esc(r.error)+'</span>';return}var h='<table style="width:100%;font-size:12px;border-collapse:collapse">';(r.rows||[]).forEach(function(w){h+='<tr><td style="padding:2px 4px;color:#A6A8AB">'+esc(w.old)+'</td><td style="padding:2px 4px">→ '+esc(w.new)+'</td></tr>'});h+='</table><small style="color:#A6A8AB">будет переименовано: '+(r.total||0)+'</small>';out.innerHTML=h}).catch(function(e){out.innerHTML='<span style="color:#C64E4E">ошибка: '+esc(e)+'</span>'})}
@@ -678,4 +679,40 @@ else if(a=='open_checks'){document.getElementById('wiz_checks').style.display='f
        else if(a=='close_plmtree'){document.getElementById('wiz_plmtree').style.display='none'}
 else if(a=='pt_tree'||a=='pt_where'||a=='pt_plan'){var m=document.getElementById('pt_model').value,n=document.getElementById('pt_new').value,o=document.getElementById('pt_out');o.textContent='считаю…';var c=(a=='pt_where')?'where':((a=='pt_plan')?'rename-plan':'tree');J('/wiz_plmtree',{token:TK,cmd:c,model:m,new:n,depth:4}).then(function(r){o.textContent=r.text||''}).catch(function(e){o.textContent='ошибка: '+e})}
 else if(a=='wiz_purge_preview'){var r=document.getElementById('wp_root').value,k=document.getElementById('wp_keep').value,o=document.getElementById('wp_out');if(!r){alert('укажи путь');return}var isNet=!/^[DE]:/i.test(r);if(isNet){if(!confirm("сетевой корень: скан медленный, перенос тронет сетевой диск"))return}o.innerHTML='<small style="color:#A6A8AB">'+(isNet?'считаю план… (сетевой корень может сканироваться минутами)':'считаю план…')+'</small>';J('/wiz_purge_preview',{token:TK,root:r,keep:k}).then(function(g){if(g.error){o.innerHTML='<span style="color:#C64E4E">'+esc(g.error)+'</span>';return}var table='<table style="width:100%;font-size:12px;border-collapse:collapse;margin-top:5px;"><tr style="color:#A6A8AB;text-align:left;"><th style="padding:2px 4px;">Старое</th><th style="padding:2px 4px;">Новое</th><th style="padding:2px 4px;">Версий</th></tr>';g.rows.forEach(function(row){table+='<tr><td style="padding:2px 4px;">'+esc(row.old)+'</td><td style="padding:2px 4px;">'+esc(row.new)+'</td><td style="padding:2px 4px;">'+row.versions+'</td></tr>'});table+='</table><p style="font-size:12px;margin-top:5px;">будет перенесено '+g.total+' файлов в backup</p>';o.innerHTML=table;}).catch(function(e){o.innerHTML='<span style="color:#C64E4E">ошибка: '+esc(e)+'</span>'})}
+else if(a=='close_bparams'){document.getElementById('wiz_bparams').style.display='none'}
+else if(a=='bp_plan'||a=='bp_apply'){
+ // ПАКЕТНЫЕ ПАРАМЕТРЫ (класс Ж): план только читает, запись — под галочкой согласия.
+ // ПРАВИЛО: без согласия кнопка «Записать» вообще не спрашивает сервер, а сервер без
+ // approve честно вернул бы RC 3. Двойной щит: и здесь, и в движке apply.py.
+ var rt=document.getElementById('bp_root').value,pm=document.getElementById('bp_params').value,
+     fl=document.getElementById('bp_filter').value,o=document.getElementById('bp_out');
+ if(!rt){o.innerHTML='<span style="color:#C64E4E">укажите корень</span>';return}
+ if(!pm){o.innerHTML='<span style="color:#C64E4E">укажите параметр (ИМЯ=ЗНАЧЕНИЕ)</span>';return}
+ var ag=document.getElementById('bp_agree'),dr=document.getElementById('bp_dry');
+ if(a=='bp_apply'){
+  if(!ag.checked){o.innerHTML='<span style="color:#C64E4E">нет согласия — запись не начиналась (снята галочка)</span>';return}
+  if(!confirm('Записать параметры в модели по фильтру «'+fl+'»?\nЗапись идёт на КОПИИ, боевые config.pro не трогаются.\nПродолжить?'))return
+ }
+ o.innerHTML='<small style="color:#A6A8AB">'+(a=='bp_apply'?'записываю…':'читаю модели, строю план…')+'</small>';
+ J('/wiz_bparams',{token:TK,action:(a=='bp_apply'?'apply':'plan'),root:rt,params:pm,filter:fl,
+                    approve:ag.checked?'true':'false',dry_run:dr.checked?'true':'false'})
+  .then(function(r){
+   if(r.error){o.innerHTML='<span style="color:#C64E4E">'+esc(r.error)+'</span>';return}
+   var h='';
+   if(a=='bp_apply'){
+    h='<b>ЗАПИСЬ: RC '+r.rc+' — '+esc(r.detail||'')+'</b><br>вышло: '+r.done+' из '+r.planned;
+    r.rows.forEach(function(x){h+='<div>'+(x.ok?'OK ':'FAIL ')+esc(x.name)+' '+esc(x.param)+' — '+esc(x.note)+'</div>'});
+   }else{
+    h='<b>ПЛАН (записи ещё нет)</b><br>корень: '+esc(r.root)+'<br>моделей: '+r.models+', шагов: '+r.total
+     +', изменится/создастся: '+r.will_change+(r.filter?'<br>фильтр: '+esc(r.filter):'');
+    h+='<table style="width:100%;font-size:12px;border-collapse:collapse;margin-top:5px">'
+     +'<tr style="color:#A6A8AB;text-align:left"><th style="padding:2px 4px">Модель</th><th style="padding:2px 4px">Параметр</th><th style="padding:2px 4px">Новое</th><th style="padding:2px 4px">Старое</th><th style="padding:2px 4px">Вердикт</th></tr>';
+    r.rows.forEach(function(x){h+='<tr><td style="padding:2px 4px">'+esc(x.name)+'</td><td style="padding:2px 4px">'+esc(x.param)+'</td><td style="padding:2px 4px">'+esc(x.value)+'</td><td style="padding:2px 4px">'+esc(x.old)+'</td><td style="padding:2px 4px">'+esc(x.verdict)+'</td></tr>'});
+    h+='</table>';
+    if(r.total>r.shown)h+='<div>… показаны первые '+r.shown+' из '+r.total+'</div>';
+    h+='<div style="color:#A6A8AB;margin-top:5px">план на диске: '+esc(r.plan_md)+'</div>';
+   }
+   o.innerHTML=h;
+  }).catch(function(e){o.innerHTML='<span style="color:#C64E4E">ошибка: '+esc(e)+'</span>'})
+}
 else if(a=='chatsend'){var t=document.getElementById('cin').value;J('/chat/send',{token:TK,text:t}).then(function(r){if(r.ok)document.getElementById('cin').value='';chatPoll()})}});
