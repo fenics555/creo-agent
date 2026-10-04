@@ -255,7 +255,9 @@ def _run_window_launch():
 
     Порог `error`: окно, которое человек не может открыть, для человека не существует."""
     import glob as _gb
-    skip = ("backup", "_legacy", "_disabled", "__pycache__", "tools")
+    # ПРАВКА 04.10.2026: сегмента «tools» в списке пропуска быть НЕ должно — он есть в пути
+    # КАЖДОГО файла (`D:\AI\tools\agent\…`), и проверка молча отбрасывала всё, рапортуя «окон 0».
+    skip = ("backup", "_legacy", "_disabled", "__pycache__")
     items = []
     n_win = 0
     for f in AGENT.rglob("*.py"):     # rglob, а не glob: «**/*.py» без recursive=True не заходит
@@ -265,10 +267,23 @@ def _run_window_launch():
         if not (p.name.endswith("gui.py") or p.name.endswith("_gui.py")):
             continue
         n_win += 1
-        if any(p.parent.glob("*.bat")):
+        # ПРАВКА 04.10.2026 (негативный тест): «есть ЛИБОЙ bat в папке» — слишком слабо.
+        # В корне агента лежат AGENT.bat, GIT_SYNC.bat и прочие, и проверка проходила, даже
+        # когда bat самого окна убрали. Теперь bat считается годным, только если ОН САМ
+        # ссылается на это окно по имени файла.
+        ok_bat = False
+        for bat in p.parent.glob("*.bat"):
+            try:
+                if p.name.lower() in bat.read_text(encoding="utf-8",
+                                                   errors="replace").lower():
+                    ok_bat = True
+                    break
+            except OSError:
+                continue
+        if ok_bat:
             continue
         items.append({"icon": "❌", "verdict": "error",
-                      "what": "%s — нет bat рядом (человек не откроет окно)"
+                      "what": "%s — нет bat, который запускает это окно (человек не откроет)"
                               % str(p.relative_to(AGENT))})
     return _res(not items, n_win, len(items), 0,
                 "окон найдено %d, без bat %d" % (n_win, len(items)), items)
