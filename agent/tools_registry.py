@@ -10,10 +10,12 @@ from core import log
 
 TOOLS = []
 BLOCKS = []
+_EMPTY = []            # блоки, отдавшие пустой список при загрузке (циклический импорт)
 _MODULES = {}          # волна 1: имя блока -> сам модуль (нужно карте инструментов)
 
 def load_all():
     TOOLS[:] = []; BLOCKS[:] = []; _MODULES.clear()
+    _EMPTY.clear()                     # блоки, отдавшие пустой список в первый проход
     here = Path(__file__).resolve().parent
     for p in sorted(here.glob("*_tools.py")):
         name = p.stem
@@ -23,9 +25,40 @@ def load_all():
             TOOLS.extend(block_tools)
             BLOCKS.append(name)
             _MODULES[name] = m
+            if not block_tools:
+                _EMPTY.append(name)
             log("реестр: блок <%s> подключён автоматически, инструментов: %d" % (name, len(block_tools)))
         except Exception as e:
             log("реестр: блок <%s> НЕ загружен: %s" % (name, e))
+    # ЖИВАЯ НАХОДКА 04.10.2026 (проба probe_registry_diag2.py): блок <diagnostic_tools>
+    # в первый проход попадает в реестр ПУСТЫМ (лог: «инструментов: 0») — причина циклический
+    # импорт `diagnostic_tools → core → tools_registry`. Добор вынесен в функцию late_fill(),
+    # которую зовёт core после импортов: внутри load_all() добор бесполезен, модуль дописывается
+    # уже ПОСЛЕ возврата реестра. Имена пустых блоков запоминаем для late_fill().
+
+def late_fill():
+    """ДОБИВКА блоков, пришедших пустыми (циклический импорт). Зовётся ПОСЛЕ того, как
+    импортная цепочка до конца развернулась — из `core` в конце его импортов.
+
+    ЖИВАЯ НАХОДКА 04.10.2026 (проба probe_registry_diag2.py): цепочка
+    `diagnostic_tools → core → tools_registry` приводила к тому, что блок diagnostic_tools
+    попадал в реестр ПУСТЫМ (лог писал «инструментов: 0», в реестре оказывалось 0 из 7):
+    реестр доходил до него, когда модуль УЖЕ был в sys.modules, но ещё не дописал свой TOOLS.
+    При повторной загрузке все 7 доезжают. Автопроба добива внутри load_all() НЕ помогла:
+    модуль дописывается уже ПОСЛЕ возврата реестра, поэтому добивать надо оттуда, где
+    импортная цепочка завершилась.
+    """
+    late = []
+    for name in _EMPTY:
+        m = _MODULES.get(name)
+        got = list(getattr(m, "TOOLS", []) or [])
+        if got:
+            TOOLS.extend(got)
+            late.append("%s(+%d)" % (name, len(got)))
+    if late:
+        log("реестр: блоки добраны после импорта (циклический импорт): %s" % ", ".join(late))
+    return late
+
 
 load_all()
 

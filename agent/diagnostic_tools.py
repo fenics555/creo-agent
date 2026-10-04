@@ -343,3 +343,18 @@ def tool_diag_web(**kw):
     return "\n".join(out) + "\nвердикт: %s" % ("ПРОЙДЕН" if not bad else "НЕ ПРОЙДЕН: " + ", ".join(bad))
 
 TOOLS += [{"name": "diag_web", "desc": "Диагностика веб-стека: агент + внешний URL, детект SPA/captcha", "params": {}, "approval": False, "fn": tool_diag_web}]
+
+# ДОБОР СЕБЯ В РЕЕСТР (живая находка 04.10.2026, проба probe_registry_diag2.py).
+# Этот модуль первым тянет `core`, а тот — `tools_registry`, и реестр доходит до
+# diagnostic_tools, когда тот УЖЕ в sys.modules, но ещё не дописал свой TOOLS. Реестр видел
+# пустой список и логировал «инструментов: 0» — блок молча терял 7 инструментов.
+# Здесь, в конце модуля, TOOLS уже полный, поэтому модуль сам себя добирает в реестр.
+try:
+    import tools_registry as _TR
+    _TR.late_fill()
+except Exception as _e:                      # добор не должен ронять импорт блока
+    try:
+        from core import log as _log
+        _log("реестр: добор diagnostic_tools не вышел: %s" % _e)
+    except Exception:
+        pass
