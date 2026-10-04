@@ -54,7 +54,10 @@ function wgLoad(){var box=document.getElementById('wg_list');box.innerHTML='<sma
  J('/wiz_run_gui',{token:TK,list:'true'}).then(function(r){if(r.error){box.innerHTML='<span style="color:#C64E4E">'+esc(r.error)+'</span>';return}
   wgAll=r.programs||[];wgDraw()}).catch(function(e){box.innerHTML='<span style="color:#C64E4E">ошибка: '+esc(e)+'</span>'})}
 // фильтр по имени окна
-document.addEventListener('input',function(e){if(e.target&&e.target.id==='wg_filter')wgDraw()});
+document.addEventListener('input',function(e){
+ if(e.target&&e.target.id==='wg_filter')wgDraw();
+ if(e.target&&e.target.id==='bt_filter')batchDraw(); // фильтр пакетного режима — рисуем по кэшу строк
+});
 function att(s){return esc(s).replace(new RegExp('"', 'g'),'&quot;')}
 
 function addMsg(html,me){var d=document.createElement('div');d.className='msg'+(me?' me':'');var t=new Date().toLocaleTimeString([], {hour:'2-digit',minute:'2-digit',hour12:false});d.innerHTML='<small style="color:#A6A8AB;margin-right:5px;">'+t+'</small>'+html;chat.appendChild(d);chat.scrollTop=chat.scrollHeight;return d}
@@ -342,29 +345,55 @@ function rulesOut(m,bad){var o=document.getElementById('rl_out');if(!o)return;o.
 // ПАКЕТНЫЙ РЕЖИМ — по образцу B&W (конспект 17, §7): сводка в ЗАГОЛОВКЕ окна,
 // таблица Name | Progress | Status | Fixed Errors | Secs. Данные — живой журнал работ.
 function batchOpen(){document.getElementById('wiz_batch').style.display='flex';batchLoad()}
+// ПАКЕТНЫЙ РЕЖИМ — фильтр по имени прогона (пункт эстафеты волн 9–12, «фильтр/RegEx»).
+// ПРАВИЛО: фильтр применяется К СТРОКАМ, уже пришедшим с сервера (живой журнал), и НЕ меняет
+// сам запрос — иначе «фильтр» рисовал бы выдуманные цифры вместо журнала.
+var BT_ROWS=null;
+function btMatch(name,raw){
+ if(!raw)return true;
+ var n=String(name||''),m;
+ // Вид /шаблон/флаги. ГРАБЛЯ (04.10.2026): сначала проверял только raw.endsWith('/') — с флагом
+ // ('i') конец на 'i', и шаблон с флагом молча уходил в текстовый поиск и ничего не находил.
+ // Правильно: последняя '/' внутри строки, тело между первой и последней, хвост — флаги.
+ m=/^\/(.*)\/([a-z]*)$/.exec(raw);
+ if(m){
+  try{return new RegExp(m[1],m[2]||'i').test(n)}
+  catch(e){return false} // кривой шаблон — не показываем лишнего, а не роняем окно
+ }
+ return n.toLowerCase().indexOf(raw.toLowerCase())>=0;
+}
+function batchDraw(){
+ var box=document.getElementById('bt_list');
+ if(!box||BT_ROWS===null)return;
+ var raw=((document.getElementById('bt_filter')||{}).value||'').trim();
+ var rows=BT_ROWS.filter(function(x){return btMatch(x.name,raw)});
+ var done=0,bad=0,tot=0;
+ rows.forEach(function(x){if(x.status==='Готово')done++;if(x.status==='Ошибка')bad++;tot+=(x.secs||0)});
+ document.getElementById('bt_head').textContent='📦 Пакетный режим, '+rows.length+' прогонов — '+done+' успешно, '+bad+' с ошибкой, '+tot.toFixed(1)+' с суммарно'+(raw?' · фильтр «'+raw+'»':'');
+ document.getElementById('bt_found').textContent='строк: '+rows.length+' из '+BT_ROWS.length;
+ var h='<table style="width:100%;font-size:12px;border-collapse:collapse"><tr style="color:#5a5a5a;text-align:left">'
+  +'<th style="padding:3px 5px">Name</th><th style="padding:3px 5px">Progress</th>'
+  +'<th style="padding:3px 5px">Status</th><th style="padding:3px 5px">Fixed Errors</th>'
+  +'<th style="padding:3px 5px">Secs</th><th style="padding:3px 5px">Log</th></tr>';
+ rows.forEach(function(x){
+  var st=x.status==='Готово'?'<span style="color:#2e7d32">Готово</span>'
+   :(x.status==='Ошибка'?'<span style="color:#c62828">Ошибка</span>'
+   :(x.status==='Выполняется'?'<span style="color:#b8860b">Выполняется</span>':esc(x.status)));
+  h+='<tr><td style="padding:3px 5px;font-family:Consolas,monospace">'+esc(x.name)+'</td>'
+   +'<td style="padding:3px 5px">'+(x.status==='Готово'||x.status==='Ошибка'?'100%':(x.status==='Выполняется'?'…':'—'))+'</td>'
+   +'<td style="padding:3px 5px">'+st+(x.code!=null?' (code='+x.code+')':'')+'</td>'
+   +'<td style="padding:3px 5px">'+(x.fixed==null?'—':x.fixed)+'</td>'
+   +'<td style="padding:3px 5px">'+(x.secs==null?'—':x.secs)+'</td>'
+   +'<td style="padding:3px 5px;color:#5a5a5a;font-size:11px">'+esc(x.log||'')+'</td></tr>'});
+ if(!rows.length)h+='<tr><td colspan="6" style="padding:6px;color:#5a5a5a">'+(BT_ROWS.length?'под фильтр не подошёл ни один прогон':'прогонов в журнале нет')+'</td></tr>';
+ box.innerHTML=h+'</table>';
+}
 function batchLoad(){
  var box=document.getElementById('bt_list');
  box.innerHTML='<small style="color:#5a5a5a">читаю журнал работ…</small>';
  J('/wiz_batch',{token:TK}).then(function(r){
   if(r.error){box.innerHTML='<span style="color:#c62828">'+esc(r.error)+'</span>';return}
-  document.getElementById('bt_head').textContent='📦 '+r.summary;
-  var h='<table style="width:100%;font-size:12px;border-collapse:collapse"><tr style="color:#5a5a5a;text-align:left">'
-   +'<th style="padding:3px 5px">Name</th><th style="padding:3px 5px">Progress</th>'
-   +'<th style="padding:3px 5px">Status</th><th style="padding:3px 5px">Fixed Errors</th>'
-   +'<th style="padding:3px 5px">Secs</th><th style="padding:3px 5px">Log</th></tr>';
-  (r.rows||[]).forEach(function(x){
-   var st=x.status==='Готово'?'<span style="color:#2e7d32">Готово</span>'
-     :(x.status==='Ошибка'?'<span style="color:#c62828">Ошибка</span>'
-     :(x.status==='Выполняется'?'<span style="color:#b8860b">Выполняется</span>':esc(x.status)));
-   h+='<tr><td style="padding:3px 5px;font-family:Consolas,monospace">'+esc(x.name)+'</td>'
-    +'<td style="padding:3px 5px">'+(x.status==='Готово'||x.status==='Ошибка'?'100%':(x.status==='Выполняется'?'…':'—'))+'</td>'
-    +'<td style="padding:3px 5px">'+st+(x.code!=null?' (code='+x.code+')':'')+'</td>'
-    +'<td style="padding:3px 5px">'+(x.fixed==null?'—':x.fixed)+'</td>'
-    +'<td style="padding:3px 5px">'+(x.secs==null?'—':x.secs)+'</td>'
-    +'<td style="padding:3px 5px;color:#5a5a5a;font-size:11px">'+esc(x.log||'')+'</td></tr>'});
-  if(!(r.rows||[]).length)h+='<tr><td colspan="6" style="padding:6px;color:#5a5a5a">прогонов в журнале нет</td></tr>';
-  box.innerHTML=h+'</table><small style="color:#5a5a5a">строк: '+(r.rows||[]).length
-   +' · успешно '+r.done+' · с ошибкой '+r.failed+' · суммарно '+r.secs_total+' с</small>';
+  BT_ROWS=r.rows||[];batchDraw();
  }).catch(function(e){box.innerHTML='<span style="color:#c62828">ошибка: '+esc(e)+'</span>'});
 }
 // КОНФИГУРАТОР — по образцу B&W (конспект 17, §5 «TheNewConfigurator»):
