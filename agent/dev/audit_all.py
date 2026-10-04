@@ -19,7 +19,8 @@ import sys
 import time
 from pathlib import Path
 
-sys.stdout = io.TextIOWrapper(sys.stdout.buffer, encoding="utf-8", errors="replace")
+STDOUT = io.TextIOWrapper(sys.stdout.buffer, encoding="utf-8", errors="replace") if hasattr(sys.stdout, "buffer") else sys.stdout
+sys.stdout = STDOUT
 HERE = Path(__file__).resolve().parent
 AGENT = HERE.parent
 sys.path.insert(0, str(AGENT))
@@ -53,11 +54,60 @@ def src_of(block):
     if cand.is_file():
         return cand.read_text(encoding="utf-8", errors="replace")
     return ""
+# ТАЙМАУТ НА ИНСТРУМЕНТ (слово владельца «делай»). Живой факт 03.10.2026: прогон `--all`
+# ЗАВИС на 70-й строке (следующий за `checks_list` инструмент ждал живое окружение —
+# модель/CREOSON/сеть) и не дошёл до конца. Теперь каждый вызов ограничен по времени:
+# не ответил за TOOL_TIMEOUT — помечается ЗАВИС, прогон идёт дальше. Поток демонский,
+# поэтому итог всё равно печатается и процесс завершается.
+TOOL_TIMEOUT = float(15)
+_box = {}
+
+
+def call_with_timeout(name, args, tmo=TOOL_TIMEOUT):
+    """Возвращает ('ok', res) | ('err', тип, текст) | ('hang', секунд)."""
+    import threading
+    box = {}
+
+    def worker():
+        try:
+            box["r"] = ("ok", TR.execute(name, args, client=None))
+        except Exception as e:
+            box["r"] = ("err", type(e).__name__, str(e)[:70])
+    th = threading.Thread(target=worker, daemon=True)
+    th.start()
+    th.join(tmo)
+    if th.is_alive():
+        return ("hang", tmo)
+    return box.get("r", ("hang", tmo))
+# Но разрушительные (удаление, стирание, остановка) НЕ вызываются никогда: прогон не должен
+# ничем жертвовать. Список составлен по ИМЕНИ — это осознанная граница, а не трусость.
+DESTRUCTIVE_RX = re.compile(
+    r"delete|erase|destroy|remove|purge|clean|wipe|kil+_|kill$|reset|drop|truncate|rename|write_|set_|apply|update|exec|run$|post|insert|backup|restore|archive|prune|migrate",
+    re.I)
+# Инструменты, которым БЕЗ аргументов нельзя: они требуют явного входа (и это правильно).
+NEEDS_INPUT_RX = re.compile(r"^(?!.*\b(list|report|status|show|help|get|find|search|scan|audit|count)\b).*[a-z_]+$")
+
+
 def main():
     out = []
+    # Бэкап настроек перед прогоном пишущих инструментов — по закону 3 манифеста.
+    try:
+        import shutil
+        import datetime
+        _bk = AGENT / "data" / ("backup" /
+                               ("pre_audit_all_%s_config.json" % datetime.datetime.now().strftime("%Y%m%d_%H%M%S")))
+        _bk.parent.mkdir(parents=True, exist_ok=True)
+        shutil.copy2(AGENT / "data" / "config.json", _bk)
+        print("бекап настроек: %s" % _bk)
+    except Exception as _be:
+        print("бекап НЕ сделан: %s" % _be)
+    full = "--all" in sys.argv
 
     def say(s=""):
-        print(s)
+        # ЖИВОЙ ДЕФЕКТ 03.10.2026: без flush вывод БУФЕРИЗУЕТСЯ, и при прогоне в файл
+        # витрина выглядела «зависшей» на 70-й строке, хотя процесс работал (PID жив).
+        # Прогон читают по ходу — значит сброс обязателен.
+        print(s, flush=True)
         out.append(str(s))
 
     say("# ПОЛНЫЙ АУДИТ ДОМА · %s" % time.strftime("%Y-%m-%d %H:%M"))
@@ -67,7 +117,7 @@ def main():
     say("## 1-2. ПРОГОН ИНСТРУМЕНТОВ + КАРТА «КУДА ПИШЕТ»")
     items = list(TR.iter_tools())
     say("инструментов в реестре: %d" % len(items))
-    ran_ok = ran_fail = skipped = 0
+    ran_ok = ran_fail = skipped = hung = 0
     writer_map = {}
     for kind, group, t in items:
         name = t.get("name")
@@ -81,11 +131,57 @@ def main():
         if where:
             writer_map.setdefault(block, set()).update(where)
         if (t.get("kind") or "") not in ("read", "check"):
-            skipped += 1
+            if not full:
+                skipped += 1
+                continue
+            if DESTRUCTIVE_RX.search(name or ""):
+                say("  ПРОПУЩЕН (разрушительный) %-24s" % name)
+                skipped += 1
+                continue
+            # пишущий инструмент вызывается с ПУСТЫМИ аргументами: так мы проверяем,
+            # что он честно отказывает («нужен параметр»), а не пишет наугад.
+            try:
+                mo = TR.meta_of(name)
+                block = mo[3] if mo else "?"
+            except Exception:
+                block = "?"
+            src = src_of(block)
+            where = [nm for nm, rx in WRITE_RX if src and rx.search(src)]
+            t0 = time.time()
+            try:
+                r = call_with_timeout(name, {})
+                if r[0] == "hang":
+                    hung += 1
+                    say("  ЗАВИС(вход) %-23s %6.1f с  (не ответил за %.0f с)"
+                        % (name, time.time() - t0, TOOL_TIMEOUT))
+                    continue
+                if r[0] == "err":
+                    ran_fail += 1
+                    say("  ОТКАЗ(вход) %-25s %6.2f с  %s: %s"
+                        % (name, time.time() - t0, r[1], r[2]))
+                    continue
+                ran_ok += 1
+                say("  OK   %-30s %6.2f с  пишет:%-20s → %s"
+                    % (name, time.time() - t0, ",".join(where) or "—",
+                       str(r[1])[:50].replace("\n", " ")))
+            except Exception as e:
+                ran_fail += 1
+                say("  ОТКАЗ %-28s %6.2f с  %s: %s"
+                    % (name, time.time() - t0, type(e).__name__, str(e)[:60]))
             continue
         t0 = time.time()
         try:
-            TR.execute(name, {}, client=None)
+            res = call_with_timeout(name, {})
+            if res[0] == "hang":
+                hung += 1
+                say("  ЗАВИС %-32s %6.1f с  (не ответил за %.0f с)"
+                    % (name, time.time() - t0, TOOL_TIMEOUT))
+                continue
+            if res[0] == "err":
+                dt = time.time() - t0
+                ran_fail += 1
+                say("  ОТКАЗ %-28s %6.2f с  %s: %s" % (name, dt, res[1], res[2]))
+                continue
             dt = time.time() - t0
             ran_ok += 1
             say("  OK   %-30s %6.2f с  %s" % (name, dt,
@@ -94,7 +190,8 @@ def main():
             dt = time.time() - t0
             ran_fail += 1
             say("  ОТКАЗ %-28s %6.2f с  %s: %s" % (name, dt, type(e).__name__, str(e)[:60]))
-    say("  — успешно: %d, отказов: %d, пропущено (вид act/write): %d" % (ran_ok, ran_fail, skipped))
+    say("  — успешно: %d, отказов: %d, зависло: %d, пропущено: %d"
+        % (ran_ok, ran_fail, hung, skipped))
     say("  — блоки, которые пишут на диск:")
     for b, w in sorted(writer_map.items()):
         say("      %-30s → %s" % (b, ", ".join(sorted(w))))

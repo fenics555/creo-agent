@@ -1,0 +1,45 @@
+10-04 10:20:40 >> creo_status {} -> FAIL (2040мс) CREOSON молчит (порт 8080). Лечение: CREO-START.bat дебаг-клик.
+10-04 10:20:40 >> models_stats {} -> PASS (11мс) всего моделей: 44154; по типам: prt=21273, drw=12037, asm=10834, sec=8, lay=2
+10-04 10:20:40 >> settings_show {} -> PASS (0мс) • [Главное] llm_model = glm-4.7-flash:q4_K_M — Какая модель думает. • [Главное] creativity = 40 — 0-34 строго, 35-66 нейтрально, 67-100 свободно. Знач
+10-04 10:20:40 >> users_list {} -> PASS (0мс) • admin — роль: Администратор — был: 2026-10-04T01:35 • 555 — роль: Инженер — был:  • testadmin — роль: Администратор — был: 2026-09-15T20:45 • cline_
+10-04 10:20:40 >> backup_list {} -> PASS (0мс) • agent_261004_0000.sqlite (226.7 МБ) • agent_261003_0000.sqlite (228.5 МБ) • agent_261002_0002.sqlite (226.0 МБ)
+10-04 10:20:41 >> fleet_status {} -> PASS (1016мс) - 192.168.88.159 | жив | glm-4.7-flash:q4_K_M | блоков: 52 | инструментов: 180
+10-04 10:20:41 >> index_state {} -> FAIL (0мс) исключение: module 'scanner' has no attribute 'state'
+10-04 10:20:41 >> model_rules {} -> PASS (0мс) выученных объектов нет
+10-04 10:20:41 == diag_test вердикт: НЕ ПРОЙДЕН: file:get_active, creo_status, index_state
+10-04 10:20:51 == старт, активная: не знаю активную модель ==
+10-04 10:20:53 чтение creo:pwd             ERR Creo не запущен. Дом НЕ поднимает Creo сам (это и 
+10-04 10:20:59 чтение creo:list_files      ERR Creo не запущен. Дом НЕ поднимает Creo сам (это и 
+10-04 10:21:03 чтение file:list            ERR Creo не запущен. Дом НЕ поднимает Creo сам (это и 
+10-04 10:21:05 чтение file:exists          ERR Creo не запущен. Дом НЕ поднимает Creo сам (это и 
+10-04 10:21:10 чтение file:get_fileinfo    ERR Creo не запущен. Дом НЕ поднимает Creo сам (это и 
+10-04 10:21:15 чтение file:massprops       ERR Creo не запущен. Дом НЕ поднимает Creo сам (это и 
+10-04 10:21:17 чтение file:relations_get   ERR Creo не запущен. Дом НЕ поднимает Creo сам (это и 
+10-04 10:21:22 чтение file:open_errors     ERR Creo не запущен. Дом НЕ поднимает Creo сам (это и 
+10-04 10:29:19 >> creo_status {} -> FAIL (2040мс) CREOSON молчит (порт 8080). Лечение: CREO-START.bat дебаг-клик.
+10-04 10:29:19 >> models_stats {} -> PASS (10мс) всего моделей: 44154; по типам: prt=21273, drw=12037, asm=10834, sec=8, lay=2
+10-04 10:29:19 >> settings_show {} -> PASS (0мс) • [Главное] llm_model = glm-4.7-flash:q4_K_M — Какая модель думает. • [Главное] creativity = 40 — 0-34 строго, 35-66 нейтрально, 67-100 свободно. Знач
+10-04 10:29:19 >> users_list {} -> PASS (0мс) • admin — роль: Администратор — был: 2026-10-04T01:35 • 555 — роль: Инженер — был:  • testadmin — роль: Администратор — был: 2026-09-15T20:45 • cline_
+10-04 10:29:19 >> backup_list {} -> PASS (0мс) • agent_261004_0000.sqlite (226.7 МБ) • agent_261003_0000.sqlite (228.5 МБ) • agent_261002_0002.sqlite (226.0 МБ)
+10-04 10:29:21 >> fleet_status {} -> FAIL (2004мс) - 192.168.88.159: недоступен (<urlopen error timed out>)
+10-04 10:29:21 >> index_state {} -> FAIL (0мс) исключение: module 'scanner' has no attribute 'state'
+10-04 10:29:21 >> model_rules {} -> PASS (0мс) выученных объектов нет
+10-04 10:29:21 == diag_test вердикт: НЕ ПРОЙДЕН: file:get_active, creo_status, fleet_status, index_state
+10-04 10:29:31 == старт, активная: не знаю активную модель ==
+10-04 10:29:33 чтение creo:pwd             ERR Creo не запущен. Дом НЕ поднимает Creo сам (это и 
+10-04 10:29:38 чтение creo:list_files      ERR Creo не запущен. Дом НЕ поднимает Creo сам (это и 
+10-04 10:29:43 чтение file:list            ERR Creo не запущен. Дом НЕ поднимает Creo сам (это и 
+10-04 10:29:45 чтение file:exists          ERR Creo не запущен. Дом НЕ поднимает Creo сам (это и 
+10-04 10:29:51 чтение file:get_fileinfo    ERR Creo не запущен. Дом НЕ поднимает Creo сам (это и 
+10-04 10:29:56 чтение file:massprops       ERR Creo не запущен. Дом НЕ поднимает Creo сам (это и 
+10-04 10:29:56 чтение file:relations_get   ERR Creo не запущен. Дом НЕ поднимает Creo сам (это и 
+10-04 10:29:56 == diag_learn: PASS
+10-04 10:30:02 чтение file:open_errors     ERR Creo не запущен. Дом НЕ поднимает Creo сам (это и 
+10-04 10:30:06 чтение parameter:list       ERR Creo не запущен. Дом НЕ поднимает Creo сам (это и 
+10-04 10:30:08 чтение parameter:exists     ERR Creo не запущен. Дом НЕ поднимает Creo сам (это и 
+10-04 10:30:14 чтение dimension:list       ERR Creo не запущен. Дом НЕ поднимает Creo сам (это и 
+10-04 10:30:19 чтение feature:list         ERR Creo не запущен. Дом НЕ поднимает Creo сам (это и 
+10-04 10:30:20 чтение bom:get_paths        ERR Creo не запущен. Дом НЕ поднимает Creo сам (это и 
+10-04 10:30:27 чтение familytable:list     ERR Creo не запущен. Дом НЕ поднимает Creo сам (это и 
+10-04 10:30:32 чтение layer:list           ERR Creo не запущен. Дом НЕ поднимает Creo сам (это и 
+10-04 10:30:32 чтение note:list            ERR Creo не запущен. Дом НЕ поднимает Creo сам (это и 
