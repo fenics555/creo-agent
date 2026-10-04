@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 """АГЕНТ v15 — http_handlers.py: HTTP-обработчики витрины (do_GET/do_POST)."""
-import json, os, socket, threading, datetime, re, subprocess, sys
+import json, os, socket, threading, datetime, re, subprocess, sys, time
 from urllib.parse import urlparse, parse_qs
 from http.server import ThreadingHTTPServer, BaseHTTPRequestHandler
 import core
@@ -434,10 +434,46 @@ class Hd(BaseHTTPRequestHandler):
             self.send_header("Content-Type", "text/event-stream; charset=utf-8")
             self.send_header("Cache-Control", "no-store")
             self.end_headers()
+            # 04.10.2026 (аудит настроек): настройка `stream_ui` («токены в чат по мере генерации»)
+            # была объявлена, но НИГДЕ не читалась — веб шлёт только шаги (on_step), а токены,
+            # которые агент уже копит в LIVE_TOK, до витрины не доходили. Теперь при включённой
+            # настройке поток токенов уходит в том же SSE-потоке.
+            _toks_on = bool(settings.get("stream_ui"))
+            _seen_tok = [0]
+            # Логин клиента берём ЗДЕСЬ: переменная _cl6 живёт только в ветке /livetoks,
+            # и обращение к ней отсюда было бы NameError (найдено компиляцией правки).
+            _cl8 = users.token_info(self.headers.get("X-Token") or "")
+            _deadline = time.time() + 900
             while True:
-                item = qq.get()
+                # Токены забираем между шагами неблокирующе: очередь шагов может молчать минутами,
+                # а ждать её get() без таймаута — вечно (старый код на этом и висел).
+                if _toks_on:
+                    try:
+                        _tk = LIVE_TOK.get(_cl8["login"] if _cl8 else "", [])
+                        if len(_tk) > _seen_tok[0]:
+                            self.wfile.write(("data: %s\n\n" % json.dumps({"tok": _tk[_seen_tok[0]:]}, ensure_ascii=False)).encode())
+                            self.wfile.flush()
+                            _seen_tok[0] = len(_tk)
+                    except Exception:
+                        pass
+                try:
+                    item = qq.get(timeout=0.3)
+                except Exception:
+                    if time.time() > _deadline:
+                        self.wfile.write(("data: %s\n\n" % json.dumps({"error": "превышено время ожидания"}, ensure_ascii=False)).encode())
+                        self.wfile.flush()
+                        return
+                    continue
                 if item is None: break
                 self.wfile.write(("data: %s\n\n" % json.dumps({"step": item}, ensure_ascii=False)).encode()); self.wfile.flush()
+            if _toks_on:
+                try:
+                    _tk = LIVE_TOK.get(_cl8["login"] if _cl8 else "", [])
+                    if len(_tk) > _seen_tok[0]:
+                        self.wfile.write(("data: %s\n\n" % json.dumps({"tok": _tk[_seen_tok[0]:]}, ensure_ascii=False)).encode())
+                        self.wfile.flush()
+                except Exception:
+                    pass
             self.wfile.write(("data: %s\n\n" % json.dumps({"done": holder.get("r", {})}, ensure_ascii=False)).encode()); self.wfile.flush()
             return
         elif p == "/approve":

@@ -3,7 +3,27 @@
 import os
 import core
 
-def build_timeline(name, window_days=7):
+def build_timeline(name="", window_days=7):
+    """ЖИВАЯ НАХОДКА 04.10.2026 (баг из эстафеты волн 9–12): сигнатура требовала `name`
+    обязательным, но модель зовёт инструмент без него — и падало
+    «build_timeline() missing 1 required positional argument: 'name'» (лог агента 04.10 10:31:11).
+    Теперь имя необязательное, а пустое имя = активная модель в Creo."""
+    name = (name or "").strip()
+    if not name:
+        try:
+            import creo_tools as CT
+            nm = CT.tool_get_active()
+            # Ответ tool_get_active — это ТЕКСТ для человека («модель открыта: X» либо
+            # «не знаю активную модель»), а не голое имя. Поэтому берём имя только если
+            # в тексте нет такого ответа; иначе честно говорим, что имя нужно (живая проверка).
+            if isinstance(nm, str) and nm.strip() and "не знаю" not in nm.lower() \
+                    and "нет" not in nm.lower():
+                name = nm.strip()
+        except Exception:
+            pass
+    if not name:
+        return {"events": [], "center": "", "window_days": window_days,
+                "error": "не указано имя модели. Скажи имя или открой модель в Creo."}
     events = []
     c = core.db()
     row = c.execute("SELECT path, mtime FROM files WHERE path LIKE ?",

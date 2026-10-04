@@ -104,7 +104,20 @@ def tool_save(name="", content="", **kw):
     p = REPO / ("SKILL_" + name + ".md")
     p.write_text(content, encoding="utf-8")
     if scanner: threading.Thread(target=scanner.index_all, daemon=True).start()
-    return "скилл сохранён: %s, переиндексация запущена" % p
+    # 04.10.2026 (аудит настроек): настройка `fleet_autocommit` («коммитить новые скиллы/кейсы в
+    # creo-repo автоматически») была объявлена, но не читалась НИГДЕ — решения оставались только
+    # на этой машине. Теперь при включённой настройке новый скилл сам уезжает в общий репозиторий.
+    # Коммит делаем ТОЛЬКО этого файла: закон параллельной ноги запрещает `git add -A`.
+    tail = " (переиндексация запущена)"
+    try:
+        if settings.get("fleet_autocommit"):
+            import git_tools as _gt
+            _gt._run(["add", "--", p.name])
+            _gt._run(["commit", "-m", "навык: %s" % p.name])
+            tail += ", закоммичено в общий репо (fleet_autocommit)"
+    except Exception as e:
+        tail += ", автокоммит не сделан: %s" % str(e)[:60]
+    return "скилл сохранён: %s%s" % (p, tail)
     
 TOOLS = [
     {"name": "search_kb", "desc": "Поиск по базе знаний КБ (скиллы, ГОСТы, docs)", "params": {"query": "запрос"}, "approval": False, "fn": tool_search},

@@ -23,19 +23,43 @@ def tool_nightly_state(**kw):
     """Состояние ночного прогона.
 
     03.10.2026: было `UT.tool_usage_state()` — блок `usage_tools` отключён (индекс usage пуст
-    с 27.09). Состояние теперь читаем из агентской `usage_meta`, а ПЛМ — из ПЛМ-READER."""
+    с 27.09). Состояние теперь читаем из агентской `usage_meta`, а ПЛМ — из ПЛМ-READER.
+
+    ЖИВАЯ НАХОДКА 04.10.2026 (баг из эстафеты волн 9–12): таблица `usage_meta` УДАЛЕНА из
+    agent.sqlite при переезде на ПЛМ-READER (см. db_tools.py:35), но чтение здесь осталось —
+    и `nightly_state` падал с «no such table: usage_meta» (лог агента 04.10 10:31).
+    Лечение: сначала ПРОВЕРЯЕМ наличие таблицы; состояние ночи берём из таблицы `files`
+    (сколько проиндексировано), а ПЛМ-состояние — из ПЛМ-READER, как и задумано."""
+    out = ""
     try:
         import core
         c = core.db()
         try:
-            rows = c.execute("SELECT * FROM usage_meta").fetchall()
-            cols = [d[0] for d in c.execute("SELECT * FROM usage_meta LIMIT 0").description]
+            have = {r[0] for r in c.execute(
+                "SELECT name FROM sqlite_master WHERE type='table'")}
+            if "usage_meta" in have:
+                rows = c.execute("SELECT * FROM usage_meta").fetchall()
+                cols = [d[0] for d in c.execute("SELECT * FROM usage_meta LIMIT 0").description]
+                out = ("; ".join("=".join(map(str, r)) for r in rows) if rows else "(usage_meta пуст)")
+                out = "usage_meta(%s): %s" % (",".join(cols), out)
+            else:
+                # Таблицы usage_meta больше нет (переход на ПЛМ-READER) — показываем живой индекс.
+                parts = []
+                if "files" in have:
+                    parts.append("файлов в индексе: %d" %
+                                 c.execute("SELECT COUNT(*) FROM files").fetchone()[0])
+                if "fts_index" in have:
+                    parts.append("строк в FTS: %d" %
+                                 c.execute("SELECT COUNT(*) FROM fts_index").fetchone()[0])
+                if "chunks" in have:
+                    parts.append("чанков: %d" %
+                                 c.execute("SELECT COUNT(*) FROM chunks").fetchone()[0])
+                out = "состояние индекса: %s" % (", ".join(parts) if parts else "индекс не собран")
+                out += " | usage_meta удалена 03.10 (переход на ПЛМ-READER)"
         finally:
             c.close()
-        out = ("; ".join("=".join(map(str, r)) for r in rows) if rows else "(usage_meta пуст)")
-        out = "usage_meta(%s): %s" % (",".join(cols), out)
     except Exception as e:
-        out = "usage_meta не прочитан: %s" % e
+        out = "состояние не прочитано: %s" % e
     try:
         import plm_reader_tools as PRT
         return out + "\nПЛМ: " + PRT.tool_plm_summary().replace("\n", " | ")

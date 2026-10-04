@@ -6,10 +6,12 @@
 """
 import plm_reader_tools as PRT
 
-TOOLS = [
-    {"name": "map", "desc": "Карта проекта: корни и топ моделей по связям (ПЛМ-READER)",
-     "params": {"top": "сколько топовых моделей"}, "fn": "build_map"}
-]
+# ВНИМАНИЕ (ЖИВАЯ НАХОДКА 04.10.2026): блок `TOOLS` стоял ВЫШЕ функции build_map, и при
+# загрузке реестра Python падал с «name 'build_map' is not defined» — блок map_tools
+# НЕ ПОДКЛЮЧАЛСЯ ВОВСЕ (цитата из лога: «реестр: блок <map_tools> НЕ загружен»).
+# Реестр грузит блоки по glob, но NameError на импорте глушил весь блок.
+# Теперь объявление TOOLS стоит ПОСЛЕ функции — как в остальных блоках дома.
+
 
 def build_map(top_n=100):
     """Корни папок и топ моделей по числу связей (вниз + вверх) из links ПЛМ-READER."""
@@ -38,3 +40,12 @@ def build_map(top_n=100):
         top.append({"name": des, "path": path, "root": root, "links": cnt})
     return {"roots": sorted(roots.values(), key=lambda r: r["links"], reverse=True)[:30],
             "top": top, "db": PRT._where_db()}
+
+
+# ЖИВАЯ НАХОДКА 04.10.2026 (аудит dev\audit_tools.py): здесь стояло "fn": "build_map" —
+# СТРОКОЙ, а tools_registry.execute() вызывает t["fn"](...) как функцию. Даже будь блок
+# загружен, отказ был бы «'str' object is not callable» (в логе агента 04.10 10:30:20).
+TOOLS = [
+    {"name": "map", "desc": "Карта проекта: корни и топ моделей по связям (ПЛМ-READER)",
+     "params": {"top": "сколько топовых моделей"}, "fn": build_map}
+]
