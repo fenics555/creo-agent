@@ -139,14 +139,22 @@ def tool_harvest_verdict(q):
 
 
 TOOLS = [
+    # ПРАВКА 04.10.2026: у блока не было `kind`, поэтому `tools_registry` относил все пять
+    # инструментов в `other`, и проверка `dev\vol1_check.py` падала («карта: other=5»).
+    # Инструменты только читают — значит `kind: read`, как у соседей по смыслу.
     {"name": "harvest_summary", "desc": "Сводка базы чесалки HARVEST (модели, пары)",
-     "params": {}, "approval": False, "fn": tool_harvest_summary},
+     "kind": "read", "group": "PLM/базы", "params": {}, "approval": False,
+     "fn": tool_harvest_summary},
     {"name": "harvest_pair", "desc": "Пара модель-чертёж из базы чесалки",
-     "params": {"q": "имя"}, "approval": False, "fn": tool_harvest_pair},
+     "kind": "read", "group": "PLM/базы", "params": {"q": "имя"}, "approval": False,
+     "fn": tool_harvest_pair},
     {"name": "harvest_find", "desc": "Есть ли модель в чесалке по имени",
-     "params": {"q": "имя", "limit": "сколько"}, "approval": False, "fn": tool_harvest_find},
+     "kind": "read", "group": "PLM/базы", "params": {"q": "имя", "limit": "сколько"},
+     "approval": False, "fn": tool_harvest_find},
     {"name": "harvest_registry", "desc": "Реестр пар со свежестью (чесалка, только чтение)",
-     "params": {"root_filter": "корень"}, "approval": False, "fn": tool_harvest_registry},
+     "kind": "read", "group": "PLM/базы", "params": {"root_filter": "корень"},
+     "approval": False, "fn": tool_harvest_registry},
     {"name": "harvest_verdict", "desc": "Актуален ли чертёж против модели",
-     "params": {"q": "имя"}, "approval": False, "fn": tool_harvest_verdict},
+     "kind": "read", "group": "PLM/базы", "params": {"q": "имя"}, "approval": False,
+     "fn": tool_harvest_verdict},
 ]

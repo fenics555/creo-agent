@@ -28,10 +28,10 @@ def chk(name, cond, detail=""):
 #    plan_build, plan_run, plan_report — волна 8)
 # ЧИСЛА СТАРЕЮТ КАЖДЫЙ ХОД (грабля волн 6-7): пересчитаны 03.10.2026 живым прогоном.
 TOTAL = len(TR.TOOLS)
-chk("реестр: 180 инструментов (162 старых + 18 новых волн 1–8)", TOTAL == 180,
+chk("реестр: 185 инструментов (180 волн 1–8 + 5 моста к чесалке)", TOTAL == 185,
     "фактически %d" % TOTAL)
-chk("реестр: 52 блока (46 + hol_tools, rules_tools, checks_tools, drawing_audit_tools, "
-    "batch_params_tools, plan_run_tools)", len(TR.BLOCKS) == 52,
+chk("реестр: 53 блока (52 + harvest_reader_tools — мост к базе чесалки)",
+    len(TR.BLOCKS) == 53,
     "фактически %d" % len(TR.BLOCKS))
 
 # 2. карта: все инструменты получили тип, ни один не «other»

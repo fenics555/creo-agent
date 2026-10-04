@@ -1,0 +1,4 @@
+ПОРТ 8080: ОТВЕЧАЕТ
+CREOSON connection -> {"status":{"error":false},"data":{"running":true}}
+CREOSON is_creo_running -> {"status":{"error":true,"message":"Invalid command: is_creo_running"},"data":null}
+POST /ask -> ОШИБКА (HTTP Error 404: Not Found)
