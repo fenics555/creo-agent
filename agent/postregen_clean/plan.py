@@ -83,15 +83,59 @@ def parse_masks(text):
 STOP = {"flag": False}   # флаг СТОП между моделями; кнопка окна ставит его в True
 
 
+def creoson_url():
+    """ЕДИНЫЙ источник адреса CREOSON: настройка агента `creoson_url`.
+
+    АУДИТ 04.10.2026: в коде был зашит порт 8080, а адрес на самом деле живёт
+    в settings.get("creoson_url") (creo_tools.py:14). Два источника истины —
+    при смене порта проверка стека врала бы. Теперь адрес один."""
+    import urllib.parse
+    try:
+        sys.path.insert(0, _AGENT)
+        import settings as S
+        url = S.get("creoson_url") or "http://127.0.0.1:8080/creoson"
+    except Exception:
+        url = "http://127.0.0.1:8080/creoson"
+    u = urllib.parse.urlparse(url)
+    return u.hostname or "127.0.0.1", int(u.port or 8080)
+
+
+def write_allowed(path):
+    """ЩИТ ЗАПИСИ: можно ли писать в эту модель. Возвращает (можно?, причина).
+
+    АУДИТ 04.10.2026: запрет «на Z: только чтение» был ТОЛЬКО в комментариях и
+    README, а кода не было — указав сетевую папку, программа переписала бы
+    боевые модели. Теперь запрет настоящий: сетевой диск и UNC-путь не пишутся
+    (сломать их можно только прямой правкой этой строки)."""
+    p = Path(str(path))
+    raw = str(p)
+    if raw.startswith("\\\\") or raw.startswith("//"):
+        return False, "сетевой путь UNC не пишется: %s" % raw
+    drive = p.drive.rstrip(":").upper()
+    # Локальные диски — те, что физически на этой машине (жёсткий/SSD).
+    import string
+    if drive not in [chr(c) for c in string.ascii_uppercase]:
+        return False, "неизвестный диск %r: %s" % (drive, raw)
+    import os
+    try:
+        if not os.path.exists(drive + ":\\"):
+            return False, "диска %s: нет на этой машине (сетевой?) — запись запрещена: %s" \
+                % (drive, raw)
+    except Exception as e:
+        return False, "не удалось проверить диск %s: (%s)" % (drive, e)
+    return True, "диск %s: локальный" % drive
+
+
 def stack_ready(timeout=3):
     """Готов ли стек к работе: (готов?, причина). Честный отказ, а не «успех»."""
     import socket
+    host, port = creoson_url()
     s = socket.socket()
     s.settimeout(timeout)
     try:
-        s.connect(("127.0.0.1", 8080))
+        s.connect((host, port))
     except Exception:
-        return False, "CREOSON не отвечает (порт 8080)"
+        return False, "CREOSON не отвечает (%s:%s)" % (host, port)
     finally:
         s.close()
     try:
@@ -110,14 +154,16 @@ def stack_ready(timeout=3):
 def open_read(path, timeout=30):
     """Открыть модель в сессии ДЛЯ ЧТЕНИЯ. Возвращает (ok, причина).
 
-    ЖИВАЯ НАХОДКА 04.10.2026: без открытия `file:postregen_relations_get` отвечает
-    «File ... was not open» — уравнения пост-регенерации читаются только у
-    открытой модели. Открытие не пишет на диск."""
+    ЖИВАЯ НАХОДКА 04.10.2026 (probe_open_active): без открытия
+`file:postregen_relations_get` отвечает «File ... was not open». ВТОРАЯ НАХОДКА
+той же пробы: при `display:false` модель грузится, но активного окна нет и
+`file:get_active` отдаёт пустой `data` {} — поэтому activate нужен БЕЗ
+display:false. Открытие само по себе на диск не пишет."""
     import creo_tools as CT
     p = Path(path)
     j = CT.creo_call("file", "open",
                      {"dirname": str(p.parent), "file": p.name,
-                      "display": False, "activate": True}, timeout)
+                      "activate": True}, timeout)
     if CT.ok(j):
         return True, "открыта %s" % p.name
     return False, CT.errmsg(j)

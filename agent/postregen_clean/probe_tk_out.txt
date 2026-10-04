@@ -1,0 +1,13 @@
+python: 3.14.7 (tags/v3.14.7:823f032, Aug  5 2026, 10:51:32) [MSC v.1944 64 bit (AMD64)]
+импорт tkinter: ОК
+создание Tk(): ОК
+ОШИБКА Tk: '_tkinter.tkapp' object has no attribute 'Label'
+Traceback (most recent call last):
+  File "D:\AI\tools\agent\probe_tk.py", line 28, in main
+    nb = ttk_probe(r)
+  File "D:\AI\tools\agent\probe_tk.py", line 46, in ttk_probe
+    lbl = r.Label(text="Плашка", bg="#f4f4f2")
+          ^^^^^^^
+  File "C:\Users\User\AppData\Local\Programs\Python\Python314\Lib\tkinter\__init__.py", line 2592, in __getattr__
+    return getattr(self.tk, attr)
+AttributeError: '_tkinter.tkapp' object has no attribute 'Label'

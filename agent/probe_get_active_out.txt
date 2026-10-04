@@ -1,0 +1,4 @@
+СЫРОЙ ОТВЕТ: {"status": {"error": false}, "data": {}}
+ok() = True
+data = {}
+list_files: {"status": {"error": false}, "data": {"filelist": ["CREO-START.bat", "CREO-START.vbs", "agent_url.txt", "config.pro", "config.win", "creo_parametric_customization.ui", "std.err", "std.out", "ЖУРНАЛ.md", "СПЕКА_CREO.md"]}}

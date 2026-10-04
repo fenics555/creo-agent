@@ -1,0 +1,22 @@
+Traceback (most recent call last):
+  File "D:\AI\tools\agent\postregen_clean\gui.py", line 248, in <module>
+    App(r)
+    ~~~^^^
+  File "D:\AI\tools\agent\postregen_clean\gui.py", line 62, in __init__
+    self.build()
+    ~~~~~~~~~~^^
+  File "D:\AI\tools\agent\postregen_clean\gui.py", line 85, in build
+    self.tbl = U.SettingsTable(right, spec, log=self.log,
+               ~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^
+                               on_apply=self.save_settings)
+                               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "D:\AI\tools\agent\ui_common.py", line 235, in __init__
+    self.refresh()
+    ~~~~~~~~~~~~^^
+  File "D:\AI\tools\agent\ui_common.py", line 253, in refresh
+    self.log("настроек: %d, изменено: %d" % (len(self.spec), n))
+    ~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "D:\AI\tools\agent\postregen_clean\gui.py", line 95, in log
+    self._log_write(s)
+    ^^^^^^^^^^^^^^^
+AttributeError: 'App' object has no attribute '_log_write'

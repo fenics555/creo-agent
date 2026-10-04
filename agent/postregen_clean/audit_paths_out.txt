@@ -1,0 +1,99 @@
+КАРТА ПУТЕЙ: postregen_clean (04.10.2026)
+==============================================================================
+
+### D:\AI\tools\agent\postregen_clean\plan.py
+-- ПУТИ-КОНСТАНТЫ (3):
+   стр.30: D:\AI\log\postregen_clean
+   стр.31: D:\AI\log\reports
+   стр.35: D:\AI\PROBA\postregen_clean
+-- ПИШЕТ (11):
+   plan.py:120 creo_call ['file', 'open']
+   plan.py:137 creo_call ['file', 'postregen_relations_get']
+   plan.py:155 creo_call ['parameter', 'list']
+   plan.py:172 creo_call ['feature', 'list']
+   plan.py:270 mkdir []
+   plan.py:299 write_text []
+   plan.py:300 write_text []
+   plan.py:66 replace [',', ';']
+   plan.py:80 replace [',', ';']
+   plan.py:348 replace [',', ';']
+   plan.py:293 replace ['|', '/']
+-- ЧИТАЕТ (2):
+   plan.py:49 walk []
+   plan.py:43 exists []
+
+### D:\AI\tools\agent\postregen_clean\apply.py
+-- ПУТИ-КОНСТАНТЫ (0):
+-- ПИШЕТ (13):
+   apply.py:83 creo_call ['file', 'postregen_relations_set']
+   apply.py:93 creo_call ['parameter', 'delete']
+   apply.py:103 creo_call ['feature', 'rename']
+   apply.py:130 creo_call ['file', 'open']
+   apply.py:142 creo_call ['file', 'refresh']
+   apply.py:145 creo_call ['file', 'save']
+   apply.py:222 mkdir []
+   apply.py:223 mkdir []
+   apply.py:235 write_text []
+   apply.py:41 replace ['//', '/']
+   apply.py:62 creo_call ['file', 'get_active']
+   apply.py:39 replace ['\\', '/']
+   apply.py:234 replace ['|', '/']
+-- ЧИТАЕТ (2):
+   apply.py:246 loads []
+   apply.py:246 read_text []
+
+### D:\AI\tools\agent\postregen_clean\gui.py
+-- ПУТИ-КОНСТАНТЫ (0):
+-- ПИШЕТ (1):
+   gui.py:197 replace ['|', '/']
+-- ЧИТАЕТ (3):
+   gui.py:88 load_settings []
+   gui.py:143 loads []
+   gui.py:143 read_text []
+
+### D:\AI\tools\agent\ui_common.py
+-- ПУТИ-КОНСТАНТЫ (1):
+   стр.37: D:\AI\log\win_check
+-- ПИШЕТ (4):
+   ui_common.py:80 mkdir []
+   ui_common.py:82 write_text []
+   ui_common.py:461 move []
+   ui_common.py:461 move []
+-- ЧИТАЕТ (4):
+   ui_common.py:69 exists []
+   ui_common.py:176 read_text []
+   ui_common.py:70 loads []
+   ui_common.py:70 read_text []
+
+### D:\AI\tools\agent\creo_tools.py
+-- ПУТИ-КОНСТАНТЫ (1):
+   стр.298: D:\PTC\CREO-LOCAL-SETUP\TEMP\trails
+-- ПИШЕТ (20):
+   creo_tools.py:151 creo_call ['file', 'list']
+   creo_tools.py:156 creo_call ['file', 'get_active']
+   creo_tools.py:162 creo_call ['creo', 'pwd']
+   creo_tools.py:168 creo_call ['creo', 'list_files']
+   creo_tools.py:220 creo_call ['file', 'relations_get']
+   creo_tools.py:249 creo_call ['file', 'massprops']
+   creo_tools.py:267 creo_call ['bom', 'get_paths']
+   creo_tools.py:283 creo_call ['bom', 'get_paths']
+   creo_tools.py:288 creo_call ['file', 'open_errors']
+   creo_tools.py:310 creo_call ['file', 'open']
+   creo_tools.py:107 creo_raw []
+   creo_tools.py:183 creo_call ['parameter', 'list']
+   creo_tools.py:196 creo_call ['parameter', 'list']
+   creo_tools.py:336 creo_call ['file', 'open']
+   creo_tools.py:338 creo_call ['parameter', 'list']
+   creo_tools.py:345 creo_call ['file', 'erase']
+   creo_tools.py:321 creo_call ['creo', 'list_files']
+   creo_tools.py:318 creo_call ['file', 'list']
+   creo_tools.py:323 creo_call ['creo', 'list_files']
+   creo_tools.py:294 creo_call ['creo', 'get_config']
+-- ЧИТАЕТ (4):
+   creo_tools.py:20 load []
+   creo_tools.py:305 read_text []
+   creo_tools.py:301 glob ['trail.txt.*']
+   creo_tools.py:304 stat []
+
+==============================================================================
+ИТОГО: путей 5, записей 49, чтений 15

@@ -1,0 +1,8 @@
+OPEN display=false activate=true -> {"status": {"error": false}, "data": {"files": ["PROBE_REGEN_20261004.prt"], "dirname": "D:D:/AI/PROBA/postregen_clean/"}}
+display=false activate=true -> get_active: {"status": {"error": false}, "data": {}}
+OPEN display=true activate=true -> {"status": {"error": false}, "data": {"files": ["PROBE_REGEN_20261004.prt"], "dirname": "D:D:/AI/PROBA/postregen_clean/"}}
+display=true activate=true -> get_active: {"status": {"error": false}, "data": {"file": "probe_regen_20261004.prt", "dirname": "D:D:/AI/PROBA/postregen_clean/"}}
+OPEN только activate -> {"status": {"error": false}, "data": {"files": ["PROBE_REGEN_20261004.prt"], "dirname": "D:D:/AI/PROBA/postregen_clean/"}}
+только activate -> get_active: {"status": {"error": false}, "data": {"file": "probe_regen_20261004.prt", "dirname": "D:D:/AI/PROBA/postregen_clean/"}}
+postregen_get file=D:\AI\PROBA\postregen_clean\probe_regen_20261004.prt -> {"status": {"error": false}, "data": {"relations": ["mass=pro_mp_mass"]}}
+postregen_get file=probe_regen_20261004.prt -> {"status": {"error": false}, "data": {"relations": ["mass=pro_mp_mass"]}}

@@ -120,14 +120,18 @@ def _act(kind, path, target, rename_to=""):
 
 
 def _open_model(path):
-    """Открыть модель в сессии (без показа) — запись требует открытой модели."""
+    """Открыть модель в сессии и СДЕЛАТЬ АКТИВНОЙ — запись идёт по активной модели.
+
+    ЖИВАЯ НАХОДКА 04.10.2026 (probe_open_active): при `display:false` модель
+    грузится, но активного окна нет — `file:get_active` отдаёт пустой `data`,
+    и щит ensure_active справедливо refuses. Поэтому activate БЕЗ display:false."""
     import creo_tools as CT
     p = Path(path)
     j = CT.creo_call("file", "open",
                      {"dirname": str(p.parent), "file": p.name,
-                      "display": False, "activate": True}, 30)
+                      "activate": True}, 40)
     if CT.ok(j):
-        return True, "открыта %s" % p.name
+        return True, "открыта и активна %s" % p.name
     return False, CT.errmsg(j)
 
 
@@ -159,6 +163,17 @@ def apply_plan(plan, approve=False, dry_run=False, on_log=None):
     steps = [s for s in plan.get("steps", []) if s["verdict"] in TO_WRITE]
     if not steps:
         return {"rc": 0, "detail": "нечего применять: всё same/read_fail", "done": 0}
+    # ЩИТ ЗАПИСИ: сетевые и несуществующие диски не пишем (аудит 04.10.2026).
+    denied = []
+    for s in steps:
+        ok, why = P.write_allowed(s["file"])
+        if not ok and (s["file"], why) not in denied:
+            denied.append((s["file"], why))
+    if denied:
+        f, why = denied[0]
+        return {"rc": 5, "stack_ready": False,
+                "detail": ("ЗАПИСЬ ЗАПРЕЩЕНА щитом: %s (%s). Всего запрещённых целей: %d. "
+                           "Запись НЕ выполнялась." % (f, why, len(denied)))}
     if not approve:
         return {"rc": 3, "detail": "НЕ СОГЛАСОВАНО: запись не начиналась",
                 "planned": len(steps)}

@@ -1,0 +1,4 @@
+  FAIL probe_regen_20261004.prt PTC_* (Could not delete parameter PTC_MASTER_MATERIAL from model probe_regen_20261004.prt)
+  OK  сохранение probe_regen_20261004.prt (пересчитано и сохранено)
+ПРИМЕНЕНИЕ ПЛАНА: RC 1 - вышло: 0 из 1
+отчёт: D:\AI\log\reports\REPORT_postregen_clean_apply_2026-10-04_200953.md

@@ -1,0 +1,4 @@
+  OK  probe_regen_20261004.prt MC_ERRORS (параметры MC_ERRORS удалены)
+  OK  сохранение probe_regen_20261004.prt (пересчитано и сохранено)
+ПРИМЕНЕНИЕ ПЛАНА: RC 0 - вышло: 1 из 1
+отчёт: D:\AI\log\reports\REPORT_postregen_clean_apply_2026-10-04_201032.md
