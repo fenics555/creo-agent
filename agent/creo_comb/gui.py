@@ -1,14 +1,15 @@
 # -*- coding: utf-8 -*-
 """creo_comb — ОКНО «чесалки» (параметры, уравнения, ограничения, кто есть кто).
 
+ВЕРСИЯ ОКНА: V2 (04.10.2026 — перевод на каркас ui_common).
 Запуск: creo_comb_gui.bat. Большинству режимов нужен запущенный Creo (JLINK, без CREOSON);
 `tpl-plan` работает без Creo.
 Движок — `creo_comb.bat` в этой же папке (класс Ж): окно собирает команду и показывает вывод.
 ЗАПИСЬ в модели делает только режим `add` и только с флагом `--apply` (копии ложатся в `_pre`).
 """
-import json
 import os
 import subprocess
+import sys
 import time
 import threading
 import tkinter as tk
@@ -16,8 +17,14 @@ from pathlib import Path
 from tkinter import filedialog, messagebox
 
 HERE = Path(__file__).resolve().parent
+sys.path.insert(0, str(HERE))
+sys.path.insert(0, str(HERE.parent))
+import ui_common as U  # noqa: E402  (общий каркас окон дома)
+
 BAT = HERE / "creo_comb.bat"
-SETTINGS = Path(r"D:\AI\tools\agent\data\creo_comb_settings.json")   # манифест п.19: настройки в data\
+TITLE = "ЧЕСАЛКА CREO (creo_comb)"
+DEFAULTS = {"mode": "tpl-plan", "arg1": "", "arg2": "",
+            "apply": False, "empty_first": False, "force": False, "save": False}
 
 MODES = [
     ("tpl-plan — шаблоны конфига: что прописано и есть ли файл (без Creo)", "tpl-plan"),
@@ -38,93 +45,104 @@ WRITE_MODES = {"add", "setparam", "mkparam"}
 
 
 class App:
-    def __init__(self, root):
-        self.root = root
-        self.root.title("V1 — ЧЕСАЛКА CREO (creo_comb)")
-        self.root.geometry("980x640")
+    def __init__(self, root=None):
+        self.root = root or U.make_root("V2 — " + TITLE, "1020x640", minsize=(900, 560))
         self.st = self.load()
         self.proc = None
         self.build()
 
     def load(self):
-        d = {"mode": "tpl-plan", "arg1": "", "arg2": "",
-             "apply": False, "empty_first": False, "force": False, "save": False}
-        try:
-            if SETTINGS.exists():
-                d.update(json.loads(SETTINGS.read_text(encoding="utf-8")))
-        except Exception:
-            pass
-        return d
+        # Тот же файл data\creo_comb_settings.json, что был прописан константой; меняется способ
+        # (через каркас), чтобы окно не вело свою копию пути настроек.
+        return U.load_settings("creo_comb", DEFAULTS)
 
     def save(self):
+        # ГРАБЛЯ ТАКОГО ЖЕ РОДА, что в log_clean (04.10.2026): сохраняем значения ИЗ ОКНА,
+        # а не сам словарь — иначе в файл уедут пустые аргументы и сброшенный режим.
         try:
             self.st.update({"mode": self.lab2mode.get(self.var_label.get(), "tpl-plan"),
                             "arg1": self.var_arg1.get(), "arg2": self.var_arg2.get(),
-                            "apply": bool(self.var_apply.get()), "empty_first": bool(self.var_empty.get()),
-                            "force": bool(self.var_force.get()), "save": bool(self.var_save.get())})
-            SETTINGS.write_text(json.dumps(self.st, ensure_ascii=False, indent=1), encoding="utf-8")
-        except Exception:
-            pass
+                            "apply": bool(self.var_apply.get()),
+                            "empty_first": bool(self.var_empty.get()),
+                            "force": bool(self.var_force.get()),
+                            "save": bool(self.var_save.get())})
+        except (tk.TclError, AttributeError):
+            return          # окно ещё не собрано (save зовут галочки при создании)
+        out = U.save_settings("creo_comb", self.st)
+        if str(out).startswith("ошибка"):
+            self.log("настройки не сохранены: %s" % out)
 
     def build(self):
-        top = tk.LabelFrame(self.root, text=" НАСТРОЙКИ ", padx=10, pady=8)
-        top.pack(fill="x", padx=10, pady=8)
+        # --- каркас: вывод СЛЕВА, настройки СПРАВА (константа 5) ---
+        U.head(self.root, TITLE,
+               "Собирает команду чесалки и показывает вывод. Большинству режимов нужен запущенный "
+               "Creo (JLINK, без CREOSON); tpl-plan работает без него. "
+               "ЗАПИСЬ в модели делает только режим add и только с флагом --apply "
+               "(копии ложатся в _pre рядом с моделью).")
+        left, right = U.split_result_left(self.root, right_width=400)
 
-        tk.Label(top, text="Режим:").grid(row=0, column=0, sticky="w")
+        _, btns = U.actions(left,
+                            primary=(("ЗАПУСТИТЬ", self.run),),
+                            secondary=(("СТОП", self.stop),
+                                       ("Проверить Creo", self.check_creo),
+                                       ("Открыть папку _pre", self.open_pre)))
+        self.b_run, self.b_stop = btns[0], btns[1]
+        self.b_stop.config(state="disabled")
+
+        self.warn_var = tk.StringVar(value="")
+        tk.Label(left, textvariable=self.warn_var, anchor="w", bg="#fff1c7", padx=8,
+                 pady=4).pack(fill="x", padx=6, pady=(6, 0))
+        self.info, self._log = U.log_view(left, height=16, title="ВЫВОД ЧЕСАЛКИ")
+
+        # --- справа: вкладка настроек (константа 3) ---
+        _nb, pages = U.tabs(right, ["Режим и аргументы"])
+        top = pages[0]
+
+        tk.Label(top, text="Режим:", bg=U.BG).grid(row=0, column=0, sticky="w", padx=8, pady=(8, 2))
         labels = [m[0] for m in MODES]
         self.lab2mode = {m[0]: m[1] for m in MODES}
         self.mode2lab = {m[1]: m[0] for m in MODES}
         self.var_label = tk.StringVar(value=self.mode2lab.get(self.st["mode"], labels[0]))
         om = tk.OptionMenu(top, self.var_label, *labels, command=lambda *_: self.mode_changed())
-        om.config(width=72, anchor="w")
-        om.grid(row=0, column=1, columnspan=2, sticky="w", padx=6)
+        om.config(width=48, anchor="w")
+        om.grid(row=1, column=0, columnspan=3, sticky="ew", padx=8)
 
-        tk.Label(top, text="Папка / файл:").grid(row=1, column=0, sticky="w", pady=4)
+        tk.Label(top, text="Папка / файл:", bg=U.BG).grid(row=2, column=0, sticky="w", pady=(8, 2))
         self.var_arg1 = tk.StringVar(value=self.st["arg1"])
-        tk.Entry(top, textvariable=self.var_arg1, width=64).grid(row=1, column=1, padx=6)
-        tk.Button(top, text="Папка…", command=self.browse_dir).grid(row=1, column=2, sticky="w")
-        tk.Button(top, text="Файл…", command=self.browse_file).grid(row=2, column=2, sticky="w")
+        tk.Entry(top, textvariable=self.var_arg1).grid(row=3, column=0, columnspan=2, sticky="ew", padx=8)
+        tk.Button(top, text="Папка…", command=self.browse_dir).grid(row=3, column=2, sticky="w")
+        tk.Button(top, text="Файл…", command=self.browse_file).grid(row=4, column=2, sticky="w")
 
-        tk.Label(top, text="Второй аргумент (config.pro / имя модели / ASM|PART):").grid(row=3, column=0, sticky="w", pady=4)
+        tk.Label(top, text="Второй аргумент (config.pro / имя модели / ASM|PART):",
+                 bg=U.BG).grid(row=5, column=0, sticky="w", pady=(8, 2))
         self.var_arg2 = tk.StringVar(value=self.st["arg2"])
-        tk.Entry(top, textvariable=self.var_arg2, width=64).grid(row=3, column=1, padx=6)
-        tk.Button(top, text="config.pro…", command=self.browse_cfg).grid(row=3, column=2, sticky="w")
+        tk.Entry(top, textvariable=self.var_arg2).grid(row=6, column=0, columnspan=2, sticky="ew", padx=8)
+        tk.Button(top, text="config.pro…", command=self.browse_cfg).grid(row=6, column=2, sticky="w")
 
-        flags = tk.Frame(top)
-        flags.grid(row=4, column=0, columnspan=3, sticky="w", pady=6)
+        flags = tk.Frame(top, bg=U.BG)
+        flags.grid(row=7, column=0, columnspan=3, sticky="w", padx=8, pady=8)
         self.var_apply = tk.BooleanVar(value=self.st["apply"])
         self.var_empty = tk.BooleanVar(value=self.st["empty_first"])
         self.var_force = tk.BooleanVar(value=bool(self.st.get("force")))
         self.var_save = tk.BooleanVar(value=bool(self.st.get("save")))
-        tk.Checkbutton(flags, text="--apply (ПИСАТЬ в модели)", variable=self.var_apply,
+        tk.Checkbutton(flags, text="--apply (ПИСАТЬ)", bg=U.BG, variable=self.var_apply,
                        command=self.save).pack(side="left", padx=4)
-        tk.Checkbutton(flags, text="--empty-first", variable=self.var_empty,
+        tk.Checkbutton(flags, text="--empty-first", bg=U.BG, variable=self.var_empty,
                        command=self.save).pack(side="left", padx=4)
-        tk.Checkbutton(flags, text="-f", variable=self.var_force, command=self.save).pack(side="left", padx=4)
-        tk.Checkbutton(flags, text="--save", variable=self.var_save, command=self.save).pack(side="left", padx=4)
-
-        btns = tk.Frame(self.root)
-        btns.pack(fill="x", padx=10, pady=(0, 6))
-        self.b_run = tk.Button(btns, text="ЗАПУСТИТЬ", width=16, command=self.run)
-        self.b_run.pack(side="left", padx=4)
-        self.b_stop = tk.Button(btns, text="СТОП", width=10, state="disabled", command=self.stop)
-        self.b_stop.pack(side="left", padx=4)
-        tk.Button(btns, text="Проверить Creo", command=self.check_creo).pack(side="left", padx=4)
-        tk.Button(btns, text="Открыть папку _pre (копии перед записью)",
-                  command=lambda: self.open_dir(str(Path(self.var_arg1.get()) / "_pre"))).pack(side="left", padx=4)
-        tk.Button(btns, text="README", command=self.show_readme).pack(side="left", padx=4)
-
-        self.warn = tk.Label(self.root, text="", anchor="w", bg="#fff1c7", padx=8, pady=4)
-        self.warn.pack(fill="x", padx=10, pady=(6, 0))
-
-        self.info = tk.Text(self.root, height=20, font=("Consolas", 9), bg="#f8f9fa")
-        self.info.pack(fill="both", expand=True, padx=10, pady=8)
+        tk.Checkbutton(flags, text="-f", bg=U.BG, variable=self.var_force,
+                       command=self.save).pack(side="left", padx=4)
+        tk.Checkbutton(flags, text="--save", bg=U.BG, variable=self.var_save,
+                       command=self.save).pack(side="left", padx=4)
+        U.readme_button(flags, str(HERE), self.log)
+        top.columnconfigure(0, weight=1)
         self.mode_changed()
 
     # ---------- вспомогательное ----------
     def log(self, s):
-        self.info.insert("end", s)
-        self.info.see("end")
+        self._log(s)
+
+    def open_pre(self):
+        self.open_dir(str(Path(self.var_arg1.get()) / "_pre"))
 
     def open_dir(self, p):
         try:
@@ -141,7 +159,7 @@ class App:
         notes.append("Creo не нужен" if mode in NO_CREO else "нужен запущенный Creo")
         if mode == "setparam":
             notes.append("второй аргумент: TYP ASM (сборка) или TYP PART (деталь)")
-        self.warn.config(text=" • ".join(notes))
+        self.warn_var.set(" • ".join(notes))
         self.save()
 
     def browse_dir(self):
@@ -192,7 +210,7 @@ class App:
         if self.var_save.get() and mode in ("setparam", "mkparam"):
             args.append("--save")
 
-        self.info.delete("1.0", "end")
+        self.info.winfo_children()[0].delete("1.0", "end")   # очистка панели каркаса
         self.log("команда: %s\n\n" % " ".join('"%s"' % a if " " in a else a for a in args[1:]))
         self.b_run.config(state="disabled")
         self.b_stop.config(state="normal")
@@ -227,24 +245,12 @@ class App:
         self.proc = None
         self.b_run.config(state="normal")
         self.b_stop.config(state="disabled")
-    def show_readme(self):
-        p = Path(__file__).resolve().parent / "README.md"
-        try:
-            text = p.read_text(encoding="utf-8")
-        except Exception as e:
-            self.log("README не прочитан: %s\n" % e)
-            return
-        self.log("=" * 100 + "\n")
-        self.log("README: %s\n" % p)
-        self.log("=" * 100 + "\n")
-        for line in text.splitlines():
-            self.log(line + "\n")
-        self.log("=" * 100 + "\n")
-        self.log("конец README\n")
 
+
+# Метод show_readme удалён 04.10.2026: кнопку README даёт каркас (U.readme_button),
+# поэтому собственный дубль остался бы мёртвым кодом.
 
 
 if __name__ == "__main__":
-    r = tk.Tk()
-    App(r)
-    r.mainloop()
+    # Окно создаёт САМ каркас (make_root) — раньше здесь создавался tk.Tk() вручную.
+    App().root.mainloop()

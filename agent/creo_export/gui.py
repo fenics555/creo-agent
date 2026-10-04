@@ -6,11 +6,16 @@
 """
 import os
 import subprocess
+import sys
 import threading
 import time
 import tkinter as tk
 from pathlib import Path
 from tkinter import filedialog, messagebox
+
+HERE = Path(__file__).resolve().parent
+sys.path.insert(0, str(HERE.parent))
+import ui_common as U  # noqa: E402  (общий каркас окон дома)
 
 HERE = Path(__file__).resolve().parent
 BAT = HERE / "creo_export.bat"
@@ -34,10 +39,10 @@ def _defaults():
 
 
 class App:
-    def __init__(self, root):
-        self.root = root
-        self.root.title("CREO EXPORT V2 — выгрузка из живого Creo (JLINK)")
-        self.root.geometry("900x560")
+    def __init__(self, root=None):
+        # ПЕРЕВОД НА КАРКАС 04.10.2026: make_root даёт заголовок с версией + размеры + minsize.
+        self.root = root or U.make_root("V3 — ВЫГРУЗКА ИЗ ЖИВОГО CREO (JLINK)",
+                                        "1020x660", minsize=(900, 560))
         self.st = self.load()
         self.proc = None
         self.build()
@@ -116,44 +121,55 @@ class App:
             pass
 
     def build(self):
-        top = tk.LabelFrame(self.root, text=" НАСТРОЙКИ ", padx=10, pady=8)
-        top.pack(fill="x", padx=10, pady=8)
+        # ПЕРЕВОД НА КАРКАС 04.10.2026: окно на каркасе. Настройки НЕ трогаем — у программы
+        # своя версионируемая система (settings\creo_export_settings.json, ротация бэкапов),
+        # она по шаблону инструмента лучше каркасной.
+        U.head(self.root, "ВЫГРУЗКА ИЗ ЖИВОГО CREO (JLINK)",
+               "Выгружает модель из запущенного Creo через JLINK. Нужен запущенный Creo "
+               "с работающим прокси (порт 8080). Проверка сессии — кнопкой слева.")
+        left, right = U.split_result_left(self.root, right_width=380)
 
-        tk.Label(top, text="Формат:").grid(row=0, column=0, sticky="w")
+        _, btns = U.actions(left,
+                            primary=(("ВЫГРУЗИТЬ", self.run),),
+                            secondary=(("СТОП", self.stop),
+                                       ("Открыть папку вывода", self.open_out),
+                                       ("Проверить Creo (порт 8080/сессия)", self.check_creo)))
+        self.b_run, self.b_stop = btns[0], btns[1]
+        self.b_stop.config(state="disabled")
+        self.info, self._log = U.log_view(left, height=18, title="ВЫВОД ВЫГРУЗКИ")
+
+        _nb, pages = U.tabs(right, ["Что выгружать"])
+        top = pages[0]
+
+        tk.Label(top, text="Формат:", bg=U.BG).grid(row=0, column=0, sticky="w", padx=8, pady=(8, 2))
         self.var_fmt = tk.StringVar(value=self.st["format"])
-        tk.OptionMenu(top, self.var_fmt, *FORMATS).grid(row=0, column=1, sticky="w", padx=6)
+        tk.OptionMenu(top, self.var_fmt, *FORMATS).grid(row=1, column=0, sticky="w", padx=8)
 
-        tk.Label(top, text="Модель (файл или имя в сессии Creo):").grid(row=1, column=0, sticky="w", pady=4)
+        tk.Label(top, text="Модель (файл или имя в сессии Creo):", bg=U.BG).grid(
+            row=2, column=0, sticky="w", pady=(8, 2))
         self.var_model = tk.StringVar(value=self.st["model"])
-        tk.Entry(top, textvariable=self.var_model, width=64).grid(row=1, column=1, padx=6)
-        tk.Button(top, text="Обзор…", command=self.browse_model).grid(row=1, column=2)
+        tk.Entry(top, textvariable=self.var_model).grid(row=3, column=0, sticky="ew", padx=8)
+        tk.Button(top, text="Обзор…", command=self.browse_model).grid(row=4, column=0, sticky="w", padx=8, pady=4)
 
-        tk.Label(top, text="Папка вывода:").grid(row=2, column=0, sticky="w")
+        tk.Label(top, text="Папка вывода:", bg=U.BG).grid(row=5, column=0, sticky="w", pady=(4, 2))
         self.var_out = tk.StringVar(value=self.st["out"])
-        tk.Entry(top, textvariable=self.var_out, width=64).grid(row=2, column=1, padx=6)
-        tk.Button(top, text="Обзор…", command=self.browse_out).grid(row=2, column=2)
+        tk.Entry(top, textvariable=self.var_out).grid(row=6, column=0, sticky="ew", padx=8)
+        tk.Button(top, text="Обзор…", command=self.browse_out).grid(row=7, column=0, sticky="w", padx=8, pady=4)
 
         self.var_open = tk.BooleanVar(value=self.st["open_after"])
-        tk.Checkbutton(top, text="открыть папку вывода после выгрузки", variable=self.var_open,
-                       command=self.save).grid(row=3, column=1, sticky="w", padx=6)
-
-        btns = tk.Frame(self.root)
-        btns.pack(fill="x", padx=10, pady=(0, 6))
-        self.b_run = tk.Button(btns, text="ВЫГРУЗИТЬ", width=16, command=self.run)
-        self.b_run.pack(side="left", padx=4)
-        self.b_stop = tk.Button(btns, text="СТОП", width=10, state="disabled", command=self.stop)
-        self.b_stop.pack(side="left", padx=4)
-        tk.Button(btns, text="Открыть папку вывода", command=lambda: self.open_dir(self.var_out.get())).pack(side="left", padx=4)
-        tk.Button(btns, text="Проверить Creo (порт 8080/сессия)", command=self.check_creo).pack(side="left", padx=4)
-        tk.Button(btns, text="README", command=self.show_readme).pack(side="left", padx=4)
-
-        self.info = tk.Text(self.root, height=22, font=("Consolas", 9), bg="#f8f9fa")
-        self.info.pack(fill="both", expand=True, padx=10, pady=8)
+        tk.Checkbutton(top, text="открыть папку вывода после выгрузки", bg=U.BG,
+                       variable=self.var_open, command=self.save).grid(row=8, column=0, sticky="w", padx=8)
+        row = tk.Frame(top, bg=U.BG)
+        row.grid(row=9, column=0, sticky="ew", padx=8, pady=8)
+        U.readme_button(row, str(HERE), self.log)
+        top.columnconfigure(0, weight=1)
 
     # ---------- вспомогательное ----------
+    def open_out(self):
+        self.open_dir(self.var_out.get())
+
     def log(self, s):
-        self.info.insert("end", s)
-        self.info.see("end")
+        self._log(s)
 
     def open_dir(self, p):
         try:
@@ -235,23 +251,10 @@ class App:
         if self.var_open.get():
             self.open_dir(self.var_out.get())
 
-    def show_readme(self):
-        p = Path(__file__).resolve().parent / "README.md"
-        try:
-            text = p.read_text(encoding="utf-8")
-        except Exception as e:
-            self.log("README не прочитан: %s\n" % e)
-            return
-        self.log("=" * 100 + "\n")
-        self.log("README: %s\n" % p)
-        self.log("=" * 100 + "\n")
-        for line in text.splitlines():
-            self.log(line + "\n")
-        self.log("=" * 100 + "\n")
-        self.log("конец README\n")
+# Метод show_readme удалён 04.10.2026: кнопку README даёт каркас (U.readme_button),
+# поэтому собственный дубль остался бы мёртвым кодом.
 
 
 if __name__ == "__main__":
-    r = tk.Tk()
-    App(r)
-    r.mainloop()
+    # Окно создаёт САМ каркас (make_root) — раньше здесь создавался tk.Tk() вручную.
+    App().root.mainloop()
