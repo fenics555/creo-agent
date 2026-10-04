@@ -203,6 +203,44 @@ def _run_ui_integrity():
                 % (len(files), n_bad, " — зелёная" if green else " — ЕСТЬ ПРОВАЛ"), items)
 
 
+@check("culture", "Культура дома: отчёты по именам, урна, копии .clinerules", "check", "house", "warn")
+def _run_culture():
+    """04.10.2026 (слово владельца «доделывай» №9): проверка `dev\\culture_check.py` существует и
+    зелёная по существу, но в общий прогон НЕ ВХОДИЛА — то же самое было с витриной до блока
+    `ui_integrity`. Следствие: три настоящих нарушения порядка в доме были видны только тому,
+    кто помнит про этот скрипт. Пункт 21 манифеста требует ОБЯЗАТЕЛЬНОЙ автоматической
+    синхронизации двух копий `.clinerules` — без этого блока расхождение могло бы месяцами
+    жить в тишине.
+
+    Порог `warn`, а не `error`: нарушения здесь — про порядок файлов (чужое имя отчёта, файл
+    в корне урны, временное вне урны), а не про поломку программ. Удалять такие файлы нельзя
+    без прямого слова владельца (манифест п.5), поэтому блок честно показывает долг и оставляет
+    решение человеку."""
+    import subprocess as _sp
+    probe = AGENT / "dev" / "culture_check.py"
+    if not probe.is_file():
+        return _res(False, 0, 1, 0, "нет dev\\culture_check.py")
+    r = _sp.run([sys.executable, "-X", "utf8", str(probe)],
+                capture_output=True, text=True, encoding="utf-8", errors="replace",
+                cwd=str(AGENT), timeout=90)
+    out = (r.stdout or "") + (r.stderr or "")
+    items = []
+    n_checked = 0
+    for line in out.splitlines():
+        s = line.strip()
+        if s.startswith("✅"):
+            n_checked += 1
+        elif s.startswith("❌"):
+            items.append({"icon": "❌", "verdict": "warn", "what": s.lstrip("❌ ").strip()})
+    m = re.search(r"нарушений (\d+), предупреждений (\d+)", out)
+    n_bad = int(m.group(1)) if m else len(items)
+    n_warn = int(m.group(2)) if m else 0
+    # Нарушения — долг порядка, не поломка: прогон не роняем, но долг показываем.
+    return _res(True, n_checked, n_bad, n_warn,
+                "пунктов зелёных %d, нарушений %d, предупреждений %d"
+                % (n_checked, n_bad, n_warn), items)
+
+
 @check("rules", "Правила дома согласованы и срабатывают", "check", "rules", "error")
 def _run_rules():
     """rules_engine: правила валидны, включённые находят совпадения на демо-фактах."""
