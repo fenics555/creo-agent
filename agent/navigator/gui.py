@@ -11,25 +11,31 @@
 """
 import os
 import time
-import subprocess
 import sys
 import threading
 import tkinter as tk
 from pathlib import Path
 from tkinter import filedialog, messagebox, ttk
 
-sys.path.insert(0, str(Path(__file__).resolve().parent))
+HERE = Path(__file__).resolve().parent
+sys.path.insert(0, str(HERE))
+sys.path.insert(0, str(HERE.parent))
 import navigator as eng  # noqa: E402
+import ui_common as U  # noqa: E402  (общий каркас окон дома)
+
+TITLE = "НАВИГАТОР ПО ДОМУ — поиск, деталировка, PDF"
 
 PREVIEW_W = eng.load_settings()["preview_w"]      # из navigator_settings.json, не зашито
 MAX_ZOOM = eng.load_settings()["max_zoom"]
 
 
 class App:
-    def __init__(self, root):
-        self.root = root
-        self.root.title("V1 — НАВИГАТОР ПО ДОМУ — поиск, деталировка, PDF")
-        self.root.geometry("1320x820")
+    def __init__(self, root=None):
+        # ПЕРЕВОД НА КАРКАС 04.10.2026. У этого окна своя составная компоновка (две панели +
+        # канвас PDF с рыбьим глазом), поэтому переносим на каркас только общие признаки дома:
+        # окно с версией в заголовке, minsize, моноширинный журнал и кнопку README. Собственная
+        # раскладка поиска/деталировки/PDF остаётся — она и есть смысл «навигатора».
+        self.root = root or U.make_root("V2 — " + TITLE, "1320x820", minsize=(1000, 620))
         self.results = []
         self.bom_rows = []
         self.pdf_path = None
@@ -114,9 +120,20 @@ class App:
         tk.Button(bar, text="Сохранить картинку…", command=self.save_png).pack(side="left", padx=4)
         tk.Button(bar, text="Состав из живой сессии (Creo)", command=self.live_bom).pack(side="left", padx=4)
         tk.Button(bar, text="Показать полную деталировку (глубже)", command=self.deep_bom).pack(side="left", padx=4)
-        tk.Button(bar, text="README", command=self.show_readme).pack(side="left", padx=4)
+        U.readme_button(bar, str(HERE), self.log)
         self.lab_pdf = tk.Label(bar, text="PDF не выбран", anchor="w", fg="#444")
         self.lab_pdf.pack(side="left", padx=10)
+
+        # --- журнал каркаса: моноширинный, снизу (признак канона «логи Consolas 9») ---
+        self._logbox, self._log = U.log_view(self.root, height=5, title="ЖУРНАЛ")
+
+    def log(self, s):
+        """Журнал окна. Пишет и на экран, и в общий журнал программы — след виден на диске."""
+        self._log(s)
+        try:
+            eng.log_line(str(s))
+        except Exception:
+            pass
 
     # ---------- вспомогательное ----------
     def say(self, s):
@@ -156,7 +173,13 @@ class App:
             try:
                 res = eng.find_words(q, limit=400, only_asm=only)
             except Exception as e:
-                self.root.after(0, lambda: self.say("ошибка поиска: %s" % e))
+                # ГРАБЛЯ (04.10.2026, найдена pyflakes при переводе на каркас): было
+                # `lambda: self.say("ошибка поиска: %s" % e)` — а имя `e` из блока `except`
+                # УДАЛЯЕТСЯ в конце блока (Python 3). Lambda выполнялась позже, через
+                # root.after, и падала с NameError ВМЕСТО честного текста ошибки.
+                # Теперь текст ошибки фиксируется строкой ДО вызова lambda.
+                msg = str(e)
+                self.root.after(0, lambda: self.say("ошибка поиска: %s" % msg))
                 return
             self.root.after(0, lambda: self.show_results(res))
         threading.Thread(target=work, daemon=True).start()
@@ -332,26 +355,10 @@ class App:
             except Exception as e:
                 messagebox.showerror("Не сохранить", str(e))
 
-    def show_readme(self):
-        p = Path(__file__).resolve().parent / "README.md"
-        try:
-            text = p.read_text(encoding="utf-8")
-        except Exception as e:
-            messagebox.showwarning("README", "README не прочитан: %s" % e)
-            return
-        w = tk.Toplevel(self.root)
-        w.title("README — Навигатор")
-        w.geometry("900x600")
-        txt = tk.Text(w, font=("Consolas", 10), padx=8, pady=8)
-        sb = ttk.Scrollbar(w, command=txt.yview)
-        txt.configure(yscrollcommand=sb.set)
-        txt.pack(side="left", fill="both", expand=True)
-        sb.pack(side="right", fill="y")
-        txt.insert("1.0", text)
-        txt.config(state="disabled")
+# Метод show_readme удалён 04.10.2026: кнопку README теперь даёт каркас (U.readme_button),
+# поэтому собственный дубль (отдельное окно Toplevel) остался бы мёртвым кодом.
 
 
 if __name__ == "__main__":
-    r = tk.Tk()
-    App(r)
-    r.mainloop()
+    # Окно создаёт САМ каркас (make_root) — раньше здесь создавался tk.Tk() вручную.
+    App().root.mainloop()

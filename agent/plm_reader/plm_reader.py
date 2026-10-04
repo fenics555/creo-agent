@@ -26,6 +26,11 @@ import sys
 import threading
 import time
 
+# ПЕРЕВОД НА КАРКАС 04.10.2026: общий каркас окон дома лежит уровнем выше (tools\agent).
+# Импорт делаем с sys.path, а не предполагая текущую папку: окно запускается и батом, и агентом.
+sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+import ui_common as U  # noqa: E402
+
 APP_VERSION = "V37"
 APP_TITLE = "PLM Reader " + APP_VERSION          # версия ОДНА: заголовок берёт её из константы
 DATA_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "db")          # данные — в подпапке db\
@@ -1622,10 +1627,11 @@ def run_gui():
                 _cols.insert(_i, _c)
                 _off += 1
 
-    root = tk.Tk()
-    root.title(APP_TITLE)
-    root.geometry("1560x820")         # стартовое окно шире: панель вкладок видна сразу
-    root.minsize(760, 420)            # три уровня видны и в небольшом окне
+    # ПЕРЕВОД НА КАРКАС 04.10.2026: было три строки вручную (tk.Tk + title + geometry + minsize).
+    # Теперь каркас даёт то же самое разом (make_root: заголовок с версией, размеры, minsize,
+    # общий фон и тема vista). Всё остальное (группы кнопок, вкладки, три уровня) — своё
+    # и остаётся: это и есть смысл инструмента.
+    root = U.make_root(APP_TITLE, "1560x820", minsize=(760, 420))
 
     top = ttk.Frame(root, padding=6)
     top.pack(fill="x", padx=6, pady=(6, 4))
