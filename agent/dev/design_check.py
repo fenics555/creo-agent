@@ -85,7 +85,10 @@ RULES = [
     # поиском настроек по имени: проверка проверяет не то, что написано.
     ("LabelFrame-заголовок в пробелах", False,
      re.compile(r'LabelFrame\([^)]*?text\s*=\s*"[^"]*\s[^"]*"')),
-    ("логи Consolas 9", False, re.compile(r'Consolas"?\s*,\s*9')),
+    # ПРАВКА 04.10.2026 (окно harvest): было `Consolas"?\s*,\s*9` — а в доме пишут и
+    # `('Consolas', 9)` (одинарные кавычки), и регулярка молча не видела такого лога.
+    # Теперь годятся оба вида кавычек.
+    ("логи Consolas 9", False, re.compile(r'Consolas[\'"]?\s*,\s*9')),
     ('Treeview(show="headings")', False, re.compile(r'Treeview\([^)]*show="headings"')),
     ("настройки/данные файлом json", False, re.compile(r"settings\.json|rules\.json|load_settings|save_settings")),
 ]
@@ -116,7 +119,12 @@ def check_one(src):
         res.append("minsize задан")
     if not _has(src, re.compile(r"README", re.I)):
         res.append("README-кнопка")
-    if not _has(src, re.compile(r"Thread\(|run_in_thread")):
+    if not _has(src, re.compile(r"Thread\(|run_in_thread|subprocess|Popen|Process\(")):
+        # ГРАБЛЯ ПРАВИЛА (04.10.2026, вскрыта на harvest): было `Thread\(|run_in_thread`.
+        # У harvest тяжёлое вынесено НЕ в поток, а в ОТДЕЛЬНЫЙ ПРОЦЕСС (`harvest.py` под
+        # pid-локом `data\harvest.lock`) — изоляция достигнута, окно не блокируется.
+        # Проверка требовала именно поток и штрафовала за более сильное средство.
+        # Признак ставится окну, у которого тяжёлое не вынесено НИ КУДА и идёт в главном потоке.
         res.append("тяжёлое в потоке")
     # ГРАБЛЯ 04.10.2026 (дублирование правила): этот признак был описан в RULES (строка 86) —
     # где я регулярку и починил, — но здесь стояла ВТОРАЯ копия старой регулярки. Правка в
@@ -127,7 +135,10 @@ def check_one(src):
     _has_lf = bool(re.search(r"LabelFrame\(", src))
     if _has_lf and not _has(src, re.compile(r'LabelFrame\([^)]*?text\s*=\s*"[^"]*\s[^"]*"')) and not uses_log:
         res.append("LabelFrame-заголовок в пробелах")
-    if not _has(src, re.compile(r'Consolas"?\s*,\s*9')) and not uses_log:
+    # ВТОРАЯ КОПИЯ ПРАВИЛА (грабля повторилась): эту регулярку я починил в RULES (строка 88),
+    # а здесь стояла старая — и правка RULES снова не дала эффекта. Обе копии должны быть
+    # одинаковыми; при правке правила — искать ВСЕ его копии (правило волны 10–13, грабля 2).
+    if not _has(src, re.compile(r'Consolas[\'"]?\s*,\s*9')) and not uses_log:
         res.append("логи Consolas 9")
     # Уточнение 04.10.2026 (окно make_lst): канон `ОКНА\02_ДИЗАЙН_И_РАСКЛАДКА.md:49` требует
     # `Treeview(show="headings")` ДЛЯ ТАБЛИЦЫ РЕЗУЛЬТАТОВ. У make_lst результат — ТЕКСТ файла
