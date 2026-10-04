@@ -231,23 +231,61 @@ def index_all(roots=None, quiet=False) -> Dict[str, int]:
 
 def kb_search(query: str, limit: int = 4, chars: int = 900) -> List[Tuple[str, str]]:
     """Поиск по индексу знаний: FTS5-MATCH по словам, при неудаче — LIKE.
-    Возвращает [(путь, фрагмент), ...]."""
+    Возвращает [(путь, фрагмент), ...].
+    04.10.2026 (аудит настроек): `repo_boost` и `repo_boost_min_sim` были объявлены («буст
+    репозитория», «порог буста»), но поиск их не читал — обе были обещанием впустую. Теперь
+    файлы репозитория поднимаются в выдаче, а совпадения ниже порога отбрасываются."""
     q = (query or "").strip()
     if not q:
         return []
+    try:
+        boost = float(_settings().get("repo_boost") or 1.0)
+    except Exception:
+        boost = 1.0
+    try:
+        min_sim = float(_settings().get("repo_boost_min_sim") or 0.0)
+    except Exception:
+        min_sim = 0.0
     c = db()
     try:
         try:
             words = [w for w in re.split(r"[^\w\.\-]+", q, flags=re.UNICODE) if len(w) > 2]
             match = " OR ".join('"%s"' % w for w in words) or '"%s"' % q.replace('"', " ")
+            # Забираем шире, чем limit: буст пересортирует, лишнее отсеется.
             rows = c.execute("SELECT path, content FROM fts_index WHERE fts_index MATCH ? "
-                             "ORDER BY rank LIMIT ?", (match, int(limit))).fetchall()
+                             "ORDER BY rank LIMIT ?", (match, int(limit) * 4)).fetchall()
         except Exception:
             rows = c.execute("SELECT path, content FROM fts_index WHERE content LIKE ? LIMIT ?",
-                             ("%" + q + "%", int(limit))).fetchall()
-        return [(r[0], (r[1] or "")[:chars]) for r in rows]
+                             ("%" + q + "%", int(limit) * 4)).fetchall()
+        # Буст: ранг FTS5 — чем меньше, тем лучше. Файлы репозитория получают ранний ранг,
+        # остальные — свой. `repo_boost_min_sim` отсекает совпадения хуже порога (доля от худшего).
+        scored = []
+        worst = max(1, len(rows) - 1)
+        for i, r in enumerate(rows):
+            p, txt = str(r[0] or ""), (r[1] or "")
+            eff = i / boost if (boost > 1.0 and _in_repo(p)) else float(i)
+            scored.append((eff, i / worst, p, txt))
+        scored.sort(key=lambda x: x[0])
+        if min_sim > 0.0:
+            scored = [s for s in scored if s[1] >= min_sim]
+        return [(p, txt[:chars]) for _e, _q, p, txt in scored[:int(limit)]]
     finally:
         c.close()
+
+
+def _settings():
+    """Настройки читаются лениво: scanner импортируется и вне агента (harvest, ночь)."""
+    import settings as _st
+    return _st
+
+
+def _in_repo(path: str) -> bool:
+    """Файл лежит в репозитории дома (путь, который бустится настройкой `repo_boost`)."""
+    try:
+        from core import REPO as _R
+        return str(path).lower().startswith(str(_R).lower())
+    except Exception:
+        return str(path).lower().startswith("d:\\ai\\repo")
 
 
 def kb_state() -> Dict[str, int]:

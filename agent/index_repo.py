@@ -10,8 +10,30 @@ import core
 import numpy as np
 
 ROOT = Path(r"D:\AI\repo")
-CHUNK_MAX = 1800  # символов на чанк (примерно 400-500 токенов)
+# 04.10.2026 (аудит настроек): `chunk_size` и `chunk_overlap` были объявлены в панели настроек,
+# но нарезка шла жёсткой константой CHUNK_MAX — обе были обещанием впустую. Теперь размер и
+# перекрытие берутся из них; границы проверяются, мусорное значение не роняет индексацию.
 DB = core.db()
+
+
+def _chunk_max() -> int:
+    """Размер чанка в символах (настройка `chunk_size`). Вне диапазона — безопасные 1800."""
+    try:
+        import settings as _st
+        v = int(_st.get("chunk_size", 0) or 0)
+    except Exception:
+        v = 0
+    return v if 200 <= v <= 20000 else 1800
+
+
+def _chunk_overlap() -> int:
+    """Перекрытие чанков в символах (настройка `chunk_overlap`), не больше половины чанка."""
+    try:
+        import settings as _st
+        v = int(_st.get("chunk_overlap", 0) or 0)
+    except Exception:
+        v = 0
+    return max(0, min(v, _chunk_max() // 2))
 
 LOG_PATH = os.path.join(os.path.dirname(__file__), "index_repo.log")
 
@@ -26,13 +48,20 @@ def is_text(path):
                    ".jxl", ".tfwx", ".tkb"}
 
 def chunk_text(text):
+    """Нарезка на чанки по НАСТРОЙКАМ размера и перекрытия (04.10.2026, аудит настроек).
+    Перекрытие нужно, чтобы фраза на стыке двух чанков не терялась из индекса."""
+    cmax = _chunk_max()
+    ov = _chunk_overlap()
     chunks = []
-    while len(text) > CHUNK_MAX:
-        split = text.rfind("\n", 0, CHUNK_MAX)
-        if split == -1:
-            split = CHUNK_MAX
+    while len(text) > cmax:
+        split = text.rfind("\n", 0, cmax)
+        if split == -1 or split < ov:
+            split = cmax
         chunks.append(text[:split])
-        text = text[split:].lstrip()
+        rest = text[split - ov:] if ov else text[split:]
+        text = rest.lstrip("\n") if ov else rest.lstrip()
+        if not text:
+            break
     if text:
         chunks.append(text)
     return chunks

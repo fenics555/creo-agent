@@ -696,6 +696,22 @@ def ask(q, client, image=None, on_step=None, mode=None):
     r["think_block"] = LAST_META.get("think_block") or ""
     if not r.get("think"):
         r["think"] = LAST_META.get("think_native") or ""
+    # 04.10.2026 (аудит настроек): `think_in_log` и `show_steps` были объявлены, но читались
+    # НИГДЕ — обе были обещанием впустую. Теперь: think_in_log решает, попадает ли блок
+    # размышлений в ответ (в лог/окно уходит всегда), show_steps — показывается ли ход работы.
+    try:
+        _think_in_log = settings.get("think_in_log")
+    except Exception:
+        _think_in_log = True
+    if not _think_in_log:
+        r["think_block"] = ""
+    try:
+        _show_steps = settings.get("show_steps")
+    except Exception:
+        _show_steps = True
+    if not _show_steps:
+        r["log"] = [l for l in r.get("log", [])
+                    if l.startswith(("⏱", "⚠", "⏹", "✓", "✗", "🔧", "📝"))]
     r["think_native"] = LAST_META.get("think_native") or ""
     r["cut"] = bool(LAST_META.get("cut"))
     if r.get("cancelled"):

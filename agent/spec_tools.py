@@ -770,7 +770,19 @@ def tool_spec_create_active(**kw):
                      "name": str(_pval(pl, ["НАИМЕНОВАНИЕ", "NAME"]) or ""),
                      "quantity": "1",
                      "note": str(_pval(pl, ["ПРИМЕЧАНИЕ", "NOTE"]) or "")})
-    canon = ["Документация", "Комплексы", "Сборочные единицы", "Детали", "Стандартные изделия", "Прочие изделия", "Материалы", "Комплекты"]
+    # 04.10.2026 (аудит настроек): порядок разделов был зашит в коде, а настройка `bom_sections`
+    # (тот же список по умолчанию) не читалась НИГДЕ — в панели она была обещанием впустую.
+    # Теперь порядок берётся из настройки; пустая/битая настройка = прежний канон (что было).
+    _canon_def = ["Документация", "Комплексы", "Сборочные единицы", "Детали",
+                  "Стандартные изделия", "Прочие изделия", "Материалы", "Комплекты"]
+    try:
+        import settings as _stset
+        _raw = _stset.get("bom_sections", None)
+        if isinstance(_raw, str):
+            _raw = [x.strip() for x in _raw.split(",") if x.strip()]
+        canon = [str(x).strip() for x in (_raw or []) if str(x).strip()] or _canon_def
+    except Exception:
+        canon = _canon_def
     used = [{"name": c} for c in canon if any(r["section"] == c for r in rows)]
     try:
         out, n_rows, n_img = create_xlsx(wd, designation, used, rows, [], act)

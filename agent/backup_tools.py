@@ -36,13 +36,25 @@ def tool_housekeeping():
     # (commit был ниже), а VACUUM не доходил. Правило: уборка не должна падать из-за
     # того, что кто-то ещё не нажал кнопку; отсутствующую таблицу просто пропускаем.
     c = core.db()
-    c.execute("DELETE FROM history WHERE ts < datetime('now','-90 days')")
+    # 04.10.2026 (аудит настроек): `history_days` («дней хранить историю») и `client_days`
+    # («дней хранить сессии») были объявлены, но уборка шла по зашитым 90 и 180 дням — обе были
+    # обещанием впустую. Теперь срок истории берётся из настройки; таблица feedback (её ещё
+    # может не быть) чистится по `client_days` — столько дней храним отзывы клиентов.
+    try:
+        hist_days = int(settings.get("history_days") or 365)
+    except Exception:
+        hist_days = 365
+    try:
+        cli_days = int(settings.get("client_days") or 365)
+    except Exception:
+        cli_days = 365
+    c.execute("DELETE FROM history WHERE ts < datetime('now','-%d days')" % max(1, hist_days))
     _fb = [r[0] for r in c.execute("SELECT name FROM sqlite_master WHERE name='feedback'")]
     if _fb:
-        c.execute("DELETE FROM feedback WHERE ts < datetime('now','-180 days')")
-        rep.append("history/feedback pruned")
+        c.execute("DELETE FROM feedback WHERE ts < datetime('now','-%d days')" % max(1, cli_days))
+        rep.append("history/feedback pruned (%d/%d дней)" % (hist_days, cli_days))
     else:
-        rep.append("history pruned (таблицы feedback ещё нет — пропущено)")
+        rep.append("history pruned (%d дней; таблицы feedback ещё нет — пропущено)" % hist_days)
     c.commit(); c.close()
     try:
         c2 = core.db()

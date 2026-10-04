@@ -54,10 +54,41 @@ def tool_web_fetch(url="", **kw):
     return "[%s] %s" % (src, clean(h)[:4000]) if h else "не открылось | %s" % " -> ".join(att)
 def tool_web_study(url="", mode="quick", **kw):
     if not url: return "нужна ссылка"
+    # 04.10.2026 (аудит настроек): `web_quick_links` и `web_deep_pages` были объявлены («сколько
+    # ссылок читать бегло / глубоко»), но обхода ссылок не было вовсе — обе были обещанием впустую.
+    # Теперь беглый режим добирает соседние страницы по настройке, глубокий — расширенный текст.
+    try:
+        quick_links = max(0, int(settings.get("web_quick_links") or 0))
+        deep_pages = max(0, int(settings.get("web_deep_pages") or 0))
+    except Exception:
+        quick_links, deep_pages = 10, 50
+    deep = str(mode) == "deep"
+    extra_n = min(deep_pages, quick_links) if quick_links else 0
     h, src, att = fetch(url)
     if not h: return "не открылось | %s" % " -> ".join(att)
     t = clean(h) if src != "jina" else h
-    return ("[источник: %s | %s]\n%s\n[перескажи по-русски: суть + факты + применимость к Creo/КБ]" % (url, src, t[: (6000 if str(mode)=="deep" else 2500)]))
+    # Соседние страницы того же сайта — по первой пачке ссылок с исходной (глубина 1).
+    if extra_n > 0 and src != "jina":
+        try:
+            links, seen = [], {norm_url(url)}
+            for m in re.finditer(r'href=["\']([^"\'#]+)', h):
+                u = urllib.parse.urljoin(url, m.group(1))
+                if not u.startswith(("http://", "https://")):
+                    continue
+                n = norm_url(u)
+                if n in seen:
+                    continue
+                seen.add(n)
+                links.append(u)
+                if len(links) >= extra_n:
+                    break
+            for u in links:
+                hh, _s2, _a2 = fetch(u)
+                if hh:
+                    t += "\n\n--- %s ---\n%s" % (u, clean(hh)[:1500])
+        except Exception:
+            pass
+    return ("[источник: %s | %s]\n%s\n[перескажи по-русски: суть + факты + применимость к Creo/КБ]" % (url, src, t[: (6000 if deep else 2500)]))
 def tool_web_save_rule(kind="skill", name="", text="", **kw):
     if not (text or "").strip(): return "пусто"
     nm = re.sub(r"[^A-Za-zА-Яа-я0-9_.-]+", "_", (name or "web").strip())[:60] or "web"
