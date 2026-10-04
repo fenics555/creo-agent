@@ -167,7 +167,14 @@ def check_one(src):
     # настройки ведёт каркас (`ui_common.load_settings/save_settings`), а в коде окна их нет.
     # Требовать от окна буквальный `_settings.json` — ложь. Засчитываем и данные программы
     # файлом (`rules.json`), и настройки через каркас.
-    if not (_has(src, re.compile(r"load_settings|save_settings|settings\.json|rules\.json|rules_path"))):
+    # ПРАВКА 04.10.2026 (окна plan_run и checks — замечание было ЛОЖНЫМ): регулярка знала
+    # только имена `settings.json`/`rules.json`. Но канон требует «настройки/ДАННЫЕ файлом
+    # json», а фактически: plan_run работает с планом `plan.json` (кнопка «Выбрать
+    # plan.json…»), а checks получает результат прогона как json (`checks_run(as_json=True)`).
+    # И то и другое — данные файлом json по существу. Признак ставится только окну, у которого
+    # НЕТ ни настроек, ни json-данных: ни файла, ни разбора/сборки json.
+    json_data = _has(src, re.compile(r"[\w\\/-]+\.json|as_json|json\.loads?\(|json\.dumps?"))
+    if not (_has(src, re.compile(r"load_settings|save_settings|rules\.json|rules_path")) or json_data):
         res.append("настройки/данные файлом json")
     return res
 
