@@ -28,7 +28,7 @@ class App:
         self.build()
 
     def build(self):
-        top = tk.LabelFrame(self.root, text="НАСТРОЙКИ", padx=10, pady=8)
+        top = tk.LabelFrame(self.root, text=" НАСТРОЙКИ ", padx=10, pady=8)
         top.pack(fill="x", padx=10, pady=8)
 
         tk.Label(top, text="Файл спецификации:").grid(row=0, column=0, sticky="w")

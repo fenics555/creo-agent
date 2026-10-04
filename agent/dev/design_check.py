@@ -78,7 +78,13 @@ RULES = [
     ("minsize задан", True, re.compile(r"\.minsize\(")),
     ("README-кнопка", True, re.compile(r"README", re.I)),
     ("тяжёлое в потоке", True, re.compile(r"Thread\(|run_in_thread")),
-    ("LabelFrame-заголовок в пробелах", False, re.compile(r'LabelFrame\(\s*text="[^"]*\s[^"]*"')),
+    # ЖИВАЯ НАХОДКА 04.10.2026 (проба check_design_regex.py): было LabelFrame\(\s*text="…"
+    # — регулярка требовала text= СРАЗУ после скобки. В доме везде LabelFrame(self.root, text="…"),
+    # поэтому канон (заголовок в пробелах) не находился НИГДЕ, и проверка штрафовала 14 окон
+    # ЛОЖНЫМ замечанием, хотя 13 заголовков в пробелах есть. Тот же класс обмана, что и с
+    # поиском настроек по имени: проверка проверяет не то, что написано.
+    ("LabelFrame-заголовок в пробелах", False,
+     re.compile(r'LabelFrame\([^)]*?text\s*=\s*"[^"]*\s[^"]*"')),
     ("логи Consolas 9", False, re.compile(r'Consolas"?\s*,\s*9')),
     ('Treeview(show="headings")', False, re.compile(r'Treeview\([^)]*show="headings"')),
     ("настройки/данные файлом json", False, re.compile(r"settings\.json|rules\.json|load_settings|save_settings")),
@@ -112,7 +118,14 @@ def check_one(src):
         res.append("README-кнопка")
     if not _has(src, re.compile(r"Thread\(|run_in_thread")):
         res.append("тяжёлое в потоке")
-    if not _has(src, re.compile(r'LabelFrame\(\s*text="[^"]*\s[^"]*"')) and not uses_log:
+    # ГРАБЛЯ 04.10.2026 (дублирование правила): этот признак был описан в RULES (строка 86) —
+    # где я регулярку и починил, — но здесь стояла ВТОРАЯ копия старой регулярки. Правка в
+    # RULES не дала эффекта: проверка шла по этой строке. Теперь обе регулярки одинаковые.
+    # ПРАВКА 04.10.2026: если окно НЕ использует LabelFrame вообще, приводить заголовки не к чему —
+    # замечание было ложным (оно вставало на harvest и skills_check, где LabelFrame нет).
+    # Признак ставится только тем окнам, где секции реально есть.
+    _has_lf = bool(re.search(r"LabelFrame\(", src))
+    if _has_lf and not _has(src, re.compile(r'LabelFrame\([^)]*?text\s*=\s*"[^"]*\s[^"]*"')) and not uses_log:
         res.append("LabelFrame-заголовок в пробелах")
     if not _has(src, re.compile(r'Consolas"?\s*,\s*9')) and not uses_log:
         res.append("логи Consolas 9")

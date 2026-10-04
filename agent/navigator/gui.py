@@ -71,7 +71,7 @@ class App:
         mid.pack(fill="both", expand=True, padx=10)
 
         # левая половина: результаты поиска
-        left = tk.LabelFrame(mid, text="НАЙДЕНО")
+        left = tk.LabelFrame(mid, text=" НАЙДЕНО ")
         self.tree = ttk.Treeview(left, columns=("kind", "name", "folder"), show="headings")
         for c, h, w in (("kind", "Тип", 80), ("name", "Имя", 250), ("folder", "Папка", 380)):
             self.tree.heading(c, text=h)
@@ -83,7 +83,7 @@ class App:
 
         right = tk.PanedWindow(mid, orient="vertical", sashwidth=6)
         # правая верх: деталировка
-        top_r = tk.LabelFrame(right, text="ДЕТАЛИРОВКА (состав из индекса дома)")
+        top_r = tk.LabelFrame(right, text=" ДЕТАЛИРОВКА (состав из индекса дома) ")
         self.tree_bom = ttk.Treeview(top_r, columns=("num", "kind", "name", "qty", "pdf", "where"),
                                      show="headings")
         for c, h, w in (("num", "№", 40), ("kind", "Тип", 70), ("name", "Позиция", 250),
@@ -96,7 +96,7 @@ class App:
         right.add(top_r, minsize=260)
 
         # правая низ: PDF-превью с рыбьим глазом
-        bot_r = tk.LabelFrame(right, text="PDF (клик — увеличить, колесо — зум, двойной клик — вернуть)")
+        bot_r = tk.LabelFrame(right, text=" PDF (клик — увеличить, колесо — зум, двойной клик — вернуть) ")
         self.canvas = tk.Canvas(bot_r, bg="#525659", highlightthickness=0)
         self.canvas.pack(fill="both", expand=True, padx=6, pady=6)
         self.canvas.bind("<Button-1>", self.zoom_at)
