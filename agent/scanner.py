@@ -74,7 +74,30 @@ class ScannerLibrary:
                     break
                 except:
                     pass
+        # 03.10.2026 (аудит настроек): `scan_exclude` была объявлена, но сканер её НЕ читал —
+        # исключения брались только из kb_exclude.txt, и настройка в интерфейсе была обещанием
+        # впустую. Теперь она дополняет список (настройка владельца важнее файла: идём после неё).
+        try:
+            import settings as _st
+            extra = _st.get("scan_exclude", None)
+            if isinstance(extra, str):
+                extra = [x.strip() for x in extra.split(",") if x.strip()]
+            if isinstance(extra, list):
+                pats = [str(x) for x in extra if str(x).strip()] + pats
+        except Exception:
+            pass
+        # 03.10.2026: `max_file_mb` («крупнее — не индексируем») тоже не участвовала в отборе.
+        # Её значение возвращаем отдельным методом, чтобы не ломать контракт _get_pats().
         return pats
+
+    def _max_file_mb(self) -> float:
+        """Лимит размера файла для индексации (настройка `max_file_mb`, по умолчанию 4 МБ)."""
+        try:
+            import settings as _st
+            v = _st.get("max_file_mb", 4)
+            return float(v) if v else 4.0
+        except Exception:
+            return 4.0
 
     def scan_files_generator(self, root_path: str) -> Generator[dict, None, None]:
         """Генератор метаданных файлов для потокового сканирования."""
