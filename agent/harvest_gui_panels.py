@@ -37,7 +37,7 @@ class AppPanelsMixin:
         self.tree.pack(expand=True, fill='both', padx=5, pady=5)
 
         # Log text area
-        self.log_txt = tk.Text(self.root, height=8, font=('Consolas', 9))
+        self.log_txt = None   # каркас даёт лог (U.log_view) — панель создаётся лениво, см. _log
         self.log_txt.pack(fill='x', padx=5, pady=5)
 
     def on_stop(self):

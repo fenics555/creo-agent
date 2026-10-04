@@ -47,14 +47,13 @@ def lock_alive():
     return None
 
 class HarvestGUI(AppPanelsMixin):
-    def __init__(self, root):
-        self.root = root
-        # 03.10.2026: были title='Harvest GUI' без версии и geometry без minsize —
-        # окно можно было сжать в полосу. Теперь заголовок по канону и минимальный размер.
-        self.root.title('V2 — СБОР ДАННЫХ (harvest)')
-        self.root.geometry('1020x640')
-        self.root.minsize(760, 520)
-        self.root.configure(bg=BG)
+    def __init__(self, root=None):
+        # ПЕРЕВОД НА КАРКАС ДО КОНЦА 04.10.2026. 03.10.2026 окно было переведено наполовину:
+        # импорт каркаса появился, но окно по-прежнему создавалось вручную (title/geometry/
+        # minsize тремя строками), а лог и README остались самодельными. Теперь каркас даёт
+        # окно и кнопку README целиком, лог окна — моноширинная панель каркаса.
+        self.root = root or U.make_root('V3 — СБОР ДАННЫХ (harvest)', '1020x640',
+                                        minsize=(760, 520))
         self._build_info_panel()
         self._setup_controls()
         self._refresh_loop()
@@ -63,37 +62,31 @@ class HarvestGUI(AppPanelsMixin):
         ctrl = tk.Frame(self.root, bg=BG)
         ctrl.pack(fill='x', padx=5, pady=5)
         # КАНОН ОКНА: README-кнопка обязательна (манифест п.19 — окно самостоятельно).
-        # Свой мини-вариант, потому что README программы лежит как `HARVEST_README.md`,
-        # а каркас ищет `README.md` (у harvest нет своей папки — движок лежит в корне агента).
-        tk.Button(ctrl, text='README', width=12, command=self._show_readme,
-                  bg=BG, relief='flat', fg=U.ACCENT, cursor='hand2').pack(side='right', padx=4)
+        # 04.10.2026: своя кнопка удалена — README теперь даёт каркас (U.readme_button).
+        # ВАЖНО: программа лежит в корне агента, её собственный паспорт назван
+        # HARVEST_README.md (чтобы не путать с README.md агента), поэтому каркасная кнопка
+        # показывает README дома, а путь к HARVEST_README.md пишется в журнал при старте.
+        U.readme_button(ctrl, str(_AGENT_ROOT), self._log)
         self.stop_btn = tk.Button(ctrl, text='СТОП', command=self.on_stop, bg='#ff4444', fg='white')
         self.stop_btn.pack(side='right')
         self.badge_lbl = tk.Label(ctrl, text='', bg=CARD, relief='sunken')
         self.badge_lbl.pack(side='left', padx=5)
 
-    def _show_readme(self):
-        """README программы в лог окна (канон: при ошибке — честная строка, не падение)."""
-        p = Path(__file__).resolve().parent / 'HARVEST_README.md'
-        try:
-            text = p.read_text(encoding='utf-8')
-        except Exception as e:
-            return self._log('README не прочитан: %s' % e)
-        self._log('=' * 90)
-        for line in text.splitlines():
-            self._log(line)
-        self._log('=' * 90)
-        self._log('конец README')
-
     def _log(self, msg=''):
-        """Каркасный лог окна: пишем в текст панели, если он уже создан."""
-        try:
-            self.log_txt.configure(state='normal')
-            self.log_txt.insert('end', str(msg) + '\n')
-            self.log_txt.see('end')
-            self.log_txt.configure(state='disabled')
-        except Exception:
-            pass
+        """Журнал окна — моноширинная панель каркаса (признак канона «логи Consolas 9»).
+
+        Панель создаётся ОДИН раз (лениво: каркасную панель надо создавать после сборки
+        окна, а `readme_button` зовётся раньше). ГРАБЛЯ МОЕЙ ПЕРВОЙ ПРАВКИ (04.10.2026):
+        без проверки `hasattr` панель создавалась бы заново на КАЖДОЕ сообщение —
+        окно заросло бы десятками одинаковых рамок."""
+        if not hasattr(self, '_logfn'):
+            self._logbox, self._logfn = U.log_view(self.root, height=8, title='ЖУРНАЛ')
+        self._logfn(msg)
+
+    # Методы `_show_readme` и старый `_log` удалены 04.10.2026:
+    #   · README-кнопку даёт каркас (U.readme_button), свой дубль остался бы мёртвым кодом;
+    #   · старый `_log` писал в самодельный `self.log_txt`, а каркасная панель создаётся выше —
+    #     оставься оба, нижний перебил бы верхний (Python: последнее определение побеждает).
 
     def update_badge(self, text):
         self.badge_lbl.configure(text=text)
