@@ -13,16 +13,20 @@ from pathlib import Path
 from tkinter import filedialog, messagebox, ttk
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
+sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 import cmnm_scan as eng  # noqa: E402
+import ui_common as U  # noqa: E402  (волна 1: общий каркас окон; признаки дизайна — в нём)
 
 SETTINGS = Path(__file__).resolve().parent / "gui_settings.json"
+TITLE = "ВНУТРЕННИЕ ИМЕНА (CMNM) против имён файлов"
 
 
 class App:
-    def __init__(self, root):
-        self.root = root
-        self.root.title("cmnm_scan V2 — ВНУТРЕННИЕ ИМЕНА (CMNM) против имён файлов")
-        self.root.geometry("1020x620")
+    def __init__(self, root=None):
+        # ПЕРЕВОД НА КАРКАС 04.10.2026 (эталон для 11 окон вне ui_common):
+        # было root.geometry(...) и title вручную, без minsize и без каркаса.
+        # Теперь make_root даёт title с версией + geometry + minsize разом.
+        self.root = root or U.make_root("V3 — " + TITLE, "1020x620", minsize=(900, 560))
         self.st = self.load()
         self.res = None
         self.build()
@@ -54,45 +58,50 @@ class App:
             pass
 
     def build(self):
-        top = tk.LabelFrame(self.root, text=" НАСТРОЙКИ ", padx=10, pady=8)
-        top.pack(fill="x", padx=10, pady=8)
+        # --- каркас: результат СЛЕВА, настройки СПРАВА (константа 5) ---
+        U.head(self.root, TITLE,
+               "Проверяет, совпадает ли внутреннее имя (CMNM) с именем файла. "
+               "Класс Р: Creo и агент не нужны, только чтение.")
+        left, right = U.split_result_left(self.root, right_width=440)
 
-        tk.Label(top, text="Где проверять:").grid(row=0, column=0, sticky="nw")
-        self.roots_var = tk.Variable(self.root, value=list(self.st.get("roots") or []))
-        self.lst = tk.Listbox(top, listvariable=self.roots_var, height=4, width=74)
-        self.lst.grid(row=0, column=1, rowspan=2, sticky="we", padx=6)
-        tk.Button(top, text="Добавить папку…", command=self.add_root).grid(row=0, column=2, sticky="w")
-        tk.Button(top, text="Убрать", command=self.del_root).grid(row=1, column=2, sticky="w")
-        tk.Label(top, text="(двойной щелчок по файлу в таблице — открыть его папку)", fg="#555").grid(
-            row=2, column=1, sticky="w")
-
-        tk.Label(top, text="Лимит файлов (0 — без предела):").grid(row=3, column=0, sticky="w", pady=4)
-        self.var_limit = tk.IntVar(value=self.st["limit"])
-        tk.Spinbox(top, from_=0, to=1000000, textvariable=self.var_limit, width=9).grid(row=3, column=1, sticky="w", padx=6)
-
-        btns = tk.Frame(self.root)
-        btns.pack(fill="x", padx=10, pady=(0, 6))
-        self.b_find = tk.Button(btns, text="ПРОВЕРИТЬ", width=18, command=self.run)
-        self.b_find.pack(side="left", padx=4)
-        tk.Button(btns, text="Открыть папку отчётов", command=lambda: self.open_dir(eng.LOG_DIR)).pack(side="left", padx=4)
-        tk.Button(btns, text="Сохранить список (CSV)", command=self.save_csv).pack(side="left", padx=4)
-        tk.Button(btns, text="README", command=self.show_readme).pack(side="left", padx=4)
-
-        cols = ("file", "internal", "where")
-        heads = ("Файл", "Внутри файла", "Папка")
-        self.tree = ttk.Treeview(self.root, columns=cols, show="headings", height=14)
-        for c, h, w in zip(cols, heads, (260, 260, 470)):
-            self.tree.heading(c, text=h)
-            self.tree.column(c, width=w)
-        self.tree.pack(fill="both", expand=True, padx=10, pady=8)
+        # --- слева: кнопки + таблица + сводка с процентом ---
+        _, btns = U.actions(left,
+                            primary=(("ПРОВЕРИТЬ", self.run),),
+                            secondary=(("Открыть папку отчётов",
+                                        lambda: self.open_dir(eng.LOG_DIR)),
+                                       ("Сохранить список (CSV)", self.save_csv)))
+        self.b_find = btns[0]
+        self.tree = U.result_tree(left, ("file", "internal", "where"),
+                                  ("Файл", "Внутри файла", "Папка"),
+                                  [260, 260, 300])
         self.tree.bind("<Double-1>", lambda e: self.open_selected())
+        self.sum_var, self.set_summary = U.summary(left)
 
-        self.info = tk.Text(self.root, height=8, font=("Consolas", 9), bg="#f8f9fa")
-        self.info.pack(fill="x", padx=10, pady=(0, 8))
+        # --- справа: вкладки по смыслу (константа 3) ---
+        _nb, pages = U.tabs(right, ["Основное", "Папки"])
+        top, folders = pages[0], pages[1]
+
+        tk.Label(top, text="Лимит файлов (0 — без предела):").pack(anchor="w", padx=6, pady=(6, 2))
+        self.var_limit = tk.IntVar(value=self.st["limit"])
+        tk.Spinbox(top, from_=0, to=1000000, textvariable=self.var_limit,
+                   width=12).pack(anchor="w", padx=6)
+        tk.Label(top, text="(двойной щелчок по файлу в таблице — открыть его папку)",
+                 fg="#555").pack(anchor="w", padx=6, pady=(8, 4))
+
+        self.roots_var = tk.Variable(self.root, value=list(self.st.get("roots") or []))
+        self.lst = tk.Listbox(folders, listvariable=self.roots_var, height=8, width=52)
+        self.lst.pack(fill="both", expand=True, padx=6, pady=4)
+        row = tk.Frame(folders)
+        row.pack(fill="x", padx=6, pady=(0, 6))
+        tk.Button(row, text="Добавить папку…", command=self.add_root).pack(side="left", padx=3)
+        tk.Button(row, text="Убрать", command=self.del_root).pack(side="left", padx=3)
+        U.readme_button(row, str(Path(__file__).resolve().parent), lambda s: None)
+
+        # --- журнал внизу окна (каркас даёт моноширинный виджет + функцию лога) ---
+        self.info, self._log = U.log_view(self.root, height=7, title="ЖУРНАЛ")
 
     def log(self, s):
-        self.info.insert("end", s + "\n")
-        self.info.see("end")
+        self._log(s)
 
     def open_dir(self, p):
         try:
@@ -204,23 +213,11 @@ class App:
         except Exception as e:
             messagebox.showerror("Не сохранить", str(e))
 
+# Метод show_readme удалён 04.10.2026: кнопку README теперь даёт каркас (U.readme_button),
+# поэтому собственный дубль остался бы мёртвым кодом.
 
-    def show_readme(self):
-        p = Path(__file__).resolve().parent / "README.md"
-        try:
-            text = p.read_text(encoding="utf-8")
-        except Exception as e:
-            self.log("README не прочитан: %s" % e)
-            return
-        self.log("=" * 100)
-        self.log("README: %s" % p)
-        self.log("=" * 100)
-        for line in text.splitlines():
-            self.log(line)
-        self.log("=" * 100)
-        self.log("конец README")
 
 if __name__ == "__main__":
-    r = tk.Tk()
-    App(r)
-    r.mainloop()
+    # Окно создаёт САМ каркас (make_root) — раньше здесь создавался tk.Tk() вручную,
+    # из-за чего окно не получало title с версией, geometry и minsize от каркаса.
+    App().root.mainloop()

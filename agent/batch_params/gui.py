@@ -28,7 +28,7 @@ ICON_TAG = {"change": ("warn", U.ICON_WARN), "same": ("ok", U.ICON_OK),
 
 class App:
     def __init__(self, root=None):
-        self.root = root or U.make_root("Ж — ПАКЕТНЫЕ ПАРАМЕТРЫ", "1180x720",
+        self.root = root or U.make_root("V1 — ПАКЕТНЫЕ ПАРАМЕТРЫ", "1180x720",
                                         minsize=(1000, 640))
         self.root.minsize(1000, 640)
         self.plan = None
@@ -193,6 +193,6 @@ class App:
 
 if __name__ == "__main__":
     sys.stdout = io.TextIOWrapper(sys.stdout.buffer, encoding="utf-8", errors="replace")
-    r = U.make_root("Ж — ПАКЕТНЫЕ ПАРАМЕТРЫ", "1180x720", minsize=(1000, 640))
+    r = U.make_root("V1 — ПАКЕТНЫЕ ПАРАМЕТРЫ", "1180x720", minsize=(1000, 640))
     App(r)
     r.mainloop()
