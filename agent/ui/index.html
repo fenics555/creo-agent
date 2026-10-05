@@ -57,12 +57,15 @@ input[type=range]{flex:1;accent-color:#1273EB}
 input[type=checkbox]{accent-color:#1273EB}
 .row{display:flex;gap:6px;align-items:center;margin:4px 0}
 .row label{font-size:12px;color:#A6A8AB;flex:1}
-#login,#wiz,#pro,#adm{position:fixed;inset:0;background:#0009;display:none;align-items:center;justify-content:center;z-index:10}
+/* ПРАВКА 04.10.2026 (слово владельца: «не, отступа нет»). ПРЕДЫДУЩАЯ ПОПЫТКА была неверной
+   по сути: отступ ВНУТРИ #login не помогает, потому что сам #login растянут `inset:0` на весь
+   экран и его полупрозрачный фон закрывает боковое меню («рейл», 200px) при любом padding.
+   ПРАВИЛЬНО: окно входа само живёт в РАБОЧЕЙ ЗОНЕ — между рейлом слева и правой панелью,
+   и не перекрывает ни того, ни другого. */
+#login{position:fixed;top:44px;left:200px;right:292px;bottom:44px;background:transparent;
+ display:none;align-items:center;justify-content:center;z-index:10;overflow:auto}
+#wiz,#pro,#adm{position:fixed;inset:0;background:#0009;display:none;align-items:center;justify-content:center;z-index:10;overflow:auto;padding:16px 0}
 #login>div,#wiz>div,#pro>div,#adm>div{margin:auto;max-width:92vw}
-/* ПРАВКА 04.10.2026 (слово владельца: «верхнее окно находит на боковое, и нижнее тоже,
-   кнопками "спросить" находит на боковую панель»): окно входа и нижняя панель ввода наезжали
-   на боковое меню. Теперь у обоих отступ под шапку (44px), а нижняя панель ещё и по z-index. */
-#login{padding-top:56px;padding-left:206px}
 #inp{z-index:6;box-sizing:border-box}
 #login div,#wiz>div,#pro>div,#adm>div{background:#242527;padding:20px;border-radius:12px;border:1px solid #3E4043;display:flex;flex-direction:column;gap:9px}
 #chatbox{display:none;position:fixed;top:44px;left:0;bottom:0;width:340px;background:#242527;border-right:1px solid #3E4043;padding:10px;z-index:6;flex-direction:column;gap:8px}
