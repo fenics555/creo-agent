@@ -184,6 +184,16 @@ def prog_run(prog_id="", args="", **kw):
     if pid_now:
         return "«%s» уже работает (PID %d) — смотри prog_state id=%s" % (p["title"], pid_now, p["id"])
     cwd = str(AGENT if (p.get("cwd") in (".", "", None)) else (AGENT / p["cwd"]))
+    # ПРАВКА 05.10.2026 (живая находка в журнале работ): у `navigator` команда
+    # «python -u navigator.py find {}» — с пустым аргументом `{}` исчезал, и движок печатал
+    # справку и выходил с кодом 2. То есть кнопка «Запустить» ЗАВЕДОМО приводила к ошибке.
+    # ПРАВИЛЬНО: если команда требует аргумент, а его нет — честно сказать и НЕ запускать,
+    # вместо того чтобы порождать заведомо падающий прогон в журнале работ.
+    needs_arg = any("{}" in x for x in run)
+    if needs_arg and not str(args or "").strip():
+        return ("«%s» требует аргумент — запускать нечего. Пример: %s <имя>."
+                " Витрина: укажи аргумент в поле запуска."
+                % (p["title"], " ".join(x.replace("{}", "<аргумент>") for x in run)))
     cmd = [x.replace("{}", args or "") for x in run]
     cmd = [x for x in cmd if x != ""]
     extra = [a for a in str(args or "").split() if a]
