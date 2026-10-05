@@ -154,8 +154,7 @@ def db_rows_map(folder=None, latest_only=False):
     try:
         c = db_conn()
         has = any(r[1] == "created" for r in c.execute("PRAGMA table_info(snapshots)"))
-        sql = ("SELECT path,model,size,mtime,volume,material,name,designation,rev,author,revdate,"
-               "role,hist,creo%s FROM snapshots %%s" % (",created" if has else ""))
+        sql = ("SELECT path,model,size,mtime,volume,material,name,designation,rev,author,revdate,\n               d_dims,dim_history,mfg_type,service_links,"d_dims,dim_history,mfg_type,service_links,               "role,hist,creo%s FROM snapshots %%s" % (",created" if has else ""))               "role,hist,creo%s FROM snapshots %%s" % (",created" if has else ""))
         if roots:
             cur = c.execute(sql % ("WHERE " + " OR ".join(["folder LIKE ?"] * len(roots))),
                             tuple(r.rstrip("\\") + "%" for r in roots))
@@ -173,8 +172,7 @@ def db_rows_map(folder=None, latest_only=False):
         vers[d[1]] = vers.get(d[1], 0) + 1
     out, best = {}, {}
     for (p, model, size, mtime, volume, material, name, desig, rev, author, revdate,
-         role, hist, creo, created) in data:
-        v = _ver(p)
+         role, hist, creo, created) in data:        v = _ver(p)
         if latest_only:
             if model in best and v < best[model]:
                 continue
