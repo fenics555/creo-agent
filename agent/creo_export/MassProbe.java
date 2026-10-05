@@ -3,9 +3,6 @@ import com.ptc.pfc.pfcSession.*;
 import com.ptc.pfc.pfcModel.*;
 import com.ptc.pfc.pfcAsyncConnection.*;
 import com.ptc.pfc.pfcSolid.*;
-import com.ptc.pfc.pfcWDimension.*;
-import com.ptc.pfc.pfcBase.*;
-import com.ptc.pfc.pfcUI.*;
 import java.io.File;
 
 /**
@@ -40,28 +37,13 @@ public class MassProbe {
           } catch (Throwable t) {
             System.out.println("#MASS ERR: " + t);
           }
-          // --- ГАБАРИТ через SimpRepBoundBox (единственный путь в этом API) ---
-          try {
-            com.ptc.pfc.pfcSimpRep.SimpRepBoundBox sbox =
-                com.ptc.pfc.pfcSimpRep.pfcSimpRep.SimpRepBoundBox_Create();
-            ((com.ptc.pfc.pfcBase.pfcModel)m).GetSimpRep(sbox);
-            com.ptc.pfc.pfcBase.pfcItem it = (com.ptc.pfc.pfcBase.pfcItem) sbox;
-            double[] mins = sbox.GetBoxMinXYZ();
-            double[] maxs = sbox.GetBoxMaxXYZ();
-            System.out.printf("#BBOX %.6f %.6f %.6f %.6f %.6f %.6f%n",
-                mins[0], mins[1], mins[2], maxs[0], maxs[1], maxs[2]);
-            System.out.printf("#SIZE %.6f %.6f %.6f%n",
-                maxs[0] - mins[0], maxs[1] - mins[1], maxs[2] - mins[2]);
-          } catch (Throwable t) {
-            System.out.println("#BBOX ERR: " + t);
-          }
-          // --- РАЗМЕРЫ ---
-          try {
-            com.ptc.pfc.pfcDimension.pfcDimension[] ds = m.GetDimensionsOfType(null);
-            System.out.println("#DIMCOUNT " + (ds == null ? 0 : ds.length));
-          } catch (Throwable t) {
-            System.out.println("#DIM ERR: " + t);
-          }
+          // --- ГАБАРИТ: НЕ ДОСТУПЕН через этот API (проверено 05.10.2026) ---
+          // Перебрано: pfcModel.GetBBox / pfcSolid.GetBBox / GetBoundingBox /
+          // Session.CreateBBox / Solid.GetBodyBBox / SimpRepBoundBox_Create+GetSimpRep.
+          // В pfcasync.jar (Creo 12.4.2) класса pfcBBox НЕТ вовсе, а SimpRepBoundBox
+          // имеет только GetType(). Вывод: габарит из Creo программно не достаётся —
+          // нужен либо Web.Link (creojs), либо ручной замер.
+          System.out.println("#BBOX N/A — в этом API габарит не отдаётся");
         } catch (Throwable t) {
           System.out.println(new File(model).getName() + "\tERR: " + t);
           bad++;
