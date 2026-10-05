@@ -1,0 +1,4 @@
+Compiled from "pfcSolid.java"
+class com.ptc.pfc.Implementation.pfcSolid {
+  com.ptc.pfc.Implementation.pfcSolid();
+}

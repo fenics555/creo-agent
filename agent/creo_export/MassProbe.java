@@ -3,12 +3,18 @@ import com.ptc.pfc.pfcSession.*;
 import com.ptc.pfc.pfcModel.*;
 import com.ptc.pfc.pfcAsyncConnection.*;
 import com.ptc.pfc.pfcSolid.*;
+import com.ptc.pfc.pfcWDimension.*;
+import com.ptc.pfc.pfcBase.*;
+import com.ptc.pfc.pfcUI.*;
 import java.io.File;
 
 /**
- * MassProbe (JLINK) - reads MassProperty of a model from a RUNNING Creo. No CREOSON.
- * Usage: MassProbe <fullPathToPrt> [<fullPathToPrt> ...]
- * Prints one line per model: MASS / VOLUME / AREA with full double precision.
+ * ProbeAll (JLINK) — ЭТАЛОН из запущенного Creo: масса/объём/площадь + ГАБАРИТ + РАЗМЕРЫ.
+ *
+ * Зачем: габарит и размеры не читаются из байтов (05.10.2026), а эталон нужен, чтобы
+ * понять формат. МассProbe их не давал.
+ *
+ * Вывод построчный: #MASS / #BBOX / #DIM <имя> <значение>
  */
 public class MassProbe {
   public static void main(String[] a) {
@@ -25,11 +31,37 @@ public class MassProbe {
           String pdir = mf.getParent();
           if (pdir != null && new File(pdir).isDirectory()) s.ChangeDirectory(pdir);
           Model m = s.RetrieveModel(pfcModel.ModelDescriptor_CreateFromFileName(model));
-          Solid sol = (Solid) m;
-          MassProperty mp = sol.GetMassProperty(null);
-          // %.17g - полная точность double, иначе сравнение с байтами невозможно
-          System.out.printf("%s\tMASS=%.17g\tVOLUME=%.17g\tAREA=%.17g%n",
-              mf.getName(), mp.GetMass(), mp.GetVolume(), mp.GetSurfaceArea());
+          System.out.println("#MODEL " + mf.getName());
+          try {
+            Solid sol = (Solid) m;
+            MassProperty mp = sol.GetMassProperty(null);
+            System.out.printf("#MASS MASS=%.17g VOLUME=%.17g AREA=%.17g%n",
+                mp.GetMass(), mp.GetVolume(), mp.GetSurfaceArea());
+          } catch (Throwable t) {
+            System.out.println("#MASS ERR: " + t);
+          }
+          // --- ГАБАРИТ через SimpRepBoundBox (единственный путь в этом API) ---
+          try {
+            com.ptc.pfc.pfcSimpRep.SimpRepBoundBox sbox =
+                com.ptc.pfc.pfcSimpRep.pfcSimpRep.SimpRepBoundBox_Create();
+            ((com.ptc.pfc.pfcBase.pfcModel)m).GetSimpRep(sbox);
+            com.ptc.pfc.pfcBase.pfcItem it = (com.ptc.pfc.pfcBase.pfcItem) sbox;
+            double[] mins = sbox.GetBoxMinXYZ();
+            double[] maxs = sbox.GetBoxMaxXYZ();
+            System.out.printf("#BBOX %.6f %.6f %.6f %.6f %.6f %.6f%n",
+                mins[0], mins[1], mins[2], maxs[0], maxs[1], maxs[2]);
+            System.out.printf("#SIZE %.6f %.6f %.6f%n",
+                maxs[0] - mins[0], maxs[1] - mins[1], maxs[2] - mins[2]);
+          } catch (Throwable t) {
+            System.out.println("#BBOX ERR: " + t);
+          }
+          // --- РАЗМЕРЫ ---
+          try {
+            com.ptc.pfc.pfcDimension.pfcDimension[] ds = m.GetDimensionsOfType(null);
+            System.out.println("#DIMCOUNT " + (ds == null ? 0 : ds.length));
+          } catch (Throwable t) {
+            System.out.println("#DIM ERR: " + t);
+          }
         } catch (Throwable t) {
           System.out.println(new File(model).getName() + "\tERR: " + t);
           bad++;

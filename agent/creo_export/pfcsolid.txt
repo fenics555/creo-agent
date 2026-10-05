@@ -1,0 +1,7 @@
+Compiled from "pfcSolid.java"
+public class com.ptc.pfc.pfcSolid.pfcSolid {
+  public com.ptc.pfc.pfcSolid.pfcSolid();
+  public static native com.ptc.pfc.pfcSolid.RegenInstructions RegenInstructions_Create(java.lang.Boolean, java.lang.Boolean, com.ptc.pfc.pfcFeature.Feature) throws com.ptc.cipjava.jxthrowable;
+  public static native com.ptc.pfc.pfcSolid.MassProperty MassProperty_Create(double, double, double, double, com.ptc.pfc.pfcBase.Point3D, com.ptc.pfc.pfcSolid.Inertia, com.ptc.pfc.pfcSolid.Inertia, com.ptc.pfc.pfcSolid.Inertia, com.ptc.pfc.pfcBase.Vector3D, com.ptc.pfc.pfcSolid.PrincipalAxes) throws com.ptc.cipjava.jxthrowable;
+  static {};
+}
