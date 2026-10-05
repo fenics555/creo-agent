@@ -198,11 +198,30 @@ def status():
 def _kill_stray_agents():
     """66c P15/Q3: python agent.py с PID != содержимого agent.pid снимаются
     детерминированно (не по «старший/младший»): приёмка рестарта всегда
-    сходится с профилактикой crash_agent-duplicate-restart-race."""
+    сходится с профилактикой crash_agent-duplicate-restart-race.
+
+    ПРАВКА 05.10.2026 (слово владельца «агент не запускается»; найдено чтением кода):
+    гонка была в самом правиле. Агент пишет свой `agent.pid` УЖЕ ПОСЛЕ старта, поэтому в
+    первые секунды запуска pid-файл ещё старый, а новый агент — «блуждающий». Сторож (AI-WATCH,
+    каждые 60 с) в это окно убивал ЖИВОЙ агент через `taskkill /F`, а у того не срабатывает
+    `atexit` — поэтому в журнале не оставалось ни строки (та сама «тихая смерть» крах-скилла).
+    ПРАВИЛО: эталон жизни — ПОРТ, а не pid-файл. Если 8765 держит какой-то `agent.py`, он
+    ЖИВОЙ, и его не трогаем ни при каких расхождениях с pid-файлом."""
     try:
         keep = int(open(AG + r"\agent.pid").read().strip() or 0)
     except Exception:
         keep = 0
+    try:
+        holder = 0
+        for _p in subprocess.run(["netstat", "-ano"], capture_output=True, text=True,
+                                 errors="replace", timeout=20).stdout.splitlines():
+            if ":8765" in _p and "LISTENING" in _p:
+                holder = int(_p.split()[-1])
+                break
+    except Exception:
+        holder = 0
+    if holder:
+        keep = holder          # эталон = держатель порта; pid-файл может протухнуть
     subprocess.run(["powershell", "-NoProfile", "-Command",
         "Get-CimInstance Win32_Process -Filter \"Name='python.exe'\" | "
         "Where-Object { $_.CommandLine -like '*agent.py*' -and $_.ProcessId -ne %d } | "
