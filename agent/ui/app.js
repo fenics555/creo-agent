@@ -539,6 +539,10 @@ h+='<tr><td>'+esc(r.name)+'</td><td style="color:#A6A8AB">'+esc(dir)+'</td><td c
 box.innerHTML=h+'</table>'}
 function setSt(id,on){if(on===undefined)return;var e=document.getElementById('st_'+id);if(e)e.className='stc'+(on?' ok':' bad')}
 function init(){J('/status').then(function(s){CURM=s.model;hdr.textContent=s.host+(s.user?' | '+(s.user.display_name||s.user.login):'')+' | '+s.model+' | блоков: '+s.blocks+' · инструментов: '+(s.tools||0);setSt('oll',s.up_ollama);setSt('creo',s.up_creoson);setSt('ag',s.up_agent);window.ST=s;
+ // ПРАВКА 04.10.2026 (слово владельца «нету кнопки войти»): окно входа показывалось ТОЛЬКО
+ // после ошибки «нужен вход» от агента. При первом открытии витрины человек видел её без входа
+ // и не понимал, что делать. Теперь при отсутствии токена вход показывается СРАЗУ.
+ if(!TK||!s||s._error||(s.tools===undefined&&!s.user)){showLogin();}
  if(s.ui_layout&&s.ui_layout!=LAY){applyLayout(s.ui_layout)}
  // БАГ (03.10.2026): при повторном входе LAY уже равен сохранённому v4, условие выше
   // ложно, applyLayout не вызывается — и правая панель макета B&W остаётся ПУСТОЙ.
