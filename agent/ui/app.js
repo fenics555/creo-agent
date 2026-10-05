@@ -62,6 +62,15 @@ function att(s){return esc(s).replace(new RegExp('"', 'g'),'&quot;')}
 
 function addMsg(html,me){var d=document.createElement('div');d.className='msg'+(me?' me':'');var t=new Date().toLocaleTimeString([], {hour:'2-digit',minute:'2-digit',hour12:false});d.innerHTML='<small style="color:#A6A8AB;margin-right:5px;">'+t+'</small>'+html;chat.appendChild(d);chat.scrollTop=chat.scrollHeight;return d}
 function showLogin(){login.style.display='flex';hdr.textContent='';panel.innerHTML=''}
+ // ПРАВКА 04.10.2026 (слово владельца: «так сама кнопка "войти" Где?»): вход был виден ТОЛЬКО
+ // как всплывающее окно и только после ошибки агента. Теперь: (1) кнопка «🔑 Войти» в шапке
+ // всегда на виду, пока не вошли; (2) при отсутствии токена окно входа поднимается СРАЗУ при
+ // загрузке страницы, а не после неудачного запроса.
+function markLogged(){
+ var b=document.getElementById('btn_login');
+ if(b){b.style.display=TK?'none':'inline-block'}
+}
+function showloginUI(){markLogged();showLogin()}
 var CUR_ABORT=null,CUR_TIMERS=[];
 /* СТОП ОТ ЧЕЛОВЕКА (живая просьба хозяина 24.09.2026: «задал вопрос — передумал, а он всё пишет»).
    Рвём и запрос из окна (abort), и саму генерацию на сервере (/ask_cancel). */
@@ -538,7 +547,7 @@ var dir=String(r.dir||'').split(String.fromCharCode(92)).slice(-2).join(String.f
 h+='<tr><td>'+esc(r.name)+'</td><td style="color:#A6A8AB">'+esc(dir)+'</td><td class="'+col+'">'+esc(r.verdict)+'</td></tr>'});
 box.innerHTML=h+'</table>'}
 function setSt(id,on){if(on===undefined)return;var e=document.getElementById('st_'+id);if(e)e.className='stc'+(on?' ok':' bad')}
-function init(){J('/status').then(function(s){CURM=s.model;hdr.textContent=s.host+(s.user?' | '+(s.user.display_name||s.user.login):'')+' | '+s.model+' | блоков: '+s.blocks+' · инструментов: '+(s.tools||0);setSt('oll',s.up_ollama);setSt('creo',s.up_creoson);setSt('ag',s.up_agent);window.ST=s;
+function init(){markLogged();J('/status').then(function(s){CURM=s.model;hdr.textContent=s.host+(s.user?' | '+(s.user.display_name||s.user.login):'')+' | '+s.model+' | блоков: '+s.blocks+' · инструментов: '+(s.tools||0);setSt('oll',s.up_ollama);setSt('creo',s.up_creoson);setSt('ag',s.up_agent);window.ST=s;
  // ПРАВКА 04.10.2026 (слово владельца «нету кнопки войти»): окно входа показывалось ТОЛЬКО
  // после ошибки «нужен вход» от агента. При первом открытии витрины человек видел её без входа
  // и не понимал, что делать. Теперь при отсутствии токена вход показывается СРАЗУ.
@@ -589,6 +598,7 @@ else if(a=='do_role'){var lgn=el.getAttribute('data-login');var sel=document.que
 else if(a=='do_del'){var lgn=el.getAttribute('data-login');if(!confirm('Удалить пользователя '+lgn+'?'))return;J('/admin/users',{token:TK,op:'delete',login:lgn}).then(function(r){alert(r.msg||'ок');if(r.ok){document.getElementById('adm').style.display='none';setTimeout(function(){document.getElementById('adm').style.display='flex';document.querySelector('[data-act="openadm"]').click()},100)}})}
 else if(a=='do_resetpw'){var lgn=el.getAttribute('data-login');var nw=prompt('Новый пароль для '+lgn+' (мин 4):');if(nw)J('/admin/users',{token:TK,op:'resetpw',login:lgn,pw:nw}).then(function(r){alert(r.msg||'ок')})}
 else if(a=='adduser'){J('/admin/users',{token:TK,op:'add',login:document.getElementById('nlog').value,pw:document.getElementById('npw').value,role:document.getElementById('nrole').value}).then(function(r){alert(r.msg||'ок');if(r.ok){document.getElementById('nlog').value='';document.getElementById('npw').value='';document.getElementById('adm').style.display='none';setTimeout(function(){document.getElementById('adm').style.display='flex';document.querySelector('[data-act="openadm"]').click()},100)}})}
+else if(a=='showlogin'){showloginUI()}
 else if(a=='closelogin'){login.style.display='none'}
 else if(a=='login')J('/login',{login:lg.value,pw:pw.value}).catch(function(e){alert('сервер недоступен: '+e);throw e}).then(function(r){if(r.ok){TK=r.token;localStorage.setItem('tk',TK);localStorage.setItem('usr',lg.value);login.style.display='none';init();if(!localStorage.getItem('seen_guide')){localStorage.setItem('seen_guide','1');setTimeout(function(){qinp.value='guide';send()},400)}}else alert('неверный логин или пароль')});
 else if(a=='reg')J('/register',{login:lg.value,pw:pw.value}).then(function(r){alert(r.msg||'ок')});
@@ -734,3 +744,22 @@ else if(a=='appr'){
    .then(function(){el.disabled=false})
 }
 else if(a=='chatsend'){var t=document.getElementById('cin').value;J('/chat/send',{token:TK,text:t}).then(function(r){if(r.ok)document.getElementById('cin').value='';chatPoll()})}});
+
+/* ПРАВКА 04.10.2026 (слово владельца: «нету кнопки войти», затем «так сама кнопка "войти" Где?»).
+   НАЙДЕНО ПОИСКОМ ПО ФАКТУ: функция `init()` в этом файле встречается 4 раза, и ВСЕ ЧЕТЫРЕ —
+   это вызовы ПОСЛЕ действий человека (вход, смена имени, смена модели). При загрузке страницы
+   `init()` НЕ вызывался НИ РАЗУ: то есть витрина при первом открытии не инициализировалась —
+   отсюда и отсутствие входа, и часть «нерабочих» вкладок.
+   Добавляем запуск страницы: если токена нет — сразу окно входа и кнопка «🔑 Войти» в шапке. */
+(function boot(){
+ function go(){
+  try{ markLogged(); }catch(e){}
+  if(!TK){ try{ login.style.display='flex'; }catch(e){} }   // без входа витрина бессмысленна
+  try{ init(); }catch(e){ console && console.error('boot init:', e); }
+ }
+ if(document.readyState==='loading'){
+  document.addEventListener('DOMContentLoaded', go);
+ }else{
+  go();
+ }
+})();
