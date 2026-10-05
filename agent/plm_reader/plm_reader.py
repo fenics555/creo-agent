@@ -462,6 +462,163 @@ DRW_MODEL_RE = re.compile(rb"model_names\x00\xf8[\x01-\x0f]([\x20-\x7e\x80-\xff]
 MDL_NAME_RE = re.compile(r"^[A-Za-z0-9А-Яа-яЁё_\-.? ]{4,80}\.(?:prt|asm|PRT|ASM)$")
 
 
+# --- 05.10.2026: РАЗМЕРЫ детали и ИСТОРИЯ их изменений -------------------------------
+# Формат числа: 2^(E+1) * (1 + F/4096), F — 12 БИТ, маркер первого байта ЛЮБОЙ.
+# Размер пишется двумя способами:
+#   (а) значение ДО имени:   f1 f7 37 e3 32 <3 байта> … f2 f7 38 "d12" 00
+#   (б) значение ПОСЛЕ имени: d11 00 37 e3 0b 08 … <число на +9>
+DIM_HEAD_RE = re.compile(rb"\xf1\xf7\x37\xe3\x32", re.S)
+DIM_NAME_RE = re.compile(rb"\xf2\xf7\x38(d\d{1,5})\x00", re.S)
+DIM_AFTER_RE = re.compile(rb"(?<![A-Za-z0-9_])(d\d{1,5})\x00\x37", re.S)
+
+
+def _dec_ef(b):
+    """Число БЕЗ ведущего маркера: [E:F12][дробная] = 2^(E+1)*(1+F/4096).
+
+    ⚠️ В `new_val` блока diff_vals маркера НЕТ — E и F лежат в первых двух байтах
+    (`35 32 …` → 21.195). Со сдвигом на байт выходило 18.18 — ошибка была именно в этом.
+    Для размеров (способ а/б) маркер ЕСТЬ, там работает `_dec3_any`."""
+    if len(b) < 2:
+        return None
+    E = (b[0] >> 4) & 0x0F
+    F = ((b[0] & 0x0F) << 8) | b[1]
+    return (2.0 ** (E + 1)) * (1.0 + F / 4096.0)
+
+
+def _dec3_any(b):
+    """3-байтовое число с ЛЮБЫМ маркером: 2^(E+1) * (1 + F/4096)."""
+    if len(b) < 3:
+        return None
+    E = (b[1] >> 4) & 0x0F
+    F = ((b[1] & 0x0F) << 8) | b[2]
+    return (2.0 ** (E + 1)) * (1.0 + F / 4096.0)
+
+
+def read_dims_all(raw):
+    """РАЗМЕРЫ детали {dNN: мм} — три источника (05.10.2026).
+
+    Проверено на эталоне a887-94-1500-01: d12=8, d13=21.5, d25=12.7 (совпало)."""
+    out = {}
+    if not raw:
+        return out
+    for m in DIM_HEAD_RE.finditer(raw):
+        v = _dec3_any(raw[m.end():m.end() + 3])
+        if v is None or not (0.001 < abs(v) < 1e6):
+            continue
+        mn = DIM_NAME_RE.search(raw[m.end() + 3:m.end() + 43])
+        if mn:
+            out.setdefault(mn.group(1).decode("latin-1"), round(v, 4))
+    if len(out) < 3:
+        for m in DIM_AFTER_RE.finditer(raw):
+            v = _dec3_any(raw[m.end() + 8:m.end() + 11])
+            if v is not None and 0.001 < abs(v) < 1e6:
+                out.setdefault(m.group(1).decode("latin-1"), round(v, 4))
+    for r in read_history_vals(raw):          # третий источник: new_val из diff_vals
+        out.setdefault(r[0], r[1])
+    # отсекаем обрывки: ключ обязан быть вида dNN (иначе это не размер, а мусор)
+    return {k: v for k, v in out.items()
+            if isinstance(k, str) and re.match(r"^d\d{1,5}$", k)
+            and isinstance(v, (int, float))}
+
+
+def read_history_vals(raw):
+    """Текущее значение размера из `new_val` блока diff_vals: {dNN: мм}."""
+    out = {}
+    if not raw or b"diff_vals" not in raw:
+        return out
+    for m in re.finditer(rb"diff_vals", raw):
+        seg = raw[m.end():m.end() + 260]
+        kd = seg.find(b"dim_name")
+        kn = seg.find(b"new_val")
+        if kd < 0 or kn < 0:
+            continue
+        nm = None
+        for pref in (b"\xf2", b"\xf1"):
+            p = seg.find(pref, kd, kd + 40)
+            if p >= 0:
+                s = p + 1
+                q = s
+                while q < len(seg) and seg[q] != 0x00 and q - s < 40:
+                    q += 1
+                cand = seg[s:q].decode("latin-1", "replace")
+                if re.match(r"^d\d{1,5}$", cand):
+                    nm = cand
+                    break
+        if not nm or len(nm) < 2:      # отсекаем обрывки имён вроде «d»
+            continue
+        v = None
+        # снимаем префиксы f1/f7/e3 — число идёт БЕЗ маркера (E:F в первых двух байтах)
+        c = seg[kn + 7:kd].lstrip(b"\x00")
+        while c[:1] in (b"\xf1", b"\xf7", b"\xe3"):
+            c = c[1:]
+        v = _dec_ef(c[:2])
+        if isinstance(v, (int, float)):
+            out.setdefault(nm, round(float(v), 4))
+        if len(out) >= 100:
+            break
+    return out
+
+
+def read_history(raw):
+    """ИСТОРИЯ ИЗМЕНЕНИЙ РАЗМЕРОВ: [{name, old, new}] — «было → стало».
+
+    Блок `diff_vals` в файле: `old_val` (было) · `new_val` (стало) · `dim_name` (dNN).
+    Проверено на живой правке 05.10.2026: при правке меняется только `new_val`
+    (21.1953 → 23.1953)."""
+    out = []
+    if not raw or b"diff_vals" not in raw:
+        return out
+    for m in re.finditer(rb"diff_vals", raw):
+        seg = raw[m.end():m.end() + 300]
+        kd = seg.find(b"dim_name")
+        kn = seg.find(b"new_val")
+        ko = seg.find(b"old_val")
+        if kd < 0 or kn < 0:
+            continue
+        nm = None
+        for pref in (b"\xf2", b"\xf1"):
+            p = seg.find(pref, kd, kd + 40)
+            if p >= 0:
+                s = p + 1
+                q = s
+                while q < len(seg) and seg[q] != 0x00 and q - s < 40:
+                    q += 1
+                cand = seg[s:q].decode("latin-1", "replace")
+                if re.match(r"^d\d{1,5}$", cand):
+                    nm = cand
+                    break
+        if not nm or len(nm) < 2:      # отсекаем обрывки имён вроде «d»
+            continue
+        new = _hist_val(seg[kn + 7:kd] if kn < kd else b"")
+        old = _hist_val(seg[ko + 7:kn] if 0 <= ko < kn else b"")
+        if new is None:
+            continue
+        out.append({"name": nm, "old": old, "new": new})
+        if len(out) >= 200:
+            break
+    return out
+
+
+def _hist_val(chunk):
+    """Значение old_val/new_val: число | None (e1 = значения нет)."""
+    if not chunk:
+        return None
+    c = chunk.lstrip(b"\x00")
+    if not c or c[:1] == b"\xe1":
+        return None
+    if b"value(" in c:                       # record: type 2 / value(d_val) <число>
+        tail = c[c.find(b"value("):]
+        for i in range(0, max(1, min(len(tail) - 2, 24))):
+            bb = tail[i:i + 3]
+            if len(bb) >= 3 and bb[0] in (0x2F, 0x48):
+                return round(_dec3_any(bb), 4)
+        return None
+    while c[:1] in (b"\xf1", b"\xf7", b"\xe3"):
+        c = c[1:]
+    v = _dec_ef(c[:2])            # ⚠️ БЕЗ маркера: E:F в первых двух байтах
+    return round(v, 4) if v is not None else None
+
+
 def dwg_models(raw):
     """Из чёртежа (.drw): модели (детали/сборки), которые он показывает.
 
@@ -2913,6 +3070,19 @@ def run_gui():
         add("Числовых параметров", str(len(nums)))
         for k, val in nums[:60]:
             add("   " + k, _fmt(val))
+        # --- 05.10.2026: РАЗМЕРЫ детали и ИСТОРИЯ их изменений ---
+        dims = read_dims_all(raw)
+        add("РАЗМЕРОВ ДЕТАЛИ", str(len(dims)))
+        for k in sorted(dims, key=lambda x: (len(x), x))[:60]:
+            add("   " + k, _fmt(dims[k]))
+        hist = read_history(raw)
+        if hist:
+            add("ИСТОРИЯ ИЗМЕНЕНИЙ РАЗМЕРОВ", "%d записей" % len(hist))
+            for h in hist[:40]:
+                o = "—" if h["old"] is None else _fmt(h["old"])
+                add("   " + h["name"], "%s  →  %s" % (o, _fmt(h["new"])))
+        else:
+            add("ИСТОРИЯ ИЗМЕНЕНИЙ РАЗМЕРОВ", "— в файле нет записей")
         dwg = dwg_models(raw)
         add("Показывает модели (если это чертёж)", ", ".join(dwg) if dwg else "— не чертёж")
         lpsum.config(text="%s — свойства из ФАЙЛА модели (площадь, ТТ, параметры, чертежи)"
