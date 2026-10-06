@@ -23,6 +23,11 @@ def tool_housekeeping():
             f.unlink(); rep.append("backup removed " + f.name)
     else:
         rep.append("ВНИМАНИЕ: папки бэкапов нет: %s" % bak)
+    # 06.10.2026: РУЧНЫЕ копии «перед правкой» (data\backup) — ротации не было, копились молча
+    # (271 файл). Уборщик backup.sweep_manual написан 03.10, но НИКЕМ не вызывался → подключаем:
+    # старше manual_keep_days (по умолчанию 30 дней) удаляем. sweep_manual сам пропускает
+    # *.sqlite (рабочая база) и pre_data_audit_* (страховка аудита).
+    rep.append(BK.sweep_manual(days=int(settings.get("manual_keep_days") or 30), do=True))
     days = int(settings.get("image_days") or 7)
     cut = datetime.datetime.now().timestamp() - days * 86400
     pc = core.DATA_DIR / "pdfcache"
