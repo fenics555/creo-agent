@@ -1,16 +1,16 @@
 {
- "version": "V38",
- "version_num": 38,
- "date": "04.10.2026",
- "notes": "V38: nizhnee okno - tretya vkladka Svoistva detali (ploshchad poverhnosti, tehniTreqs, chislovye parametry, svyaz chertyozh-model)",
+ "version": "V39",
+ "version_num": 39,
+ "date": "06.10.2026",
+ "notes": "V39: Svoistva detali - razmery i istoriya izmeneniy",
  "files": {
   "engine.py": "07ab8a87017c610e7050266c0ce4f29428f94124a44ef6079e0be086a6e0afd3",
-  "plm_reader.py": "613fe4c2e910653708b548f5add08bbff32e6e822924fbb99cba233cdc32ecfa",
+  "plm_reader.py": "e2f99d1dfcbfdf197f7d5ac64f3271c43fc93eab0213e50f823f2193264ad303",
   "creo_read.py": "5e027a85d6297c90f98c5435a3451bc94ed40dfc26fbe856aaf9d1b9c3f21d8d",
-  "README.md": "73ca7cd080aef5b7a51dd175125e164e0b7bfcf8e4e8f14594c4c49fcc0d9dad",
+  "README.md": "fa2febeb61fa045059dca8afc5e17a42eb6435d18dab0bae2fd9d437043542dc",
   "SHARE_copy.bat": "d61e6354d66e0078014e2e80e1085fee7d6b880003bc458b65e767776a116167",
   "plm_reader.bat": "bdd125397db3ac7e7432dbdb078a6a811ed4913fca02b062edb27907032fca3d",
-  "plm_reader_gui.bat": "ec44437a53a196ad9b1d678ef6db4ff28917c6e12a9a1793c01bd4e3d51bc398",
+  "plm_reader_gui.bat": "c8e40a5a91c3f97522e5fa5556b423f60e1358a593225819a24f255414e290e1",
   "make_version_json.py": "b463d9b064c64e7d48c166a385a04d9783025e43b30ca5cbe1ba7d5bacc504a9",
   ".gitignore": "3a65634c07476d3d532f3a080b8f0fb6f3339b1988609d81151bf9268b4fd874"
  }
