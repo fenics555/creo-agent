@@ -1,13 +1,13 @@
 {
- "version": "V40",
- "version_num": 40,
+ "version": "V41",
+ "version_num": 41,
  "date": "06.10.2026",
- "notes": "V40: knopka Dopolnitelno - interesnye fakty po baze",
+ "notes": "V41: sled na diske - vse versii bazy i bekapy",
  "files": {
   "engine.py": "07ab8a87017c610e7050266c0ce4f29428f94124a44ef6079e0be086a6e0afd3",
-  "plm_reader.py": "d353b69527c337fac0821756b01be63b907b813fe1e963a443b6b99812c79421",
+  "plm_reader.py": "ccac7341f9af6dfbd3f5e44a8f1caaf89859f915e637cf211b771d4ba2d4fccb",
   "creo_read.py": "5e027a85d6297c90f98c5435a3451bc94ed40dfc26fbe856aaf9d1b9c3f21d8d",
-  "README.md": "601585d9a6c02a08b73064f6a2da310161a7351d59621528db3c742e490be8c3",
+  "README.md": "6a1ab415e140d1c105132b1d945473d8262613e24ef5e020df34f12ed0cb80ef",
   "SHARE_copy.bat": "d61e6354d66e0078014e2e80e1085fee7d6b880003bc458b65e767776a116167",
   "plm_reader.bat": "bdd125397db3ac7e7432dbdb078a6a811ed4913fca02b062edb27907032fca3d",
   "plm_reader_gui.bat": "c8e40a5a91c3f97522e5fa5556b423f60e1358a593225819a24f255414e290e1",

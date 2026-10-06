@@ -26,7 +26,7 @@ import sys
 import threading
 import time
 
-APP_VERSION = "V40"
+APP_VERSION = "V41"
 APP_TITLE = "PLM Reader " + APP_VERSION          # версия ОДНА: заголовок берёт её из константы
 DATA_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "db")          # данные — в подпапке db\
 SETTINGS_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "settings")  # настройки — в подпапке settings\
@@ -189,6 +189,17 @@ def db_facts():
         heavy.sort(reverse=True)
         lines.append(("Что ест место (строк)", ", ".join("%s: %s" % (t, n) for n, t in heavy[:6])))
         c.close()
+        # след на диске: ВСЕ версии базы + бэкапы — это и есть «рост» (главный вопрос владельца)
+        tot, cnt = 0, 0
+        try:
+            for _root, _dirs, _fs in os.walk(DATA_DIR):
+                for _fn in _fs:
+                    if _fn.lower().endswith(".db"):
+                        tot += os.path.getsize(os.path.join(_root, _fn))
+                        cnt += 1
+        except Exception:
+            pass
+        lines.append(("След на диске (все базы+бэкапы)", "%.2f ГБ  ·  файлов: %d" % (tot / 1e9, cnt)))
         if size > 1.5e9:
             warn = ("⚠ База %.1f ГБ и растёт. Сейчас хранятся 3 версии базы (ротация сверх этого) — "
                     "нужен retention: чистить старые архивные срезы и/или историю, иначе будет расти вечно."
