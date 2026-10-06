@@ -26,7 +26,7 @@ import sys
 import threading
 import time
 
-APP_VERSION = "V42"
+APP_VERSION = "V43"
 APP_TITLE = "PLM Reader " + APP_VERSION          # версия ОДНА: заголовок берёт её из константы
 DATA_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "db")          # данные — в подпапке db\
 SETTINGS_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "settings")  # настройки — в подпапке settings\
@@ -841,6 +841,44 @@ def archive_dims(model):
             con.close()
         except Exception:
             pass
+
+
+def archive_history(model, max_dates=40, max_changes=80):
+    """ИСТОРИЯ изделия из АРХИВА: срезы + правки.
+
+    Возвращает (snaps, chgs):
+      snaps — [(arch_date, файлов, макс.объём, ревизия, автор, Creo)] по датам срезов (`arch_snapshots`);
+      chgs  — [(ts, descr)] правок `kind='архив'` из `changes`.
+    Нет архива в базе → ([], []). Только чтение."""
+    model = (model or "").strip()
+    if not model:
+        return [], []
+    try:
+        con = db_conn(ro=True)
+    except Exception:
+        return [], []
+    snaps, chgs = [], []
+    try:
+        tabs = {r[0] for r in con.execute("SELECT name FROM sqlite_master WHERE type='table'")}
+        if "arch_snapshots" in tabs:
+            for r in con.execute(
+                    "SELECT arch_date, COUNT(*), MAX(volume), MAX(rev), MAX(author), MAX(creo) "
+                    "FROM arch_snapshots WHERE UPPER(model)=UPPER(?) GROUP BY arch_date "
+                    "ORDER BY arch_date LIMIT ?", (model, max_dates)):
+                snaps.append(tuple(r))
+        if "changes" in tabs:
+            for r in con.execute(
+                    "SELECT ts, descr FROM changes WHERE UPPER(item)=UPPER(?) AND kind='архив' "
+                    "ORDER BY ts LIMIT ?", (model, max_changes)):
+                chgs.append(tuple(r))
+    except Exception:
+        pass
+    finally:
+        try:
+            con.close()
+        except Exception:
+            pass
+    return snaps, chgs
 
 
 def latest_path(model):
@@ -3234,6 +3272,21 @@ def run_gui():
             for (dt, dm, ov, nv, kd) in hist_db[:40]:
                 add("   %s %s" % (dt, dm),
                     "%s → %s  (%s)" % (ov or "—", nv or "", kd or ""))
+        # 06.10.2026 (V43): ИСТОРИЯ по АРХИВНЫМ СРЕЗАМ — «боевая информация» из собранных баз
+        snaps_db, chg_db = archive_history(model)
+        if snaps_db:
+            add("АРХИВ: срезов изделия", "%d (от %s до %s)"
+                % (len(snaps_db), snaps_db[0][0], snaps_db[-1][0]))
+            for (dt, k, mv, rev, au, cr) in snaps_db[:40]:
+                add("   срез %s" % dt,
+                    "файлов %s · объём %s · рев. %s · автор %s · Creo %s"
+                    % (k, _vol_str(mv) if mv else "—", rev or "—", au or "—", cr or "—"))
+        else:
+            add("АРХИВ: срезы изделия", "— нет (архив не слит в базу)")
+        if chg_db:
+            add("АРХИВ: правок изделия", str(len(chg_db)))
+            for (ts, d) in chg_db[:40]:
+                add("   %s" % (ts or "?"), (d or "")[:120])
         dwg = dwg_models(raw)
         add("Показывает модели (если это чертёж)", ", ".join(dwg) if dwg else "— не чертёж")
         lpsum.config(text="%s — свойства из ФАЙЛА модели (площадь, ТТ, параметры, "
