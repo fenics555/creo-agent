@@ -1,13 +1,13 @@
 {
- "version": "V39",
- "version_num": 39,
+ "version": "V40",
+ "version_num": 40,
  "date": "06.10.2026",
- "notes": "V39: Svoistva detali - razmery i istoriya izmeneniy",
+ "notes": "V40: knopka Dopolnitelno - interesnye fakty po baze",
  "files": {
   "engine.py": "07ab8a87017c610e7050266c0ce4f29428f94124a44ef6079e0be086a6e0afd3",
-  "plm_reader.py": "e2f99d1dfcbfdf197f7d5ac64f3271c43fc93eab0213e50f823f2193264ad303",
+  "plm_reader.py": "d353b69527c337fac0821756b01be63b907b813fe1e963a443b6b99812c79421",
   "creo_read.py": "5e027a85d6297c90f98c5435a3451bc94ed40dfc26fbe856aaf9d1b9c3f21d8d",
-  "README.md": "fa2febeb61fa045059dca8afc5e17a42eb6435d18dab0bae2fd9d437043542dc",
+  "README.md": "601585d9a6c02a08b73064f6a2da310161a7351d59621528db3c742e490be8c3",
   "SHARE_copy.bat": "d61e6354d66e0078014e2e80e1085fee7d6b880003bc458b65e767776a116167",
   "plm_reader.bat": "bdd125397db3ac7e7432dbdb078a6a811ed4913fca02b062edb27907032fca3d",
   "plm_reader_gui.bat": "c8e40a5a91c3f97522e5fa5556b423f60e1358a593225819a24f255414e290e1",

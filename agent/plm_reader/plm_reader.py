@@ -26,7 +26,7 @@ import sys
 import threading
 import time
 
-APP_VERSION = "V39"
+APP_VERSION = "V40"
 APP_TITLE = "PLM Reader " + APP_VERSION          # версия ОДНА: заголовок берёт её из константы
 DATA_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "db")          # данные — в подпапке db\
 SETTINGS_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "settings")  # настройки — в подпапке settings\
@@ -122,6 +122,80 @@ def db_total(folder=None):
         return n
     except Exception:
         return 0
+
+
+def _vol_str(v):
+    """Объём в мм³ по-человечески: мелкий — мм³, крупный — ещё и м³."""
+    try:
+        v = float(v)
+    except Exception:
+        return "?"
+    if v >= 1e9:
+        return "%.2f м³ (%.0f мм³)" % (v / 1e9, v)
+    return "%.0f мм³" % v
+
+
+def db_facts():
+    """«Интересные факты» по активной базе: размер, крайние связи, что ест место.
+
+    Возвращает (lines, warn): lines — [(подпись, значение)], warn — предупреждение о росте."""
+    lines, warn = [], ""
+    try:
+        p = _active_db_file()
+        size = os.path.getsize(p)
+        lines.append(("Файл базы", "%s  ·  %.1f МБ" % (os.path.basename(p), size / 1e6)))
+        c = db_conn()
+
+        def one(q):
+            try:
+                return c.execute(q).fetchone()
+            except Exception:
+                return None
+
+        r = one("SELECT COUNT(*), COUNT(DISTINCT model) FROM snapshots")
+        lines.append(("Паспортов (строк)", "%s  ·  изделий: %s" % (r[0], r[1]) if r else "—"))
+        lines.append(("Связей (состав)", str((one("SELECT COUNT(*) FROM links") or (0,))[0])))
+        lines.append(("Происхождений", str((one("SELECT COUNT(*) FROM derived") or (0,))[0])))
+        ch = one("SELECT COUNT(*) FROM changes") or (0,)
+        ar = one("SELECT COUNT(*) FROM changes WHERE kind='архив'") or (0,)
+        lines.append(("Изменений (журнал)", "%d  ·  архивных: %d" % (ch[0], ar[0])))
+        f = one("SELECT parent, COUNT(*) FROM links GROUP BY parent ORDER BY COUNT(*) DESC LIMIT 1")
+        if f:
+            lines.append(("Самая большая сборка", "%s — %d деталей" % (f[0], f[1])))
+        f = one("SELECT child, COUNT(*) FROM links GROUP BY child ORDER BY COUNT(*) DESC LIMIT 1")
+        if f:
+            lines.append(("Самая ходовая деталь", "%s — входит в %d сборок" % (f[0], f[1])))
+        f = one("SELECT model, volume FROM snapshots WHERE volume IS NOT NULL ORDER BY volume DESC LIMIT 1")
+        if f:
+            lines.append(("Самый большой объём", "%s — %s" % (f[0], _vol_str(f[1]))))
+        f = one("SELECT model, size FROM snapshots ORDER BY size DESC LIMIT 1")
+        if f:
+            lines.append(("Самый крупный файл", "%s — %.1f МБ" % (f[0], (f[1] or 0) / 1e6)))
+        f = one("SELECT model, created FROM snapshots WHERE created IS NOT NULL ORDER BY created ASC LIMIT 1")
+        if f and f[1]:
+            lines.append(("Старейший файл", "%s — %s" % (f[0], _fs_date(f[1]))))
+        f = one("SELECT model, created FROM snapshots WHERE created IS NOT NULL ORDER BY created DESC LIMIT 1")
+        if f and f[1]:
+            lines.append(("Новейший файл", "%s — %s" % (f[0], _fs_date(f[1]))))
+        f = one("SELECT MIN(ts), MAX(ts) FROM changes")
+        if f:
+            lines.append(("История изменений", "%s  …  %s" % (f[0] or "?", f[1] or "?")))
+        heavy = []
+        for (t,) in c.execute("SELECT name FROM sqlite_master WHERE type='table'"):
+            if t == "sqlite_sequence":
+                continue
+            rr = one("SELECT COUNT(*) FROM %s" % t)
+            heavy.append((rr[0] if rr else 0, t))
+        heavy.sort(reverse=True)
+        lines.append(("Что ест место (строк)", ", ".join("%s: %s" % (t, n) for n, t in heavy[:6])))
+        c.close()
+        if size > 1.5e9:
+            warn = ("⚠ База %.1f ГБ и растёт. Сейчас хранятся 3 версии базы (ротация сверх этого) — "
+                    "нужен retention: чистить старые архивные срезы и/или историю, иначе будет расти вечно."
+                    % (size / 1e9))
+    except Exception as e:
+        lines.append(("Ошибка", str(e)))
+    return lines, warn
 
 
 def _ver(p):
@@ -2125,6 +2199,7 @@ def run_gui():
         ("Выгрузить в CSV", lambda: export()),
         ("README", lambda: show_readme()),
         ("Проверить обновление", lambda: check_updates_ui(True)),
+        ("Дополнительно", lambda: show_facts()),
     ], per_col=4)
     def _upd_status(text):
         try:
@@ -2173,6 +2248,43 @@ def run_gui():
                     root.after(0, lambda: messagebox.showinfo(
                         "Обновление", "У вас последняя версия: %s" % r.get("local")))
         threading.Thread(target=work, daemon=True).start()
+
+    def show_facts():
+        """Окно «Дополнительно»: интересные факты по активной базе (расчёт в фоне)."""
+        win = tk.Toplevel(root)
+        win.title("PLM Reader — дополнительно (интересные факты по базе)")
+        win.geometry("660x470")
+        win.transient(root)
+        head = ttk.Label(win, text="считаю…", padding=8)
+        head.pack(anchor="w")
+        tv = ttk.Treeview(win, columns=("k", "v"), show="headings", height=16)
+        tv.heading("k", text="Показатель")
+        tv.heading("v", text="Значение")
+        tv.column("k", width=210, anchor="w")
+        tv.column("v", width=430, anchor="w")
+        tv.pack(fill="both", expand=True, padx=8)
+        warn = ttk.Label(win, text="", foreground="#a00", wraplength=630,
+                         justify="left", padding=8)
+        warn.pack(anchor="w")
+
+        def work():
+            lines, wrn = db_facts()
+
+            def done():
+                try:
+                    tv.delete(*tv.get_children())
+                    for k, v in lines:
+                        tv.insert("", "end", values=(k, v))
+                    head.config(text="Интересные факты по активной базе")
+                    warn.config(text=wrn)
+                except Exception:
+                    pass
+            root.after(0, done)
+
+        threading.Thread(target=work, daemon=True).start()
+        ttk.Button(win, text="Пересчитать",
+                   command=lambda: threading.Thread(target=work, daemon=True).start()).pack(pady=6)
+        ttk.Button(win, text="Закрыть", command=win.destroy).pack(pady=(0, 8))
 
 
 
