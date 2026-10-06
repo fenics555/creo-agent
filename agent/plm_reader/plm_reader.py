@@ -26,7 +26,7 @@ import sys
 import threading
 import time
 
-APP_VERSION = "V41"
+APP_VERSION = "V42"
 APP_TITLE = "PLM Reader " + APP_VERSION          # версия ОДНА: заголовок берёт её из константы
 DATA_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "db")          # данные — в подпапке db\
 SETTINGS_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "settings")  # настройки — в подпапке settings\
@@ -156,9 +156,15 @@ def db_facts():
         lines.append(("Паспортов (строк)", "%s  ·  изделий: %s" % (r[0], r[1]) if r else "—"))
         lines.append(("Связей (состав)", str((one("SELECT COUNT(*) FROM links") or (0,))[0])))
         lines.append(("Происхождений", str((one("SELECT COUNT(*) FROM derived") or (0,))[0])))
+        dn = one("SELECT COUNT(DISTINCT child) FROM derived") or (0,)
+        lines.append(("Пересохранено из других", "%d изделий (заготовка/отливка)" % dn[0]))
         ch = one("SELECT COUNT(*) FROM changes") or (0,)
         ar = one("SELECT COUNT(*) FROM changes WHERE kind='архив'") or (0,)
         lines.append(("Изменений (журнал)", "%d  ·  архивных: %d" % (ch[0], ar[0])))
+        au = one("SELECT author, COUNT(*) FROM snapshots WHERE COALESCE(author,'')<>'' "
+                 "GROUP BY author ORDER BY COUNT(*) DESC LIMIT 1")
+        if au:
+            lines.append(("Самый активный автор", "%s — %d файлов" % (au[0], au[1])))
         f = one("SELECT parent, COUNT(*) FROM links GROUP BY parent ORDER BY COUNT(*) DESC LIMIT 1")
         if f:
             lines.append(("Самая большая сборка", "%s — %d деталей" % (f[0], f[1])))
@@ -3341,17 +3347,17 @@ def run_gui():
             _LLINKS[nn] = (c, "down")
             ltv2.insert(nn, "end", text="загрузка…")
 
-        # ▼ вниз — ОТРАЖЕНИЯ (кто сделан ИЗ этой модели)
-        ref = ltv2.insert(rn, "end", open=bool(refl), text="▼ отражения (сделано из неё): %d" % len(refl))
+        # ▼ вниз — ОТРАЖЕНИЯ (кто сделан ИЗ этой модели) — она для них «пересохранён источник»
+        ref = ltv2.insert(rn, "end", open=bool(refl), text="▼ из неё пересохранено (отражения): %d" % len(refl))
         if not refl:
             ltv2.insert(ref, "end", text="— обратных связей нет")
         for c, k in refl:
             kd = {"наследование": "заготовка", "производная": "отливка"}.get(k, "заготовка/отливка")
             ltv2.insert(ref, "end", text="%s: %s" % (kd, c), values=("отражение", c, "", "", ""))
 
-        # ▼ вниз — НАСЛЕДОВАННАЯ ГЕОМЕТРИЯ (заготовки/отливки этой модели)
+        # ▼ вниз — НАСЛЕДОВАННАЯ ГЕОМЕТРИЯ (заготовки/отливки этой модели) — она ПЕРЕСОХРАНЕНА ИЗ них
         inh = ltv2.insert(rn, "end", open=bool(bases),
-                          text="▼ наследованная геометрия (заготовки/отливки): %d" % len(bases))
+                          text="▼ она пересохранена из (заготовка/отливка): %d" % len(bases))
         if not bases:
             ltv2.insert(inh, "end", text="— наследования нет")
         for b, k in bases:
@@ -3373,7 +3379,7 @@ def run_gui():
             ltv2.see(rn)
         except Exception:
             pass
-        lsum2.config(text="связи: %s — состав %d · отражений %d · заготовок/отливок %d · сборок вверх %d"
+        lsum2.config(text="связи: %s — состав %d · из неё пересохранено %d · пересохранена из %d · сборок вверх %d"
                      % (model, len(kids), len(refl), len(bases), n_up))
 
     def _fill_up(parent_node, model, up, info, depth, seen):
