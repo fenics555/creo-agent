@@ -965,23 +965,33 @@ def purge_plan(folder=None, keep=2):
         except Exception:
             continue
         groups.setdefault((folder, model), []).append((ver, p, size or 0))
-    cand, kept, free = [], 0, 0
+    cand, kept, free, missing = [], 0, 0, 0
     for key, lst in groups.items():
         lst.sort(key=lambda x: x[0], reverse=True)
         kept += min(len(lst), keep)
         for ver, p, size in lst[keep:]:
+            try:
+                if not os.path.exists(p):     # файл уже перенесён/удалён — база бывает старой
+                    missing += 1
+                    continue
+            except Exception:
+                missing += 1
+                continue
             cand.append((p, size, key[1], ver))
             free += size
     cand.sort(key=lambda x: -x[1])
     return {"candidates": cand, "count": len(cand), "bytes": free, "models": len(groups),
-            "keep": keep, "kept": kept}
+            "keep": keep, "kept": kept, "missing": missing}
 
 
 def purge_plan_text(plan, limit=400):
     """Текст плана для окна."""
-    lines = ["Purge (план из базы; файлы НЕ трогаются)",
+    lines = ["Purge (план из базы, проверенный по диску; файлы НЕ трогаются)",
              "изделий %d · оставить по %d новейшие версии · лишних версий %d · освободится %.1f МБ"
              % (plan["models"], plan["keep"], plan["count"], plan["bytes"] / 1048576.0), ""]
+    _miss = plan.get("missing", 0)
+    if _miss:
+        lines.insert(2, "в базе ещё %d записей об уже отсутствующих файлах (перенесены ранее) — пропущены" % _miss)
     for path, size, model, ver in plan["candidates"][:limit]:
         lines.append("%9.1f КБ | v%d | %s" % (size / 1024.0, ver, path))
     if plan["count"] > limit:

@@ -26,7 +26,7 @@ import sys
 import threading
 import time
 
-APP_VERSION = "V49"
+APP_VERSION = "V50"
 APP_TITLE = "PLM Reader " + APP_VERSION          # версия ОДНА: заголовок берёт её из константы
 DATA_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "db")          # данные — в подпапке db\
 SETTINGS_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "settings")  # настройки — в подпапке settings\
@@ -2370,7 +2370,7 @@ def run_gui():
 
     # НИЖНЯЯ ПОЛОСА (дерево производства) — прижата к низу окна, видна на ЛЮБОЙ вкладке
     lpane = ttk.Frame(vpan)
-    vpan.add(lpane, weight=1)                 # НИЖНЯЯ полоса (деревья) — нижняя доля разделителя
+    # lpane добавляем в разделитель ПОСЛЕ nb (ниже) — иначе верх/низ поменяются местами
 
     def _status_menu(event):
         m = tk.Menu(root, tearoff=0)
@@ -2391,7 +2391,8 @@ def run_gui():
     root.bind("<Configure>", _wrap_data)
 
     nb = ttk.Notebook(vpan)
-    vpan.add(nb, weight=4)                    # ВЕРХНЕЕ окно (вкладки) — верхняя доля разделителя
+    vpan.add(nb, weight=4)                    # ВЕРХНЕЕ окно (вкладки) — ВЕРХНЯЯ доля (добавляется первым)
+    vpan.add(lpane, weight=1)                 # НИЖНЯЯ полоса (деревья) — НИЖНЯЯ доля
     vpan.pack(fill="both", expand=True, padx=6, pady=(0, 6))   # упаковка ЗДЕСЬ (перепаковка ниже падает)
     tab_table = ttk.Frame(nb)                 # Таблица — плоский вид данных базы (третья вкладка)
     tab_tree = ttk.Frame(nb)                  # Дерево — иерархия ТЕХ ЖЕ данных (папки → файлы) (вторая)
