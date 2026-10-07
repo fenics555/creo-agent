@@ -1095,7 +1095,8 @@ def purge_execute(root, keep=2, backup_dir=None, dry=False, items=None):
            "seconds": 0.0, "лишние": [], "групп": 0, "оставлено": 0}
     t0 = time.time()
     if items:                                 # 07.10.2026: перенос по ГОТОВОМУ плану — БЕЗ второго обхода
-        for path, size, _ver in items:
+        for _it in items:                     # план даёт 4 поля (путь, байт, ИЗДЕЛИЕ, версия) —
+            path, size = _it[0], _it[1]       # берём по индексам, иначе «too many values to unpack»
             x = Path(path)
             try:
                 rel = os.path.relpath(str(x.parent), str(root))
