@@ -26,7 +26,7 @@ import sys
 import threading
 import time
 
-APP_VERSION = "V60"
+APP_VERSION = "V61"
 APP_TITLE = "PLM Reader " + APP_VERSION          # версия ОДНА: заголовок берёт её из константы
 DATA_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "db")          # данные — в подпапке db\
 SETTINGS_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "settings")  # настройки — в подпапке settings\
@@ -3705,7 +3705,8 @@ def run_gui():
                                                 row.get("Компьютер", ""), row.get("Версия Creo", ""),
                                                 row.get("Что изменено", "")))
                 total += 1
-        lhist_sum.config(text="история «%s»: файлов %d, записей %d (каждая запись — правка файла)"
+        lhist_sum.config(text="история «%s»: файлов %d, записей %d · у СКОПИРОВАННЫХ изделий тут есть и "
+                              "записи ИСХОДНОЙ модели (Creo переносит историю вместе с геометрией)"
                               % (m, len(paths), total))
 
     def _bottom_render():
@@ -4493,8 +4494,14 @@ def run_gui():
                 _bs.get("folders", 0), _bs.get("changes", 0)))
     if _bs.get("files"):
         # V35: цифры по-человечески — главная = ИЗДЕЛИЯ (без дублей .1/.2), рядом файлы с копиями версий
-        lbl.config(text="база: изделий %d (файлов с копиями версий %d) · изменений %d — читаю из базы…"
-                   % (_bs.get("models", 0), _bs.get("files", 0), _bs.get("changes", 0)))
+        # 07.10.2026: если правила разбора новее базы — ПРЯМО ГОВОРИМ, что нужен полный скан
+        _tag_note = "   ⚠ ПРАВИЛА РАЗБОРА ИЗМЕНИЛИСЬ — нужен СКАН (перечитает все файлы)"
+        try:
+            _tag_note = _tag_note if eng.parser_tag_changed() else ""
+        except Exception:
+            _tag_note = ""
+        lbl.config(text="база: изделий %d (файлов с копиями версий %d) · изменений %d — читаю из базы…%s"
+                   % (_bs.get("models", 0), _bs.get("files", 0), _bs.get("changes", 0), _tag_note))
         load_base()
         root._plm_db_stamp = _active_stamp()
         check_base()

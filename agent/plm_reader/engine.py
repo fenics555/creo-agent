@@ -209,6 +209,22 @@ def _app_version():
 
 VERSION = _app_version()
 PARSER_TAG = "p22"      # меняй при ЛЮБОМ изменении правил разбора — форсирует полный пересчёт
+
+
+def parser_tag_changed():
+    """База собрана СТАРЫМИ правилами разбора? Тогда нужен ПОЛНЫЙ скан (перечитает все файлы).
+
+    Окно обязано СКАЗАТЬ об этом прямо (слово владельца 07.10.2026: «если нужен „перечитать
+    всё“ — просто так скажи»): после обновления дома новые связи (например «копия от»)
+    появляются в базе ТОЛЬКО после полного прохода, и молчать об этом нельзя.
+    """
+    try:
+        con = connect()
+        r = con.execute("SELECT v FROM meta WHERE k='param_sig'").fetchone()
+        con.close()
+        return (not r) or (not str(r[0] or "").endswith("|" + PARSER_TAG))
+    except Exception:
+        return False
 BACKUP_KEEP = int(os.environ.get("PLM_BACKUP_KEEP") or 3)   # сколько бэкапов базы держать в db\backup\
 KEEP_MIRROR = int(os.environ.get("PLM_KEEP_MIRROR") or 3)   # сколько опубликованных баз держать в каждом зеркале
 
