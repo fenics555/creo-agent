@@ -1793,6 +1793,11 @@ def full_tree_lines(model, depth=6, show_internal=False):
         base_of[ch].append((base, kind or ""))
         made_of[base].append((ch, kind or ""))
     snap = {r[0]: r for r in con.execute("SELECT model, name, volume, rev, role FROM snapshots")}
+    fpath = {}                       # 07.10.2026: пути файлов изделий — чтобы добрать «КОПИЮ ОТ»
+    for _m, _p in con.execute("SELECT model, path FROM snapshots "   # из САМОГО файла, не дожидаясь
+                              "WHERE path LIKE '%.prt.%' OR path LIKE '%.asm.%'"):  # полного скана
+        if _m not in fpath or (".prt" in _p.lower() and ".prt" not in fpath[_m].lower()):
+            fpath[_m] = _p           # деталь предпочитаем сборке (у детали запись «от … .PRT»)
     con.close()
 
     def clean(x):
@@ -1809,6 +1814,17 @@ def full_tree_lines(model, depth=6, show_internal=False):
                              ("  rev%s" % r[3]) if r[3] else "")
 
     L = []
+    _fbudget = [25]                  # не больше 25 файлов на построение дерева (чтобы не тормозило)
+
+    def file_base(x):
+        """«Копия от» ИЗ ФАЙЛА — если в базе такой связи ещё нет (скан мог её не записать)."""
+        if _fbudget[0] <= 0:
+            return ""
+        p = fpath.get(x)
+        if not p:
+            return ""
+        _fbudget[0] -= 1
+        return copy_from_file(p)
 
     def add(t, kind="rel", p=None):
         L.append((t, kind, p))
@@ -1827,6 +1843,11 @@ def full_tree_lines(model, depth=6, show_internal=False):
                                   "   (внутренний код Creo)" if _internal_id(clean(b)) else ""))
         for k in selfref.get(x, []):
             add("%s⟲ %s от мастер-модели с тем же именем" % (pad, k))
+        _cf = file_base(x)                     # «копия от» — из файла, даже если база знает другое
+        if _cf:
+            _cs = stem(_cf)
+            if _cs and all(_cs.lower() != (b or "").lower() for b, _k in base_of.get(x, [])):
+                add("%s⟵ копия: %s" % (pad, clean(_cf)))
         if not with_made:
             return
         made = [(c, k) for c, k in made_of.get(x, [])

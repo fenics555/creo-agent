@@ -26,7 +26,7 @@ import sys
 import threading
 import time
 
-APP_VERSION = "V59"
+APP_VERSION = "V60"
 APP_TITLE = "PLM Reader " + APP_VERSION          # версия ОДНА: заголовок берёт её из константы
 DATA_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "db")          # данные — в подпапке db\
 SETTINGS_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "settings")  # настройки — в подпапке settings\
@@ -2791,7 +2791,21 @@ def run_gui():
                 node_add_model(node, model)
 
     tview.bind("<<TreeviewOpen>>", on_open)
-    tview.bind("<Double-1>", lambda ev: open_detail())      # двойной щёлчок — карточка изделия
+    def _dbl_click():
+        """Двойной щелчок по строке: изделие есть → вкладка «История файла»; нет (папка) → карточка."""
+        m = _sel_model()
+        if m:
+            _last["model"] = m
+            _last.pop("lroot", None)
+            try:
+                lnb.select(lhist)
+            except Exception:
+                pass
+            _hist_show(m)
+        else:
+            open_detail()
+
+    tview.bind("<Double-1>", lambda ev: _dbl_click())      # двойной щёлчок — история файлов изделия
 
     def fill_tree_view():
         text = e_tfilter.get().strip()
@@ -3274,10 +3288,32 @@ def run_gui():
     lth_s.pack(side="bottom", fill="x")
     ltree.pack(side="left", fill="both", expand=True)
 
+    # ==== 07.10.2026: вкладка «История файла» — ВСЯ история правок по ВСЕМ файлам изделия ====
+    lhist = ttk.Frame(lnb, padding=4)
+    lhist_sum = ttk.Label(lhist, text="выбери изделие — покажу ВСЮ историю его файлов: "
+                                      "ревизия, дата, кто, компьютер, версия Creo, что изменено")
+    lhist_sum.pack(anchor="w")
+    HCOLS = ("Файл", "Ревизия", "Дата", "Пользователь", "Компьютер", "Версия Creo", "Что изменено")
+    hbox = ttk.Frame(lhist)
+    hbox.pack(fill="both", expand=True)
+    ltv_h = ttk.Treeview(hbox, columns=HCOLS, show="headings", height=8)
+    for _c in HCOLS:
+        ltv_h.heading(_c, text=_c)
+        ltv_h.column(_c, width=320 if _c == "Что изменено" else 118, anchor="w")
+    hvs = ttk.Scrollbar(hbox, orient="vertical", command=ltv_h.yview)
+    hhs = ttk.Scrollbar(hbox, orient="horizontal", command=ltv_h.xview)
+    ltv_h.configure(yscrollcommand=hvs.set, xscrollcommand=hhs.set)
+    hbox.rowconfigure(0, weight=1)
+    hbox.columnconfigure(0, weight=1)
+    ltv_h.grid(row=0, column=0, sticky="nsew")
+    hvs.grid(row=0, column=1, sticky="ns")
+    hhs.grid(row=1, column=0, sticky="ew")
+
     # ==== 04.10.2026: вкладка «Свойства детали» — площадь, ТТ, параметры, РАЗМЕРЫ, чертежи ====
     lprop = ttk.Frame(lnb, padding=4)
     lnb.add(lprop, text=" Свойства детали ")
     lnb.add(ltext, text=" Дерево текстом (вверх+вниз) ")   # 4-я вкладка: полное дерево текстом (вверх+вниз)
+    lnb.add(lhist, text=" История файла ")                 # 5-я: история правок всех файлов изделия
     lpsum = ttk.Label(lprop, text="выбери изделие — покажу площадь, техтребования, "
                                    "числовые параметры, РАЗМЕРЫ и связанные чертежи")
     lpsum.pack(anchor="w")
@@ -3631,6 +3667,47 @@ def run_gui():
                 pass
             ltext_sum.config(text="не удалось построить дерево: %s" % e)
 
+    def _hist_show(model=None):
+        """Вкладка «История файла»: ПОЛНАЯ история правок по ВСЕМ файлам изделия.
+
+        Раньше история жила отдельным окном и только по одному файлу — по просьбе владельца
+        она стала вкладкой нижнего окна и собирает ВСЕ файлы изделия (деталь, чертёж, сборку):
+        ревизия, дата, кто, компьютер, версия Creo, что изменено.
+        """
+        m = model or _last.get("model") or ""
+        try:
+            ltv_h.delete(*ltv_h.get_children())
+        except Exception:
+            return
+        if not m:
+            lhist_sum.config(text="выбери изделие в ЛЮБОЙ вкладке сверху — покажу историю его файлов")
+            return
+        try:
+            con = eng.connect()
+            paths = [r[0] for r in con.execute("SELECT path FROM snapshots WHERE model=? ORDER BY path",
+                                               (eng.stem(m),))]
+            con.close()
+        except Exception:
+            paths = []
+        if not paths:
+            lhist_sum.config(text="изделие %s: файлов в базе нет" % m)
+            return
+        total = 0
+        for p in paths:
+            try:
+                rows = history_rows(p, settings)
+            except Exception as ex:
+                ltv_h.insert("", "end", values=(os.path.basename(p), "ошибка", str(ex), "", "", "", ""))
+                continue
+            for row in rows:
+                ltv_h.insert("", "end", values=(row.get("Файл", ""), row.get("Ревизия", ""),
+                                                row.get("Дата", ""), row.get("Пользователь", ""),
+                                                row.get("Компьютер", ""), row.get("Версия Creo", ""),
+                                                row.get("Что изменено", "")))
+                total += 1
+        lhist_sum.config(text="история «%s»: файлов %d, записей %d (каждая запись — правка файла)"
+                              % (m, len(paths), total))
+
     def _bottom_render():
         """Наполнить АКТИВНУЮ вкладку нижнего окна выбранной моделью (или автосводкой)."""
         model = _last["model"]
@@ -3651,6 +3728,9 @@ def run_gui():
             return
         if sel == str(ltext):           # 07.10.2026: полное дерево связей (узлы кликабельны)
             _text_tree_show()
+            return
+        if sel == str(lhist):           # 07.10.2026: история правок всех файлов изделия
+            _hist_show(model)
             return
         if not model:
             if sel == str(llinks):
