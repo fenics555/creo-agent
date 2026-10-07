@@ -951,26 +951,26 @@ def purge_plan(folder=None, keep=2):
     try:
         con = connect()
         if folder:
-            rows = con.execute("SELECT path,model,size,mtime FROM snapshots WHERE folder LIKE ?",
+            rows = con.execute("SELECT path,model,size,mtime,folder FROM snapshots WHERE folder LIKE ?",
                                (folder.rstrip("\\") + "%",)).fetchall()
         else:
-            rows = con.execute("SELECT path,model,size,mtime FROM snapshots").fetchall()
+            rows = con.execute("SELECT path,model,size,mtime,folder FROM snapshots").fetchall()
         con.close()
     except Exception:
         return {"candidates": [], "count": 0, "bytes": 0, "models": 0, "keep": keep, "kept": 0}
     groups = {}
-    for p, model, size, mtime in rows:
+    for p, model, size, mtime, folder in rows:
         try:
             ver = int(p.rsplit(".", 1)[1])
         except Exception:
             continue
-        groups.setdefault(model, []).append((ver, p, size or 0))
+        groups.setdefault((folder, model), []).append((ver, p, size or 0))
     cand, kept, free = [], 0, 0
-    for model, lst in groups.items():
+    for key, lst in groups.items():
         lst.sort(key=lambda x: x[0], reverse=True)
         kept += min(len(lst), keep)
         for ver, p, size in lst[keep:]:
-            cand.append((p, size, model, ver))
+            cand.append((p, size, key[1], ver))
             free += size
     cand.sort(key=lambda x: -x[1])
     return {"candidates": cand, "count": len(cand), "bytes": free, "models": len(groups),
@@ -979,7 +979,7 @@ def purge_plan(folder=None, keep=2):
 
 def purge_plan_text(plan, limit=400):
     """Текст плана для окна."""
-    lines = ["ПУРГЕ (план из базы; файлы НЕ трогаются)",
+    lines = ["Purge (план из базы; файлы НЕ трогаются)",
              "изделий %d · оставить по %d новейшие версии · лишних версий %d · освободится %.1f МБ"
              % (plan["models"], plan["keep"], plan["count"], plan["bytes"] / 1048576.0), ""]
     for path, size, model, ver in plan["candidates"][:limit]:
@@ -1027,6 +1027,8 @@ def version_groups(root):
 def purge_execute(root, keep=2, backup_dir=None):
     """ПЕРЕНЕСЕНИЕ лишних версий в backup_dir (только move, БЕЗ удаления).
 
+    Обход РЕКУРСИВНЫЙ: версии группируются ВНУТРИ каждой папки (Creo держит версии
+    рядом), поэтому лишние переносятся и из ПОДПАПОК, а не только из корня.
     Возвращает отчёт: перенесено, освобождено_байт, пропущено_с_причиной, seconds.
     """
     import shutil
@@ -1035,21 +1037,28 @@ def purge_execute(root, keep=2, backup_dir=None):
     root = Path(root)
     backup_dir = Path(backup_dir) if backup_dir else (
         root / "_purge_backup" / datetime.datetime.now().strftime("%Y%m%d"))
-    grps, _ = version_groups(root)
     rep = {"root": str(root), "keep": keep, "было_версий": 0, "перенесено": [],
            "пропущено_с_причиной": [], "освобождено_байт": 0, "seconds": 0.0}
     t0 = time.time()
-    for base, members in grps.items():
-        rep["было_версий"] += len(members)
-        for x in members[:-keep]:
-            try:
-                sz = x.stat().st_size
-                backup_dir.mkdir(parents=True, exist_ok=True)
-                shutil.move(str(x), str(backup_dir / x.name))
-                rep["перенесено"].append("%s->%s" % (x.name, (backup_dir / x.name).name))
-                rep["освобождено_байт"] += sz
-            except Exception as e:
-                rep["пропущено_с_причиной"].append("%s: %s" % (x.name, e))
+    for dp, dirs, _fs in os.walk(root):
+        dirs[:] = [d for d in dirs if d != "_purge_backup"]
+        grps, _ = version_groups(dp)
+        for base, members in grps.items():
+            if len(members) <= keep:          # оставляем keep новейших, остальное — в бэкап
+                rep["было_версий"] += len(members)
+                continue
+            rep["было_версий"] += len(members)
+            rel = os.path.relpath(dp, root)
+            dst_dir = backup_dir if rel == "." else backup_dir / rel
+            for x in members[:-keep]:
+                try:
+                    sz = x.stat().st_size
+                    dst_dir.mkdir(parents=True, exist_ok=True)
+                    shutil.move(str(x), str(dst_dir / x.name))
+                    rep["перенесено"].append("%s->%s" % (x.name, (dst_dir / x.name).name))
+                    rep["освобождено_байт"] += sz
+                except Exception as e:
+                    rep["пропущено_с_причиной"].append("%s: %s" % (x.name, e))
     rep["seconds"] = round(time.time() - t0, 2)
     log("purge: %s — перенесено %d, %.1f МБ, за %.1f с"
         % (root, len(rep["перенесено"]), rep["освобождено_байт"] / 1048576.0, rep["seconds"]))
@@ -1099,13 +1108,13 @@ def do_check(roots=None, max_mb=8.0, depth=None, exclude=None):
     verdict = ("НУЖЕН СКАН: новых %d, изменённых %d, пропало %d" % (new, changed, gone)) if need \
         else "АКТУАЛЬНО (скан не нужен)"
     if purged:
-        verdict += " · старые версии после ПУРГЕ: %d (норма)" % purged
+        verdict += " · старые версии после Purge: %d (норма)" % purged
     # V35: models — изделия БЕЗ дублей версий; total — файлы моделей с копиями версий (для отчёта и статуса)
     res = {"total": len(files), "models": len(live_models), "mod": changed, "new": new, "skipped": same,
            "gone": gone, "purged": purged, "need": need, "verdict": verdict, "secs": round(time.time() - t0, 1)}
     msg = ("проверка: изделий %d | файлов моделей с копиями версий %d | без изменений %d | новых %d"
            " | изменённых %d | пропало %d"
-           " | старые версии после ПУРГЕ %d | за %.1f с → %s"
+           " | старые версии после Purge %d | за %.1f с → %s"
            % (res["models"], res["total"], same, new, changed, gone, purged, res["secs"], verdict))
     print(msg, flush=True)
     log(msg)

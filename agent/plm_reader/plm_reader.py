@@ -26,7 +26,7 @@ import sys
 import threading
 import time
 
-APP_VERSION = "V48"
+APP_VERSION = "V49"
 APP_TITLE = "PLM Reader " + APP_VERSION          # версия ОДНА: заголовок берёт её из константы
 DATA_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "db")          # данные — в подпапке db\
 SETTINGS_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "settings")  # настройки — в подпапке settings\
@@ -2105,7 +2105,7 @@ def run_gui():
     grp_scan.pack(side="left", fill="both", padx=(8, 0))
     grp_show = ttk.LabelFrame(row1, text=" ПОКАЗ ", padding=8)
     grp_show.pack(side="left", fill="both", padx=(8, 0))
-    grp_purge = ttk.LabelFrame(row2, text=" ПУРГЕ — старые версии в бэкап, удаления нет ", padding=8)
+    grp_purge = ttk.LabelFrame(row2, text=" Purge — старые версии в бэкап, удаления нет ", padding=8)
     grp_purge.pack(side="left", fill="both")
     grp_do = ttk.LabelFrame(row2, text=" СКАНИРОВАНИЕ ", padding=8)
     grp_do.pack(side="left", fill="both", padx=(8, 0))
@@ -2208,10 +2208,10 @@ def run_gui():
     e_keep.insert(0, str(settings.get("purge_keep", 2)))
     ttk.Label(grp_purge, text="ПЛАН — что уйдёт; «в бэкап» — перенести",
               foreground="#666").pack(anchor="w", pady=(2, 3))
-    b_purge_plan = ttk.Button(grp_purge, text="ПУРГЕ: ПЛАН", width=20,
+    b_purge_plan = ttk.Button(grp_purge, text="Purge: ПЛАН", width=20,
                               command=lambda: purge_show())
     b_purge_plan.pack(anchor="w", pady=1)
-    b_purge_run = ttk.Button(grp_purge, text="ПУРГЕ: в бэкап…", width=20,
+    b_purge_run = ttk.Button(grp_purge, text="Purge: в бэкап…", width=20,
                              command=lambda: purge_run())
     b_purge_run.pack(anchor="w", pady=1)
 
@@ -2885,7 +2885,7 @@ def run_gui():
         folder = purge_folder()
         plan = eng.purge_plan(folder or None, int(e_keep.get() or 2))
         txt = eng.purge_plan_text(plan)
-        head = ("ПУРГЕ-план: лишних версий %d · освободится %.1f МБ · папка %s"
+        head = ("Purge-план: лишних версий %d · освободится %.1f МБ · папка %s"
                 % (plan["count"], plan["bytes"] / 1048576.0, folder or "вся база"))
         log_line("purge plan: %s — лишних %d, %.1f МБ"
                  % (folder or "вся база", plan["count"], plan["bytes"] / 1048576.0))
@@ -2899,7 +2899,7 @@ def run_gui():
         except Exception:
             pass
         lbl.config(text=head + (" · отчёт: %s" % os.path.basename(rep) if rep else ""))
-        _text_window("ПУРГЕ: ПЛАН (файлы не трогаются)", head, txt,
+        _text_window("Purge: ПЛАН (файлы не трогаются)", head, txt,
                      "отчёт: %s" % (os.path.basename(rep) if rep else "не сохранён"))
 
     def purge_run():
@@ -2908,18 +2908,18 @@ def run_gui():
         folder = purge_folder()
         plan = eng.purge_plan(folder or None, int(e_keep.get() or 2))
         if not plan["count"]:
-            lbl.config(text="ПУРГЕ: чистить нечего — лишних версий нет")
+            lbl.config(text="Purge: чистить нечего — лишних версий нет")
             return
         if not folder or not os.path.isdir(folder):
-            lbl.config(text="ПУРГЕ: выбери существующую папку (кнопка «Пути и исключения…»)")
+            lbl.config(text="Purge: выбери существующую папку (кнопка «Пути и исключения…»)")
             return
         keep = int(e_keep.get() or 2)
         bdir = os.path.join(folder, "_purge_backup")
-        if not mb.askyesno("ПУРГЕ",
+        if not mb.askyesno("Purge",
                            "Перенести в БЭКАП %d лишних версий (%.1f МБ)?\n%s\n\n"
                            "Удаления нет: файлы уедут в %s"
                            % (plan["count"], plan["bytes"] / 1048576.0, folder, bdir)):
-            lbl.config(text="ПУРГЕ: отменено")
+            lbl.config(text="Purge: отменено")
             return
 
         def work():
@@ -2935,9 +2935,9 @@ def run_gui():
             log_line("purge execute: %s -> %s" % (folder, out.split("\n")[0]))
 
             def done():
-                head = "ПУРГЕ: %s" % out.split("\n")[0]
+                head = "Purge: %s" % out.split("\n")[0]
                 lbl.config(text=head)
-                _text_window("ПУРГЕ: перенос в бэкап — результат", head, out, bdir)
+                _text_window("Purge: перенос в бэкап — результат", head, out, bdir)
 
             try:
                 root.after(0, done)
@@ -2945,7 +2945,7 @@ def run_gui():
                 pass
 
         threading.Thread(target=work, daemon=True).start()
-        lbl.config(text="ПУРГЕ: переношу лишние версии в бэкап…")
+        lbl.config(text="Purge: переношу лишние версии в бэкап…")
 
     def _lout(text):
         """Окно вывода кнопок вкладки «Дерево» — перенесено в «Дерево связей» (среднее окно убрано)."""
@@ -3678,7 +3678,7 @@ def run_gui():
 
     def show_check(r):
         _p = r.get("purged", 0)
-        _tail = ("  ·  старые версии после ПУРГЕ: %d — норма" % _p) if _p else ""
+        _tail = ("  ·  старые версии после Purge: %d — норма" % _p) if _p else ""
         if r.get("need"):
             lbl.config(text="НУЖЕН СКАН: новых %d · изменённых %d · пропало %d (%.1f с)%s"
                        % (r["new"], r["mod"], r["gone"], r["secs"], _tail))
@@ -3783,7 +3783,7 @@ def run_gui():
                 bad = []
                 for name, wdg in (("Пути…", btn_paths), ("Показывать", sp_limit), ("Сканировать", btn),
                                   ("Стоп", b_stop), ("Актуально?", b_check),
-                                  ("ПУРГЕ-ПЛАН", b_purge_plan), ("ПУРГЕ-бэкап", b_purge_run)):
+                                  ("Purge-ПЛАН", b_purge_plan), ("Purge-бэкап", b_purge_run)):
                     vis = wdg.winfo_ismapped()
                     x = wdg.winfo_rootx() - root.winfo_rootx()
                     y = wdg.winfo_rooty() - root.winfo_rooty()
