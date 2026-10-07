@@ -1,13 +1,13 @@
 {
- "version": "V47",
- "version_num": 47,
+ "version": "V48",
+ "version_num": 48,
  "date": "07.10.2026",
- "notes": "V47: otkat panedwindow; Ctrl C/V pryamaya kopiya/vstavka; samouborka arhiva (arch_*)",
+ "notes": "V48: razdelyatel okon rabotaet (pochemu padalo: undefined mid v perepakovke)",
  "files": {
   "engine.py": "dfba584bea41f63f3b58e937370c3df0bf31c2fa67dea989da9082190fa2b01e",
-  "plm_reader.py": "7b16584c86196835bddaffef22be60645ad891799be49825c571366b5153874e",
+  "plm_reader.py": "927346001849ac535417f3affdeef6292df4f668ca5210a2077133317953cb4b",
   "creo_read.py": "5e027a85d6297c90f98c5435a3451bc94ed40dfc26fbe856aaf9d1b9c3f21d8d",
-  "README.md": "e7199f236a93ccf3fcbab14a36c089f3ea748859c95c266b13bc6fe08dd83093",
+  "README.md": "0b429dd74883169a5a0f9b6556e318f965b8badffec9c2fdb6446ff6dcdf4905",
   "SHARE_copy.bat": "d61e6354d66e0078014e2e80e1085fee7d6b880003bc458b65e767776a116167",
   "plm_reader.bat": "bdd125397db3ac7e7432dbdb078a6a811ed4913fca02b062edb27907032fca3d",
   "plm_reader_gui.bat": "c8e40a5a91c3f97522e5fa5556b423f60e1358a593225819a24f255414e290e1",
