@@ -1199,17 +1199,40 @@ def mark_change(item, kind, descr, who="инструмент ДОМА", rev=""):
 
 
 def do_changes_model(model, n=200):
-    """Изменения по КОНКРЕТНОЙ модели (по её файлам)."""
+    """Изменения по КОНКРЕТНОЙ модели: по ТОЧНЫМ путям её файлов + записи по имени модели.
+
+    ГРАБЛЯ (07.10.2026, найдено владельцем): искать только `item LIKE '%модель%'` НЕЛЬЗЯ —
+    в журнале путь записан СВОИМ регистром (часто строчными: `ал116-2-1_323927.prt.1`), а
+    SQLite LIKE складывает регистр только латиницы: кириллица «АЛ…» и «ал…» НЕ совпадают,
+    и изменения «пропадали» (по кнопке было видно 2 записи вместо 12). Теперь сначала берём
+    точные пути файлов модели из базы и ищем по ним, а имя добавляем в обоих регистрах.
+    """
     m = stem(model)
     con = connect()
-    rows = con.execute("SELECT ts,kind,rev,who,descr,item FROM changes WHERE item LIKE ? "
-                       "ORDER BY id DESC LIMIT ?", ("%" + m + "%", n)).fetchall()
+    paths = [r[0] for r in con.execute("SELECT path FROM snapshots WHERE model=?", (m,))]
+    cond, args = ["item = ?"], [m]
+    if paths:
+        cond.append("item IN (%s)" % ",".join("?" * len(paths)))
+        args += paths
+    for v in sorted({m, m.lower(), m.upper()}):
+        cond.append("item LIKE ?")
+        args.append("%" + v + "%")
+    rows = con.execute("SELECT ts,kind,rev,who,descr,item FROM changes WHERE (%s) "
+                       "ORDER BY id DESC LIMIT ?" % " OR ".join(cond), args + [n]).fetchall()
     con.close()
-    print("изменения «%s»: %d" % (m, len(rows)))
+    print("изменения «%s»: %d  (файлов у изделия: %d)" % (m, len(rows), len(paths)))
     for ts, kind, rev, who, descr, item in rows:
         mark = " [КОД]" if (kind or "").startswith("code") else ""
-        print("   %s | %-6s%s | рев.%s | %-12s | %s"
-              % (ts, kind, mark, rev or "-", who or "-", descr or "-"))
+        fname = "" if item == m else os.path.basename(item or "")
+        print("   %s | %-6s%s | рев.%-5s | %-8s | %-26s | %s"
+              % (ts, kind or "-", mark, rev or "-", who or "-", fname[:26], descr or "-"))
+    try:
+        bases = derived_bases(m)
+    except Exception:
+        bases = []
+    print("из чего пересохранено: " + ("; ".join("%s: %s" % (k, b) for b, k in bases)
+                                       if bases else
+                                       "нет данных (наследования/производной у изделия нет)"))
 
 
 def base_roots():
@@ -1296,18 +1319,43 @@ def count_files(text):
         return 0
 
 
+def _passport_rank(row):
+    """Насколько полон паспорт: важнее всего непустые ревизия и материал, затем имя и обозначение."""
+    d, n, mat, _v, rev, _r = (list(row) + [""] * 6)[:6]
+    return (1 if rev else 0) + (1 if mat else 0) + (1 if n else 0) + (1 if d else 0)
+
+
+def _passport_better(new_row, new_mt, old_row, old_mt):
+    """Новый паспорт лучше: сначала — полнее; при равной полноте — свежее по времени файла."""
+    rn, ro = _passport_rank(new_row), _passport_rank(old_row)
+    if rn != ro:
+        return rn > ro
+    return (new_mt or 0) > (old_mt or 0)
+
+
 def model_info(model):
-    """Паспорт модели из базы + сколько файлов и в сколько сборок входит."""
+    """Паспорт модели из базы + сколько файлов и в сколько сборок входит.
+
+    ГРАБЛЯ (07.10.2026): брали ПЕРВЫЙ файл по порядку пути — у изделия, где есть деталь,
+    чертёж И оснастка (три файла на одно имя), побеждала пустая техкарта, и паспорт выглядел
+    незаполненным («ревизия пусто, материал пусто, кто/когда пусто»). Теперь берём САМЫЙ
+    ПОЛНЫЙ паспорт, а при равенстве — свежайший файл.
+    """
     try:
         con = connect()
-        r = con.execute("SELECT designation,name,material,volume,rev,role FROM snapshots "
-                        "WHERE model=? ORDER BY path LIMIT 1", (model,)).fetchone()
+        rows = con.execute("SELECT designation,name,material,volume,rev,role,mtime FROM snapshots "
+                           "WHERE model=? ORDER BY path", (model,)).fetchall()
         files = con.execute("SELECT COUNT(*) FROM snapshots WHERE model=?", (model,)).fetchone()[0]
         pars = con.execute("SELECT COUNT(*) FROM links WHERE child=?", (model,)).fetchone()[0]
         con.close()
-        return (r or ("", "", "", 0, "", "")), files, pars
     except Exception:
         return ("", "", "", 0, "", ""), 0, 0
+    best, best_mt = ("", "", "", 0, "", ""), 0
+    for d, n, mat, v, rev, r, mt in rows:
+        cand = (d or "", n or "", mat or "", v or 0, rev or "", r or "")
+        if _passport_better(cand, mt, best, best_mt):
+            best, best_mt = cand, mt
+    return best, files, pars
 
 
 def role_of(model):
@@ -1439,11 +1487,13 @@ def plm_tree_data():
         tops = sorted(set(children) - kids)
         for c, b, k in con.execute("SELECT child, base, kind FROM derived"):
             derived.setdefault(c, []).append((b, k or ""))
-        agg = {}
-        for m, d, n, mat, v, rev, r in con.execute(
-                "SELECT model,designation,name,material,volume,rev,role FROM snapshots"):
-            if m not in agg:
-                agg[m] = (d or "", n or "", mat or "", v or 0, rev or "", r or "")
+        agg, agmt = {}, {}
+        for m, d, n, mat, v, rev, r, mt in con.execute(
+                "SELECT model,designation,name,material,volume,rev,role,mtime FROM snapshots"):
+            cand = (d or "", n or "", mat or "", v or 0, rev or "", r or "")
+            if m not in agg or _passport_better(cand, mt, agg[m], agmt.get(m, 0)):
+                agg[m] = cand            # паспорт строки изделия — САМЫЙ ПОЛНЫЙ файл (не первый)
+                agmt[m] = mt
         fcnt = dict(con.execute("SELECT model,COUNT(*) FROM snapshots GROUP BY model"))
         pcnt = dict(con.execute("SELECT child,COUNT(*) FROM links GROUP BY child"))
         con.close()
