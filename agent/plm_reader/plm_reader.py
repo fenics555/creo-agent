@@ -26,7 +26,7 @@ import sys
 import threading
 import time
 
-APP_VERSION = "V51"
+APP_VERSION = "V52"
 APP_TITLE = "PLM Reader " + APP_VERSION          # версия ОДНА: заголовок берёт её из константы
 DATA_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "db")          # данные — в подпапке db\
 SETTINGS_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "settings")  # настройки — в подпапке settings\
@@ -3512,10 +3512,9 @@ def run_gui():
                 ltree.insert("end", "выбери изделие в ЛЮБОЙ вкладке сверху — покажу полное дерево")
                 ltext_sum.config(text="выбери изделие — полное дерево вверх и вниз")
             else:
-                dn = cap(eng.do_tree, model, 6)
-                up = cap(eng.do_tree_up, model, 6)
-                ltree.insert("end", "=== СОСТАВ ВНИЗ ===\n%s\n\n=== ВХОДИМОСТЬ ВВЕРХ ===\n%s" % (dn, up))
-                ltext_sum.config(text="полное дерево: %s — состав вниз + входимость вверх" % model)
+                full = cap(eng.do_full_tree, model, 6)
+                ltree.insert("end", full)
+                ltext_sum.config(text="полное дерево: %s — состав вниз + входимость + наследование/производная" % model)
             ltree.configure(state="disabled")
         except Exception as e:
             try:

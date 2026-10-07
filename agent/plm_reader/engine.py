@@ -943,50 +943,39 @@ def meta_get(k, default=None):
 
 
 def purge_plan(folder=None, keep=2):
-    """ПУРГЕ-план ИЗ БАЗЫ (файлы не трогаются): у каждого изделия оставить `keep` новейших версий.
+    """ПУРГЕ-план ПО ДИСКУ (файлы НЕ трогаются): сколько версий лишних РЕАЛЬНО сейчас.
+
+    Раньше план строился по таблице snapshots — ИСТОРИИ сканов. База хранит старые
+    записи о версиях, которых на диске давно нет, поэтому план показывал «лишние»
+    (владелец: 661 версия / 676 МБ), а исполнение читало диск и переносило 0
+    (расхождение «в плане 661, перенесено 0», найдено 07.10.2026). Хуже: план мог
+    отметить ЕДИНСТВЕННУЮ версию файла как лишнюю — её перенос уничтожил бы данные.
+    Теперь план и исполнение — ОДИН обход диска (purge_execute dry=True).
 
     Возвращает: candidates [(путь, байт, модель, версия)], count, bytes, models, keep, kept.
     """
     keep = max(1, int(keep or 1))
-    try:
-        con = connect()
-        if folder:
-            rows = con.execute("SELECT path,model,size,mtime,folder FROM snapshots WHERE folder LIKE ?",
-                               (folder.rstrip("\\") + "%",)).fetchall()
-        else:
-            rows = con.execute("SELECT path,model,size,mtime,folder FROM snapshots").fetchall()
-        con.close()
-    except Exception:
-        return {"candidates": [], "count": 0, "bytes": 0, "models": 0, "keep": keep, "kept": 0}
-    groups = {}
-    for p, model, size, mtime, folder in rows:
+    roots = [folder] if folder else (base_roots() or DEFAULT_ROOTS)
+    cand, free, groups, kept, missing = [], 0, 0, 0, 0
+    for r in roots:
         try:
-            ver = int(p.rsplit(".", 1)[1])
+            rep = purge_execute(r, keep, None, dry=True)
         except Exception:
             continue
-        groups.setdefault((folder, model), []).append((ver, p, size or 0))
-    cand, kept, free, missing = [], 0, 0, 0
-    for key, lst in groups.items():
-        lst.sort(key=lambda x: x[0], reverse=True)
-        kept += min(len(lst), keep)
-        for ver, p, size in lst[keep:]:
-            try:
-                if not os.path.exists(p):     # файл уже перенесён/удалён — база бывает старой
-                    missing += 1
-                    continue
-            except Exception:
-                missing += 1
-                continue
-            cand.append((p, size, key[1], ver))
-            free += size
+        for path, size, ver in rep["лишние"]:
+            cand.append((path, size, stem(os.path.basename(path)), ver))
+        free += rep["освобождено_байт"]
+        groups += rep["групп"]
+        kept += rep["оставлено"]
+        missing += len(rep["пропущено_с_причиной"])
     cand.sort(key=lambda x: -x[1])
-    return {"candidates": cand, "count": len(cand), "bytes": free, "models": len(groups),
+    return {"candidates": cand, "count": len(cand), "bytes": free, "models": groups,
             "keep": keep, "kept": kept, "missing": missing}
 
 
 def purge_plan_text(plan, limit=400):
     """Текст плана для окна."""
-    lines = ["Purge (план из базы, проверенный по диску; файлы НЕ трогаются)",
+    lines = ["Purge (план ПО ДИСКУ — один обход с исполнением; файлы НЕ трогаются)",
              "изделий %d · оставить по %d новейшие версии · лишних версий %d · освободится %.1f МБ"
              % (plan["models"], plan["keep"], plan["count"], plan["bytes"] / 1048576.0), ""]
     _miss = plan.get("missing", 0)
@@ -1031,15 +1020,20 @@ def version_groups(root):
                     sings.append(f)
             ass.add(f.name)
             ass.add(base)
+    for _b in grps:                      # 07.10.2026: НОВЕЙШАЯ = числовой максимум (иначе
+        grps[_b].sort(key=lambda x: _ver_num(x.name.rsplit(".", 1)[-1]))   # ".9" встанет после ".10")
     return grps, sings
 
 
-def purge_execute(root, keep=2, backup_dir=None):
+def purge_execute(root, keep=2, backup_dir=None, dry=False):
     """ПЕРЕНЕСЕНИЕ лишних версий в backup_dir (только move, БЕЗ удаления).
 
     Обход РЕКУРСИВНЫЙ: версии группируются ВНУТРИ каждой папки (Creo держит версии
     рядом), поэтому лишние переносятся и из ПОДПАПОК, а не только из корня.
-    Возвращает отчёт: перенесено, освобождено_байт, пропущено_с_причиной, seconds.
+    dry=True — ТОЛЬКО СЧЁТ, ничего не двигает: тем же обходом строится ПЛАН,
+    поэтому план и исполнение разойтись не могут (расхождение «661 / 0», 07.10.2026).
+    Возвращает: перенесено, освобождено_байт, пропущено_с_причиной, seconds,
+    лишние [(путь,байт,версия)], групп, оставлено.
     """
     import shutil
     from pathlib import Path
@@ -1047,31 +1041,44 @@ def purge_execute(root, keep=2, backup_dir=None):
     root = Path(root)
     backup_dir = Path(backup_dir) if backup_dir else (
         root / "_purge_backup" / datetime.datetime.now().strftime("%Y%m%d"))
-    rep = {"root": str(root), "keep": keep, "было_версий": 0, "перенесено": [],
-           "пропущено_с_причиной": [], "освобождено_байт": 0, "seconds": 0.0}
+    rep = {"root": str(root), "keep": keep, "dry": bool(dry), "было_версий": 0,
+           "перенесено": [], "пропущено_с_причиной": [], "освобождено_байт": 0,
+           "seconds": 0.0, "лишние": [], "групп": 0, "оставлено": 0}
     t0 = time.time()
     for dp, dirs, _fs in os.walk(root):
         dirs[:] = [d for d in dirs if d != "_purge_backup"]
         grps, _ = version_groups(dp)
         for base, members in grps.items():
-            if len(members) <= keep:          # оставляем keep новейших, остальное — в бэкап
-                rep["было_версий"] += len(members)
-                continue
+            rep["групп"] += 1
             rep["было_версий"] += len(members)
+            rep["оставлено"] += min(len(members), keep)
+            if len(members) <= keep:          # оставляем keep новейших, остальное — в бэкап
+                continue
             rel = os.path.relpath(dp, root)
             dst_dir = backup_dir if rel == "." else backup_dir / rel
             for x in members[:-keep]:
                 try:
                     sz = x.stat().st_size
+                except Exception:
+                    sz = 0
+                try:
+                    ver = int(x.name.rsplit(".", 1)[1])
+                except Exception:
+                    ver = 0
+                rep["лишние"].append((str(x), sz, ver))
+                rep["освобождено_байт"] += sz
+                if dry:
+                    continue
+                try:
                     dst_dir.mkdir(parents=True, exist_ok=True)
                     shutil.move(str(x), str(dst_dir / x.name))
-                    rep["перенесено"].append("%s->%s" % (x.name, (dst_dir / x.name).name))
-                    rep["освобождено_байт"] += sz
+                    rep["перенесено"].append("%s->%s" % (x.name, x.name))
                 except Exception as e:
                     rep["пропущено_с_причиной"].append("%s: %s" % (x.name, e))
     rep["seconds"] = round(time.time() - t0, 2)
-    log("purge: %s — перенесено %d, %.1f МБ, за %.1f с"
-        % (root, len(rep["перенесено"]), rep["освобождено_байт"] / 1048576.0, rep["seconds"]))
+    log("purge%s: %s — лишних %d, перенесено %d, %.1f МБ, за %.1f с"
+        % (" (план)" if dry else "", root, len(rep["лишние"]), len(rep["перенесено"]),
+           rep["освобождено_байт"] / 1048576.0, rep["seconds"]))
     return rep
 
 
@@ -1328,6 +1335,19 @@ def mfg_models(model, limit=60):
 def _hash_like(n):
     """Внутренний идентификатор Creo (длинная hex-строка) — не имя модели."""
     return bool(n) and len(n) >= 28 and all(c in "0123456789ABCDEFabcdef" for c in n)
+
+
+def _internal_id(n):
+    """Внутренний идентификатор Creo (hex/base36, >=24 знаков) — НЕ имя модели.
+
+    В `derived.base`/`child` попадают такие коды (напр. `848HJNI4L5H6O4AV25BMF289G2`):
+    они ничего не значат для человека, поэтому в дереве помечаются, а не выдаются за изделие."""
+    if not n:
+        return False
+    n = re.sub(r"^[^0-9A-Za-z]+|[^0-9A-Za-z]+$", "", str(n))   # мусорный первый байт Creo
+    if len(n) < 24:
+        return False
+    return all(c.isdigit() or ("A" <= c.upper() <= "Z") for c in n)
 
 
 def role_bases(model):
@@ -1617,6 +1637,118 @@ def _up(m, depth, level, seen):
     for p, q in par:
         print("   %s↑ %s  x%d" % ("   " * level, p, q))
         _up(p, depth - 1, level + 1, seen)
+
+
+def do_full_tree(model, depth=6):
+    """ПОЛНОЕ дерево изделия ТЕКСТОМ — ВСЕ связи, а не только состав.
+
+    Показывает: СОСТАВ ВНИЗ (`links`), ВХОДИМОСТЬ ВВЕРХ (`links`), НАСЛЕДОВАНИЕ и
+    ПРОИЗВОДНУЮ (`derived`: заготовка/отливка/отражение), оснастку (роль `MFG`).
+    Печатается во вкладку «Дерево текстом». Creo не нужен — читается только база.
+    """
+    m = stem(model)
+    con = connect()
+    kids, parents = defaultdict(list), defaultdict(list)
+    for par, ch, qty in con.execute("SELECT parent, child, qty FROM links"):
+        kids[par].append((ch, qty or 1))
+        parents[ch].append((par, qty or 1))
+    base_of, made_of, selfref = defaultdict(list), defaultdict(list), defaultdict(list)
+    for ch, base, kind in con.execute("SELECT child, base, kind FROM derived"):
+        if not base:
+            continue
+        if base == ch:                      # имя совпало (мастер-модель) — не путать со связью
+            selfref[ch].append(kind or "")
+            continue
+        base_of[ch].append((base, kind or ""))
+        made_of[base].append((ch, kind or ""))
+    snap = {r[0]: r for r in con.execute("SELECT model, name, volume, rev, role FROM snapshots")}
+    con.close()
+
+    def lab(x):
+        name = "".join(ch for ch in x if ch.isprintable())   # в базе бывают управляющие байты
+        r = snap.get(name) or snap.get(x)
+        if not r:
+            return name + ("   (внутренний код Creo)" if _internal_id(name) else "")
+        return "%s%s%s%s" % (name,
+                             ("  «%s»" % r[1]) if r[1] else "",
+                             ("  %.0f мм³" % r[2]) if r[2] else "",
+                             ("  rev%s" % r[3]) if r[3] else "")
+
+    def rels_down(x, pref, last):
+        """Связи узла в секции «вниз»: откуда сделан + кто сделан из него + оснастка."""
+        pad = pref + ("   " if last else "│  ")
+        out = []
+        for b, k in base_of.get(x, []):
+            out.append("%s⟵ %s: %s%s" % (pad, k, lab(b),
+                                         "   (внутренний код Creo)" if _internal_id(b) else ""))
+        for k in selfref.get(x, []):
+            out.append("%s⟲ %s от мастер-модели с тем же именем" % (pad, k))
+        made = made_of.get(x, [])
+        real = [(c, k) for c, k in made if not _internal_id(c)]
+        for c, k in real[:5]:
+            out.append("%s⟶ из неё: %s  (%s)" % (pad, lab(c), k))
+        if len(real) > 5:
+            out.append("%s⟶ … ещё сделано из неё: %d" % (pad, len(real) - 5))
+        if len(made) - len(real):
+            out.append("%s⟶ … ещё %d с внутренними кодами Creo (без имени модели)"
+                       % (pad, len(made) - len(real)))
+        r = snap.get(x)
+        if r and "MFG" in (r[4] or "").upper():
+            out.append("%s⚙ модельная оснастка (MFG)" % pad)
+        return out
+
+    def rels_up(x, pref, last):
+        """Связи узла в секции «вверх»: только НАСЛЕДОВАНИЕ/ПРОИЗВОДНАЯ (откуда сделан)."""
+        pad = pref + ("   " if last else "│  ")
+        out = ["%s⟵ %s: %s" % (pad, k, lab(b)) for b, k in base_of.get(x, [])]
+        out += ["%s⟲ %s от мастер-модели с тем же именем" % (pad, k) for k in selfref.get(x, [])]
+        return out
+
+    print("ПОЛНОЕ ДЕРЕВО СВЯЗЕЙ: моделей %d, состав %d, наследование/производная %d"
+          % (len(snap), sum(len(v) for v in kids.values()), sum(len(v) for v in base_of.values())))
+    print("корень: %s" % m)
+    seen = set()
+
+    def walk(x, pref, last, d):
+        print("%s%s%s" % (pref, "└─ " if last else "├─ ", lab(x)))
+        for ln in rels_down(x, pref, last):
+            print(ln)
+        if x in seen:
+            print("%s   ⋯ (уже показано выше)" % pref)
+            return
+        seen.add(x)
+        ch = kids.get(x, [])
+        if not ch:
+            return
+        if d >= depth:
+            print("%s   … глубже не раскрываю (уровень %d)" % (pref, d))
+            return
+        for i, (c, q) in enumerate(ch):
+            walk(c, pref + ("   " if last else "│  "), i == len(ch) - 1, d + 1)
+
+    walk(m, "", True, 1)
+
+    print()
+    print("ВХОДИМОСТЬ ВВЕРХ (состав) + НАСЛЕДОВАНИЕ:")
+    seen2 = set()
+
+    def up(x, pref, last, d):
+        print("%s%s%s" % (pref, "└─ " if last else "├─ ", lab(x)))
+        for ln in rels_up(x, pref, last):
+            print(ln)
+        if x in seen2:
+            print("%s   ⋯ (уже показано выше)" % pref)
+            return
+        seen2.add(x)
+        ps = parents.get(x, [])
+        if d >= depth:
+            return
+        for i, (p, q) in enumerate(ps):
+            up(p, pref + ("   " if last else "│  "), i == len(ps) - 1, d + 1)
+
+    up(m, "", True, 1)
+    if not parents.get(m):
+        print("   (по СОСТАВУ выше нигде не входит — смотри ⟵ наследование/производную)")
 
 
 def do_where(model):
