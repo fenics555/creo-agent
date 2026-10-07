@@ -26,7 +26,7 @@ import sys
 import threading
 import time
 
-APP_VERSION = "V54"
+APP_VERSION = "V55"
 APP_TITLE = "PLM Reader " + APP_VERSION          # версия ОДНА: заголовок берёт её из константы
 DATA_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "db")          # данные — в подпапке db\
 SETTINGS_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "settings")  # настройки — в подпапке settings\
@@ -2259,8 +2259,9 @@ def run_gui():
     b_check = ttk.Button(grp_do, text="Актуально?", width=18, command=lambda: check_base())
     b_check.pack(anchor="w", pady=1)
 
-    def _vgrid(parent, items, per_col=2, width=18):
-        """Кнопки ВЕРТИКАЛЬНО: не больше per_col в столбик, дальше — следующий столбец правее."""
+    def _vgrid(parent, items, per_col=4, width=18):
+        """Кнопки ВЕРТИКАЛЬНО: не больше per_col в столбик, дальше — следующий столбец правее.
+        per_col=4 при 7 кнопках даёт РОВНО 2 столбца = 2 инструмента В СТРОКУ — влезает в узкую панель."""
         for i, (text, cmd) in enumerate(items):
             col, row = divmod(i, per_col)
             ttk.Button(parent, text=text, width=width, command=cmd).grid(
@@ -2274,7 +2275,7 @@ def run_gui():
         ("README", lambda: show_readme()),
         ("Проверить обновление", lambda: check_updates_ui(True)),
         ("Дополнительно", lambda: show_facts()),
-    ], per_col=2)
+    ], per_col=4)
     def _upd_status(text):
         try:
             root.after(0, lambda: lbl.config(text=text))
@@ -2415,13 +2416,27 @@ def run_gui():
     lhost.pack(side="left", fill="y", padx=(6, 0), pady=6)     # 07.10.2026: настройки — СЛЕВА
     vpan.pack(side="left", fill="both", expand=True, padx=6, pady=(0, 6))
 
-    def _half_sash():                         # разделитель ставим ровно в половину высоты
+    def _half_sash():
+        """Разделитель — ровно в половину. Ложь, пока окно ещё не разложено (иначе sash
+        встаёт на минимум и получается «верх свёрнут, низ на всё окно»)."""
         try:
-            vpan.sashpos(0, max(140, vpan.winfo_height() // 2))
+            h = vpan.winfo_height()
+            if h < 200:
+                return False
+            vpan.sashpos(0, max(150, h // 2))
+            return True
         except Exception:
-            pass
+            return False
 
-    root.after(300, _half_sash)
+    def _half_try(n=0):
+        """07.10.2026: повторяем, пока у разделителя не появится настоящая высота."""
+        if getattr(root, "_plm_sash_user", False):
+            return
+        if not _half_sash() and n < 15:
+            root.after(150, lambda: _half_try(n + 1))
+
+    vpan.bind("<ButtonRelease-1>", lambda e: setattr(root, "_plm_sash_user", True))
+    root.after(200, _half_try)
     tab_table = ttk.Frame(nb)                 # Таблица — плоский вид данных базы (третья вкладка)
     tab_tree = ttk.Frame(nb)                  # Дерево — иерархия ТЕХ ЖЕ данных (папки → файлы) (вторая)
     nb.add(tab_tree, text=" Дерево ")
@@ -4420,7 +4435,7 @@ def run_gui():
     try:                                   # окно не «прыгает» при переключении вкладок
         root.update_idletasks()
         root.geometry("1520x900")          # слева панель настроек, справа два окна пополам
-        _half_sash()                       # и сразу ставим разделитель в половину
+        _half_try()                        # разделитель — в половину (с повторами, пока не разложится)
     except Exception:
         pass
     try:                                   # тихая проверка обновлений при старте (есть — предложит)
