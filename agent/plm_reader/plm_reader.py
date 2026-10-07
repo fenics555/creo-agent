@@ -26,7 +26,7 @@ import sys
 import threading
 import time
 
-APP_VERSION = "V64"
+APP_VERSION = "V65"
 APP_TITLE = "PLM Reader " + APP_VERSION          # версия ОДНА: заголовок берёт её из константы
 DATA_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "db")          # данные — в подпапке db\
 SETTINGS_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "settings")  # настройки — в подпапке settings\
@@ -1666,13 +1666,13 @@ class PathsWindow:
         ttk.Label(box, text="Папки сканирования (одна строка = один путь):",
                   font=("", 10, "bold")).pack(anchor="w")
         self.sec_scan = self._section(box, "folders")
-        ttk.Label(box, text="Папки исключений — НЕ читать вовсе (одна строка = один путь):",
-                  font=("", 10, "bold")).pack(anchor="w", pady=(14, 0))
-        self.sec_exc = self._section(box, "exclude")
         ttk.Label(box, text="Папки шаблонов Creo — их модели СЛУЖЕБНЫЕ (не показывать в связях), "
                             r"напр. Z:\PTC\CREO-START\НАСТРОЙКИ\ШАБЛОНЫ (строка = путь):",
                   font=("", 10, "bold")).pack(anchor="w", pady=(14, 0))
         self.sec_tpl = self._section(box, "template_folders")
+        ttk.Label(box, text="Папки исключений — НЕ читать вовсе (одна строка = один путь):",
+                  font=("", 10, "bold")).pack(anchor="w", pady=(14, 0))
+        self.sec_exc = self._section(box, "exclude")
         ttk.Label(box, text="ГДЕ ЖИВЁТ БАЗА", font=("", 10, "bold")).pack(anchor="w", pady=(14, 0))
         ttk.Label(box, text="Пусто = рядом с программой, в папке db\\. Можно указать другой диск:",
                   foreground="#555").pack(anchor="w")
