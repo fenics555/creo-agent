@@ -208,7 +208,7 @@ def _app_version():
 
 
 VERSION = _app_version()
-PARSER_TAG = "p21"      # меняй при ЛЮБОМ изменении правил разбора — форсирует полный пересчёт
+PARSER_TAG = "p22"      # меняй при ЛЮБОМ изменении правил разбора — форсирует полный пересчёт
 BACKUP_KEEP = int(os.environ.get("PLM_BACKUP_KEEP") or 3)   # сколько бэкапов базы держать в db\backup\
 KEEP_MIRROR = int(os.environ.get("PLM_KEEP_MIRROR") or 3)   # сколько опубликованных баз держать в каждом зеркале
 
@@ -482,13 +482,16 @@ def scan_item(s, path, stems, fstems=frozenset(), pdes=None, pname=None, pmat=No
     h = last_hist(raw) or ("", "", "")
     hm = HISTRE.findall(raw)
     base, dkind = derived_of(raw)
+    cf = copy_from_of(raw)      # 07.10.2026: «МОДЕЛЬ СКОПИРОВАНА ОТ …» — ОТДЕЛЬНАЯ связь (Creo пишет
+                                # её в самом файле: `from_mdl_name` → `to_mdl_name`). Она ДОПОЛНЯЕТ
+                                # заготовку/отливку, а не заменяет. Есть и у деталей, и у сборок.
     return {"model": s, "path": path, "size": len(raw), "mtime": os.path.getmtime(path),
             "volume": vol or 0.0, "material": mat,
             "name": nmv,
             "designation": des,
             "rev": h[0], "author": h[1], "revdate": h[2], "role": role(raw, fstems, s), "refs": refs,
             "hist": len(hm), "creo": (hm[-1][3].decode("latin-1") if hm else ""),
-            "base": base, "dkind": dkind}
+            "base": base, "dkind": dkind, "copy_from": cf}
 
 
 # --- ЕДИНЫЙ ЧИТАТЕЛЬ: своя вложенная копия creo_read (папка самодостаточна) ---
@@ -851,6 +854,8 @@ def do_scan(roots, max_mb, limit, depth=None, progress_cb=None, stop_cb=None, fu
     now = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
     done = new = mod = skipped = 0
     seen = set()
+    seen_der = set()          # модели, у которых связи «из чего» уже почищены (у имени много файлов)
+    seen_derp = set()         # пары (изделие, основа, вид) — чтобы не плодить дубли
     n = 0
     stopped = False
     for path, size, mtime, ctime in files_stat:
@@ -900,10 +905,21 @@ def do_scan(roots, max_mb, limit, depth=None, progress_cb=None, stop_cb=None, fu
                      it["volume"], it["material"], it["name"], it["designation"], it["rev"],
                      it["author"], it["revdate"], it["role"], now, it.get("hist", 0),
                      it.get("creo", ""), ctime))
-        if it.get("base"):                      # деталь ← заготовка/отливка
-            con.execute("DELETE FROM derived WHERE child=? AND source='plm_tree'", (s,))
-            con.execute("INSERT INTO derived VALUES (?,?,?,?)",
-                        (s, stem(it["base"]), it.get("dkind", ""), "plm_tree"))
+        if it.get("base") or it.get("copy_from"):   # изделие ← заготовка/отливка/КОПИЯ
+            if s not in seen_der:               # у одного имени несколько файлов — чистим ОДИН раз,
+                con.execute("DELETE FROM derived WHERE child=? AND source='plm_tree'", (s,))
+                seen_der.add(s)                 # иначе последний файл затирал связи предыдущих
+            for b, k in ((it.get("base") or "", it.get("dkind", "")),
+                         (it.get("copy_from") or "", "копия")):
+                if not b:
+                    continue
+                bb = stem(b)
+                if bb.lower() == (s or "").lower():
+                    continue                # «скопирована от себя» (save-as с переименованием) — не связь
+                dk = (s, bb, k)
+                if dk not in seen_derp:
+                    seen_derp.add(dk)
+                    con.execute("INSERT INTO derived VALUES (?,?,?,?)", (s, bb, k, "plm_tree"))
         if s not in seen:                       # связи код-родителя чистим ОДИН раз
             con.execute("DELETE FROM links WHERE parent=? AND source='plm_tree'", (s,))
             seen.add(s)
