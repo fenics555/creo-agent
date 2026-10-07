@@ -1025,7 +1025,7 @@ def version_groups(root):
     return grps, sings
 
 
-def purge_execute(root, keep=2, backup_dir=None, dry=False):
+def purge_execute(root, keep=2, backup_dir=None, dry=False, items=None):
     """ПЕРЕНЕСЕНИЕ лишних версий в backup_dir (только move, БЕЗ удаления).
 
     Обход РЕКУРСИВНЫЙ: версии группируются ВНУТРИ каждой папки (Creo держит версии
@@ -1045,6 +1045,22 @@ def purge_execute(root, keep=2, backup_dir=None, dry=False):
            "перенесено": [], "пропущено_с_причиной": [], "освобождено_байт": 0,
            "seconds": 0.0, "лишние": [], "групп": 0, "оставлено": 0}
     t0 = time.time()
+    if items:                                 # 07.10.2026: перенос по ГОТОВОМУ плану — БЕЗ второго обхода
+        for path, size, _ver in items:
+            x = Path(path)
+            try:
+                rel = os.path.relpath(str(x.parent), str(root))
+                dst_dir = backup_dir if rel == "." else backup_dir / rel
+                dst_dir.mkdir(parents=True, exist_ok=True)
+                shutil.move(str(x), str(dst_dir / x.name))
+                rep["перенесено"].append("%s->%s" % (x.name, x.name))
+                rep["освобождено_байт"] += (size or 0)
+            except Exception as e:
+                rep["пропущено_с_причиной"].append("%s: %s" % (x.name, e))
+        rep["seconds"] = round(time.time() - t0, 2)
+        log("purge: %s — перенесено %d (по готовому плану), %.1f МБ, за %.1f с"
+            % (root, len(rep["перенесено"]), rep["освобождено_байт"] / 1048576.0, rep["seconds"]))
+        return rep
     for dp, dirs, _fs in os.walk(root):
         dirs[:] = [d for d in dirs if d != "_purge_backup"]
         grps, _ = version_groups(dp)
@@ -1639,12 +1655,12 @@ def _up(m, depth, level, seen):
         _up(p, depth - 1, level + 1, seen)
 
 
-def do_full_tree(model, depth=6):
-    """ПОЛНОЕ дерево изделия ТЕКСТОМ — ВСЕ связи, а не только состав.
+def full_tree_lines(model, depth=6, show_internal=False):
+    """Строки ПОЛНОГО дерева связей: [(текст, вид, груз)] — для вкладки «Дерево текстом».
 
-    Показывает: СОСТАВ ВНИЗ (`links`), ВХОДИМОСТЬ ВВЕРХ (`links`), НАСЛЕДОВАНИЕ и
-    ПРОИЗВОДНУЮ (`derived`: заготовка/отливка/отражение), оснастку (роль `MFG`).
-    Печатается во вкладку «Дерево текстом». Creo не нужен — читается только база.
+    вид: `head` — заголовок, `node` — узел (груз = имя модели), `rel` — связь,
+    `more` — «… ещё N» (груз = имя модели; клик = показать ВЕСЬ список),
+    `note` — примечание. Читается только база, Creo не нужен.
     """
     m = stem(model)
     con = connect()
@@ -1664,80 +1680,82 @@ def do_full_tree(model, depth=6):
     snap = {r[0]: r for r in con.execute("SELECT model, name, volume, rev, role FROM snapshots")}
     con.close()
 
+    def clean(x):
+        return "".join(c for c in str(x) if c.isprintable())   # в базе бывают управляющие байты
+
     def lab(x):
-        name = "".join(ch for ch in x if ch.isprintable())   # в базе бывают управляющие байты
-        r = snap.get(name) or snap.get(x)
+        nm = clean(x)
+        r = snap.get(nm) or snap.get(x)
         if not r:
-            return name + ("   (внутренний код Creo)" if _internal_id(name) else "")
-        return "%s%s%s%s" % (name,
-                             ("  «%s»" % r[1]) if r[1] else "",
+            return nm + ("   (внутренний код Creo)" if _internal_id(nm) else "")
+        return "%s%s%s%s" % (nm,
+                             ("  «%s»" % clean(r[1])) if r[1] else "",
                              ("  %.0f мм³" % r[2]) if r[2] else "",
                              ("  rev%s" % r[3]) if r[3] else "")
 
-    def rels_down(x, pref, last):
-        """Связи узла в секции «вниз»: откуда сделан + кто сделан из него + оснастка."""
-        pad = pref + ("   " if last else "│  ")
-        out = []
-        for b, k in base_of.get(x, []):
-            out.append("%s⟵ %s: %s%s" % (pad, k, lab(b),
-                                         "   (внутренний код Creo)" if _internal_id(b) else ""))
-        for k in selfref.get(x, []):
-            out.append("%s⟲ %s от мастер-модели с тем же именем" % (pad, k))
-        made = made_of.get(x, [])
-        real = [(c, k) for c, k in made if not _internal_id(c)]
-        for c, k in real[:5]:
-            out.append("%s⟶ из неё: %s  (%s)" % (pad, lab(c), k))
-        if len(real) > 5:
-            out.append("%s⟶ … ещё сделано из неё: %d" % (pad, len(real) - 5))
-        if len(made) - len(real):
-            out.append("%s⟶ … ещё %d с внутренними кодами Creo (без имени модели)"
-                       % (pad, len(made) - len(real)))
-        r = snap.get(x)
-        if r and "MFG" in (r[4] or "").upper():
-            out.append("%s⚙ модельная оснастка (MFG)" % pad)
-        return out
+    L = []
 
-    def rels_up(x, pref, last):
-        """Связи узла в секции «вверх»: только НАСЛЕДОВАНИЕ/ПРОИЗВОДНАЯ (откуда сделан)."""
-        pad = pref + ("   " if last else "│  ")
-        out = ["%s⟵ %s: %s" % (pad, k, lab(b)) for b, k in base_of.get(x, [])]
-        out += ["%s⟲ %s от мастер-модели с тем же именем" % (pad, k) for k in selfref.get(x, [])]
-        return out
+    def add(t, kind="rel", p=None):
+        L.append((t, kind, p))
 
-    print("ПОЛНОЕ ДЕРЕВО СВЯЗЕЙ: моделей %d, состав %d, наследование/производная %d"
-          % (len(snap), sum(len(v) for v in kids.values()), sum(len(v) for v in base_of.values())))
-    print("корень: %s" % m)
+    add("ПОЛНОЕ ДЕРЕВО СВЯЗЕЙ: моделей %d, состав %d, наследование/производная %d"
+        % (len(snap), sum(len(v) for v in kids.values()), sum(len(v) for v in base_of.values())),
+        "head")
+    add("корень: %s   · глубина %d   · клик по изделию = оно станет корнем"
+        % (m, depth), "head")
     seen = set()
 
+    def rel_lines(x, pref, last, with_made):
+        pad = pref + ("   " if last else "│  ")
+        for b, k in base_of.get(x, []):
+            add("%s⟵ %s: %s%s" % (pad, k, lab(b),
+                                  "   (внутренний код Creo)" if _internal_id(clean(b)) else ""))
+        for k in selfref.get(x, []):
+            add("%s⟲ %s от мастер-модели с тем же именем" % (pad, k))
+        if not with_made:
+            return
+        made = [(c, k) for c, k in made_of.get(x, [])
+                if show_internal or not _internal_id(clean(c))]
+        for c, k in made[:12]:
+            add("%s⟶ из неё: %s  (%s)" % (pad, lab(c), k))
+        if len(made) > 12:
+            add("%s⟶ … ещё сделано из неё: %d   ← клик = весь список"
+                % (pad, len(made) - 12), "more", clean(x))
+        if len(made_of.get(x, [])) - len(made):
+            add("%s⟶ … ещё %d с внутренними кодами Creo (подними галку «внутренние коды»)"
+                % (pad, len(made_of.get(x, [])) - len(made)))
+        r = snap.get(x)
+        if r and "MFG" in (clean(r[4] or "")).upper():
+            add("%s⚙ модельная оснастка (MFG)" % pad)
+
     def walk(x, pref, last, d):
-        print("%s%s%s" % (pref, "└─ " if last else "├─ ", lab(x)))
-        for ln in rels_down(x, pref, last):
-            print(ln)
+        add("%s%s%s" % (pref, "└─ " if last else "├─ ", lab(x)), "node", clean(x))
+        rel_lines(x, pref, last, True)
         if x in seen:
-            print("%s   ⋯ (уже показано выше)" % pref)
+            add("%s   ⋯ (уже показано выше)" % pref)
             return
         seen.add(x)
         ch = kids.get(x, [])
         if not ch:
             return
         if d >= depth:
-            print("%s   … глубже не раскрываю (уровень %d)" % (pref, d))
+            add("%s   … глубже не раскрываю (уровень %d) — подними «Глубину» и «Обновить»"
+                % (pref, d))
             return
         for i, (c, q) in enumerate(ch):
             walk(c, pref + ("   " if last else "│  "), i == len(ch) - 1, d + 1)
 
     walk(m, "", True, 1)
 
-    print()
-    print("ВХОДИМОСТЬ ВВЕРХ (состав) + НАСЛЕДОВАНИЕ:")
+    add("")
+    add("ВХОДИМОСТЬ ВВЕРХ (состав) + НАСЛЕДОВАНИЕ:", "head")
     seen2 = set()
 
     def up(x, pref, last, d):
-        print("%s%s%s" % (pref, "└─ " if last else "├─ ", lab(x)))
-        for ln in rels_up(x, pref, last):
-            print(ln)
+        add("%s%s%s" % (pref, "└─ " if last else "├─ ", lab(x)), "node", clean(x))
+        rel_lines(x, pref, last, False)
         if x in seen2:
-            print("%s   ⋯ (уже показано выше)" % pref)
+            add("%s   ⋯ (уже показано выше)" % pref)
             return
         seen2.add(x)
         ps = parents.get(x, [])
@@ -1748,7 +1766,44 @@ def do_full_tree(model, depth=6):
 
     up(m, "", True, 1)
     if not parents.get(m):
-        print("   (по СОСТАВУ выше нигде не входит — смотри ⟵ наследование/производную)")
+        add("   (по СОСТАВУ выше нигде не входит — смотри ⟵ наследование/производную)")
+    return L
+
+
+def do_full_tree(model, depth=6):
+    """ПОЛНОЕ дерево изделия ТЕКСТОМ — ВСЕ связи, а не только состав (печать в консоль/файл).
+
+    Показывает: СОСТАВ ВНИЗ (`links`), ВХОДИМОСТЬ ВВЕРХ (`links`), НАСЛЕДОВАНИЕ и
+    ПРОИЗВОДНУЮ (`derived`: заготовка/отливка/отражение), оснастку (роль `MFG`).
+    Окно зовёт `full_tree_lines` (там же — клики «сделать корнем» / «весь список»)."""
+    for t, _k, _p in full_tree_lines(model, depth):
+        print(t)
+
+
+def made_of_list(model, limit=0):
+    """ВЕСЬ список «кто сделан ИЗ модели» из `derived`: [(имя, вид, наименование, объём, rev)].
+
+    limit=0 — без предела (для окна «показать весь список» у строки «… ещё N»)."""
+    m = stem(model)
+    try:
+        con = connect()
+        snap = {r[0]: r for r in con.execute("SELECT model, name, volume, rev FROM snapshots")}
+        q = "SELECT child, kind FROM derived WHERE base=?"
+        args = [m]
+        if limit:
+            q += " LIMIT ?"
+            args.append(int(limit))
+        rows = con.execute(q, args).fetchall()
+        con.close()
+    except Exception:
+        return []
+    out = []
+    for ch, kind in rows:
+        nm = "".join(c for c in str(ch) if c.isprintable())
+        r = snap.get(nm) or snap.get(ch) or (None, None, None, None)
+        out.append((nm, kind or "", r[1] or "", r[2] or 0, r[3] or ""))
+    out.sort(key=lambda x: x[0])
+    return out
 
 
 def do_where(model):

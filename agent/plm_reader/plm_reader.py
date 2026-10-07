@@ -26,7 +26,7 @@ import sys
 import threading
 import time
 
-APP_VERSION = "V52"
+APP_VERSION = "V53"
 APP_TITLE = "PLM Reader " + APP_VERSION          # версия ОДНА: заголовок берёт её из константы
 DATA_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "db")          # данные — в подпапке db\
 SETTINGS_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "settings")  # настройки — в подпапке settings\
@@ -2925,7 +2925,7 @@ def run_gui():
 
         def work():
             try:
-                rep = eng.purge_execute(folder, keep, None)
+                rep = eng.purge_execute(folder, keep, None, items=plan["candidates"])
                 out = ("перенесено %d версий, освобождено %.1f МБ, за %.1f с\nбэкап: %s"
                        % (len(rep["перенесено"]), rep["освобождено_байт"] / 1048576.0,
                           rep["seconds"], bdir))
@@ -3201,6 +3201,25 @@ def run_gui():
     ltext = ttk.Frame(lnb, padding=4)
     ltext_sum = ttk.Label(ltext, text="выбери изделие — покажу ПОЛНОЕ дерево: состав вниз и входимость вверх")
     ltext_sum.pack(anchor="w")
+    ltctl = ttk.Frame(ltext)                       # 07.10.2026: раскрытие дерева
+    ltctl.pack(anchor="w", pady=2)
+    ttk.Label(ltctl, text="Глубина:").pack(side="left")
+    lt_depth = ttk.Spinbox(ltctl, from_=1, to=25, width=4)
+    lt_depth.set(6)
+    lt_depth.pack(side="left", padx=(2, 8))
+    lt_int = ttk.Checkbutton(ltctl, text="внутренние коды Creo")
+    lt_int.pack(side="left", padx=(0, 8))
+
+    def lt_apply():
+        _last["lt_depth"] = int(lt_depth.get() or 6)
+        _last["lt_int"] = bool(lt_int.instate(["selected"]))
+        _text_tree_show()
+
+    ttk.Button(ltctl, text="Обновить", command=lt_apply).pack(side="left")
+    ttk.Button(ltctl, text="Вернуться к выбранному",
+               command=lambda: (_last.pop("lroot", None), _text_tree_show())).pack(side="left", padx=6)
+    ttk.Label(ltctl, text="← клик по изделию делает его корнем; клик по «… ещё N» — весь список",
+              foreground="#666").pack(side="left", padx=6)
     ltbox = ttk.Frame(ltext)
     ltbox.pack(fill="both", expand=True)
     ltree = tk.Text(ltbox, font=("Consolas", 9), wrap="none", bg="#fbfbfb")
@@ -3503,18 +3522,63 @@ def run_gui():
             _LLINKS[nn] = (nm, mode)
             ltv2.insert(nn, "end", text="загрузка…")
 
-    def _text_tree_show(model):
-        """Вкладка «Дерево текстом»: ПОЛНОЕ ASCII-дерево — состав вниз (do_tree) + входимость вверх (do_tree_up)."""
+    def _made_window(mdl):
+        """Окно: ВЕСЬ список «кто сделан ИЗ модели» (строка «… ещё N» в дереве)."""
+        try:
+            rows = eng.made_of_list(mdl, 0)
+        except Exception as e:
+            _text_window("Сделано из «%s»" % mdl, "ошибка", "не удалось получить список: %s" % e)
+            return
+        txt = "сделано из «%s» — всего %d\n\n" % (mdl, len(rows))
+        for nm, kind, name, vol, rev in rows:
+            txt += "%-46s %-13s %s%s%s\n" % (nm, kind,
+                                             ("«%s» " % name) if name else "",
+                                             ("%.0f мм³ " % vol) if vol else "",
+                                             ("rev%s" % rev) if rev else "")
+        _text_window("Сделано из «%s»" % mdl, "сделано из «%s» — всего %d" % (mdl, len(rows)), txt)
+
+    def _text_tree_show(model=None):
+        """Вкладка «Дерево текстом»: ПОЛНОЕ дерево связей.
+
+        Клик по ИЗДЕЛИЮ — оно становится корнем (можно уйти в любую ветку).
+        Клик по «… ещё сделано из неё: N» — окно со ВСЕМ списком."""
+        if model:
+            _last["lroot"] = model
+        m = _last.get("lroot") or _last.get("model")
         try:
             ltree.configure(state="normal")
             ltree.delete("1.0", "end")
-            if not model:
-                ltree.insert("end", "выбери изделие в ЛЮБОЙ вкладке сверху — покажу полное дерево")
-                ltext_sum.config(text="выбери изделие — полное дерево вверх и вниз")
-            else:
-                full = cap(eng.do_full_tree, model, 6)
-                ltree.insert("end", full)
-                ltext_sum.config(text="полное дерево: %s — состав вниз + входимость + наследование/производная" % model)
+            for tg in ("nd", "mr", "hd"):
+                ltree.tag_delete(tg)
+        except Exception:
+            pass
+        ltree.tag_configure("nd", foreground="#0a4a8a", underline=True)
+        ltree.tag_configure("mr", foreground="#8a4a00", underline=True)
+        ltree.tag_configure("hd", foreground="#123", background="#eef3f8")
+        try:
+            if not m:
+                ltree.insert("end", "выбери изделие в ЛЮБОЙ вкладке сверху — покажу полное дерево\n")
+                ltext_sum.config(text="выбери изделие — полное дерево: состав + входимость + наследование")
+                ltree.configure(state="disabled")
+                return
+            depth = int(_last.get("lt_depth") or 6)
+            internal = bool(_last.get("lt_int"))
+            lines = eng.full_tree_lines(m, depth, internal)
+            for text, kind, payload in lines:
+                start = ltree.index("end-1c")
+                ltree.insert("end", text + "\n")
+                end = ltree.index("end-1c")
+                if kind == "node" and payload:
+                    ltree.tag_add("nd", start, end)
+                    ltree.tag_bind("nd", "<Button-1>",
+                                   lambda ev, mm=payload: _text_tree_show(mm))
+                elif kind == "more" and payload:
+                    ltree.tag_add("mr", start, end)
+                    ltree.tag_bind("mr", "<Button-1>", lambda ev, mm=payload: _made_window(mm))
+                elif kind == "head":
+                    ltree.tag_add("hd", start, end)
+            ltext_sum.config(text="полное дерево: %s (глубина %d) · клик по изделию = корень, "
+                                  "по «… ещё N» = весь список" % (m, depth))
             ltree.configure(state="disabled")
         except Exception as e:
             try:
@@ -3541,8 +3605,8 @@ def run_gui():
                                                "%s: %s" % (type(e).__name__, e)))
                 lpsum.config(text="не удалось показать свойства: %s" % e)
             return
-        if sel == str(ltext):           # 07.10.2026: полное ASCII-дерево вверх+вниз
-            _text_tree_show(model)
+        if sel == str(ltext):           # 07.10.2026: полное дерево связей (узлы кликабельны)
+            _text_tree_show()
             return
         if not model:
             if sel == str(llinks):
@@ -3565,6 +3629,7 @@ def run_gui():
         """Показать в НИЖНЕМ окне связи модели. Зовут все вкладки. Вид решает активная вкладка низа."""
         model = eng.stem(model or "")
         _last["model"] = model
+        _last.pop("lroot", None)     # 07.10.2026: новое изделие сверху = новый корень дерева текстом
         _bottom_render()
 
     lnb.bind("<<NotebookTabChanged>>", lambda ev: _bottom_render())
