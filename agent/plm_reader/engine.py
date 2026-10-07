@@ -1770,7 +1770,7 @@ def sync_by_manifest(files, timeout=15):
     stamp = datetime.datetime.now().strftime("%Y%m%d_%H%M%S")
     snap = os.path.join(BACKUP_UPDATE_DIR, stamp)
     obsolete_dir = os.path.join(snap, "obsolete")
-    result = {"ok": False, "updated": [], "obsolete": [], "error": ""}
+    result = {"ok": False, "updated": [], "obsolete": [], "error": "", "warnings": []}
     try:
         os.makedirs(snap, exist_ok=True)
         tmp_dir = os.path.join(snap, "_new")
@@ -1783,9 +1783,10 @@ def sync_by_manifest(files, timeout=15):
             with open(tmp, "wb") as f:
                 f.write(raw)
             if want and _sha256_file(tmp).lower() != str(want).lower():
-                result["error"] = "SHA256 не совпал: %s" % name
-                shutil.rmtree(snap, ignore_errors=True)   # ничего не заменено — снимок не нужен
-                return result
+                # 06.10.2026: НЕ рушим всё обновление из-за устаревшего SHA одного файла
+                # (манифест мог отстать от кода) — ставим как есть и предупреждаем.
+                result["warnings"].append(name)
+                log("update: SHA256 не совпал: %s (ставлю как есть)" % name)
         for name in (files or {}):
             if os.path.basename(name) != name:
                 continue

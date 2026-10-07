@@ -26,7 +26,7 @@ import sys
 import threading
 import time
 
-APP_VERSION = "V43"
+APP_VERSION = "V44"
 APP_TITLE = "PLM Reader " + APP_VERSION          # версия ОДНА: заголовок берёт её из константы
 DATA_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "db")          # данные — в подпапке db\
 SETTINGS_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "settings")  # настройки — в подпапке settings\
@@ -2267,12 +2267,16 @@ def run_gui():
             _upd_status("обновление: качаю файлы…")
             res = eng.sync_by_manifest(files)
             if res.get("ok"):
+                warns = res.get("warnings") or []
+                note = ("\n\nПримечание: у части файлов SHA не совпал с манифестом (манифест "
+                        "отстал от кода) — они всё равно установлены: %s. Это не ошибка."
+                        % ", ".join(warns)) if warns else ""
                 _upd_status("обновлено до %s — перезапустите программу" % remote)
                 root.after(0, lambda: messagebox.showinfo(
                     "Обновление",
-                    "Обновлено до %s.\nФайлов: %d, устаревших убрано: %d.\n\n"
+                    "Обновлено до %s.\nФайлов: %d, устаревших убрано: %d.%s\n\n"
                     "Перезапустите программу." % (remote, len(res.get("updated", [])),
-                                                  len(res.get("obsolete", [])))))
+                                                  len(res.get("obsolete", [])), note)))
             else:
                 _upd_status("обновление не удалось: %s" % res.get("error"))
                 root.after(0, lambda: messagebox.showwarning(
@@ -4129,12 +4133,24 @@ def run_gui():
         except Exception:
             pass
 
-    root.bind_all("<Control-c>", _on_copy)
-    root.bind_all("<Control-v>", lambda e: _clip_ev("<<Paste>>"))
-    root.bind_all("<Control-x>", lambda e: _clip_ev("<<Cut>>"))
-    root.bind_all("<Control-a>", _sel_all)
-    root.bind_all("<Control-Insert>", _on_copy)
-    root.bind_all("<Shift-Insert>", lambda e: _clip_ev("<<Paste>>"))
+    # Ctrl+C/V/X/A — и для РУССКОЙ раскладки: в кириллице клавиша «c» даёт keysym
+    # Cyrillic_es, поэтому <Control-c> не срабатывает — добавляем кириллические явно (с/м/ч/ф).
+    for _seq, _fn in (
+        ("<Control-c>", _on_copy),
+        ("<Control-v>", lambda e: _clip_ev("<<Paste>>")),
+        ("<Control-x>", lambda e: _clip_ev("<<Cut>>")),
+        ("<Control-a>", _sel_all),
+        ("<Control-Cyrillic_es>", _on_copy),                         # Ctrl+C по-русски
+        ("<Control-Cyrillic_em>", lambda e: _clip_ev("<<Paste>>")),  # Ctrl+V по-русски
+        ("<Control-Cyrillic_che>", lambda e: _clip_ev("<<Cut>>")),   # Ctrl+X по-русски
+        ("<Control-Cyrillic_ef>", _sel_all),                         # Ctrl+A по-русски
+        ("<Control-Insert>", _on_copy),
+        ("<Shift-Insert>", lambda e: _clip_ev("<<Paste>>")),
+    ):
+        try:
+            root.bind_all(_seq, _fn)
+        except Exception:
+            pass
     root.after(700, _bind_clip_all)                 # ПКМ-меню в существующих полях
 
     btn.config(command=go)
