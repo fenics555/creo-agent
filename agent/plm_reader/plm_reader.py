@@ -26,7 +26,7 @@ import sys
 import threading
 import time
 
-APP_VERSION = "V63"
+APP_VERSION = "V64"
 APP_TITLE = "PLM Reader " + APP_VERSION          # версия ОДНА: заголовок берёт её из константы
 DATA_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "db")          # данные — в подпапке db\
 SETTINGS_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "settings")  # настройки — в подпапке settings\
@@ -401,6 +401,8 @@ DEFAULT_SETTINGS = {
     "exclude": [],          # папки-исключения: НЕ читать вовсе
     "db_dir": "",           # рабочая папка БАЗЫ (пусто = рядом, db\); можно увести на другой диск
     "db_mirror": [],        # папки-ЗЕРКАЛА базы: после каждого скана копия уезжает и туда
+    "template_folders": [], # 07.10.2026: ПАПКИ шаблонов Creo — их модели служебные (не в связях)
+    "service_models": [],   # 07.10.2026: явный список служебных стволов (если папка не намекает)
     "show_limit": 50000,    # сколько строк показывать за раз (крутилка на главной панели)
     "history_columns": ["Файл", "Путь", "Тип", "Ревизия", "Дата",
                         "Пользователь", "Компьютер", "Версия Creo", "Что изменено"],
@@ -1658,7 +1660,7 @@ class PathsWindow:
         self.win.title("Пути, исключения и база данных")
         self.win.geometry("860x720")
         self.win.transient(parent)
-        self.rows = {"folders": [], "exclude": [], "db_mirror": []}
+        self.rows = {"folders": [], "exclude": [], "template_folders": [], "db_mirror": []}
         box = ttk.Frame(self.win, padding=10)
         box.pack(fill="both", expand=True)
         ttk.Label(box, text="Папки сканирования (одна строка = один путь):",
@@ -1667,6 +1669,10 @@ class PathsWindow:
         ttk.Label(box, text="Папки исключений — НЕ читать вовсе (одна строка = один путь):",
                   font=("", 10, "bold")).pack(anchor="w", pady=(14, 0))
         self.sec_exc = self._section(box, "exclude")
+        ttk.Label(box, text="Папки шаблонов Creo — их модели СЛУЖЕБНЫЕ (не показывать в связях), "
+                            r"напр. Z:\PTC\CREO-START\НАСТРОЙКИ\ШАБЛОНЫ (строка = путь):",
+                  font=("", 10, "bold")).pack(anchor="w", pady=(14, 0))
+        self.sec_tpl = self._section(box, "template_folders")
         ttk.Label(box, text="ГДЕ ЖИВЁТ БАЗА", font=("", 10, "bold")).pack(anchor="w", pady=(14, 0))
         ttk.Label(box, text="Пусто = рядом с программой, в папке db\\. Можно указать другой диск:",
                   foreground="#555").pack(anchor="w")
@@ -1695,12 +1701,16 @@ class PathsWindow:
             self.add_row("folders", p)
         for p in (settings.get("exclude") or []):
             self.add_row("exclude", p)
+        for p in (settings.get("template_folders") or []):
+            self.add_row("template_folders", p)
         for p in (settings.get("db_mirror") or []):
             self.add_row("db_mirror", p)
         if not self.rows["folders"]:
             self.add_row("folders", "")
         if not self.rows["exclude"]:
             self.add_row("exclude", "")
+        if not self.rows["template_folders"]:
+            self.add_row("template_folders", "")
         if not self.rows["db_mirror"]:
             self.add_row("db_mirror", "")
 
@@ -1740,7 +1750,7 @@ class PathsWindow:
     def collect(self):
         """Списки путей: пустые строки и дубли (без учёта регистра) отбрасываются."""
         out = {}
-        for key in ("folders", "exclude", "db_mirror"):
+        for key in ("folders", "exclude", "template_folders", "db_mirror"):
             seen, vals = set(), []
             for _line, ent in self.rows[key]:
                 v = norm_path(ent.get())
@@ -1773,16 +1783,23 @@ class PathsWindow:
         old_dir = (self.settings.get("db_dir") or "").strip()
         self.settings["folders"] = d["folders"]
         self.settings["exclude"] = d["exclude"]
+        self.settings["template_folders"] = d["template_folders"]
         self.settings["db_dir"] = norm_path(self.e_db_dir.get())
         self.settings["db_mirror"] = d["db_mirror"]
         save_settings_file(self.settings)
+        try:
+            import engine as _e
+            _e.reset_service_cache()          # папки шаблонов изменились — сбросить кэш служебных
+        except Exception:
+            pass
         tail = ""
         new_dir = self.settings["db_dir"]
         if new_dir != old_dir:
             # папка базы поменялась — предупреждаем честно: подхватка только при перезапуске окна
             tail = " · база переедет на %s — ПЕРЕЗАПУСТИ окно" % (new_dir or "папку db\\")
-        self.msg.config(text="сохранено: папок %d, исключений %d, зеркал %d%s"
-                             % (len(d["folders"]), len(d["exclude"]), len(d["db_mirror"]), tail))
+        self.msg.config(text="сохранено: папок %d, исключений %d, шаблонов %d, зеркал %d%s"
+                             % (len(d["folders"]), len(d["exclude"]), len(d["template_folders"]),
+                                len(d["db_mirror"]), tail))
         if self.on_save:
             try:
                 self.on_save()

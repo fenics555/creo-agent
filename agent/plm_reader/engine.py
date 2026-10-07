@@ -1645,6 +1645,21 @@ def plm_tops(limit=500):
 _SERVICE_STEMS = None
 
 
+def _settings_json():
+    """Настройки окна (settings\\settings.json) словарём; {} при неудаче."""
+    try:
+        with open(SETTINGS_FILE, encoding="utf-8") as f:
+            return json.load(f) or {}
+    except Exception:
+        return {}
+
+
+def reset_service_cache():
+    """Сбросить кэш служебных стволов (после правки настроек «папки шаблонов»)."""
+    global _SERVICE_STEMS
+    _SERVICE_STEMS = None
+
+
 def service_stems():
     """Стволы СЛУЖЕБНЫХ моделей (шаблоны/библиотеки: папки НАСТРОЙКИ\\ШАБЛОНЫ, TEMPLATE).
 
@@ -1653,13 +1668,20 @@ def service_stems():
     global _SERVICE_STEMS
     if _SERVICE_STEMS is not None:
         return _SERVICE_STEMS
-    out = set()
+    cfg = _settings_json()
+    tf = [str(x).strip().lower().replace("/", "\\").rstrip("\\")
+          for x in (cfg.get("template_folders") or []) if str(x).strip()]
+    out = {(str(x)).strip().upper() for x in (cfg.get("service_models") or []) if str(x).strip()}
     try:
         con = connect()
         for m, p in con.execute("SELECT DISTINCT model, path FROM snapshots"):
-            pl = (p or "").lower()
-            if "шаблон" in pl or "template" in pl:
-                out.add((m or "").upper())
+            nm = (m or "").upper()
+            pl = (p or "").lower().replace("/", "\\")
+            if tf:
+                if any(pl == f or pl.startswith(f + "\\") for f in tf):
+                    out.add(nm)
+            elif "шаблон" in pl or "template" in pl:
+                out.add(nm)
         con.close()
     except Exception:
         pass
