@@ -26,7 +26,7 @@ import sys
 import threading
 import time
 
-APP_VERSION = "V62"
+APP_VERSION = "V63"
 APP_TITLE = "PLM Reader " + APP_VERSION          # версия ОДНА: заголовок берёт её из константы
 DATA_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "db")          # данные — в подпапке db\
 SETTINGS_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "settings")  # настройки — в подпапке settings\
@@ -4559,24 +4559,34 @@ def run_gui():
     # не срабатывает; ориентируемся на ФИЗИЧЕСКУЮ клавишу (keycode=VK: C=67, V=86, X=88, A=65)
     # плюс запасной вариант по keysym (латиница и кириллица).
     def _clip_ctrl(ev):
+        # ЛАТИНСКАЯ раскладка: у полей (Entry/TEntry/Text/Spinbox/Combobox) ЕСТЬ нативный
+        # `<<Copy/Paste/Cut/SelectAll>>` (проверено `bind <класс> <<Paste>>`), и он срабатывает
+        # РАНЬШЕ тега "all" (порядок виджет→класс→родитель→all). Поэтому НЕ дублируем: отдаём полю.
+        # Нет нативного (Treeview) — делаем сами. КИРИЛЛИЦА/прочая раскладка: нативного нет вовсе →
+        # делаем сами по ФИЗИЧЕСКОЙ клавише (keycode: C=67, V=86, X=88, A=65 — не зависит от раскладки).
+        w = _foc()
         kc = getattr(ev, "keycode", None)
         ks = (getattr(ev, "keysym", "") or "").lower()
-        if kc == 67 or ks in ("c", "cyrillic_es"):
+        latin = {"c": ("<<Copy>>", _on_copy), "v": ("<<Paste>>", _on_paste),
+                 "x": ("<<Cut>>", _on_cut), "a": ("<<SelectAll>>", _sel_all)}
+        if ks in latin:
+            seq, fn = latin[ks]
+            if w is not None and _has_native(w, seq):
+                return "break"            # поле обработает само — ДВОЙНОЙ вставки не будет
+            return fn(ev)
+        if kc == 67:
             return _on_copy(ev)
-        if kc == 86 or ks in ("v", "cyrillic_em"):
+        if kc == 86:
             return _on_paste(ev)
-        if kc == 88 or ks in ("x", "cyrillic_che"):
+        if kc == 88:
             return _on_cut(ev)
-        if kc == 65 or ks in ("a", "cyrillic_ef"):
+        if kc == 65:
             return _sel_all(ev)
 
-    # Явные привязки на ЛЮБУЮ раскладку (латиница + кириллица) + общий разбор по ФИЗИЧЕСКОЙ
-    # клавише (keycode=VK: C=67, V=86, X=88, A=65).
+    # 07.10.2026: буквенные Ctrl-привязки УБРАНЫ — их дублировал общий `_clip_ctrl` (плюс нативный
+    # класс-бантинг полей) → ДВОЙНАЯ вставка Ctrl+V. Остаются только Insert-варианты (их `_clip_ctrl`
+    # не трогает — другой keycode) + единый разбор `_clip_ctrl` ниже.
     for _seq, _fn in (
-        ("<Control-c>", _on_copy), ("<Control-Cyrillic_es>", _on_copy),
-        ("<Control-v>", _on_paste), ("<Control-Cyrillic_em>", _on_paste),
-        ("<Control-x>", _on_cut), ("<Control-Cyrillic_che>", _on_cut),
-        ("<Control-a>", _sel_all), ("<Control-Cyrillic_ef>", _sel_all),
         ("<Control-Insert>", _on_copy), ("<Shift-Insert>", _on_paste),
     ):
         try:

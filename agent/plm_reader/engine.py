@@ -1726,8 +1726,9 @@ def plm_up_data(model, depth=8):
 
 
 def plm_down_data(model, depth=2):
-    """СОСТАВ вниз на N уровней: {модель: [(ребёнок, кол-во)]}."""
+    """СОСТАВ вниз на N уровней: {модель: [(ребёнок, кол-во)]}. Служебные (шаблоны) не попадают."""
     out = {}
+    svc = service_stems()
     try:
         con = connect()
         frontier = [stem(model)]
@@ -1739,6 +1740,8 @@ def plm_down_data(model, depth=2):
                                frontier).fetchall()
             nxt = []
             for par, ch, qty in rows:
+                if (ch or "").upper() in svc:
+                    continue
                 out.setdefault(par, []).append((ch, qty or 1))
                 nxt.append(ch)
             frontier = nxt
@@ -1796,13 +1799,18 @@ def full_tree_lines(model, depth=6, show_internal=False):
     """
     m = stem(model)
     con = connect()
+    svc = service_stems()      # 07.10.2026: служебные шаблоны (SBORKA_MFG/SBORKA_MM/MM_PART…) — НЕ связи изделия
     kids, parents = defaultdict(list), defaultdict(list)
     for par, ch, qty in con.execute("SELECT parent, child, qty FROM links"):
+        if (par or "").upper() in svc or (ch or "").upper() in svc:
+            continue
         kids[par].append((ch, qty or 1))
         parents[ch].append((par, qty or 1))
     base_of, made_of, selfref = defaultdict(list), defaultdict(list), defaultdict(list)
     for ch, base, kind in con.execute("SELECT child, base, kind FROM derived"):
         if not base:
+            continue
+        if (ch or "").upper() in svc or (base or "").upper() in svc:
             continue
         if base == ch:                      # имя совпало (мастер-модель) — не путать со связью
             selfref[ch].append(kind or "")
@@ -1938,24 +1946,26 @@ def made_of_list(model, limit=0):
 
     limit=0 — без предела (для окна «показать весь список» у строки «… ещё N»)."""
     m = stem(model)
+    svc = service_stems()
+    if m.upper() in svc:
+        return []          # у служебного шаблона списка «сделано из» для человека нет
     try:
         con = connect()
         snap = {r[0]: r for r in con.execute("SELECT model, name, volume, rev FROM snapshots")}
-        q = "SELECT child, kind FROM derived WHERE base=?"
-        args = [m]
-        if limit:
-            q += " LIMIT ?"
-            args.append(int(limit))
-        rows = con.execute(q, args).fetchall()
+        rows = con.execute("SELECT child, kind FROM derived WHERE base=?", (m,)).fetchall()
         con.close()
     except Exception:
         return []
     out = []
     for ch, kind in rows:
+        if (str(ch) or "").upper() in svc:
+            continue
         nm = "".join(c for c in str(ch) if c.isprintable())
         r = snap.get(nm) or snap.get(ch) or (None, None, None, None)
         out.append((nm, kind or "", r[1] or "", r[2] or 0, r[3] or ""))
     out.sort(key=lambda x: x[0])
+    if limit:
+        out = out[:int(limit)]
     return out
 
 

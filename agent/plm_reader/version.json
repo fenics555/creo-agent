@@ -1,13 +1,13 @@
 {
- "version": "V62",
- "version_num": 62,
+ "version": "V63",
+ "version_num": 63,
  "date": "07.10.2026",
  "notes": "",
  "files": {
-  "engine.py": "3df823c75eec26d2c8b107e62cee053f83da9b338b11e1fa1fe1b28554e9b0ec",
-  "plm_reader.py": "4edb95c5c89355dd4bb208f9b3264146b0c678fa4707585473a63a1af3dba7ec",
+  "engine.py": "a096c51c66d8a4c245a578f71293c831a375de2927dad44e4a55997c886878b6",
+  "plm_reader.py": "5b156c2b69070468de224f9c8b2201ae4414a13682f48358fffaeea164cb208f",
   "creo_read.py": "5e027a85d6297c90f98c5435a3451bc94ed40dfc26fbe856aaf9d1b9c3f21d8d",
-  "README.md": "89c01cccb9d1da83af3973a898013e07e8d6105974abf620e73e36f057919d9c",
+  "README.md": "71c46e45169ca4cbe79514350a878f6ac455059e0b86e3d86bf0ddec49c1c2b3",
   "SHARE_copy.bat": "4eccb549a17251392337aeabbc3ef76233dfa3072beadff9d158cd6e932622ee",
   "plm_reader.bat": "bdd125397db3ac7e7432dbdb078a6a811ed4913fca02b062edb27907032fca3d",
   "plm_reader_gui.bat": "c8e40a5a91c3f97522e5fa5556b423f60e1358a593225819a24f255414e290e1",
