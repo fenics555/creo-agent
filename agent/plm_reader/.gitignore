@@ -4,3 +4,7 @@ log/
 __pycache__/
 scan_cache.json
 settings.json
+
+# Архив прошлого окна (раскладка V53, настройки сверху). В git не идёт — но полностью
+# восстановим из истории: git show 04374db:agent/plm_reader/plm_reader.py
+plm_reader_OLD.py
