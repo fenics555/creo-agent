@@ -1848,6 +1848,51 @@ def sync_by_manifest(files, timeout=15):
         return result
 
 
+# --- УБОРКА ТЯЖЁЛЫХ АРХИВНЫХ ТАБЛИЦ (06.10.2026) -------------------------------------------
+# Разум: сырой импорт архивных срезов (снимки/правки/карта) занимал ~6,5 млн строк и раздувал
+# боевую базу до 3,2 ГБ. ТЕКУЩЕЕ состояние изделий живёт в `snapshots`/`links`/`derived`,
+# история правок — в `changes` (kind='архив'). Окну из архива нужны ТОЛЬКО размеры/история
+# (`arch_dims`/`arch_dim_ch`). Остальное — сырьё, удаляем.
+ARCH_HEAVY = ("arch_snapshots", "arch_changes", "arch_links", "arch_derived", "arch_tools",
+              "arch_fixtures", "arch_mfg_items", "arch_diffs", "arch_extra",
+              "arch_dwg_links", "arch_runs")
+ARCH_KEEP = ("arch_dims", "arch_dim_ch")
+
+
+def cleanup_archive_tables(do=False):
+    """Убрать ТЯЖЁЛЫЕ архивные таблицы, оставив только РАЗМЕРЫ/ИСТОРИЮ (arch_dims/arch_dim_ch).
+
+    do=False — только показать, сколько занимает; do=True — DROP + VACUUM.
+    Возвращает {tables, rows, dropped, error}. Не трогает snapshots/links/derived/changes."""
+    out = {"tables": [], "rows": 0, "dropped": [], "error": ""}
+    try:
+        con = connect()
+        have = {r[0] for r in con.execute("SELECT name FROM sqlite_master WHERE type='table'")}
+        for t in ARCH_HEAVY:
+            if t in have:
+                try:
+                    out["rows"] += con.execute("SELECT COUNT(*) FROM %s" % t).fetchone()[0]
+                    out["tables"].append(t)
+                except Exception:
+                    pass
+        if do and out["tables"]:
+            for t in out["tables"]:
+                try:
+                    con.execute("DROP TABLE IF EXISTS %s" % t)
+                    out["dropped"].append(t)
+                except Exception:
+                    pass
+            con.commit()
+            try:
+                con.execute("VACUUM")
+            except Exception as ex:
+                out["vacuum_error"] = str(ex)
+        con.close()
+    except Exception as ex:
+        out["error"] = str(ex)
+    return out
+
+
 
 def main():
     try:

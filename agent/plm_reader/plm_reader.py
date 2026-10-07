@@ -26,7 +26,7 @@ import sys
 import threading
 import time
 
-APP_VERSION = "V45"
+APP_VERSION = "V47"
 APP_TITLE = "PLM Reader " + APP_VERSION          # версия ОДНА: заголовок берёт её из константы
 DATA_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "db")          # данные — в подпапке db\
 SETTINGS_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "settings")  # настройки — в подпапке settings\
@@ -4202,6 +4202,41 @@ def run_gui():
             pass
     root.bind_all("<Control-KeyPress>", _clip_ctrl, add="+")
     root.after(700, _bind_clip_all)                 # ПКМ-меню в существующих полях
+
+    def _offer_archive_cleanup():
+        """САМОПЕРЕСТРОЙКА: если в базе остался тяжёлый архивный сырой импорт — предложить убрать.
+        Размеры/история (arch_dims/arch_dim_ch) и текущее состояние НЕ трогаем."""
+        try:
+            info = eng.cleanup_archive_tables(do=False)
+        except Exception:
+            return
+        n = info.get("rows") or 0
+        if not n:
+            return
+
+        def ask():
+            rus = lambda x: "{:,}".format(int(x)).replace(",", " ")
+            if messagebox.askyesno(
+                    "Уборка архива",
+                    "В базе %s лишних архивных строк (сырой импорт срезов).\n\n"
+                    "Убрать? База уменьшится в разы. Размеры/история и ТЕКУЩЕЕ состояние "
+                    "изделий останутся." % rus(n)):
+                def work():
+                    res = eng.cleanup_archive_tables(do=True)
+                    tail = ("\n(сжатие файла не прошло: %s)" % res.get("vacuum_error")
+                            ) if res.get("vacuum_error") else ""
+                    root.after(0, lambda: messagebox.showinfo(
+                        "Уборка архива",
+                        "Убрано таблиц: %d, строк: %s.%s"
+                        % (len(res.get("dropped", [])), rus(res.get("rows", 0)), tail)))
+                threading.Thread(target=work, daemon=True).start()
+
+        try:
+            root.after(0, ask)
+        except Exception:
+            pass
+
+    root.after(1200, _offer_archive_cleanup)
 
     btn.config(command=go)
     _bs = db_summary()
