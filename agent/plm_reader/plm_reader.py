@@ -26,7 +26,7 @@ import sys
 import threading
 import time
 
-APP_VERSION = "V65"
+APP_VERSION = "V66"
 APP_TITLE = "PLM Reader " + APP_VERSION          # версия ОДНА: заголовок берёт её из константы
 DATA_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "db")          # данные — в подпапке db\
 SETTINGS_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "settings")  # настройки — в подпапке settings\
@@ -1666,9 +1666,7 @@ class PathsWindow:
         ttk.Label(box, text="Папки сканирования (одна строка = один путь):",
                   font=("", 10, "bold")).pack(anchor="w")
         self.sec_scan = self._section(box, "folders")
-        ttk.Label(box, text="Папки шаблонов Creo — их модели СЛУЖЕБНЫЕ (не показывать в связях), "
-                            r"напр. Z:\PTC\CREO-START\НАСТРОЙКИ\ШАБЛОНЫ (строка = путь):",
-                  font=("", 10, "bold")).pack(anchor="w", pady=(14, 0))
+        ttk.Label(box, text="ШАБЛОНЫ:", font=("", 10, "bold")).pack(anchor="w", pady=(14, 0))
         self.sec_tpl = self._section(box, "template_folders")
         ttk.Label(box, text="Папки исключений — НЕ читать вовсе (одна строка = один путь):",
                   font=("", 10, "bold")).pack(anchor="w", pady=(14, 0))
@@ -1725,7 +1723,8 @@ class PathsWindow:
 
     def add_row(self, key, path):
         holder = {"folders": self.sec_scan, "exclude": self.sec_exc,
-                 "db_mirror": self.sec_mir}.get(key, self.sec_scan)
+                  "template_folders": self.sec_tpl,
+                  "db_mirror": self.sec_mir}.get(key, self.sec_scan)
         line = self.ttk.Frame(holder)
         line.pack(fill="x", pady=1)
         ent = self.ttk.Entry(line)
@@ -2872,6 +2871,16 @@ def run_gui():
                 n = tree_widget.insert(cn, "end", text="%s  x%d" % (c, q), values=row(c, "x%d" % q))
                 reg[n] = c
                 tree_widget.insert(n, "end", text="загрузка…")
+        made = eng.derived_children(model)          # 07.10.2026: что СДЕЛАНО из неё (копии/производные)
+        if made:
+            md = tree_widget.insert(node, "end", open=bool(made),
+                                    text="сделано из неё (копии/производные): %d" % len(made))
+            for c, k in made[:60]:
+                nn = tree_widget.insert(md, "end", text="%s  (%s)" % (c, _kind(k)), values=row(c))
+                reg[nn] = c
+                tree_widget.insert(nn, "end", text="загрузка…")
+            if len(made) > 60:
+                tree_widget.insert(md, "end", text="… ещё %d" % (len(made) - 60))
         return len(der), sum(len(v) for v in up.values()), len(kids)
 
     def _model_values(m):
@@ -3336,8 +3345,9 @@ def run_gui():
     lnb = ttk.Notebook(lpane)                  # НИЖНЕЕ окно — ноутбук со своими режимами-вкладками
     lnb.pack(fill="both", expand=True)
     liv = ttk.Frame(lnb, padding=4)
-    lnb.add(liv, text=" Дерево производства ")
-    lsum = ttk.Label(liv, text="выбери что-либо в ЛЮБОЙ вкладке сверху — дерево построится само")
+    lnb.add(liv, text=" Родословная ")
+    lsum = ttk.Label(liv, text="выбери изделие в ЛЮБОЙ вкладке сверху — покажу родословную: "
+                               "откуда пришло · это изделие · что сделано из него · куда входит")
     lsum.pack(anchor="w")
     LTCOLS = ("Тип", "Изделие/файл", "Обозначение", "Наименование", "Кол-во")
     ltv = ttk.Treeview(liv, columns=LTCOLS, show="tree headings", height=8)
@@ -3369,6 +3379,8 @@ def run_gui():
     ltv2.pack(side="left", fill="both", expand=True)
     lvs2.pack(side="left", fill="y")
     ltv2.bind("<<TreeviewOpen>>", lambda ev: ltv2_open())
+    ltv.bind("<Double-1>", lambda ev: _goto_node(ltv, _LTREE))     # 07.10.2026: клик = перейти на изделие
+    ltv2.bind("<Double-1>", lambda ev: _goto_node(ltv2, _LLINKS))
     lout = tk.Text(llinks, height=4, font=("Consolas", 9), bg="#fbfbfb")   # вывод кнопок (перенесено из «Дерева»)
     lout.pack(fill="x")
 
@@ -3625,7 +3637,7 @@ def run_gui():
             ltv.see(rn)
         except Exception:
             pass
-        lsum.config(text="онлайн: %s — состав %d · входит в сборок %d (все уровни) · заготовок/отливок %d"
+        lsum.config(text="родословная «%s»: состав %d · входит в сборок %d (все уровни) · заготовок/отливок %d"
                     % (model, dn, ups, der))
 
     def _links_show(model):
@@ -3907,6 +3919,13 @@ def run_gui():
         _last["model"] = model
         _last.pop("lroot", None)     # 07.10.2026: новое изделие сверху = новый корень дерева текстом
         _bottom_render()
+
+    def _goto_node(tree_widget, registry):
+        """07.10.2026: клик по узлу нижнего дерева = перейти на это изделие (стать ему корнем)."""
+        rec = registry.get(tree_widget.focus())
+        m = rec[0] if isinstance(rec, tuple) else rec
+        if m:
+            _bottom_show(m)
 
     lnb.bind("<<NotebookTabChanged>>", lambda ev: _bottom_render())
 

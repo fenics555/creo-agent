@@ -1493,15 +1493,21 @@ def role_bases(model):
 
 
 def derived_bases(model):
-    """Заготовки/отливки модели: из таблицы `derived` + из роли; внутренние хеши отсекаем."""
+    """Заготовки/отливки модели: из таблицы `derived` + из роли; хеши, шаблоны и «копию от себя» отсекаем."""
     m = stem(model)
+    svc = service_stems()
     out = []
     try:
         con = connect()
         for b, k in con.execute("SELECT base, kind FROM derived WHERE child=?", (m,)):
-            if b and not _hash_like(b):
+            if not b:
+                continue
+            bs = stem(b)
+            if bs == m or bs.upper() in svc:            # «копия от себя» и шаблоны — не родословная
+                continue
+            if not _hash_like(b):
                 out.append((b, k or ""))
-            elif b:
+            else:
                 out.append(("", "hash"))               # имя не найдено (в файле только код)
         con.close()
     except Exception:
@@ -1522,7 +1528,8 @@ def derived_bases(model):
     for p in (prts or paths):
         cf = copy_from_file(p)
         if cf:
-            if all(cf != o[0] for o in out):
+            cs = stem(cf)
+            if cs != m and cs.upper() not in svc and all(cf != o[0] for o in out):
                 out.append((cf, "копия"))
             break
     return out
@@ -1532,13 +1539,14 @@ def derived_children(base, limit=500):
     """Кто сделан ИЗ этой модели (обратная связь): список (child, kind).
     Строится из уже готовой таблицы derived — без чтения Creo-файлов."""
     m = stem(base)
+    svc = service_stems()
     try:
         con = connect()
         rows = con.execute(
             "SELECT child, kind FROM derived WHERE base=? ORDER BY child LIMIT ?",
             (m, limit)).fetchall()
         con.close()
-        return [(r[0], r[1] or "") for r in rows]
+        return [(r[0], r[1] or "") for r in rows if (r[0] or "").upper() not in svc]
     except Exception:
         return []
 
