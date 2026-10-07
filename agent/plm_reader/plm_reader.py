@@ -26,7 +26,7 @@ import sys
 import threading
 import time
 
-APP_VERSION = "V46"
+APP_VERSION = "V45"
 APP_TITLE = "PLM Reader " + APP_VERSION          # версия ОДНА: заголовок берёт её из константы
 DATA_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "db")          # данные — в подпапке db\
 SETTINGS_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "settings")  # настройки — в подпапке settings\
@@ -2350,8 +2350,6 @@ def run_gui():
     data = ttk.Frame(root, padding=6)
     data.pack(fill="x", padx=6, pady=(0, 4))
 
-    vpan = ttk.PanedWindow(root, orient="vertical")   # ВЕРХ (окно) / НИЗ (деревья) — разделитель тянется
-
     def _copy_status():
         """Скопировать нижнюю строку в буфер (удобно переслать ошибку целиком)."""
         try:
@@ -2369,8 +2367,8 @@ def run_gui():
     lbl.pack(side="left", fill="x", expand=True)
 
     # НИЖНЯЯ ПОЛОСА (дерево производства) — прижата к низу окна, видна на ЛЮБОЙ вкладке
-    lpane = ttk.Frame(vpan)
-    vpan.add(lpane, weight=1)                 # НИЖНЯЯ полоса (деревья) — нижняя доля разделителя
+    lpane = ttk.Frame(root)
+    lpane.pack(side="bottom", fill="x", padx=6, pady=(0, 6))
 
     def _status_menu(event):
         m = tk.Menu(root, tearoff=0)
@@ -2390,8 +2388,8 @@ def run_gui():
 
     root.bind("<Configure>", _wrap_data)
 
-    nb = ttk.Notebook(vpan)
-    vpan.add(nb, weight=4)                    # ВЕРХНЕЕ окно (вкладки) — верхняя доля разделителя
+    nb = ttk.Notebook(root)
+    nb.pack(fill="both", expand=True, padx=6, pady=(0, 6))
     tab_table = ttk.Frame(nb)                 # Таблица — плоский вид данных базы (третья вкладка)
     tab_tree = ttk.Frame(nb)                  # Дерево — иерархия ТЕХ ЖЕ данных (папки → файлы) (вторая)
     nb.add(tab_tree, text=" Дерево ")
@@ -4070,47 +4068,86 @@ def run_gui():
         w = _foc()
         try:
             if w is not None and not _has_native(w, seq):
-                w.event_generate(seq)          # Treeview и прочие без своего обработчика
+                w.event_generate(seq)
         except Exception:
             pass
         return "break"
 
     def _on_copy(ev=None):
+        """Копировать ПРЯМО (родной <<Copy>> в русской раскладке не срабатывает)."""
         w = _foc()
         try:
             if isinstance(w, ttk.Treeview):
                 txt = "\n".join("\t".join(str(x) for x in w.item(i, "values")) for i in w.selection())
+            elif isinstance(w, tk.Text):
+                txt = w.get("sel.first", "sel.last")
+            elif isinstance(w, (tk.Entry, ttk.Entry)):
+                txt = w.selection_get()
+            else:
+                txt = ""
+            if txt:
                 root.clipboard_clear()
                 root.clipboard_append(txt)
-                return "break"
         except Exception:
             pass
-        return _clip_ev("<<Copy>>")
+        return "break"
+
+    def _on_paste(ev=None):
+        """Вставить ПРЯМО из буфера (родной <<Paste>> в русской раскладке не срабатывает)."""
+        w = _foc()
+        try:
+            txt = root.clipboard_get()
+        except Exception:
+            return "break"
+        try:
+            if isinstance(w, tk.Text):
+                w.insert("insert", txt)
+            elif isinstance(w, (tk.Entry, ttk.Entry)):
+                w.insert(w.index("insert"), txt)
+        except Exception:
+            pass
+        return "break"
+
+    def _on_cut(ev=None):
+        w = _foc()
+        _on_copy()
+        try:
+            if isinstance(w, tk.Text):
+                w.delete("sel.first", "sel.last")
+            elif isinstance(w, (tk.Entry, ttk.Entry)):
+                w.delete("sel.first", "sel.last")
+        except Exception:
+            pass
+        return "break"
 
     def _sel_all(ev=None):
         w = _foc()
         try:
             if isinstance(w, tk.Text):
                 w.tag_add("sel", "1.0", "end-1c")
-            elif w is not None:
+            elif isinstance(w, (tk.Entry, ttk.Entry)):
                 w.selection_range(0, "end")
                 w.icursor("end")
+            elif isinstance(w, ttk.Treeview):
+                w.selection_set(w.get_children())
         except Exception:
             pass
         return "break"
 
     def _menu_pop(ev):
         w = ev.widget
+        try:
+            w.focus_set()                      # действия — по ЭТОМУ виджету
+        except Exception:
+            pass
         m = tk.Menu(root, tearoff=0)
         try:
-            if isinstance(w, ttk.Treeview):
-                m.add_command(label="Копировать строку(и)", command=_on_copy)
-            else:
-                m.add_command(label="Вырезать", command=lambda: w.event_generate("<<Cut>>"))
-                m.add_command(label="Копировать", command=lambda: w.event_generate("<<Copy>>"))
-                m.add_command(label="Вставить", command=lambda: w.event_generate("<<Paste>>"))
-                m.add_separator()
-                m.add_command(label="Выделить всё", command=lambda: _sel_all())
+            m.add_command(label="Копировать", command=_on_copy)
+            if not isinstance(w, ttk.Treeview):
+                m.add_command(label="Вырезать", command=_on_cut)
+                m.add_command(label="Вставить", command=_on_paste)
+            m.add_separator()
+            m.add_command(label="Выделить всё", command=_sel_all)
             m.tk_popup(ev.x_root, ev.y_root)
         finally:
             m.grab_release()
@@ -4144,15 +4181,26 @@ def run_gui():
         if kc == 67 or ks in ("c", "cyrillic_es"):
             return _on_copy(ev)
         if kc == 86 or ks in ("v", "cyrillic_em"):
-            return _clip_ev("<<Paste>>")
+            return _on_paste(ev)
         if kc == 88 or ks in ("x", "cyrillic_che"):
-            return _clip_ev("<<Cut>>")
+            return _on_cut(ev)
         if kc == 65 or ks in ("a", "cyrillic_ef"):
             return _sel_all(ev)
 
+    # Явные привязки на ЛЮБУЮ раскладку (латиница + кириллица) + общий разбор по ФИЗИЧЕСКОЙ
+    # клавише (keycode=VK: C=67, V=86, X=88, A=65).
+    for _seq, _fn in (
+        ("<Control-c>", _on_copy), ("<Control-Cyrillic_es>", _on_copy),
+        ("<Control-v>", _on_paste), ("<Control-Cyrillic_em>", _on_paste),
+        ("<Control-x>", _on_cut), ("<Control-Cyrillic_che>", _on_cut),
+        ("<Control-a>", _sel_all), ("<Control-Cyrillic_ef>", _sel_all),
+        ("<Control-Insert>", _on_copy), ("<Shift-Insert>", _on_paste),
+    ):
+        try:
+            root.bind_all(_seq, _fn)
+        except Exception:
+            pass
     root.bind_all("<Control-KeyPress>", _clip_ctrl, add="+")
-    root.bind_all("<Control-Insert>", _on_copy)
-    root.bind_all("<Shift-Insert>", lambda e: _clip_ev("<<Paste>>"))
     root.after(700, _bind_clip_all)                 # ПКМ-меню в существующих полях
 
     btn.config(command=go)
@@ -4173,12 +4221,12 @@ def run_gui():
 
     # Порядок сверху вниз: Папка+Выбрать → Глубина и ПУРГЕ → кнопки (Сканировать и пр.) → ОКНО → данные
     try:
-        for _w in (top, mid, data, vpan):
+        for _w in (top, mid, data, nb):
             _w.pack_forget()
         data.pack(side="bottom", fill="x", padx=6, pady=(0, 6))    # самый низ — данные
         top.pack(side="top", fill="x", padx=6, pady=(6, 4))        # сверху — папка, глубина, ПУРГЕ
         mid.pack(side="top", fill="x", padx=6, pady=(0, 4))        # ниже — Сканировать и остальные
-        vpan.pack(side="top", fill="both", expand=True, padx=6, pady=(0, 0))  # окно+низ — разделитель
+        nb.pack(side="top", fill="both", expand=True, padx=6, pady=(0, 0))   # окно — под кнопками
     except Exception:
         pass
 
