@@ -26,7 +26,7 @@ import sys
 import threading
 import time
 
-APP_VERSION = "V66"
+APP_VERSION = "V67"
 APP_TITLE = "PLM Reader " + APP_VERSION          # версия ОДНА: заголовок берёт её из константы
 DATA_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "db")          # данные — в подпапке db\
 SETTINGS_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "settings")  # настройки — в подпапке settings\
@@ -403,6 +403,8 @@ DEFAULT_SETTINGS = {
     "db_mirror": [],        # папки-ЗЕРКАЛА базы: после каждого скана копия уезжает и туда
     "template_folders": [], # 07.10.2026: ПАПКИ шаблонов Creo — их модели служебные (не в связях)
     "service_models": [],   # 07.10.2026: явный список служебных стволов (если папка не намекает)
+    "mirror_keep": 3,       # 07.10.2026: сколько свежих баз держать в КАЖДОМ зеркале
+    "mirror_full_only": True,  # 07.10.2026: зеркалить только после ПОЛНОГО скана (не на каждый)
     "show_limit": 50000,    # сколько строк показывать за раз (крутилка на главной панели)
     "history_columns": ["Файл", "Путь", "Тип", "Ревизия", "Дата",
                         "Пользователь", "Компьютер", "Версия Creo", "Что изменено"],
@@ -1681,10 +1683,19 @@ class PathsWindow:
         self.e_db_dir.pack(side="left", fill="x", expand=True)
         ttk.Button(dline, text="Выбрать…", width=10,
                    command=lambda: self._pick(self.e_db_dir)).pack(side="left", padx=4)
-        ttk.Label(box, text="Зеркала базы — после КАЖДОГО скана свежая база копируется и туда "
-                            "(другая машина/диск). Пусто = не дублировать:",
+        ttk.Label(box, text="Зеркала базы (другая машина/диск): свежая база копируется туда. "
+                            "Пусто = не дублировать:",
                   foreground="#555").pack(anchor="w", pady=(8, 0))
         self.sec_mir = self._section(box, "db_mirror")
+        mrow = ttk.Frame(box)
+        mrow.pack(fill="x", pady=(4, 0))
+        ttk.Label(mrow, text="хранить свежих баз в зеркале:").pack(side="left")
+        self.sp_mkeep = ttk.Spinbox(mrow, from_=1, to=50, width=4)
+        self.sp_mkeep.set(str(settings.get("mirror_keep") or 3))
+        self.sp_mkeep.pack(side="left", padx=(4, 14))
+        self.var_mfull = tk.BooleanVar(value=bool(settings.get("mirror_full_only", True)))
+        ttk.Checkbutton(mrow, text="зеркалить только после ПОЛНОГО скана",
+                        variable=self.var_mfull).pack(side="left")
         self.mir_now = ttk.Button(box, text="Скопировать базу в зеркала ПРЯМО СЕЙЧАС",
                                   command=self.copy_now)
         self.mir_now.pack(anchor="w", pady=(6, 0))
@@ -1785,6 +1796,11 @@ class PathsWindow:
         self.settings["template_folders"] = d["template_folders"]
         self.settings["db_dir"] = norm_path(self.e_db_dir.get())
         self.settings["db_mirror"] = d["db_mirror"]
+        try:
+            self.settings["mirror_keep"] = max(1, min(50, int(self.sp_mkeep.get() or 3)))
+        except Exception:
+            self.settings["mirror_keep"] = 3
+        self.settings["mirror_full_only"] = bool(self.var_mfull.get())
         save_settings_file(self.settings)
         try:
             import engine as _e

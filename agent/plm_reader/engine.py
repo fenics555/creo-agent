@@ -87,11 +87,25 @@ def mirror_dirs(settings=None):
     return out
 
 
+def mirror_keep():
+    """Сколько свежих баз держать в КАЖДОМ зеркале (настройка `mirror_keep`, 1..50, по умолч. 3)."""
+    try:
+        return max(1, min(50, int(_settings_json().get("mirror_keep") or KEEP_MIRROR)))
+    except Exception:
+        return KEEP_MIRROR
+
+
+def mirror_full_only():
+    """Зеркалить только после ПОЛНОГО скана (настройка `mirror_full_only`, по умолчанию True)."""
+    return bool(_settings_json().get("mirror_full_only", True))
+
+
 def mirror_published(ver, mirrors=None):
     """Скопировать ОПУБЛИКОВАННУЮ базу в каждое зеркало (другой диск) и почистить старые.
 
     Ошибка зеркала НЕ роняет скан: основная база уже опубликована, пишем в лог и идём дальше."""
     import shutil
+    keep = mirror_keep()
     done = []
     for d in (mirrors if mirrors is not None else mirror_dirs()):
         name = os.path.basename(ver)
@@ -100,11 +114,11 @@ def mirror_published(ver, mirrors=None):
             os.makedirs(d, exist_ok=True)
             shutil.copy2(ver, dst)
             done.append(dst)
-            # ротация в зеркале: держим столько же, сколько в рабочей папке (KEEP_MIRROR)
+            # ротация в зеркале: держим НАСТРАИВАЕМОЕ число свежих баз (mirror_keep)
             try:
                 olds = sorted(f for f in os.listdir(d)
                               if re.match(r"^plm_reader_\d{8}_\d{6}\.db$", f))
-                for old in olds[:-KEEP_MIRROR]:
+                for old in olds[:-keep]:
                     os.remove(os.path.join(d, old))
             except Exception as e:
                 log("mirror %s: ротация не удалась (%s)" % (d, e))
@@ -710,8 +724,11 @@ def _rotate_backups(keep=BACKUP_KEEP):
         return 0
 
 
-def _publish(draft):
-    """Публикация БЕЗ замены файла: пишем НОВЫЙ versioned-файл — открытые файлы на шаре не мешают."""
+def _publish(draft, to_mirror=True):
+    """Публикация БЕЗ замены файла: пишем НОВЫЙ versioned-файл — открытые файлы на шаре не мешают.
+
+    `to_mirror=False` — НЕ копировать в зеркала (обычный инкрементальный скан: зеркало обновляем
+    только после ПОЛНОГО скана, настройка `mirror_full_only`)."""
     import shutil
     ts = datetime.datetime.now().strftime("%Y%m%d_%H%M%S")
     d = _base_dir()
@@ -730,7 +747,10 @@ def _publish(draft):
     log("publish: новая база %s" % ver)
     _rotate(3)
     try:                                         # ЗЕРКАЛА (другой диск): копия свежей базы
-        mirror_published(ver)
+        if to_mirror:
+            mirror_published(ver)
+        else:
+            log("mirror: пропущено (зеркало только после полного скана)")
     except Exception as e:
         log("mirror FAIL: %s" % e)               # зеркало не должно рушить уже опубликованный скан
     return ver
@@ -781,7 +801,7 @@ def scan_to_base(roots, max_mb=8, limit=120, depth=None, progress_cb=None, stop_
             pass
         res = do_scan(roots, max_mb, limit, depth, progress_cb, stop_cb, eff_full, db=draft,
                       param_cfg=param_cfg, exclude=exclude)
-        _publish(draft)
+        _publish(draft, to_mirror=(eff_full or not mirror_full_only()))
         published = True
         res["published"] = True
         return res
