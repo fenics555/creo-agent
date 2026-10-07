@@ -150,6 +150,39 @@ NAME_N = re.compile(rb"name\x00([A-Za-z0-9_\-\.]{4,47})\x00")
 MERGE_BASE = re.compile(rb"MERGE_BASE_PART.{0,80}?([A-Za-z0-9_\-]{5,40})\x00", re.S)
 
 
+COPY_FROM_RE = re.compile(rb"from_mdl_name\x00(.{1,160}?)to_mdl_name\x00", re.S)
+
+
+def _clean_model_name(b):
+    """Имя модели из байтов Creo: UTF-8 + срез служебных байтов, которые Creo ставит перед строкой."""
+    s = b.decode("utf-8", "replace")
+    s = "".join(ch for ch in s if ch.isprintable())
+    return re.sub(r"^[^0-9A-Za-zА-Яа-яЁё]+", "", s).strip()
+
+
+def copy_from_of(raw):
+    """ОТ КАКОЙ МОДЕЛИ СКОПИРОВАНА деталь — «Модель скопирована от …» (Creo).
+
+    В файле это пара записей `from_mdl_name` → `to_mdl_name` (внутри — путь копирования).
+    Дом этого не читал вовсе, поэтому ответ на вопрос «от чего скопирована деталь» взять
+    было негде, хотя в Creo он виден. Имя лежит в UTF-8 (кириллица — многобайтная).
+    Возвращает имя источника с расширением (напр. `X.PRT`) или ''."""
+    m = COPY_FROM_RE.search(raw or b"")
+    if not m:
+        return ""
+    n = re.search(rb"([^\x00]{2,90}\.(?:PRT|ASM|DRW))\x00", m.group(1))
+    return _clean_model_name(n.group(1)) if n else ""
+
+
+def copy_from_file(path):
+    """То же, но ПРЯМО ИЗ ФАЙЛА — работает и на уже собранной базе, без перескана."""
+    try:
+        with open(path, "rb") as f:
+            return copy_from_of(f.read())
+    except Exception:
+        return ""
+
+
 def derived_of(raw):
     """Из какой модели сделана деталь (заготовка/отливка): (имя, вид) или ('', '')."""
     m = MERGE_BASE.search(raw)
@@ -1443,6 +1476,22 @@ def derived_bases(model):
     for b, k in role_bases(model):
         if all(b != o[0] for o in out):
             out.append((b, k))
+    # 07.10.2026: «МОДЕЛЬ СКОПИРОВАНА ОТ …» — Creo пишет это в САМОМ файле (`from_mdl_name`),
+    # в базе такого вида связи нет. Читаем файл, чтобы ответ был сразу, без перескана (З12: ответ
+    # проверяемый, берётся из файла, а не со слов). Ищем в детали (.prt), иначе в других файлах.
+    try:
+        con = connect()
+        paths = [r[0] for r in con.execute("SELECT path FROM snapshots WHERE model=?", (m,))]
+        con.close()
+    except Exception:
+        paths = []
+    prts = [p for p in paths if ".prt" in p.lower()]
+    for p in (prts or paths):
+        cf = copy_from_file(p)
+        if cf:
+            if all(cf != o[0] for o in out):
+                out.append((cf, "копия"))
+            break
     return out
 
 
