@@ -1,13 +1,13 @@
 {
- "version": "V53",
- "version_num": 53,
+ "version": "V54",
+ "version_num": 54,
  "date": "07.10.2026",
- "notes": "V53: derevo tekstom raskryvaemoe (klik=kor en, klik=ves spisok) + Purge po gotovomu planu",
+ "notes": "V54: novaya raskladka okna (nastroyki sleva, pole popolam) + okno Putej ne izmeneno",
  "files": {
   "engine.py": "0310b283927e9a0523b0aa465ed0a1965b14070a57fc72ddb581de6e75018767",
-  "plm_reader.py": "7ab5fcd9d561dbd90362ee498cd681b24296432a3069da1788ece4595f5a1633",
+  "plm_reader.py": "628a7bad64052aebdbccb3d102879e884b3d42a17706fe5bc5822e30c7137549",
   "creo_read.py": "5e027a85d6297c90f98c5435a3451bc94ed40dfc26fbe856aaf9d1b9c3f21d8d",
-  "README.md": "b2b5ccd6d61ac090b8186a915ce9496edab357d77bea95da623b7007cd2dacac",
+  "README.md": "ada968534559baf33352d2d1d8a096cdb2c9489dda102681a99eb3c194ce9974",
   "SHARE_copy.bat": "d61e6354d66e0078014e2e80e1085fee7d6b880003bc458b65e767776a116167",
   "plm_reader.bat": "bdd125397db3ac7e7432dbdb078a6a811ed4913fca02b062edb27907032fca3d",
   "plm_reader_gui.bat": "c8e40a5a91c3f97522e5fa5556b423f60e1358a593225819a24f255414e290e1",

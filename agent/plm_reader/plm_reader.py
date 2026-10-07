@@ -26,7 +26,7 @@ import sys
 import threading
 import time
 
-APP_VERSION = "V53"
+APP_VERSION = "V54"
 APP_TITLE = "PLM Reader " + APP_VERSION          # версия ОДНА: заголовок берёт её из константы
 DATA_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "db")          # данные — в подпапке db\
 SETTINGS_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "settings")  # настройки — в подпапке settings\
@@ -2090,27 +2090,46 @@ def run_gui():
 
     root = tk.Tk()
     root.title(APP_TITLE)
-    root.geometry("1560x820")         # стартовое окно шире: панель вкладок видна сразу
-    root.minsize(760, 420)            # три уровня видны и в небольшом окне
+    root.geometry("1520x900")         # 07.10.2026: настройки СЛЕВА + основное поле пополам
+    root.minsize(980, 620)            # панель слева + два окна видно и в небольшом окне
 
-    top = ttk.Frame(root, padding=6)
-    top.pack(fill="x", padx=6, pady=(6, 4))
-    row1 = ttk.Frame(top)                  # строка групп 1: ПАПКИ · СКАН · ПОКАЗ
+    # 07.10.2026: НАСТРОЙКИ И КНОПКИ — В ЛЕВОЙ КОЛОНКЕ (узкая колонка ПРОКРУЧИВАЕТСЯ,
+    # поэтому настройки не «срываются» за край при коротком окне)
+    lhost = ttk.Frame(root, width=330)
+    lhost.pack_propagate(False)            # колонка держит свою ширину
+    lcanv = tk.Canvas(lhost, width=312, bg="#f8f9fa", highlightthickness=0)
+    lsb = ttk.Scrollbar(lhost, orient="vertical", command=lcanv.yview)
+    lcanv.configure(yscrollcommand=lsb.set)
+    lsb.pack(side="right", fill="y")
+    lcanv.pack(side="left", fill="both", expand=True)
+
+    def _lwheel(ev):
+        try:
+            lcanv.yview_scroll(int(-1 * (ev.delta / 120)), "units")
+        except Exception:
+            pass
+
+    top = ttk.Frame(lcanv, padding=2)      # панель настроек живёт В КАНВЕ (прокрутка колесом)
+    lcanv.create_window((0, 0), window=top, anchor="nw")
+    top.bind("<Configure>", lambda e: lcanv.configure(scrollregion=lcanv.bbox("all")))
+    for _lw in (lcanv, top):
+        _lw.bind("<MouseWheel>", _lwheel)
+    row1 = ttk.Frame(top)                  # группы 1 (СВЕРХУ ВНИЗ): ПАПКИ · СКАН · ПОКАЗ
     row1.pack(fill="x")
-    row2 = ttk.Frame(top)                  # строка групп 2: ПУРГЕ · СКАНИРОВАНИЕ · ИНСТРУМЕНТЫ
-    row2.pack(fill="x", pady=(6, 0))
+    row2 = ttk.Frame(top)                  # группы 2: Purge · СКАНИРОВАНИЕ · ИНСТРУМЕНТЫ
+    row2.pack(fill="x")
     grp_paths = ttk.LabelFrame(row1, text=" ПАПКИ ", padding=8)
-    grp_paths.pack(side="left", fill="both")
+    grp_paths.pack(fill="x", pady=(0, 6))
     grp_scan = ttk.LabelFrame(row1, text=" СКАН ", padding=8)
-    grp_scan.pack(side="left", fill="both", padx=(8, 0))
+    grp_scan.pack(fill="x", pady=(0, 6))
     grp_show = ttk.LabelFrame(row1, text=" ПОКАЗ ", padding=8)
-    grp_show.pack(side="left", fill="both", padx=(8, 0))
+    grp_show.pack(fill="x", pady=(0, 6))
     grp_purge = ttk.LabelFrame(row2, text=" Purge — старые версии в бэкап, удаления нет ", padding=8)
-    grp_purge.pack(side="left", fill="both")
+    grp_purge.pack(fill="x", pady=(0, 6))
     grp_do = ttk.LabelFrame(row2, text=" СКАНИРОВАНИЕ ", padding=8)
-    grp_do.pack(side="left", fill="both", padx=(8, 0))
+    grp_do.pack(fill="x", pady=(0, 6))
     grp_tools = ttk.LabelFrame(row2, text=" ИНСТРУМЕНТЫ ", padding=8)
-    grp_tools.pack(side="left", fill="both", padx=(8, 0))
+    grp_tools.pack(fill="x", pady=(0, 6))
     spath = grp_paths                      # панель путей живёт в группе «ПАПКИ»
     _hidden = ttk.Frame(top)               # невидимый держатель (совместимость разметки)
     class _Field:
@@ -2177,9 +2196,9 @@ def run_gui():
 
     sp_limit.bind("<FocusOut>", limit_changed)
     sp_limit.bind("<Return>", limit_changed)
-    lbl_p = ttk.Label(spath, text="", foreground="#666", justify="left", wraplength=300)
+    lbl_p = ttk.Label(spath, text="", foreground="#666", justify="left", wraplength=282)
     lbl_p.grid(row=1, column=0, sticky="w", pady=(4, 0))
-    lbl_e = ttk.Label(spath, text="", foreground="#666", justify="left", wraplength=300)
+    lbl_e = ttk.Label(spath, text="", foreground="#666", justify="left", wraplength=282)
     lbl_e.grid(row=2, column=0, sticky="w")
     show_paths()
 
@@ -2240,7 +2259,7 @@ def run_gui():
     b_check = ttk.Button(grp_do, text="Актуально?", width=18, command=lambda: check_base())
     b_check.pack(anchor="w", pady=1)
 
-    def _vgrid(parent, items, per_col=4, width=20):
+    def _vgrid(parent, items, per_col=2, width=18):
         """Кнопки ВЕРТИКАЛЬНО: не больше per_col в столбик, дальше — следующий столбец правее."""
         for i, (text, cmd) in enumerate(items):
             col, row = divmod(i, per_col)
@@ -2255,7 +2274,7 @@ def run_gui():
         ("README", lambda: show_readme()),
         ("Проверить обновление", lambda: check_updates_ui(True)),
         ("Дополнительно", lambda: show_facts()),
-    ], per_col=4)
+    ], per_col=2)
     def _upd_status(text):
         try:
             root.after(0, lambda: lbl.config(text=text))
@@ -2348,7 +2367,7 @@ def run_gui():
 
 
     data = ttk.Frame(root, padding=6)
-    data.pack(fill="x", padx=6, pady=(0, 4))
+    data.pack(side="bottom", fill="x", padx=6, pady=(0, 4))    # полоса статуса — ВНИЗУ окна
 
     vpan = ttk.PanedWindow(root, orient="vertical")   # ВЕРХ (окно) / НИЗ (деревья) — разделитель тянется
 
@@ -2391,9 +2410,18 @@ def run_gui():
     root.bind("<Configure>", _wrap_data)
 
     nb = ttk.Notebook(vpan)
-    vpan.add(nb, weight=4)                    # ВЕРХНЕЕ окно (вкладки) — ВЕРХНЯЯ доля (добавляется первым)
-    vpan.add(lpane, weight=1)                 # НИЖНЯЯ полоса (деревья) — НИЖНЯЯ доля
-    vpan.pack(fill="both", expand=True, padx=6, pady=(0, 6))   # упаковка ЗДЕСЬ (перепаковка ниже падает)
+    vpan.add(nb, weight=1)                    # ВЕРХ: список изделий (Проводник/Дерево/Таблица)
+    vpan.add(lpane, weight=1)                 # НИЗ: детали (4 вкладки) — поле делится ПОПОЛАМ
+    lhost.pack(side="left", fill="y", padx=(6, 0), pady=6)     # 07.10.2026: настройки — СЛЕВА
+    vpan.pack(side="left", fill="both", expand=True, padx=6, pady=(0, 6))
+
+    def _half_sash():                         # разделитель ставим ровно в половину высоты
+        try:
+            vpan.sashpos(0, max(140, vpan.winfo_height() // 2))
+        except Exception:
+            pass
+
+    root.after(300, _half_sash)
     tab_table = ttk.Frame(nb)                 # Таблица — плоский вид данных базы (третья вкладка)
     tab_tree = ttk.Frame(nb)                  # Дерево — иерархия ТЕХ ЖЕ данных (папки → файлы) (вторая)
     nb.add(tab_tree, text=" Дерево ")
@@ -4378,19 +4406,21 @@ def run_gui():
 
     root.after(15000, watch_db)            # автообновление: если базу обновил другой ПК
 
-    # Порядок сверху вниз: Папка+Выбрать → Глубина и ПУРГЕ → кнопки (Сканировать и пр.) → ОКНО → данные
+    # 07.10.2026 (V54): НАСТРОЙКИ — СЛЕВА (узкая прокручиваемая колонка), статус — ВНИЗУ,
+    # основное поле — ПОПОЛАМ справа (верх: список изделий, низ: детали)
     try:
-        for _w in (top, data, vpan):
+        for _w in (top, data, vpan, lhost):
             _w.pack_forget()
-        data.pack(side="bottom", fill="x", padx=6, pady=(0, 6))    # самый низ — данные
-        top.pack(side="top", fill="x", padx=6, pady=(6, 4))        # сверху — папка, глубина, ПУРГЕ
-        vpan.pack(side="top", fill="both", expand=True, padx=6, pady=(0, 4))  # окно+низ — разделитель
+        data.pack(side="bottom", fill="x", padx=6, pady=(0, 6))    # самый низ — строка состояния
+        lhost.pack(side="left", fill="y", padx=(6, 0), pady=6)     # слева — настройки и кнопки
+        vpan.pack(side="left", fill="both", expand=True, padx=6, pady=(0, 6))   # справа — два окна
     except Exception:
         pass
 
     try:                                   # окно не «прыгает» при переключении вкладок
         root.update_idletasks()
-        root.geometry("1560x820")          # шире и выше: верхняя панель вкладок видна сразу
+        root.geometry("1520x900")          # слева панель настроек, справа два окна пополам
+        _half_sash()                       # и сразу ставим разделитель в половину
     except Exception:
         pass
     try:                                   # тихая проверка обновлений при старте (есть — предложит)
