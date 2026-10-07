@@ -2350,6 +2350,8 @@ def run_gui():
     data = ttk.Frame(root, padding=6)
     data.pack(fill="x", padx=6, pady=(0, 4))
 
+    vpan = ttk.PanedWindow(root, orient="vertical")   # ВЕРХ (окно) / НИЗ (деревья) — разделитель тянется
+
     def _copy_status():
         """Скопировать нижнюю строку в буфер (удобно переслать ошибку целиком)."""
         try:
@@ -2367,8 +2369,8 @@ def run_gui():
     lbl.pack(side="left", fill="x", expand=True)
 
     # НИЖНЯЯ ПОЛОСА (дерево производства) — прижата к низу окна, видна на ЛЮБОЙ вкладке
-    lpane = ttk.Frame(root)
-    lpane.pack(side="bottom", fill="x", padx=6, pady=(0, 6))
+    lpane = ttk.Frame(vpan)
+    vpan.add(lpane, weight=1)                 # НИЖНЯЯ полоса (деревья) — нижняя доля разделителя
 
     def _status_menu(event):
         m = tk.Menu(root, tearoff=0)
@@ -2388,8 +2390,9 @@ def run_gui():
 
     root.bind("<Configure>", _wrap_data)
 
-    nb = ttk.Notebook(root)
-    nb.pack(fill="both", expand=True, padx=6, pady=(0, 6))
+    nb = ttk.Notebook(vpan)
+    vpan.add(nb, weight=4)                    # ВЕРХНЕЕ окно (вкладки) — верхняя доля разделителя
+    vpan.pack(fill="both", expand=True, padx=6, pady=(0, 6))   # упаковка ЗДЕСЬ (перепаковка ниже падает)
     tab_table = ttk.Frame(nb)                 # Таблица — плоский вид данных базы (третья вкладка)
     tab_tree = ttk.Frame(nb)                  # Дерево — иерархия ТЕХ ЖЕ данных (папки → файлы) (вторая)
     nb.add(tab_tree, text=" Дерево ")
@@ -4256,12 +4259,11 @@ def run_gui():
 
     # Порядок сверху вниз: Папка+Выбрать → Глубина и ПУРГЕ → кнопки (Сканировать и пр.) → ОКНО → данные
     try:
-        for _w in (top, mid, data, nb):
+        for _w in (top, data, vpan):
             _w.pack_forget()
         data.pack(side="bottom", fill="x", padx=6, pady=(0, 6))    # самый низ — данные
         top.pack(side="top", fill="x", padx=6, pady=(6, 4))        # сверху — папка, глубина, ПУРГЕ
-        mid.pack(side="top", fill="x", padx=6, pady=(0, 4))        # ниже — Сканировать и остальные
-        nb.pack(side="top", fill="both", expand=True, padx=6, pady=(0, 0))   # окно — под кнопками
+        vpan.pack(side="top", fill="both", expand=True, padx=6, pady=(0, 4))  # окно+низ — разделитель
     except Exception:
         pass
 
