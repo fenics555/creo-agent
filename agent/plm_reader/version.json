@@ -1,13 +1,13 @@
 {
- "version": "V45",
- "version_num": 45,
+ "version": "V46",
+ "version_num": 46,
  "date": "07.10.2026",
- "notes": "V45: Ctrl+C/V po keycode (lyubaya raskladka); svyazi bez shablonnyh modeley; README versiya",
+ "notes": "V46: razmery okon menyayutsya (PanedWindow verh/niz)",
  "files": {
   "engine.py": "928dd5d5f9269c53813b7904efd8cb63d93dd4dd9edf239fb9298e83ee5ad7a3",
-  "plm_reader.py": "90fac42341153145267529c4a39ea57c03a4be295f2ec82a9404cd236279f463",
+  "plm_reader.py": "a5f7e0ae381f037ca569789e3be5e506f4b653e5097ea9d5347c1deb1ed30529",
   "creo_read.py": "5e027a85d6297c90f98c5435a3451bc94ed40dfc26fbe856aaf9d1b9c3f21d8d",
-  "README.md": "7fb8ec48f4e05fe29d67473478d6e1f170bace6c121589e5442bac80a7d3cc4c",
+  "README.md": "50eb120b27e16acc14830f3e539b4ff6f03168d9b4c0dc62ab5afb32b944efae",
   "SHARE_copy.bat": "d61e6354d66e0078014e2e80e1085fee7d6b880003bc458b65e767776a116167",
   "plm_reader.bat": "bdd125397db3ac7e7432dbdb078a6a811ed4913fca02b062edb27907032fca3d",
   "plm_reader_gui.bat": "c8e40a5a91c3f97522e5fa5556b423f60e1358a593225819a24f255414e290e1",
