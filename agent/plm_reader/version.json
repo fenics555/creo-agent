@@ -1,11 +1,11 @@
 {
- "version": "V61",
- "version_num": 61,
+ "version": "V62",
+ "version_num": 62,
  "date": "07.10.2026",
- "notes": "V61: pochinen Purge (unpack plana) + okno samo govorit o polnom skane + poyasnenie istorii skopirovannyh",
+ "notes": "",
  "files": {
   "engine.py": "3df823c75eec26d2c8b107e62cee053f83da9b338b11e1fa1fe1b28554e9b0ec",
-  "plm_reader.py": "765b9aaf704846db35ba65bf9c52ee0ff93b5708d34f2d48fddabaf9aa24525e",
+  "plm_reader.py": "4edb95c5c89355dd4bb208f9b3264146b0c678fa4707585473a63a1af3dba7ec",
   "creo_read.py": "5e027a85d6297c90f98c5435a3451bc94ed40dfc26fbe856aaf9d1b9c3f21d8d",
   "README.md": "89c01cccb9d1da83af3973a898013e07e8d6105974abf620e73e36f057919d9c",
   "SHARE_copy.bat": "4eccb549a17251392337aeabbc3ef76233dfa3072beadff9d158cd6e932622ee",

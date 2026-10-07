@@ -26,7 +26,7 @@ import sys
 import threading
 import time
 
-APP_VERSION = "V61"
+APP_VERSION = "V62"
 APP_TITLE = "PLM Reader " + APP_VERSION          # версия ОДНА: заголовок берёт её из константы
 DATA_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "db")          # данные — в подпапке db\
 SETTINGS_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "settings")  # настройки — в подпапке settings\
@@ -1175,6 +1175,106 @@ def history_rows(path, settings):
             base = out[-1].get("Что изменено", "")
             out[-1]["Что изменено"] = (base + "; " + vc) if base else vc
     return out
+
+
+# ==== 07.10.2026: честная история для СКОПИРОВАННЫХ моделей ====
+import engine as eng   # движок: нужен хелперам ниже (импорт чистый — только stdlib)
+# Creo при копировании переносит в файл историю исходной модели. Раньше вкладка «История файла»
+# печатала эти записи под ТЕКУЩИМ именем (АЛ116-…), хотя до копии модель называлась иначе
+# (ЧСЗ-Л_801_04_75-401-10). Теперь источник берём из самого файла (`from_mdl_name` — движок уже
+# умеет, `engine.copy_from_of`) и унаследованные записи показываем с ИСХОДНЫМ именем.
+
+def _model_paths(mstem, folder):
+    """Файлы изделия по имени модели: сначала из базы, иначе — одноимённые рядом в папке."""
+    try:
+        con = eng.connect()
+        paths = [r[0] for r in con.execute("SELECT path FROM snapshots WHERE model=?", (mstem,))]
+        con.close()
+        if paths:
+            return paths
+    except Exception:
+        pass
+    try:
+        return [os.path.join(folder, f) for f in os.listdir(folder)
+                if MODELFILE.search(f) and eng.stem(f) == mstem]
+    except Exception:
+        return []
+
+
+def copy_source_keys(src_paths, settings):
+    """Ключи (ревизия, дата, пользователь) по истории файлов ИСТОЧНИКА.
+
+    Ключи берём ровно теми же строками, что печатает `history_rows`, — тогда сравнение
+    записей копии с источником идёт один-в-один, без расхождений формата даты.
+    """
+    keys = set()
+    for sp in src_paths:
+        try:
+            for r in history_rows(sp, settings):
+                keys.add((r.get("Ревизия", ""), r.get("Дата", ""), r.get("Пользователь", "")))
+        except Exception:
+            pass
+    return keys
+
+
+def copy_source_of(paths, settings):
+    """Источник копии по файлам изделия: (stem, src_paths, keys, found).
+
+    «Модель скопирована от» лежит в самом файле (`from_mdl_name` → `to_mdl_name`). Источник
+    выбираем по большинству голосов среди файлов изделия (у `.drw` имя в блоке бывает иным,
+    поэтому голос чертежа не решает). Источник не найден/не прочитан → `found=False`, и записи
+    НЕ помечаем (ничего не выдумываем).
+    """
+    self_stem = eng.stem(os.path.basename(paths[0])) if paths else ""
+    by_type = {"model": {}, "drw": {}}
+    for p in paths:
+        mn = re.search(r"\.(prt|asm|drw)\.\d+$", os.path.basename(p), re.I)
+        if not mn:
+            continue
+        try:
+            raw = read_bytes(p, settings.get("max_size_mb", 0))
+            if not raw:
+                with open(p, "rb") as f:
+                    raw = f.read(2_000_000)      # блок копии лежит в шапке файла
+            cf = eng.copy_from_of(raw or b"")
+        except Exception:
+            cf = ""
+        if not cf:
+            continue
+        st = eng.stem(cf)
+        if not st or st == self_stem:
+            continue                     # «скопирована от себя» — это НЕ копия (Creo пишет и такое)
+        bucket = "model" if mn.group(1).lower() in ("prt", "asm") else "drw"
+        by_type[bucket][st] = by_type[bucket].get(st, 0) + 1
+    votes = by_type["model"]                          # решают ТОЛЬКО prt/asm: у чертежа имя копии бывает чужим
+    if not votes:
+        return "", [], set(), False
+    src = max(votes, key=votes.get)
+    folder = os.path.dirname(paths[0]) if paths else ""
+    src_paths = _model_paths(src, folder)
+    keys = copy_source_keys(src_paths, settings)
+    return src, src_paths, keys, bool(keys)
+
+
+def history_rows_copy_aware(path, settings):
+    """`history_rows` + честная разметка копии: унаследованные записи получают имя ИСХОДНОГО файла.
+
+    Нужна окну «История файла» (старое окно), чтобы оно не расходилось с вкладкой.
+    """
+    rows = history_rows(path, settings)
+    if not rows:
+        return rows
+    base = os.path.basename(path)
+    mstem = eng.stem(base)
+    src, _sp, keys, found = copy_source_of(_model_paths(mstem, os.path.dirname(path)), settings)
+    if not found:
+        return rows
+    own_suffix = base[len(mstem):] if base.upper().startswith(mstem) else ""
+    src_name = (src + own_suffix) if own_suffix else base
+    for r in rows:
+        if (r.get("Ревизия", ""), r.get("Дата", ""), r.get("Пользователь", "")) in keys:
+            r["Файл"] = src_name
+    return rows
 
 
 def history_folder(folder, settings, progress=None):
@@ -3127,7 +3227,7 @@ def run_gui():
                 return
             history_window(root, tk, ttk, filedialog,
                            "История файла — %s" % os.path.basename(r[0]),
-                           lambda: history_rows(r[0], {"max_size_mb": float(e_max.get() or 0)}),
+                           lambda: history_rows_copy_aware(r[0], {"max_size_mb": float(e_max.get() or 0)}),
                            settings=settings, save_settings=save_settings,
                            status=os.path.basename(r[0]))
 
@@ -3293,10 +3393,14 @@ def run_gui():
     lhist_sum = ttk.Label(lhist, text="выбери изделие — покажу ВСЮ историю его файлов: "
                                       "ревизия, дата, кто, компьютер, версия Creo, что изменено")
     lhist_sum.pack(anchor="w")
+    var_hide = tk.BooleanVar(value=False)      # 07.10.2026: скрыть унаследованные (перенесённые из исходной)
+    ttk.Checkbutton(lhist, text="скрыть унаследованные (перенесённые при копировании)",
+                    variable=var_hide, command=lambda: _hist_show()).pack(anchor="w")
     HCOLS = ("Файл", "Ревизия", "Дата", "Пользователь", "Компьютер", "Версия Creo", "Что изменено")
     hbox = ttk.Frame(lhist)
     hbox.pack(fill="both", expand=True)
     ltv_h = ttk.Treeview(hbox, columns=HCOLS, show="headings", height=8)
+    ltv_h.tag_configure("inh", foreground="#8a8a8a")   # унаследованные записи — серым
     for _c in HCOLS:
         ltv_h.heading(_c, text=_c)
         ltv_h.column(_c, width=320 if _c == "Что изменено" else 118, anchor="w")
@@ -3670,9 +3774,9 @@ def run_gui():
     def _hist_show(model=None):
         """Вкладка «История файла»: ПОЛНАЯ история правок по ВСЕМ файлам изделия.
 
-        Раньше история жила отдельным окном и только по одному файлу — по просьбе владельца
-        она стала вкладкой нижнего окна и собирает ВСЕ файлы изделия (деталь, чертёж, сборку):
-        ревизия, дата, кто, компьютер, версия Creo, что изменено.
+        История берётся ИЗ САМИХ ФАЙЛОВ (trail Creo). Если изделие — КОПИЯ, Creo перенёс в файл
+        историю ИСХОДНОЙ модели: такие записи показываем с именем ИСХОДНОГО файла (серым), а галка
+        «скрыть унаследованные» убирает их совсем. Источник берём из файла (`from_mdl_name`).
         """
         m = model or _last.get("model") or ""
         try:
@@ -3692,22 +3796,52 @@ def run_gui():
         if not paths:
             lhist_sum.config(text="изделие %s: файлов в базе нет" % m)
             return
-        total = 0
+        hide_inh = bool(var_hide.get())
+        src, _sp, src_keys, src_found = copy_source_of(paths, settings)
+        total, inh, own_iso = 0, 0, []
         for p in paths:
             try:
                 rows = history_rows(p, settings)
             except Exception as ex:
                 ltv_h.insert("", "end", values=(os.path.basename(p), "ошибка", str(ex), "", "", "", ""))
                 continue
+            pbase = os.path.basename(p)
+            pstem = eng.stem(pbase)
+            own_suffix = pbase[len(pstem):] if pbase.upper().startswith(pstem) else ""
+            src_name = (src + own_suffix) if (src and own_suffix) else pbase
             for row in rows:
-                ltv_h.insert("", "end", values=(row.get("Файл", ""), row.get("Ревизия", ""),
-                                                row.get("Дата", ""), row.get("Пользователь", ""),
-                                                row.get("Компьютер", ""), row.get("Версия Creo", ""),
-                                                row.get("Что изменено", "")))
                 total += 1
-        lhist_sum.config(text="история «%s»: файлов %d, записей %d · у СКОПИРОВАННЫХ изделий тут есть и "
-                              "записи ИСХОДНОЙ модели (Creo переносит историю вместе с геометрией)"
-                              % (m, len(paths), total))
+                own = True
+                if src_found:
+                    own = ((row.get("Ревизия", ""), row.get("Дата", ""), row.get("Пользователь", ""))
+                           not in src_keys)
+                if not own:
+                    inh += 1
+                    if hide_inh:
+                        continue
+                fname = row.get("Файл", "") if own else src_name
+                item = ltv_h.insert("", "end", values=(fname, row.get("Ревизия", ""),
+                                                       row.get("Дата", ""), row.get("Пользователь", ""),
+                                                       row.get("Компьютер", ""), row.get("Версия Creo", ""),
+                                                       row.get("Что изменено", "")))
+                if not own:
+                    ltv_h.item(item, tags=("inh",))
+                elif row.get("_dt"):
+                    own_iso.append(row["_dt"])
+        shown = total - inh if hide_inh else total
+        if src_found:
+            cdate = ""
+            try:
+                if own_iso:
+                    cdate = min(datetime.datetime.fromisoformat(x) for x in own_iso).strftime("%d.%m.%Y")
+            except Exception:
+                cdate = ""
+            lhist_sum.config(text="⚠ модель скопирована из %s%s; записи РАНЬШЕ копии относятся к "
+                                  "ИСХОДНОЙ модели · файлов %d, записей %d (унаследованных %d%s)"
+                             % (src, (" (копия ~%s)" % cdate) if cdate else "",
+                                len(paths), shown, inh, ", скрыты галкой" if hide_inh else ""))
+        else:
+            lhist_sum.config(text="история «%s»: файлов %d, записей %d" % (m, len(paths), shown))
 
     def _bottom_render():
         """Наполнить АКТИВНУЮ вкладку нижнего окна выбранной моделью (или автосводкой)."""
@@ -4134,7 +4268,7 @@ def run_gui():
             return
         history_window(root, tk, ttk, filedialog,
                        "История изменений — %s" % os.path.basename(path),
-                       lambda: history_rows(path, hist_settings()),
+                       lambda: history_rows_copy_aware(path, hist_settings()),
                        settings=settings, save_settings=save_settings,
                        status=os.path.basename(path))
 
