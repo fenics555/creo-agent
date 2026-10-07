@@ -1455,35 +1455,64 @@ def plm_tops(limit=500):
         return []
 
 
+_SERVICE_STEMS = None
+
+
+def service_stems():
+    """Стволы СЛУЖЕБНЫХ моделей (шаблоны/библиотеки: папки НАСТРОЙКИ\\ШАБЛОНЫ, TEMPLATE).
+
+    Их связи — мусор: шаблонная деталь/сборка (напр. `MM_PART`, `SBORKA_MFG`) стоит в КАЖДОЙ
+    модели, созданной из шаблона, поэтому «входит в 6000 сборок» — ЛОЖЬ. Отсеиваем."""
+    global _SERVICE_STEMS
+    if _SERVICE_STEMS is not None:
+        return _SERVICE_STEMS
+    out = set()
+    try:
+        con = connect()
+        for m, p in con.execute("SELECT DISTINCT model, path FROM snapshots"):
+            pl = (p or "").lower()
+            if "шаблон" in pl or "template" in pl:
+                out.add((m or "").upper())
+        con.close()
+    except Exception:
+        pass
+    _SERVICE_STEMS = out
+    return out
+
+
 def plm_children(model):
-    """СОСТАВ изделия из базы: [(ребёнок, количество)]."""
+    """СОСТАВ изделия из базы: [(ребёнок, количество)]. Служебные (шаблоны) отсеиваются."""
     m = stem(model)
+    svc = service_stems()
     try:
         con = connect()
         rows = con.execute("SELECT child, qty FROM links WHERE parent=? ORDER BY child",
                            (m,)).fetchall()
         con.close()
-        return [(c, q or 1) for c, q in rows]
+        return [(c, q or 1) for c, q in rows if (c or "").upper() not in svc]
     except Exception:
         return []
 
 
 def plm_parents(model):
-    """Куда ВХОДИТ изделие: [(родитель, количество)]."""
+    """Куда ВХОДИТ изделие: [(родитель, количество)]. Служебные (шаблоны) отсеиваются."""
     m = stem(model)
+    svc = service_stems()
     try:
         con = connect()
         rows = con.execute("SELECT parent, qty FROM links WHERE child=? ORDER BY parent",
                            (m,)).fetchall()
         con.close()
-        return [(p, q or 1) for p, q in rows]
+        return [(p, q or 1) for p, q in rows if (p or "").upper() not in svc]
     except Exception:
         return []
 
 
 def plm_up_data(model, depth=8):
-    """ВХОДИМОСТЬ ВВЕРХ одним заходом: {модель: [(родитель, кол-во)]} по всей цепочке сборок."""
+    """ВХОДИМОСТЬ ВВЕРХ одним заходом: {модель: [(родитель, кол-во)]} по всей цепочке сборок.
+    Служебные (шаблоны) не попадают в цепочку."""
     out = {}
+    svc = service_stems()
     try:
         con = connect()
         frontier = [stem(model)]
@@ -1496,6 +1525,8 @@ def plm_up_data(model, depth=8):
                                frontier).fetchall()
             nxt = []
             for ch, par, qty in rows:
+                if (par or "").upper() in svc:
+                    continue
                 out.setdefault(ch, []).append((par, qty or 1))
                 if par not in seen:
                     seen.add(par)

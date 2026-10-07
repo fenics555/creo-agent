@@ -26,7 +26,7 @@ import sys
 import threading
 import time
 
-APP_VERSION = "V44"
+APP_VERSION = "V45"
 APP_TITLE = "PLM Reader " + APP_VERSION          # версия ОДНА: заголовок берёт её из константы
 DATA_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "db")          # данные — в подпапке db\
 SETTINGS_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "settings")  # настройки — в подпапке settings\
@@ -4133,24 +4133,24 @@ def run_gui():
         except Exception:
             pass
 
-    # Ctrl+C/V/X/A — и для РУССКОЙ раскладки: в кириллице клавиша «c» даёт keysym
-    # Cyrillic_es, поэтому <Control-c> не срабатывает — добавляем кириллические явно (с/м/ч/ф).
-    for _seq, _fn in (
-        ("<Control-c>", _on_copy),
-        ("<Control-v>", lambda e: _clip_ev("<<Paste>>")),
-        ("<Control-x>", lambda e: _clip_ev("<<Cut>>")),
-        ("<Control-a>", _sel_all),
-        ("<Control-Cyrillic_es>", _on_copy),                         # Ctrl+C по-русски
-        ("<Control-Cyrillic_em>", lambda e: _clip_ev("<<Paste>>")),  # Ctrl+V по-русски
-        ("<Control-Cyrillic_che>", lambda e: _clip_ev("<<Cut>>")),   # Ctrl+X по-русски
-        ("<Control-Cyrillic_ef>", _sel_all),                         # Ctrl+A по-русски
-        ("<Control-Insert>", _on_copy),
-        ("<Shift-Insert>", lambda e: _clip_ev("<<Paste>>")),
-    ):
-        try:
-            root.bind_all(_seq, _fn)
-        except Exception:
-            pass
+    # Ctrl+C/V/X/A в ЛЮБОЙ раскладке. В кириллице keysym другой, поэтому <Control-c>
+    # не срабатывает; ориентируемся на ФИЗИЧЕСКУЮ клавишу (keycode=VK: C=67, V=86, X=88, A=65)
+    # плюс запасной вариант по keysym (латиница и кириллица).
+    def _clip_ctrl(ev):
+        kc = getattr(ev, "keycode", None)
+        ks = (getattr(ev, "keysym", "") or "").lower()
+        if kc == 67 or ks in ("c", "cyrillic_es"):
+            return _on_copy(ev)
+        if kc == 86 or ks in ("v", "cyrillic_em"):
+            return _clip_ev("<<Paste>>")
+        if kc == 88 or ks in ("x", "cyrillic_che"):
+            return _clip_ev("<<Cut>>")
+        if kc == 65 or ks in ("a", "cyrillic_ef"):
+            return _sel_all(ev)
+
+    root.bind_all("<Control-KeyPress>", _clip_ctrl, add="+")
+    root.bind_all("<Control-Insert>", _on_copy)
+    root.bind_all("<Shift-Insert>", lambda e: _clip_ev("<<Paste>>"))
     root.after(700, _bind_clip_all)                 # ПКМ-меню в существующих полях
 
     btn.config(command=go)
