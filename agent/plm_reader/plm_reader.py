@@ -26,7 +26,7 @@ import sys
 import threading
 import time
 
-APP_VERSION = "V50"
+APP_VERSION = "V51"
 APP_TITLE = "PLM Reader " + APP_VERSION          # версия ОДНА: заголовок берёт её из константы
 DATA_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "db")          # данные — в подпапке db\
 SETTINGS_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "settings")  # настройки — в подпапке settings\
@@ -2968,6 +2968,18 @@ def run_gui():
             buf.write("ОШИБКА: %s" % e)
         _lout(buf.getvalue().rstrip())
 
+    def cap(fn, *a):
+        """Захватить вывод CLI-функции движка в строку (для текстового дерева)."""
+        import contextlib
+        import io
+        buf = io.StringIO()
+        try:
+            with contextlib.redirect_stdout(buf):
+                fn(*a)
+        except Exception as e:
+            buf.write("ОШИБКА: %s: %s" % (type(e).__name__, e))
+        return buf.getvalue().rstrip()
+
     def _sel_model():
         sel = tview.selection()
         if not sel:
@@ -3185,9 +3197,24 @@ def run_gui():
     lout = tk.Text(llinks, height=4, font=("Consolas", 9), bg="#fbfbfb")   # вывод кнопок (перенесено из «Дерева»)
     lout.pack(fill="x")
 
+    # ==== 07.10.2026: вкладка «Дерево текстом (вверх+вниз)» — ПОЛНОЕ ASCII-дерево производства ====
+    ltext = ttk.Frame(lnb, padding=4)
+    ltext_sum = ttk.Label(ltext, text="выбери изделие — покажу ПОЛНОЕ дерево: состав вниз и входимость вверх")
+    ltext_sum.pack(anchor="w")
+    ltbox = ttk.Frame(ltext)
+    ltbox.pack(fill="both", expand=True)
+    ltree = tk.Text(ltbox, font=("Consolas", 9), wrap="none", bg="#fbfbfb")
+    ltv_s = ttk.Scrollbar(ltbox, orient="vertical", command=ltree.yview)
+    lth_s = ttk.Scrollbar(ltbox, orient="horizontal", command=ltree.xview)
+    ltree.configure(yscrollcommand=ltv_s.set, xscrollcommand=lth_s.set)
+    ltv_s.pack(side="right", fill="y")
+    lth_s.pack(side="bottom", fill="x")
+    ltree.pack(side="left", fill="both", expand=True)
+
     # ==== 04.10.2026: вкладка «Свойства детали» — площадь, ТТ, параметры, РАЗМЕРЫ, чертежи ====
     lprop = ttk.Frame(lnb, padding=4)
     lnb.add(lprop, text=" Свойства детали ")
+    lnb.add(ltext, text=" Дерево текстом (вверх+вниз) ")   # 4-я вкладка: полное дерево текстом (вверх+вниз)
     lpsum = ttk.Label(lprop, text="выбери изделие — покажу площадь, техтребования, "
                                    "числовые параметры, РАЗМЕРЫ и связанные чертежи")
     lpsum.pack(anchor="w")
@@ -3476,14 +3503,36 @@ def run_gui():
             _LLINKS[nn] = (nm, mode)
             ltv2.insert(nn, "end", text="загрузка…")
 
+    def _text_tree_show(model):
+        """Вкладка «Дерево текстом»: ПОЛНОЕ ASCII-дерево — состав вниз (do_tree) + входимость вверх (do_tree_up)."""
+        try:
+            ltree.configure(state="normal")
+            ltree.delete("1.0", "end")
+            if not model:
+                ltree.insert("end", "выбери изделие в ЛЮБОЙ вкладке сверху — покажу полное дерево")
+                ltext_sum.config(text="выбери изделие — полное дерево вверх и вниз")
+            else:
+                dn = cap(eng.do_tree, model, 6)
+                up = cap(eng.do_tree_up, model, 6)
+                ltree.insert("end", "=== СОСТАВ ВНИЗ ===\n%s\n\n=== ВХОДИМОСТЬ ВВЕРХ ===\n%s" % (dn, up))
+                ltext_sum.config(text="полное дерево: %s — состав вниз + входимость вверх" % model)
+            ltree.configure(state="disabled")
+        except Exception as e:
+            try:
+                ltree.configure(state="disabled")
+            except Exception:
+                pass
+            ltext_sum.config(text="не удалось построить дерево: %s" % e)
+
     def _bottom_render():
         """Наполнить АКТИВНУЮ вкладку нижнего окна выбранной моделью (или автосводкой)."""
         model = _last["model"]
         try:
-            active = lnb.index(lnb.select())
+            sel = lnb.select()
         except Exception:
-            active = 0
-        if active == 2:
+            sel = ""
+        # сравниваем по САМОМУ виджету (а не по номеру вкладки) — порядок вкладок может меняться
+        if sel == str(lprop):
             # 04.10.2026: «Свойства детали» — площадь, ТТ, параметры, чертежи
             try:
                 _prop_show(model)
@@ -3493,15 +3542,22 @@ def run_gui():
                                                "%s: %s" % (type(e).__name__, e)))
                 lpsum.config(text="не удалось показать свойства: %s" % e)
             return
+        if sel == str(ltext):           # 07.10.2026: полное ASCII-дерево вверх+вниз
+            _text_tree_show(model)
+            return
         if not model:
-            if active == 1:
+            if sel == str(llinks):
                 ltv2.delete(*ltv2.get_children())
                 _LLINKS.clear()
                 lsum2.config(text="выбери что-либо в ЛЮБОЙ вкладке сверху — связи построятся сами")
             else:
                 live_auto()
             return
-        if active == 1:
+        if sel == str(llinks):
+            try:
+                _prod_show(model)        # «Дерево производства» держим готовым — при переходе на вкладку не будет пусто
+            except Exception:
+                pass
             _links_show(model)
         else:
             _prod_show(model)
