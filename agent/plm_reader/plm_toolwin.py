@@ -17,16 +17,17 @@
 * Дерево/таблица (верх): debounce, _short, _file_row, node_add, _vals9, _fill_node, _model_values,
   _kind, _resolve, node_add_model, on_open, _dbl_click, fill_tree_view, expand_all, row_uid, make_tree
 * инструменты ряда: purge_folder, _text_window, purge_show, purge_run, _lout, say, cap, _sel_model,
-  where_selected, tree_down, tree_up, changes_selected, open_detail, lt_apply, _fmt
+  where_selected, tree_down, tree_up, changes_selected, open_detail, lt_apply, _fmt, export_bom (состав→CSV)
 * НИЖНЕЕ окно (вкладки): _prop_show, _live_vals, _branch_updown, _ltv_model, ltv_open, _plm_data_ref,
   live_auto, _prod_show (Родословная), _links_show + _fill_up + ltv2_open (Связи), _made_window,
   _text_tree_show (Текст), _hist_show (История), _bottom_render, _bottom_show (pick= — верхний выбор),
   _goto_model + _goto_node (двойной клик = перейти на деталь), _return_to_pick (кнопка «вернуться»),
+  _nav_record/_nav_state/_nav_back/_nav_fwd (← → история), _goto_entry (поле «перейти к модели»),
   live_tree, expl_live, tree_live, on_tab
 * таблица/сорт/база: sort_key, set_sort, redraw, rebuild_tree, show_readme, check_base, show_check,
   load_base, _active_stamp, refresh_from_db, watch_db, save_settings, save_ui, on_close
 * окна истории/скан: split_list, choose_columns, hist_settings, show_history, show_folder_history,
-  poll_scan, worker, go, export, _offer_archive_cleanup
+  poll_scan, worker, go, export + _bom_rows/export_bom (состав→CSV), _offer_archive_cleanup
 * КОПИРОВАТЬ/ПКМ (в конце файла): _has_native, _foc, _clip_ev, _on_copy, _on_paste, _on_cut, _sel_all,
   _menu_pop, _bind_clip, _bind_clip_all, _clip_ctrl
 """
@@ -292,6 +293,7 @@ def run_gui():
         ("README", lambda: show_readme()),
         ("Проверить обновление", lambda: check_updates_ui(True)),
         ("Дополнительно", lambda: show_facts()),
+        ("Состав в CSV", lambda: export_bom()),   # V83: BOM текущего изделия нижнего окна
     ], per_col=4)
     def _upd_status(text):
         try:
@@ -1252,6 +1254,19 @@ def run_gui():
     ltopbar.pack(fill="x")
     ttk.Button(ltopbar, text="Вернуться к выбранному (строка сверху)",
                command=lambda: _return_to_pick()).pack(side="left")
+    # V83: история переходов ← → + поле «перейти к модели» (Enter = переход)
+    btn_back = ttk.Button(ltopbar, text="← Назад", width=9,
+                          command=lambda: _nav_back())
+    btn_back.pack(side="left", padx=(6, 0))
+    btn_fwd = ttk.Button(ltopbar, text="Вперёд →", width=9,
+                         command=lambda: _nav_fwd())
+    btn_fwd.pack(side="left")
+    ttk.Label(ltopbar, text="Перейти к модели:").pack(side="left", padx=(12, 2))
+    e_goto = ttk.Entry(ltopbar, width=22)
+    e_goto.pack(side="left")
+    ttk.Button(ltopbar, text="Перейти",
+               command=lambda: _goto_entry()).pack(side="left", padx=(4, 0))
+    e_goto.bind("<Return>", lambda ev: _goto_entry())
     lsubj = ttk.Label(ltopbar, text="", foreground="#555")
     lsubj.pack(side="left", padx=8)
     lnb = ttk.Notebook(lpane)                  # НИЖНЕЕ окно — ноутбук со своими режимами-вкладками
@@ -1877,6 +1892,8 @@ def run_gui():
         except Exception:
             pass
         _bottom_render()
+        _nav_record(model)                     # V83: история для кнопок ← →
+        _nav_state()
 
     def _goto_model(m):
         """08.10.2026: ДВОЙНОЙ клик по детали в нижнем окне = перестроить низ на неё (как выбор сверху)."""
@@ -1888,6 +1905,72 @@ def run_gui():
         m = _last.get("pick") or _last.get("model")
         if m:
             _bottom_show(m)
+
+    def _nav_record(model):
+        """V83: запись истории переходов низа (кнопки ← →). Пустые/повторы не пишем, lock пропускаем."""
+        if not model or _last.get("nav_lock"):
+            return
+        nav = _last.setdefault("nav", [])
+        i = _last.get("nav_i", -1)
+        if 0 <= i < len(nav) and nav[i] == model:
+            return                            # уже здесь — дубликат не нужен
+        del nav[i + 1:]                       # новая ветка — «вперёд» отрезаем
+        nav.append(model)
+        if len(nav) > 200:
+            del nav[:-200]                    # ограничитель истории
+        _last["nav_i"] = len(nav) - 1
+
+    def _nav_state():
+        """V83: доступность кнопок ← → (зовётся после каждого показа)."""
+        try:
+            nav = _last.get("nav") or []
+            i = _last.get("nav_i", -1)
+            btn_back.state(["!disabled"] if i > 0 else ["disabled"])
+            btn_fwd.state(["!disabled"] if 0 <= i < len(nav) - 1 else ["disabled"])
+        except Exception:
+            pass
+
+    def _nav_show(m):
+        """V83: показ из истории — сам в историю НЕ пишется (nav_lock)."""
+        _last["nav_lock"] = True
+        try:
+            _bottom_show(m)
+        finally:
+            _last["nav_lock"] = False
+            _nav_state()
+
+    def _nav_back():
+        """V83: ← назад по истории переходов."""
+        nav = _last.get("nav") or []
+        i = _last.get("nav_i", -1)
+        if i > 0:
+            _last["nav_i"] = i - 1
+            _nav_show(nav[i - 1])
+
+    def _nav_fwd():
+        """V83: → вперёд по истории переходов."""
+        nav = _last.get("nav") or []
+        i = _last.get("nav_i", -1)
+        if 0 <= i < len(nav) - 1:
+            _last["nav_i"] = i + 1
+            _nav_show(nav[i + 1])
+
+    def _goto_entry(ev=None):
+        """V83: поле «Перейти к модели» — Enter/кнопка = переход низа (как двойной клик)."""
+        m = eng.stem((e_goto.get() or "").strip())
+        if not m:
+            return
+        try:
+            known = bool(eng.models_info([m]).get(m)) or bool(eng.plm_children(m))
+        except Exception:
+            known = True                      # сбой проверки не должен блокировать переход
+        if not known:
+            try:
+                lsubj.config(text="не найдено в базе: %s" % m)
+            except Exception:
+                pass
+            return
+        _goto_model(m)
 
     def _goto_node(tree_widget, registry, event=None):
         """07.10.2026/08.10.2026: переход по узлу нижнего дерева на ДВОЙНОЙ клик (узел берём под курсором)."""
@@ -2440,6 +2523,54 @@ def run_gui():
         if p:
             save_csv(shown or rows_all, p)
             lbl.config(text="выгружено: %s" % os.path.basename(p))
+
+    def _bom_rows(model, depth=25):
+        """V83: рекурсивный состав изделия для CSV: [(уровень, модель, обозначение, наименование,
+        материал, кол-во, объём, rev, роль)]. Кол-во — на родительскую позицию; повторы сохраняются."""
+        down = eng.plm_down_data(model, depth)
+        plan, order, cap = [(model, 1, 0)], [], 50000
+        qi = 0
+        while qi < len(plan):
+            m, q, lvl = plan[qi]
+            qi += 1
+            order.append((m, q, lvl))
+            if len(order) >= cap:
+                break
+            for ch, cq in down.get(m, []) or []:
+                plan.append((ch, cq, lvl + 1))
+        info = {}
+        mods = [m for m, _, _ in order]
+        for s in range(0, len(mods), 500):     # пачками — лимит параметров SQLite
+            info.update(eng.models_info(mods[s:s + 500]))
+        rows = []
+        for m, q, lvl in order:
+            i8 = info.get(m, ("", "", "", 0, "", "", 0, 0))
+            rows.append((lvl, m, i8[0], i8[1], i8[2], q,
+                         ("%.0f" % i8[3]) if i8[3] else "", i8[4], i8[5]))
+        return rows
+
+    def export_bom():
+        """V83: состав текущего изделия нижнего окна -> CSV (utf-8-sig + «;», как save_csv)."""
+        import csv
+        m = _last.get("model") or _last.get("pick") or ""
+        if not m:
+            lbl.config(text="выбери изделие — от чего строить состав CSV")
+            return
+        p = filedialog.asksaveasfilename(defaultextension=".csv",
+                                         initialfile="%s_состав.csv" % m,
+                                         filetypes=[("CSV", "*.csv")])
+        if not p:
+            return
+        try:
+            rows = _bom_rows(m)
+            with open(p, "w", newline="", encoding="utf-8-sig") as f:
+                w = csv.writer(f, delimiter=";")
+                w.writerow(["Уровень", "Модель", "Обозначение", "Наименование",
+                            "Материал", "Кол-во", "Объём,мм³", "Rev", "Роль"])
+                w.writerows(rows)
+            lbl.config(text="выгружено: %s (позиций %d)" % (os.path.basename(p), len(rows)))
+        except Exception as e:
+            lbl.config(text="CSV не выгружен: %s" % e)
 
     # --- КОПИРОВАТЬ / ВСТАВИТЬ: Ctrl+C/V/X/A и ПКМ во всех полях и таблицах ---
     # ГРАБЛЯ (V35): НЕЛЬЗЯ вешать bind_all на Ctrl+V и тут же делать event_generate("<<Paste>>") —
