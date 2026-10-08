@@ -21,7 +21,8 @@ class PathsWindow:
         self.win.title("Пути, исключения и база данных")
         self.win.geometry("860x720")
         self.win.transient(parent)
-        self.rows = {"folders": [], "exclude": [], "template_folders": [], "db_mirror": []}
+        self.rows = {"folders": [], "exclude": [], "template_folders": [], "db_mirror": [],
+                     "service_models": []}
         box = ttk.Frame(self.win, padding=10)
         box.pack(fill="both", expand=True)
         ttk.Label(box, text="Папки сканирования (одна строка = один путь):",
@@ -46,6 +47,10 @@ class PathsWindow:
                             "Пусто = не дублировать:",
                   foreground="#555").pack(anchor="w", pady=(8, 0))
         self.sec_mir = self._section(box, "db_mirror")
+        ttk.Label(box, text="Служебные модели — стволы, чьи связи мусорные (шаблоны/библиотеки). "
+                            "По одному стволу в строке, можно вручную:",
+                  font=("", 10, "bold")).pack(anchor="w", pady=(14, 0))
+        self.sec_svc = self._section(box, "service_models", label="＋ ствол")
         mrow = ttk.Frame(box)
         mrow.pack(fill="x", pady=(4, 0))
         ttk.Label(mrow, text="хранить свежих баз в зеркале:").pack(side="left")
@@ -73,6 +78,8 @@ class PathsWindow:
             self.add_row("template_folders", p)
         for p in (settings.get("db_mirror") or []):
             self.add_row("db_mirror", p)
+        for m in (settings.get("service_models") or []):
+            self.add_row("service_models", m)
         if not self.rows["folders"]:
             self.add_row("folders", "")
         if not self.rows["exclude"]:
@@ -81,11 +88,13 @@ class PathsWindow:
             self.add_row("template_folders", "")
         if not self.rows["db_mirror"]:
             self.add_row("db_mirror", "")
+        if not self.rows["service_models"]:
+            self.add_row("service_models", "")
 
-    def _section(self, parent, key):
+    def _section(self, parent, key, label="＋ папка"):
         fr = self.ttk.Frame(parent)
         fr.pack(fill="x", pady=(4, 0))
-        self.ttk.Button(fr, text="＋ папка", width=12,
+        self.ttk.Button(fr, text=label, width=12,
                         command=lambda: self.add_row(key, "")).pack(anchor="w", pady=(0, 2))
         holder = self.ttk.Frame(fr)
         holder.pack(fill="x")
@@ -93,15 +102,16 @@ class PathsWindow:
 
     def add_row(self, key, path):
         holder = {"folders": self.sec_scan, "exclude": self.sec_exc,
-                  "template_folders": self.sec_tpl,
-                  "db_mirror": self.sec_mir}.get(key, self.sec_scan)
+                  "template_folders": self.sec_tpl, "db_mirror": self.sec_mir,
+                  "service_models": self.sec_svc}.get(key, self.sec_scan)
         line = self.ttk.Frame(holder)
         line.pack(fill="x", pady=1)
         ent = self.ttk.Entry(line)
         ent.insert(0, path or "")
         ent.pack(side="left", fill="x", expand=True)
-        self.ttk.Button(line, text="Выбрать…", width=10,
-                        command=lambda e=ent: self._pick(e)).pack(side="left", padx=4)
+        if key != "service_models":           # служебные стволы — ИМЯ модели, а не папка: без «Выбрать…»
+            self.ttk.Button(line, text="Выбрать…", width=10,
+                            command=lambda e=ent: self._pick(e)).pack(side="left", padx=4)
         self.ttk.Button(line, text="−", width=3,
                         command=lambda l=line, k=key: self.del_row(k, l)).pack(side="left")
         self.rows[key].append((line, ent))
@@ -117,7 +127,8 @@ class PathsWindow:
             ent.insert(0, d.replace("/", "\\"))
 
     def collect(self):
-        """Списки путей: пустые строки и дубли (без учёта регистра) отбрасываются."""
+        """Списки путей: пустые строки и дубли (без учёта регистра) отбрасываются.
+        Служебные модели — ИМЕНА стволов (верхний регистр), а не пути."""
         out = {}
         for key in ("folders", "exclude", "template_folders", "db_mirror"):
             seen, vals = set(), []
@@ -127,6 +138,13 @@ class PathsWindow:
                     seen.add(v.lower())
                     vals.append(v)
             out[key] = vals
+        seen, vals = set(), []
+        for _line, ent in self.rows["service_models"]:
+            v = (ent.get() or "").strip().upper()
+            if v and v not in seen:
+                seen.add(v)
+                vals.append(v)
+        out["service_models"] = vals
         return out
 
     def copy_now(self):
@@ -155,6 +173,7 @@ class PathsWindow:
         self.settings["template_folders"] = d["template_folders"]
         self.settings["db_dir"] = norm_path(self.e_db_dir.get())
         self.settings["db_mirror"] = d["db_mirror"]
+        self.settings["service_models"] = d["service_models"]
         try:
             self.settings["mirror_keep"] = max(1, min(50, int(self.sp_mkeep.get() or 3)))
         except Exception:
@@ -171,9 +190,9 @@ class PathsWindow:
         if new_dir != old_dir:
             # папка базы поменялась — предупреждаем честно: подхватка только при перезапуске окна
             tail = " · база переедет на %s — ПЕРЕЗАПУСТИ окно" % (new_dir or "папку db\\")
-        self.msg.config(text="сохранено: папок %d, исключений %d, шаблонов %d, зеркал %d%s"
+        self.msg.config(text="сохранено: папок %d, исключений %d, шаблонов %d, зеркал %d, служебных %d%s"
                              % (len(d["folders"]), len(d["exclude"]), len(d["template_folders"]),
-                                len(d["db_mirror"]), tail))
+                                len(d["db_mirror"]), len(d["service_models"]), tail))
         if self.on_save:
             try:
                 self.on_save()

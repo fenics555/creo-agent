@@ -2291,6 +2291,8 @@ def run_gui():
                                    progress_cb=pc,
                                    stop_cb=lambda: getattr(root, "_plm_stop", False),
                                    full=bool(opts.get("full")),
+                                   recurse=bool(opts.get("recurse", True)),
+                                   latest_only=bool(opts.get("latest_only", True)),
                                    param_cfg={"pdes": settings.get("param_designation"),
                                               "pname": settings.get("param_name"),
                                               "pmat": settings.get("param_material")},

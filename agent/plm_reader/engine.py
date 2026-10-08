@@ -261,6 +261,31 @@ def stem(name):
     return re.sub(r"\.\d+$", "", n)
 
 
+_VER_RE = re.compile(r"^(.*)\.([A-Za-z_]{2,4})\.(\d+)$", re.IGNORECASE)
+
+
+def _filter_latest(files_stat):
+    """«только последние версии»: у каждого изделия (папка, база, тип) оставить файл СТАРШЕЙ версии.
+
+    Изделие — имя вида `БАЗА.ТИП.НОМЕР` (напр. `123.45.prt.12`); файлы без номера версии проходят
+    как есть. Так настройка работает В ГЛАВНОМ СКАНЕ, а не только в мёртвом файловом сканере.
+    """
+    groups, plain = {}, []
+    for it in files_stat:
+        m = _VER_RE.match(os.path.basename(it[0]))
+        if not m:
+            plain.append(it)
+            continue
+        key = (os.path.dirname(it[0]).lower(), m.group(1).lower(), m.group(2).lower())
+        groups.setdefault(key, []).append((int(m.group(3)), it))
+    out = []
+    for lst in groups.values():
+        lst.sort(key=lambda x: x[0])
+        out.append(lst[-1][1])                # старшая версия изделия
+    out += plain
+    return out
+
+
 def parse_toc(raw):
     out, pos = {}, raw.find(b"#UGC_TOC")
     for _ in range(20):
@@ -395,8 +420,9 @@ def excluded(path, excl):
     return False
 
 
-def collect(roots, max_mb, max_depth=None, exclude=None):
-    """ВСЕ файлы моделей рекурсивно (ключ — путь). max_depth — предел вложенности (None = без предела)."""
+def collect(roots, max_mb, max_depth=None, exclude=None, recurse=True):
+    """ВСЕ файлы моделей рекурсивно (ключ — путь). max_depth — предел вложенности (None = без предела).
+    recurse=False («с подпапками» снят) — только файлы верхней папки, в подпапки не заходим."""
     files = []
     for root in as_roots(roots):
         root = os.path.abspath(root)
@@ -405,6 +431,8 @@ def collect(roots, max_mb, max_depth=None, exclude=None):
         for dp, dirs, fs in os.walk(root):
             if exclude:                       # исключённые папки не обходим вовсе — скан чище и быстрее
                 dirs[:] = [d for d in dirs if not excluded(os.path.join(dp, d), exclude)]
+            if not recurse:
+                dirs[:] = []                  # «с подпапками» снят: только верхняя папка
             rel = os.path.relpath(dp, root)
             d = 0 if rel == "." else rel.count(os.sep) + 1
             if max_depth is not None and d > max_depth:
@@ -423,8 +451,9 @@ def collect(roots, max_mb, max_depth=None, exclude=None):
     return files
 
 
-def collect_stat(roots, max_mb, max_depth=None, exclude=None):
-    """Файлы модели + их size/mtime ОДНИМ проходом (scandir/stat), без повторных stat."""
+def collect_stat(roots, max_mb, max_depth=None, exclude=None, recurse=True):
+    """Файлы модели + их size/mtime ОДНИМ проходом (scandir/stat), без повторных stat.
+    recurse=False («с подпапками» снят) — только файлы верхней папки."""
     out = []
     lim = max_mb * 1_000_000
     for root in as_roots(roots):
@@ -434,6 +463,8 @@ def collect_stat(roots, max_mb, max_depth=None, exclude=None):
         for dp, dirs, fs in os.walk(root):
             if exclude:                       # исключённые папки не обходим вовсе
                 dirs[:] = [d for d in dirs if not excluded(os.path.join(dp, d), exclude)]
+            if not recurse:
+                dirs[:] = []                  # «с подпапками» снят: только верхняя папка
             rel = os.path.relpath(dp, root)
             d = 0 if rel == "." else rel.count(os.sep) + 1
             if max_depth is not None and d > max_depth:
@@ -757,14 +788,21 @@ def _publish(draft, to_mirror=True):
 
 
 def scan_to_base(roots, max_mb=8, limit=120, depth=None, progress_cb=None, stop_cb=None, full=False,
-                 param_cfg=None, exclude=None):
+                 param_cfg=None, exclude=None, recurse=None, latest_only=None):
     """СКАН С ЗАЩИТОЙ: замок → скан в ЛОКАЛЬНЫЙ черновик → публикация (бэкап + подмена).
 
     Боевая база не меняется до успешного завершения; при любом сбое остаётся прежней.
+    recurse/latest_only=None → берутся из settings\\settings.json (настройки работают и в CLI).
     """
     import shutil
     import tempfile
     import threading
+    if recurse is None or latest_only is None:
+        _cfg = _settings_json()
+        if recurse is None:
+            recurse = bool(_cfg.get("recurse", True))
+        if latest_only is None:
+            latest_only = bool(_cfg.get("latest_only", True))
     ok, info = lock_acquire()
     if not ok:
         return {"error": info, "busy": True}          # окно покажет «Занято: …»
@@ -800,7 +838,7 @@ def scan_to_base(roots, max_mb=8, limit=120, depth=None, progress_cb=None, stop_
         except Exception:
             pass
         res = do_scan(roots, max_mb, limit, depth, progress_cb, stop_cb, eff_full, db=draft,
-                      param_cfg=param_cfg, exclude=exclude)
+                      param_cfg=param_cfg, exclude=exclude, recurse=recurse, latest_only=latest_only)
         _publish(draft, to_mirror=(eff_full or not mirror_full_only()))
         published = True
         res["published"] = True
@@ -872,12 +910,15 @@ def inventory(roots, max_mb=8, store=True, max_depth=None):
 
 
 def do_scan(roots, max_mb, limit, depth=None, progress_cb=None, stop_cb=None, full=False, db=None,
-            param_cfg=None, exclude=None):
-    """Скан в базу `db` (по умолчанию боевая). Обычно зовётся через scan_to_base — в черновик."""
+            param_cfg=None, exclude=None, recurse=True, latest_only=True):
+    """Скан в базу `db` (по умолчанию боевая). Обычно зовётся через scan_to_base — в черновик.
+    recurse/latest_only — настройки «с подпапками» и «только последние версии» (работают в главном скане)."""
     t0 = time.time()
     roots = as_roots(roots)               # строка-корень = ОДИН корень (иначе обход всего диска)
     lim = float("inf") if (limit or 0) <= 0 else limit      # --limit 0 = без предела по времени
-    files_stat = collect_stat(roots, max_mb, depth, exclude)
+    files_stat = collect_stat(roots, max_mb, depth, exclude, recurse)
+    if latest_only:
+        files_stat = _filter_latest(files_stat)
     total = len(files_stat)
     codes = {stem(os.path.basename(p)) for p, _, _, _ in files_stat}
     fstems = defaultdict(set)
