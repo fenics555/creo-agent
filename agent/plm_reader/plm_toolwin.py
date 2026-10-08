@@ -2004,8 +2004,10 @@ def run_gui():
                        % (r.get("models", r["total"]), r["total"], r["secs"], _tail))
         log_line("check: %s" % r.get("verdict", ""))
 
-    def load_base(limit=2000):
+    def load_base(limit=None):
         """Показать базу БЕЗ чтения файлов: строки паспортов из plm_reader.db."""
+        if not limit:
+            limit = int(settings.get("show_limit") or 50000)   # лимит показа — из настройки «ПОКАЗ строк»
         roots = [r for r in roots_of(e_folder.get(), e_folder2.get()) if os.path.isdir(r)]
         rows_all.clear()
         tree.delete(*tree.get_children())
@@ -2250,7 +2252,7 @@ def run_gui():
                     else:
                         roots_now = [r for r in roots_of(e_folder.get(), e_folder2.get())
                                      if os.path.isdir(r)]
-                        rows = db_rows(roots_now or None, 5000)
+                        rows = db_rows(roots_now or None, int(settings.get("show_limit") or 50000))
                         total = db_total(roots_now or None)
                         rows_all.clear()
                         tree.delete(*tree.get_children())
