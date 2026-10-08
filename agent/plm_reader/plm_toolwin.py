@@ -1279,8 +1279,11 @@ def run_gui():
     ltv2.pack(side="left", fill="both", expand=True)
     lvs2.pack(side="left", fill="y")
     ltv2.bind("<<TreeviewOpen>>", lambda ev: ltv2_open())
-    ltv.bind("<Double-1>", lambda ev: _goto_node(ltv, _LTREE))     # 07.10.2026: клик = перейти на изделие
+    ltv.bind("<Double-1>", lambda ev: _goto_node(ltv, _LTREE))     # 07.10.2026: двойной клик = перейти на изделие
     ltv2.bind("<Double-1>", lambda ev: _goto_node(ltv2, _LLINKS))
+    # 08.10.2026: клик по файлу в нижних деревьях = ИСТОРИЯ по нему (та же система, что в «Дереве текстом»)
+    ltv.bind("<Button-1>", lambda ev: _hist_open_node(ltv, _LTREE, ev))
+    ltv2.bind("<Button-1>", lambda ev: _hist_open_node(ltv2, _LLINKS, ev))
     lout = tk.Text(llinks, height=4, font=("Consolas", 9), bg="#fbfbfb")   # вывод кнопок (перенесено из «Дерева»)
     lout.pack(fill="x")
 
@@ -1683,7 +1686,10 @@ def run_gui():
                 end = ltree.index("end-1c")
                 if kind == "node" and payload:
                     ltree.tag_add("nd", start, end)
+                    # 08.10.2026: КЛИК по изделию = ИСТОРИЯ по нему; ДВОЙНОЙ клик = оно становится корнем
                     ltree.tag_bind("nd", "<Button-1>",
+                                   lambda ev, mm=payload: _hist_open_model(mm))
+                    ltree.tag_bind("nd", "<Double-1>",
                                    lambda ev, mm=payload: _text_tree_show(mm))
                 elif kind == "more" and payload:
                     ltree.tag_add("mr", start, end)
@@ -1826,6 +1832,39 @@ def run_gui():
         m = rec[0] if isinstance(rec, tuple) else rec
         if m:
             _bottom_show(m)
+
+    def _hist_open_model(m):
+        """08.10.2026: окно ИСТОРИИ по МОДЕЛИ — берём любой её файл из базы и открываем как из таблицы."""
+        m = eng.stem(m or "")
+        if not m:
+            return
+        path = ""
+        try:
+            con = eng.connect()
+            row = con.execute("SELECT path FROM snapshots WHERE model=? ORDER BY path LIMIT 1",
+                              (m,)).fetchone()
+            path = row[0] if row else ""
+        except Exception:
+            path = ""
+        if not path:
+            messagebox.showinfo(APP_TITLE, "Нет файла для «%s» в базе." % m)
+            return
+        history_window(root, tk, ttk, filedialog,
+                       "История изменений — %s" % os.path.basename(path),
+                       lambda: history_rows_copy_aware(path, hist_settings()),
+                       settings=settings, save_settings=save_settings,
+                       status=os.path.basename(path))
+
+    def _hist_open_node(tw, registry, event=None):
+        """08.10.2026: клик по узлу нижнего дерева = история по этому файлу (узел берём ПОД КУРСОРОМ)."""
+        try:
+            node = tw.identify_row(event.y) if event is not None else tw.focus()
+        except Exception:
+            node = tw.focus()
+        rec = registry.get(node)
+        m = rec[0] if isinstance(rec, tuple) else rec
+        if m:
+            _hist_open_model(m)
 
     lnb.bind("<<NotebookTabChanged>>", lambda ev: _bottom_render())
 
