@@ -1731,11 +1731,12 @@ def run_gui():
                 end = ltree.index("end-1c")
                 if kind == "node" and payload:
                     ltree.tag_add("nd", start, end)
-                    # V82: вместо tag_bind в цикле (replace) — карта строка->payload
-                    _TMAP[int(end.split(".")[0])] = ("nd", payload)
+                    # V82: вместо tag_bind в цикле (replace) — карта строка->payload;
+                    # ключ = строка ПЕРЕД вставкой (start), т.к. end-1c у Tk — «фантомная» следующая строка
+                    _TMAP[int(start.split(".")[0])] = ("nd", payload)
                 elif kind == "more" and payload:
                     ltree.tag_add("mr", start, end)
-                    _TMAP[int(end.split(".")[0])] = ("more", payload)
+                    _TMAP[int(start.split(".")[0])] = ("more", payload)
                 elif kind == "head":
                     ltree.tag_add("hd", start, end)
             ltext_sum.config(text="полное дерево: %s (глубина %d) · ДВОЙНОЙ клик по изделию = перейти на него, "
