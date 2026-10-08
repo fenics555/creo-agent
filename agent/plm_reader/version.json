@@ -1,23 +1,24 @@
 {
- "version": "V73",
- "version_num": 73,
+ "version": "V74",
+ "version_num": 74,
  "date": "08.10.2026",
  "notes": "",
  "files": {
   "engine.py": "0b42b1d1879abdffb5f634ba50e3541d9c0174c611641c1f72d093085bbf0395",
-  "plm_reader.py": "565a436d617c33d69810a69f8a67bcb37f3a39929d034c0ba359fa25883f8fc8",
+  "plm_reader.py": "cc3c70adda8a77aa10a661d23125a3158d6d4346fc14d63d5e175d6faeee4110",
   "plm_toolwin.py": "3859766983c0d653786e5227188589f4671a4431ec44ff9b12da47fe53fcea2e",
   "plm_history.py": "650f672e749ebec7d7638d06409005cfc6e80a9b5b109443f4ae44ec1008689f",
   "plm_parse.py": "c6bb33a412b6b606ad402e3eb78cd49246b77738b69d82be1b6218a1358c0312",
-  "plm_dbview.py": "377331a145ba7c25fb4d7a4a4bba65ef73dd7b4ab3cdac67816bf39f9065dade",
+  "plm_dbview.py": "ca213c77054efaa4d7b180b39999a38117ad3938ece256c2bc79b6310e8b09df",
   "plm_settings.py": "da879a46b079be815db6fae706c2f8116410f0071efa2e03f96f67b3aac3cd20",
+  "plm_scan.py": "cd0db2aa8ded710b9a20ea63d9a4f80fbd847567ec2e102c05777c3aab48d570",
   "plm_paths_window.py": "b8215f0e3f9073475e96bf6e592b9efe7825896b84e206d9f95272ae2f6fcfc0",
   "creo_read.py": "5e027a85d6297c90f98c5435a3451bc94ed40dfc26fbe856aaf9d1b9c3f21d8d",
   "README.md": "a7456192c09d5bb68ac1166fcc4daee49d4c0fbfab4447c557f15e5bc383f119",
   "SHARE_copy.bat": "4eccb549a17251392337aeabbc3ef76233dfa3072beadff9d158cd6e932622ee",
   "plm_reader.bat": "bdd125397db3ac7e7432dbdb078a6a811ed4913fca02b062edb27907032fca3d",
   "plm_reader_gui.bat": "9f695898d5db6431e840784b9587c75304ca9e526b06f79d4b44ab026663bd20",
-  "make_version_json.py": "000ee1981d2c068bf316ebe95cab7b18e80c52d5c08b1d2e023997bbc1d28b48",
+  "make_version_json.py": "825c5b5f644121c5e3a676c44de7e65dd41b2b71c6f1d4d792578ce49cf66551",
   ".gitignore": "a2cff3ee327770b2ef59e88b5f27474af13395dc2b1afc3d1a9d6ad91c45753e"
  }
 }
