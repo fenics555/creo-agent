@@ -8,9 +8,14 @@ from plm_reader import (
     datetime,
     json,
     os,
-    path_under,
     re,
 )
+
+
+def path_under(*a, **k):
+    """Ленивый шим: dbview НЕ тянет plm_scan на импорте (разрыв цикла dbview↔scan)."""
+    from plm_scan import path_under as _pu
+    return _pu(*a, **k)
 
 
 def load_cache():
