@@ -20,7 +20,8 @@
   where_selected, tree_down, tree_up, changes_selected, open_detail, lt_apply, _fmt
 * НИЖНЕЕ окно (вкладки): _prop_show, _live_vals, _branch_updown, _ltv_model, ltv_open, _plm_data_ref,
   live_auto, _prod_show (Родословная), _links_show + _fill_up + ltv2_open (Связи), _made_window,
-  _text_tree_show (Текст), _hist_show (История), _bottom_render, _bottom_show, _goto_node,
+  _text_tree_show (Текст), _hist_show (История), _bottom_render, _bottom_show (pick= — верхний выбор),
+  _goto_model + _goto_node (двойной клик = перейти на деталь), _return_to_pick (кнопка «вернуться»),
   live_tree, expl_live, tree_live, on_tab
 * таблица/сорт/база: sort_key, set_sort, redraw, rebuild_tree, show_readme, check_base, show_check,
   load_base, _active_stamp, refresh_from_db, watch_db, save_settings, save_ui, on_close
@@ -1242,6 +1243,13 @@ def run_gui():
     tree.bind("<Double-1>", lambda e: show_history())
 
     # --- ОНЛАЙН: внизу сразу строится дерево производства по выбранной строке ---
+    # 08.10.2026: общая кнопка НАД нижним окном — вернуть предмет к строке, выбранной в ВЕРХНЕМ окне
+    ltopbar = ttk.Frame(lpane)
+    ltopbar.pack(fill="x")
+    ttk.Button(ltopbar, text="Вернуться к выбранному (строка сверху)",
+               command=lambda: _return_to_pick()).pack(side="left")
+    lsubj = ttk.Label(ltopbar, text="", foreground="#555")
+    lsubj.pack(side="left", padx=8)
     lnb = ttk.Notebook(lpane)                  # НИЖНЕЕ окно — ноутбук со своими режимами-вкладками
     lnb.pack(fill="both", expand=True)
     liv = ttk.Frame(lnb, padding=4)
@@ -1279,11 +1287,9 @@ def run_gui():
     ltv2.pack(side="left", fill="both", expand=True)
     lvs2.pack(side="left", fill="y")
     ltv2.bind("<<TreeviewOpen>>", lambda ev: ltv2_open())
-    ltv.bind("<Double-1>", lambda ev: _goto_node(ltv, _LTREE))     # 07.10.2026: двойной клик = перейти на изделие
-    ltv2.bind("<Double-1>", lambda ev: _goto_node(ltv2, _LLINKS))
-    # 08.10.2026: клик по файлу в нижних деревьях = ИСТОРИЯ по нему (та же система, что в «Дереве текстом»)
-    ltv.bind("<Button-1>", lambda ev: _hist_open_node(ltv, _LTREE, ev))
-    ltv2.bind("<Button-1>", lambda ev: _hist_open_node(ltv2, _LLINKS, ev))
+    # 08.10.2026: ДВОЙНОЙ клик по узлу нижнего дерева = нижнее окно перестраивается на эту деталь
+    ltv.bind("<Double-1>", lambda ev: _goto_node(ltv, _LTREE, ev))
+    ltv2.bind("<Double-1>", lambda ev: _goto_node(ltv2, _LLINKS, ev))
     lout = tk.Text(llinks, height=4, font=("Consolas", 9), bg="#fbfbfb")   # вывод кнопок (перенесено из «Дерева»)
     lout.pack(fill="x")
 
@@ -1306,9 +1312,7 @@ def run_gui():
         _text_tree_show()
 
     ttk.Button(ltctl, text="Обновить", command=lt_apply).pack(side="left")
-    ttk.Button(ltctl, text="Вернуться к выбранному",
-               command=lambda: (_last.pop("lroot", None), _text_tree_show())).pack(side="left", padx=6)
-    ttk.Label(ltctl, text="← клик по изделию делает его корнем; клик по «… ещё N» — весь список",
+    ttk.Label(ltctl, text="← ДВОЙНОЙ клик по изделию = нижнее окно переходит на него; по «… ещё N» — весь список",
               foreground="#666").pack(side="left", padx=6)
     ltbox = ttk.Frame(ltext)
     ltbox.pack(fill="both", expand=True)
@@ -1656,7 +1660,7 @@ def run_gui():
     def _text_tree_show(model=None):
         """Вкладка «Дерево текстом»: ПОЛНОЕ дерево связей.
 
-        Клик по ИЗДЕЛИЮ — оно становится корнем (можно уйти в любую ветку).
+        ДВОЙНОЙ клик по ИЗДЕЛИЮ — нижнее окно перестраивается на него (как выбор в верхнем окне).
         Клик по «… ещё сделано из неё: N» — окно со ВСЕМ списком."""
         if model:
             _last["lroot"] = model
@@ -1686,17 +1690,15 @@ def run_gui():
                 end = ltree.index("end-1c")
                 if kind == "node" and payload:
                     ltree.tag_add("nd", start, end)
-                    # 08.10.2026: КЛИК по изделию = ИСТОРИЯ по нему; ДВОЙНОЙ клик = оно становится корнем
-                    ltree.tag_bind("nd", "<Button-1>",
-                                   lambda ev, mm=payload: _hist_open_model(mm))
+                    # 08.10.2026: ДВОЙНОЙ клик по изделию = нижнее окно перестраивается на него
                     ltree.tag_bind("nd", "<Double-1>",
-                                   lambda ev, mm=payload: _text_tree_show(mm))
+                                   lambda ev, mm=payload: _goto_model(mm))
                 elif kind == "more" and payload:
                     ltree.tag_add("mr", start, end)
                     ltree.tag_bind("mr", "<Button-1>", lambda ev, mm=payload: _made_window(mm))
                 elif kind == "head":
                     ltree.tag_add("hd", start, end)
-            ltext_sum.config(text="полное дерево: %s (глубина %d) · клик по изделию = корень, "
+            ltext_sum.config(text="полное дерево: %s (глубина %d) · ДВОЙНОЙ клик по изделию = перейти на него, "
                                   "по «… ещё N» = весь список" % (m, depth))
             ltree.configure(state="disabled")
         except Exception as e:
@@ -1819,52 +1821,43 @@ def run_gui():
         else:
             _prod_show(model)
 
-    def _bottom_show(model):
-        """Показать в НИЖНЕМ окне связи модели. Зовут все вкладки. Вид решает активная вкладка низа."""
+    def _bottom_show(model, pick=False):
+        """Показать в НИЖНЕМ окне связи модели. Зовут вкладки СВЕРХУ (pick=True) и переходы внизу."""
         model = eng.stem(model or "")
         _last["model"] = model
-        _last.pop("lroot", None)     # 07.10.2026: новое изделие сверху = новый корень дерева текстом
+        if pick:
+            _last["pick"] = model     # 08.10.2026: строка, выбранная ВВЕРХУ, — к ней возвращает кнопка
+        _last.pop("lroot", None)
+        try:                          # 08.10.2026: строка над нижним окном — что именно показывает низ
+            _txt = ("низ показывает: %s" % model) if model else ""
+            if model and not pick and _last.get("pick") and _last.get("pick") != model:
+                _txt += "   (переход; кнопка вернёт к верхнему выбору)"
+            lsubj.config(text=_txt)
+        except Exception:
+            pass
         _bottom_render()
 
-    def _goto_node(tree_widget, registry):
-        """07.10.2026: клик по узлу нижнего дерева = перейти на это изделие (стать ему корнем)."""
-        rec = registry.get(tree_widget.focus())
-        m = rec[0] if isinstance(rec, tuple) else rec
+    def _goto_model(m):
+        """08.10.2026: ДВОЙНОЙ клик по детали в нижнем окне = перестроить низ на неё (как выбор сверху)."""
         if m:
             _bottom_show(m)
 
-    def _hist_open_model(m):
-        """08.10.2026: окно ИСТОРИИ по МОДЕЛИ — берём любой её файл из базы и открываем как из таблицы."""
-        m = eng.stem(m or "")
-        if not m:
-            return
-        path = ""
-        try:
-            con = eng.connect()
-            row = con.execute("SELECT path FROM snapshots WHERE model=? ORDER BY path LIMIT 1",
-                              (m,)).fetchone()
-            path = row[0] if row else ""
-        except Exception:
-            path = ""
-        if not path:
-            messagebox.showinfo(APP_TITLE, "Нет файла для «%s» в базе." % m)
-            return
-        history_window(root, tk, ttk, filedialog,
-                       "История изменений — %s" % os.path.basename(path),
-                       lambda: history_rows_copy_aware(path, hist_settings()),
-                       settings=settings, save_settings=save_settings,
-                       status=os.path.basename(path))
+    def _return_to_pick():
+        """08.10.2026: «Вернуться к выбранному» — предмет низа = строка, выбранная в ВЕРХНЕМ окне."""
+        m = _last.get("pick") or _last.get("model")
+        if m:
+            _bottom_show(m)
 
-    def _hist_open_node(tw, registry, event=None):
-        """08.10.2026: клик по узлу нижнего дерева = история по этому файлу (узел берём ПОД КУРСОРОМ)."""
+    def _goto_node(tree_widget, registry, event=None):
+        """07.10.2026/08.10.2026: переход по узлу нижнего дерева на ДВОЙНОЙ клик (узел берём под курсором)."""
         try:
-            node = tw.identify_row(event.y) if event is not None else tw.focus()
+            node = tree_widget.identify_row(event.y) if event is not None else tree_widget.focus()
         except Exception:
-            node = tw.focus()
+            node = tree_widget.focus()
         rec = registry.get(node)
         m = rec[0] if isinstance(rec, tuple) else rec
         if m:
-            _hist_open_model(m)
+            _bottom_show(m)
 
     lnb.bind("<<NotebookTabChanged>>", lambda ev: _bottom_render())
 
@@ -1876,7 +1869,7 @@ def run_gui():
             live_auto()
             return
         p = row.get("_path") or ""
-        _bottom_show(eng.stem(os.path.basename(p)) if p else "")
+        _bottom_show(eng.stem(os.path.basename(p)) if p else "", pick=True)
 
     tree.bind("<<TreeviewSelect>>", live_tree)
 
@@ -1884,7 +1877,7 @@ def run_gui():
         """Выбор в ПРОВОДНИКЕ → нижнее окно (выбран файл → связи его модели)."""
         p = _EFILE.get(eview.focus())
         if p:
-            _bottom_show(eng.stem(os.path.basename(p)))
+            _bottom_show(eng.stem(os.path.basename(p)), pick=True)
 
     eview.bind("<<TreeviewSelect>>", expl_live)
 
@@ -1896,7 +1889,7 @@ def run_gui():
         txt = (tview.item(sel, "text") or "").strip()
         m = eng.stem(txt.split()[0]) if txt else ""
         if m:
-            _bottom_show(m)
+            _bottom_show(m, pick=True)
 
     tview.bind("<<TreeviewSelect>>", tree_live)
     _plm_extra.update({"ltv": ltv, "ltv2": ltv2, "lnb": lnb, "live_tree": live_tree,
