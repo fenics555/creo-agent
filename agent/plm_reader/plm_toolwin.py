@@ -1,8 +1,33 @@
 # -*- coding: utf-8 -*-
-"""Окно PLM Reader (вынесено из plm_reader.py, Шаг 1 распила).
+"""Окно PLM Reader (вынесено из plm_reader.py распилом; см. СПЕКА_РАСПИЛА_PLM_READER.md).
 
 Весь интерфейс: панели, вкладки, деревья, меню, буфер, самопроверка, обновление.
 Вызов: plm_reader.main() -> from plm_toolwin import run_gui (ленивый импорт, без цикла).
+
+ВНИМАНИЕ: это ОДНА большая функция run_gui() со ~110 ВЛОЖЕННЫМИ функциями, живущими в общих
+локальных (root, tk, ttk, settings, виджеты, _ROWS, _last, cols, shown…). Правки — по якорю
+`def <имя>`; рефакторить в класс/миксины — отдельная задача (спека §8).
+
+КАРТА ВЛОЖЕННЫХ ФУНКЦИЙ (порядок = порядок в файле; ищи по `    def <имя>`):
+* окно/панель/статус: _lwheel, _paths_text, show_paths, pull_paths, open_paths, limit_changed, _row,
+  _auto_changed, stop_scan, _vgrid, _upd_status, _apply_update, check_updates_ui, show_facts,
+  _copy_status, _status_menu, _wrap_data, _half_sash, _half_try
+* Проводник (верх): _e_short, _expl_root_paths, _expl_data, _expl_node, _expl_file_row, _expl_more,
+  _expl_fill, fill_explorer, _expl_dbl
+* Дерево/таблица (верх): debounce, _short, _file_row, node_add, _vals9, _fill_node, _model_values,
+  _kind, _resolve, node_add_model, on_open, _dbl_click, fill_tree_view, expand_all, row_uid, make_tree
+* инструменты ряда: purge_folder, _text_window, purge_show, purge_run, _lout, say, cap, _sel_model,
+  where_selected, tree_down, tree_up, changes_selected, open_detail, lt_apply, _fmt
+* НИЖНЕЕ окно (вкладки): _prop_show, _live_vals, _branch_updown, _ltv_model, ltv_open, _plm_data_ref,
+  live_auto, _prod_show (Родословная), _links_show + _fill_up + ltv2_open (Связи), _made_window,
+  _text_tree_show (Текст), _hist_show (История), _bottom_render, _bottom_show, _goto_node,
+  live_tree, expl_live, tree_live, on_tab
+* таблица/сорт/база: sort_key, set_sort, redraw, rebuild_tree, show_readme, check_base, show_check,
+  load_base, _active_stamp, refresh_from_db, watch_db, save_settings, save_ui, on_close
+* окна истории/скан: split_list, choose_columns, hist_settings, show_history, show_folder_history,
+  poll_scan, worker, go, export, _offer_archive_cleanup
+* КОПИРОВАТЬ/ПКМ (в конце файла): _has_native, _foc, _clip_ev, _on_copy, _on_paste, _on_cut, _sel_all,
+  _menu_pop, _bind_clip, _bind_clip_all, _clip_ctrl
 """
 import os
 import re
