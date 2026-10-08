@@ -740,14 +740,17 @@ def run_gui():
                      if not b else "◄ %s: %s" % (_kind(k), b),
                 values=("заготовка/отливка", b or "—", "", "", "", "", "", "", ""))
             if b:
+                reg[dn0] = b                          # V81: узел «заготовка/отливка» кликабелен
                 for name, how in eng.mfg_models(b, 30):
-                    tree_widget.insert(dn0, "end", text="оснастка: %s  (%s)" % (name, how),
-                                       values=("оснастка", name, "", "", "", "", "", "", ""))
+                    on = tree_widget.insert(dn0, "end", text="оснастка: %s  (%s)" % (name, how),
+                                            values=("оснастка", name, "", "", "", "", "", "", ""))
+                    reg[on] = name                    # V81: оснастка под заготовкой кликабельна
         if mfg:
             mn = tree_widget.insert(node, "end", open=True, text="модельная оснастка (MFG):")
             for name, how in mfg[:60]:
-                tree_widget.insert(mn, "end", text="%s  (%s)" % (name, how),
-                                   values=("оснастка", name, "", "", "", "", "", "", ""))
+                on = tree_widget.insert(mn, "end", text="%s  (%s)" % (name, how),
+                                        values=("оснастка", name, "", "", "", "", "", "", ""))
+                reg[on] = name                        # V81: MFG-узел кликабелен
         if with_up:
             un = tree_widget.insert(node, "end", open=True, text="входит в (все сборки):")
             if not up:
@@ -760,6 +763,7 @@ def run_gui():
                     pn, m, depth = stack.pop()
                     for p2, q in up.get(m, []):
                         nn = tree_widget.insert(pn, "end", text="%s  ↑ x%d" % (p2, q), values=row(p2, "x%d" % q))
+                        reg[nn] = p2                  # V81: узел «входит в (все сборки)» кликабелен
                         if depth < 8:
                             stack.append((nn, p2, depth + 1))
         cn = tree_widget.insert(node, "end", open=True, text="состав:")
@@ -1538,6 +1542,7 @@ def run_gui():
         _LTREE.clear()
         info = eng.models_info([model]).get(model, ("", "", "", 0, "", "", 0, 0))
         rn = ltv.insert("", "end", open=True, text=model, values=_live_vals(model, info))
+        _LTREE[rn] = model                           # V81: корень «Родословной» тоже кликабелен
         der, ups, dn = _branch_updown(rn, model)
         try:
             ltv.yview_moveto(0)                 # показать начало дерева
@@ -1564,6 +1569,7 @@ def run_gui():
             return _live_vals(m, info.get(m, ("", "", "", 0, "", "", 0, 0)), q)
 
         rn = ltv2.insert("", "end", open=True, text=model, values=iv(model))
+        _LLINKS[rn] = (model, "down")                # V81: корень «Дерева связей» тоже кликабелен
 
         # ▼ вниз — СОСТАВ (ленивая загрузка уровней)
         dn = ltv2.insert(rn, "end", open=False, text="▼ состав (вниз)")
@@ -1856,6 +1862,15 @@ def run_gui():
             node = tree_widget.focus()
         rec = registry.get(node)
         m = rec[0] if isinstance(rec, tuple) else rec
+        if not m:
+            # V81 (08.10.2026): узла может НЕТЬ в реестре (входит-в / MFG / заготовка / корень) —
+            # модель берём из 1-й колонки values строки; заглушки («—», пусто) никуда не ведут.
+            try:
+                vals = tree_widget.item(node, "values")
+            except Exception:
+                vals = ()
+            cand = ((vals[1] if len(vals) > 1 else "") or "").strip()
+            m = "" if cand in ("", "—", "-") else cand
         if m:
             _bottom_show(m)
 
