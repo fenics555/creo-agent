@@ -1663,6 +1663,37 @@ def run_gui():
                                              ("rev%s" % rev) if rev else "")
         _text_window("Сделано из «%s»" % mdl, "сделано из «%s» — всего %d" % (mdl, len(rows)), txt)
 
+    _TMAP = {}                              # V82: номер строки Text -> (kind, payload) для кликов
+
+    def _text_line_at(ev):
+        """Строка «Дерева текстом» под курсором: (номер, kind, payload) либо None."""
+        try:
+            ln = int(ltree.index("@%d,%d" % (ev.x, ev.y)).split(".")[0])
+        except Exception:
+            return None
+        rec = _TMAP.get(ln)
+        return (ln, rec[0], rec[1]) if rec else None
+
+    def _text_dbl(ev):
+        """V82: ОДИН обработчик двойного клика — переход по строке под курсором.
+
+        Раньше tag_bind звался в цикле ПО СТРОКЕ и ЗАМЕНЯЛ сам себя (Tk: без «+» —
+        replace), выживала последняя лямбда — клик вёл не туда («не работает»)."""
+        rec = _text_line_at(ev)
+        if rec:
+            if rec[1] == "nd" and rec[2]:
+                _goto_model(rec[2])
+            return "break"
+        return None
+
+    def _text_more(ev):
+        """V82: клик по «… ещё N» — окно со ВСЕМ списком (тоже по строке под курсором)."""
+        rec = _text_line_at(ev)
+        if rec and rec[1] == "more" and rec[2]:
+            _made_window(rec[2])
+            return "break"
+        return None
+
     def _text_tree_show(model=None):
         """Вкладка «Дерево текстом»: ПОЛНОЕ дерево связей.
 
@@ -1674,8 +1705,12 @@ def run_gui():
         try:
             ltree.configure(state="normal")
             ltree.delete("1.0", "end")
+            _TMAP.clear()
             for tg in ("nd", "mr", "hd"):
                 ltree.tag_delete(tg)
+            # V82: один обработчик на виджет (replace тем же хэндлером безвреден)
+            ltree.bind("<Double-1>", _text_dbl)
+            ltree.bind("<Button-1>", _text_more)
         except Exception:
             pass
         ltree.tag_configure("nd", foreground="#0a4a8a", underline=True)
@@ -1696,12 +1731,11 @@ def run_gui():
                 end = ltree.index("end-1c")
                 if kind == "node" and payload:
                     ltree.tag_add("nd", start, end)
-                    # 08.10.2026: ДВОЙНОЙ клик по изделию = нижнее окно перестраивается на него
-                    ltree.tag_bind("nd", "<Double-1>",
-                                   lambda ev, mm=payload: _goto_model(mm))
+                    # V82: вместо tag_bind в цикле (replace) — карта строка->payload
+                    _TMAP[int(end.split(".")[0])] = ("nd", payload)
                 elif kind == "more" and payload:
                     ltree.tag_add("mr", start, end)
-                    ltree.tag_bind("mr", "<Button-1>", lambda ev, mm=payload: _made_window(mm))
+                    _TMAP[int(end.split(".")[0])] = ("more", payload)
                 elif kind == "head":
                     ltree.tag_add("hd", start, end)
             ltext_sum.config(text="полное дерево: %s (глубина %d) · ДВОЙНОЙ клик по изделию = перейти на него, "
