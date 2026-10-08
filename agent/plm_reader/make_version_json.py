@@ -16,8 +16,8 @@ HERE = os.path.dirname(os.path.abspath(__file__))
 
 # Что входит в поставку (файлы кода). Всё, чего нет в манифесте, при обновлении уедет в obsolete\.
 CODE_FILES = [
-    "engine.py", "plm_reader.py", "plm_toolwin.py", "plm_history.py", "plm_parse.py", "creo_read.py",
-    "README.md", "SHARE_copy.bat", "plm_reader.bat", "plm_reader_gui.bat",
+    "engine.py", "plm_reader.py", "plm_toolwin.py", "plm_history.py", "plm_parse.py", "plm_dbview.py",
+    "creo_read.py", "README.md", "SHARE_copy.bat", "plm_reader.bat", "plm_reader_gui.bat",
     "make_version_json.py", ".gitignore",
 ]
 
