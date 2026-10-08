@@ -20,7 +20,8 @@
   where_selected, tree_down, tree_up, changes_selected, open_detail, lt_apply, _fmt, export_bom (состав→CSV)
 * НИЖНЕЕ окно (вкладки): _prop_show, _live_vals, _branch_updown, _ltv_model, ltv_open, _plm_data_ref,
   live_auto, _prod_show (Родословная), _links_show + _fill_up + ltv2_open (Связи), _made_window,
-  _text_tree_show (Текст), _hist_show (История), _bottom_render, _bottom_show (pick= — верхний выбор),
+  _text_tree_show (Текст), _hist_show (История), _overview_text + _overview_show (Обзор — сводка базы),
+  _bottom_render, _bottom_show (pick= — верхний выбор),
   _goto_model + _goto_node (двойной клик = перейти на деталь), _return_to_pick (кнопка «вернуться»),
   _nav_record/_nav_state/_nav_back/_nav_fwd (← → история), _goto_entry (поле «перейти к модели»),
   live_tree, expl_live, tree_live, on_tab
@@ -1373,6 +1374,24 @@ def run_gui():
     lnb.add(lprop, text=" Свойства детали ")
     lnb.add(ltext, text=" Дерево текстом (вверх+вниз) ")   # 4-я вкладка: полное дерево текстом (вверх+вниз)
     lnb.add(lhist, text=" История файла ")                 # 5-я: история правок всех файлов изделия
+
+    # ==== 08.10.2026 (V84): вкладка «Обзор» — сводка по ВСЕЙ базе (выбор выше не важен) ====
+    lov = ttk.Frame(lnb, padding=4)
+    lnb.add(lov, text=" Обзор ")                           # 6-я: статистика/горячие/старые/сироты/дубли
+    ovs_sum = ttk.Label(lov, text="сводка по базе: статистика · горячие правки · старые · сироты · дубли · авторы")
+    ovs_sum.pack(anchor="w")
+    ovctl = ttk.Frame(lov)
+    ovctl.pack(anchor="w", pady=2)
+    ttk.Button(ovctl, text="Обновить", command=lambda: _overview_show(True)).pack(side="left")
+    ttk.Label(ovctl, text="← сводка по ВСЕЙ базе; горячие — 30 дней, старые — 2 года",
+              foreground="#666").pack(side="left", padx=6)
+    ovbox = ttk.Frame(lov)
+    ovbox.pack(fill="both", expand=True)
+    otv = tk.Text(ovbox, font=("Consolas", 9), wrap="none", bg="#fbfbfb", state="disabled")
+    ovs = ttk.Scrollbar(ovbox, orient="vertical", command=otv.yview)
+    otv.configure(yscrollcommand=ovs.set)
+    ovs.pack(side="right", fill="y")
+    otv.pack(side="left", fill="both", expand=True)
     lpsum = ttk.Label(lprop, text="выбери изделие — покажу площадь, техтребования, "
                                    "числовые параметры, РАЗМЕРЫ и связанные чертежи")
     lpsum.pack(anchor="w")
@@ -1836,6 +1855,141 @@ def run_gui():
         else:
             lhist_sum.config(text="история «%s»: файлов %d, записей %d" % (m, len(paths), shown))
 
+    def _overview_text():
+        """V84: сводка по ВСЕЙ базе одним текстом: статистика, горячие, старые, сироты, дубли, авторы."""
+        from collections import Counter
+        now = time.time()
+        cut_hot = time.strftime("%Y-%m-%d", time.localtime(now - 30 * 86400))  # ts — строка ISO
+        cut_old = now - 730 * 86400                       # «старые» — 2 года
+        out, con = [], eng.connect()
+        try:
+            n_files, n_models = con.execute(
+                "SELECT COUNT(*), COUNT(DISTINCT model) FROM snapshots").fetchone()
+            n_links = con.execute("SELECT COUNT(*) FROM links").fetchone()[0]
+            n_der = con.execute("SELECT COUNT(*) FROM derived").fetchone()[0]
+            n_ch = con.execute("SELECT COUNT(*) FROM changes").fetchone()[0]
+            last_scan = con.execute("SELECT MAX(ts) FROM changes").fetchone()[0] or "—"
+            out.append("БАЗА: файлов %d · моделей %d · связей %d · производных %d · журнал правок %d"
+                       % (n_files, n_models, n_links, n_der, n_ch))
+            out.append("последний скан: %s · сводка собрана: %s"
+                       % (last_scan, time.strftime("%d.%m.%Y %H:%M", time.localtime(now))))
+            # ГОРЯЧИЕ: реальные изменения паспортов (modify) за 30 дней
+            rows = con.execute("SELECT item, ts FROM changes WHERE kind='modify' AND ts >= ? "
+                               "ORDER BY id DESC", (cut_hot,)).fetchall()
+            hot, hot_ts = Counter(), {}
+            for item, ts in rows:
+                m = eng.stem(os.path.basename(item or ""))
+                if m:
+                    hot[m] += 1
+                    hot_ts.setdefault(m, ts)              # ORDER BY id DESC → первая встреча самая свежая
+            out.append("")
+            out.append("ГОРЯЧИЕ ПРАВКИ за 30 дней: записей %d, моделей %d" % (len(rows), len(hot)))
+            if not hot:
+                out.append("   — правок паспортов за период не было")
+            for m, c in hot.most_common(15):
+                out.append("   %4d  %-42s  последняя %s" % (c, m[:42], hot_ts.get(m, "")[:19]))
+            if len(hot) > 15:
+                out.append("   … ещё %d моделей" % (len(hot) - 15))
+            # СТАРЫЕ: файл модели не менялся больше 2 лет
+            n_old = con.execute("SELECT COUNT(*) FROM (SELECT model FROM snapshots "
+                                "WHERE model != '' GROUP BY model HAVING MAX(mtime) < ?)",
+                                (cut_old,)).fetchone()[0]
+            old = con.execute("SELECT model, MAX(mtime) FROM snapshots WHERE model != '' "
+                              "GROUP BY model HAVING MAX(mtime) < ? ORDER BY 2 LIMIT 15",
+                              (cut_old,)).fetchall()
+            out.append("")
+            out.append("СТАРЫЕ (файл не менялся >2 лет): моделей %d" % n_old)
+            for m, mt in old:
+                out.append("   %-46s %s" % (m[:46],
+                                            time.strftime("%d.%m.%Y", time.localtime(mt or 0))))
+            if n_old > 15:
+                out.append("   … ещё %d" % (n_old - 15))
+            # СИРОТЫ: не входит ни в одну сборку
+            models = {r[0] for r in con.execute(
+                "SELECT DISTINCT model FROM snapshots WHERE model != ''")}
+            children = {r[0] for r in con.execute(
+                "SELECT DISTINCT child FROM links WHERE child != ''")}
+            parents = {r[0] for r in con.execute(
+                "SELECT DISTINCT parent FROM links WHERE parent != ''")}
+            orphans = models - children
+            solo = sorted(orphans - parents)
+            out.append("")
+            out.append("СИРОТЫ: не входит ни в одну сборку — %d (верхних сборок %d, "
+                       "одиночных файлов %d)" % (len(orphans), len(orphans & parents), len(solo)))
+            if solo:
+                info = eng.models_info(solo[:20])
+                for m in solo[:20]:
+                    i8 = info.get(m, ("", "", "", 0, "", "", 0, 0))
+                    out.append("   %-40s %s" % (m[:40], (i8[1] or i8[0] or "")[:44]))
+                if len(solo) > 20:
+                    out.append("   … ещё %d" % (len(solo) - 20))
+            # ДУБЛИ: модель в нескольких папках
+            mp = {}
+            for m, f in con.execute("SELECT DISTINCT model, folder FROM snapshots "
+                                    "WHERE model != '' AND folder != ''"):
+                mp.setdefault(m, set()).add(f)
+            dups = sorted(((len(fs), m) for m, fs in mp.items() if len(fs) > 1), reverse=True)
+            out.append("")
+            out.append("ДУБЛИ (модель в нескольких папках): моделей %d" % len(dups))
+            for c, m in dups[:10]:
+                out.append("   %-44s папок: %d" % (m[:44], c))
+            if len(dups) > 10:
+                out.append("   … ещё %d" % (len(dups) - 10))
+            # ОДИНАКОВЫЙ ОБЪЁМ: возможные копии
+            n_vol = con.execute("SELECT COUNT(*) FROM (SELECT volume FROM snapshots "
+                                "WHERE volume > 0 GROUP BY volume "
+                                "HAVING COUNT(DISTINCT model) > 1)").fetchone()[0]
+            vols = con.execute("SELECT volume, COUNT(DISTINCT model) FROM snapshots "
+                               "WHERE volume > 0 GROUP BY volume "
+                               "HAVING COUNT(DISTINCT model) > 1 ORDER BY 2 DESC LIMIT 8").fetchall()
+            out.append("")
+            out.append("ОДИНАКОВЫЙ ОБЪЁМ (возможные копии): сочетаний %d, топ-8" % n_vol)
+            if not vols:
+                out.append("   — совпадений объёмов нет")
+            for v, c in vols:
+                ms = [r[0] for r in con.execute(
+                    "SELECT DISTINCT model FROM snapshots WHERE volume = ? LIMIT 3", (v,))]
+                out.append("   %10.0f мм³: моделей %d — %s" % (v, c, ", ".join(ms)))
+            # АВТОРЫ в журнале правок
+            authors = con.execute("SELECT who, COUNT(*) FROM changes WHERE who != '' "
+                                  "GROUP BY who ORDER BY 2 DESC LIMIT 8").fetchall()
+            n_anon = con.execute("SELECT COUNT(*) FROM changes WHERE who = ''").fetchone()[0]
+            out.append("")
+            out.append("АВТОРЫ В ЖУРНАЛЕ ПРАВОК (записей %d, без автора %d):" % (n_ch, n_anon))
+            if not authors:
+                out.append("   — авторы не записаны")
+            for who, c in authors:
+                out.append("   %-18s %d" % (who[:18], c))
+        finally:
+            con.close()
+        return "\n".join(out)
+
+    def _overview_show(force=False):
+        """V84: вкладка «Обзор» — сводка по всей базе (кэш в _last['ov_text']; «Обновить» = force)."""
+        try:
+            otv.configure(state="normal")
+            otv.delete("1.0", "end")
+            if force or not _last.get("ov_text"):
+                _last["ov_text"] = _overview_text()
+                _last["ov_built"] = time.strftime("%d.%m.%Y %H:%M:%S")
+            otv.insert("end", _last["ov_text"] + "\n")
+        except Exception as e:                          # вкладка не должна ронять окно
+            try:
+                otv.configure(state="normal")
+                otv.insert("end", "сводка не построена: %s" % e)
+            except Exception:
+                pass
+        finally:
+            try:
+                otv.configure(state="disabled")
+            except Exception:
+                pass
+        try:
+            ovs_sum.config(text="обзор базы от %s · «Обновить» — пересчитать"
+                           % _last.get("ov_built", "?"))
+        except Exception:
+            pass
+
     def _bottom_render():
         """Наполнить АКТИВНУЮ вкладку нижнего окна выбранной моделью (или автосводкой)."""
         model = _last["model"]
@@ -1859,6 +2013,9 @@ def run_gui():
             return
         if sel == str(lhist):           # 07.10.2026: история правок всех файлов изделия
             _hist_show(model)
+            return
+        if sel == str(lov):             # 08.10.2026 (V84): «Обзор» — сводка по всей базе (без модели)
+            _overview_show()
             return
         if not model:
             if sel == str(llinks):
