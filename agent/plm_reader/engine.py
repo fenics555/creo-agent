@@ -1014,6 +1014,36 @@ def do_scan(roots, max_mb, limit, depth=None, progress_cb=None, stop_cb=None, fu
                 n, total, 100.0 * n / max(total, 1), time.time() - t0, mod)
             print(_p, flush=True)
             log(_p)
+    # --- ИСКЛЮЧЕНИЯ: строки исключённых папок из базы УБИРАЕМ (иначе «исключённое» видно в таблице) ---
+    # Фильтр чтения (collect_stat) не даёт читать исключённые папки, но СТАРЫЕ строки из базы не исчезают.
+    # Здесь чистим память: файл исключённой папки уходит из snapshots; осиротевшие стволы — из links/derived.
+    purged_excl = 0
+    if exclude:
+        try:
+            ex = [str(x).replace("/", "\\").rstrip("\\").lower() for x in exclude if str(x).strip()]
+
+            def _under_excl(p):
+                pl = p.lower()
+                return any(pl == k or pl.startswith(k + "\\") for k in ex)
+
+            dead = [p for (p,) in con.execute("SELECT path FROM snapshots") if _under_excl(p)]
+            if dead:
+                dead_stems = {stem(os.path.basename(p)) for p in dead}
+                for p in dead:
+                    con.execute("DELETE FROM snapshots WHERE path=?", (p,))
+                live = {m for (m,) in con.execute("SELECT DISTINCT model FROM snapshots")}
+                gone_stems = [s for s in dead_stems if s not in live]
+                if gone_stems:
+                    q = ",".join(["?"] * len(gone_stems))
+                    con.execute("DELETE FROM links WHERE parent IN (%s) OR child IN (%s)" % (q, q),
+                                tuple(gone_stems) * 2)
+                    con.execute("DELETE FROM derived WHERE child IN (%s) OR base IN (%s)" % (q, q),
+                                tuple(gone_stems) * 2)
+                purged_excl = len(dead)
+                log("scan: убрано из базы строк исключённых папок: %d (осиротевших стволов: %d)"
+                    % (len(dead), len(gone_stems)))
+        except Exception as e:
+            log("scan: чистка исключённых не удалась: %s" % e)
     try:                        # корни скана — чтобы «проверка актуальности» знала, что обходить
         con.execute("CREATE TABLE IF NOT EXISTS meta (k TEXT PRIMARY KEY, v TEXT)")
         con.execute("INSERT OR REPLACE INTO meta VALUES ('roots', ?)", (json.dumps(roots),))
@@ -1027,7 +1057,7 @@ def do_scan(roots, max_mb, limit, depth=None, progress_cb=None, stop_cb=None, fu
         % (done, new, mod, skipped, dt))
     print("scan: обработано %d из %d | новых %d | изменённых %d | пропущено (без изменений) %d | за %.1f с%s | база %s"
           % (done, total, new, mod, skipped, dt, " | ОСТАНОВЛЕНО" if stopped else "", db or DB))
-    return {"done": done, "total": total, "new": new, "mod": mod, "skipped": skipped, "stopped": stopped, "secs": round(dt, 1), "gone": 0, "purged": 0, "need": False, "verdict": ""}
+    return {"done": done, "total": total, "new": new, "mod": mod, "skipped": skipped, "stopped": stopped, "secs": round(dt, 1), "gone": 0, "purged": 0, "excluded": purged_excl, "need": False, "verdict": ""}
 
 
 def summary():

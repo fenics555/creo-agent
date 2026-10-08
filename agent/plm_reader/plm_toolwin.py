@@ -2259,9 +2259,11 @@ def run_gui():
                         rows_all.extend(rows)
                         redraw()
                         lbl.config(text="скан базы за %.1f с: новых %d · изменённых %d · "
-                                        "пропущено (уже в базе) %d · в базе %d, показано %d · исключено папок %d%s"
+                                        "пропущено (уже в базе) %d · в базе %d, показано %d · исключено папок %d · "
+                                        "убрано строк %d%s"
                                    % (_secs, st.get("new", 0), st.get("mod", 0), st.get("skipped", 0),
                                       total, len(rows), len(exclude_list(settings.get("exclude"))),
+                                      st.get("excluded", 0),
                                       "; ОСТАНОВЛЕНО" if st.get("stopped") else ""))
                         log_line("scan: %s -> новых %d, изменённых %d, пропущено %d за %.1f с"
                                  % (" + ".join(roots_now) or "вся база", st.get("new", 0),
