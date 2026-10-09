@@ -21,7 +21,7 @@
 * НИЖНЕЕ окно (вкладки): _prop_show, _live_vals, _branch_updown, _ltv_model, ltv_open, _plm_data_ref,
   live_auto, _prod_show (Родословная), _links_show + _fill_up + ltv2_open (Связи), _made_window,
   _text_tree_show (Текст), _hist_show (История), _overview_text + _overview_show (Обзор — сводка базы),
-  _bottom_render, _bottom_show (pick= — верхний выбор),
+  _graph_data + _graph_layout + _graph_show (Граф — карта на canvas), _bottom_render, _bottom_show (pick=),
   _goto_model + _goto_node (двойной клик = перейти на деталь), _return_to_pick (кнопка «вернуться»),
   _nav_record/_nav_state/_nav_back/_nav_fwd (← → история), _goto_entry (поле «перейти к модели»),
   live_tree, expl_live, tree_live, on_tab
@@ -1392,6 +1392,36 @@ def run_gui():
     otv.configure(yscrollcommand=ovs.set)
     ovs.pack(side="right", fill="y")
     otv.pack(side="left", fill="both", expand=True)
+
+    # ==== 09.10.2026 (V85): вкладка «Граф» — карта родословной на canvas (вверх+вниз, клик=переход) ====
+    lgr = ttk.Frame(lnb, padding=4)
+    lnb.add(lgr, text=" Граф ")                            # 7-я: визуальная карта связей
+    grs = ttk.Label(lgr, text="выбери изделие — покажу карту: состав вниз, входимость вверх, из чего сделана")
+    grs.pack(anchor="w")
+    grctl = ttk.Frame(lgr)
+    grctl.pack(anchor="w", pady=2)
+    ttk.Button(grctl, text="Обновить", command=lambda: _graph_show(True)).pack(side="left")
+    ttk.Label(grctl, text="вниз:").pack(side="left", padx=(8, 2))
+    gr_dd = ttk.Spinbox(grctl, from_=1, to=8, width=3)
+    gr_dd.set(4)
+    gr_dd.pack(side="left")
+    ttk.Label(grctl, text="вверх:").pack(side="left", padx=(6, 2))
+    gr_du = ttk.Spinbox(grctl, from_=1, to=6, width=3)
+    gr_du.set(3)
+    gr_du.pack(side="left")
+    ttk.Button(grctl, text="+", width=3, command=lambda: _graph_zoom(1.2)).pack(side="left", padx=(8, 0))
+    ttk.Button(grctl, text="−", width=3, command=lambda: _graph_zoom(1 / 1.2)).pack(side="left")
+    ttk.Label(grctl, text=" ← ДВОЙНОЙ клик по узлу = перейти на него; колесо = зум; тянуть — за пустое место",
+              foreground="#666").pack(side="left", padx=6)
+    grbox = ttk.Frame(lgr)
+    grbox.pack(fill="both", expand=True)
+    gr_canvas = tk.Canvas(grbox, bg="#fbfbfb", highlightthickness=0)
+    gr_ys = ttk.Scrollbar(grbox, orient="vertical", command=gr_canvas.yview)
+    gr_xs = ttk.Scrollbar(grbox, orient="horizontal", command=gr_canvas.xview)
+    gr_canvas.configure(yscrollcommand=gr_ys.set, xscrollcommand=gr_xs.set)
+    gr_ys.pack(side="right", fill="y")
+    gr_xs.pack(side="bottom", fill="x")
+    gr_canvas.pack(side="left", fill="both", expand=True)
     lpsum = ttk.Label(lprop, text="выбери изделие — покажу площадь, техтребования, "
                                    "числовые параметры, РАЗМЕРЫ и связанные чертежи")
     lpsum.pack(anchor="w")
@@ -1990,6 +2020,202 @@ def run_gui():
         except Exception:
             pass
 
+    def _graph_data(model, ddown=4, dup=3):
+        """V85: узлы/рёбра «Графа»: корень (level 0), состав вниз, входимость вверх, из чего сделана."""
+        root = eng.stem(model or "")
+        nodes, edges = {}, []
+        if not root:
+            return nodes, edges
+        nodes[root] = {"kind": "root", "level": 0}
+        down = eng.plm_down_data(root, ddown)
+        up = eng.plm_up_data(root, dup)
+        level, frontier = 0, [root]                   # вниз: BFS по уровням
+        while frontier and level < ddown and len(nodes) < 1500:
+            nxt = []
+            for m in frontier:
+                for ch, q in down.get(m, []) or []:
+                    if ch in nodes:
+                        edges.append((m, ch, "down", q))     # оба конца есть
+                    elif len(nodes) < 1500:                  # cap: ни узла, ни ребра
+                        nodes[ch] = {"kind": "down", "level": level + 1}
+                        edges.append((m, ch, "down", q))
+                        nxt.append(ch)
+            frontier, level = nxt, level + 1
+        level, frontier = 0, [root]                   # вверх: level отрицательный
+        while frontier and level > -dup and len(nodes) < 1500:
+            nxt = []
+            for m in frontier:
+                for p, q in up.get(m, []) or []:
+                    if p in nodes:                              # узел есть — уровень не двигаем
+                        edges.append((m, p, "up", q))
+                    elif len(nodes) < 1500:                     # cap: ни узла, ни ребра
+                        nodes[p] = {"kind": "up", "level": level - 1}
+                        edges.append((m, p, "up", q))
+                        nxt.append(p)
+            frontier, level = nxt, level - 1
+        try:
+            der = eng.derived_bases(root)[:6]         # из чего сделана — слева от корня
+        except Exception:
+            der = []
+        if len(nodes) < 1500:                         # cap: взрывоопасные шаблоны не рисуем целиком
+            for b, k in der:
+                if b and b not in nodes:
+                    nodes[b] = {"kind": "der", "level": 0}
+                    edges.append((b, root, "der", ""))
+        return nodes, edges
+
+    def _graph_layout(nodes, edges):
+        """V85: позиции узлов (x в «узлах», y = уровень): пост-обход двух деревьев + сдвиг к общему корню."""
+        root = next((n for n, d in nodes.items() if d.get("kind") == "root"), None) or next(iter(nodes))
+        down_kids = {n: [] for n in nodes}
+        up_kids = {n: [] for n in nodes}
+        par_d, par_u = set(), set()                   # у узла ОДИН раскладочный родитель (первый победил)
+        for a, b, kind, q in edges:
+            if a not in nodes or b not in nodes or a == b:
+                continue
+            if kind == "down" and b not in par_d:
+                down_kids[a].append(b)
+                par_d.add(b)
+            elif kind == "up" and b not in par_u:
+                up_kids[a].append(b)
+                par_u.add(b)
+        x_d, x_u = {}, {}
+        cnt_d, cnt_u = [0.0], [0.0]
+
+        def place(node, kids, out, cnt, guard):
+            if node in out:
+                return out[node]
+            if node in guard:                         # цикл — не углубляемся
+                out[node] = cnt[0] + 0.5
+                cnt[0] += 1.0
+                return out[node]
+            ch = [k for k in kids.get(node, []) if k in nodes and k != node]
+            if not ch:
+                val = cnt[0] + 0.5
+                cnt[0] += 1.0
+            else:
+                xs = [place(k, kids, out, cnt, guard | {node}) for k in ch]
+                val = (min(xs) + max(xs)) / 2.0
+            out[node] = val
+            return val
+
+        place(root, down_kids, x_d, cnt_d, frozenset())
+        place(root, up_kids, x_u, cnt_u, frozenset())
+        shift = x_d.get(root, 0.0) - x_u.get(root, 0.0)
+        for n in x_u:
+            x_u[n] += shift                           # подвести вверх-дерево к корню
+        x = dict(x_u)
+        x.update(x_d)                                 # вниз приоритет при общих узлах
+        der = [n for n, d in nodes.items() if d.get("kind") == "der"]
+        rx = x.get(root, 0.0)
+        for i, n in enumerate(der):
+            x[n] = rx - (len(der) - i) - 0.5          # левый ряд уровня 0
+        return {n: (x.get(n, 0.0), float(nodes[n]["level"])) for n in nodes}
+
+    def _graph_dbl(ev=None):
+        """V85: двойной клик по узлу карты = перестроить низ на эту модель (как везде)."""
+        try:
+            iid = gr_canvas.find_withtag("current")
+            for t in (gr_canvas.gettags(iid[0]) if iid else ()):
+                if t.startswith("n:"):
+                    _goto_model(t[2:])
+                    return
+        except Exception:
+            pass
+
+    def _graph_drag(ev):
+        """V85: тянуть холст за пустое место (по узлу — не тянем, чтобы не мешать кликам)."""
+        try:
+            if gr_canvas.find_withtag("current"):
+                return
+            gr_canvas.scan_dragto(ev.x, ev.y, gain=1)
+        except Exception:
+            pass
+
+    def _graph_wheel(ev):
+        """V85: колесо = зум карты к точке курсора."""
+        try:
+            f = 1.15 if ev.delta > 0 else 1 / 1.15
+            cx, cy = gr_canvas.canvasx(ev.x), gr_canvas.canvasy(ev.y)
+            gr_canvas.scale("all", cx, cy, f, f)
+            gr_canvas.config(scrollregion=gr_canvas.bbox("all"))
+        except Exception:
+            pass
+
+    def _graph_zoom(f):
+        """V85: зум кнопками ± (к центру карты)."""
+        try:
+            bb = gr_canvas.bbox("all")
+            if not bb:
+                return
+            gr_canvas.scale("all", (bb[0] + bb[2]) / 2, (bb[1] + bb[3]) / 2, f, f)
+            gr_canvas.config(scrollregion=gr_canvas.bbox("all"))
+        except Exception:
+            pass
+
+    def _graph_show(force=False):
+        """V85: нарисовать карту родословной выбранной модели (вкладка «Граф»)."""
+        try:
+            gr_canvas.bind("<Double-1>", _graph_dbl)     # replace тем же хэндлером безвреден
+            gr_canvas.bind("<Button-1>", lambda e: gr_canvas.scan_mark(e.x, e.y))
+            gr_canvas.bind("<B1-Motion>", _graph_drag)
+            gr_canvas.bind("<MouseWheel>", _graph_wheel)
+            gr_canvas.delete("all")
+            root = eng.stem(_last.get("model") or "")
+            if not root:
+                grs.config(text="выбери изделие в ЛЮБОЙ вкладке сверху — построю карту")
+                gr_canvas.create_text(16, 16, anchor="nw", fill="#777", text="нет выбранной модели")
+                return
+            try:
+                ddown = int(gr_dd.get() or 4)
+            except Exception:
+                ddown = 4
+            try:
+                dup = int(gr_du.get() or 3)
+            except Exception:
+                dup = 3
+            t0 = time.time()
+            nodes, edges = _graph_data(root, ddown, dup)
+            if not nodes:
+                grs.config(text="нет данных для карты «%s»" % root)
+                return
+            pos = _graph_layout(nodes, edges)
+            unit, row, nw, nh = 170, 64, 158, 40
+            fills = {"root": "#ffe9a8", "up": "#d9e8fb", "down": "#eaf7ea", "der": "#fbe3d0"}
+            for a, b, kind, q in edges:                 # рёбра (сверху вниз по уровню)
+                if a not in pos or b not in pos:
+                    continue
+                xa, ya = pos[a]
+                xb, yb = pos[b]
+                x1, y1, x2, y2 = xa * unit, ya * row, xb * unit, yb * row
+                if kind == "der":
+                    gr_canvas.create_line(x1 + nw // 2, y1, x2 - nw // 2, y2,
+                                          dash=(4, 3), fill="#c47a3a")
+                elif nodes[a]["level"] <= nodes[b]["level"]:
+                    gr_canvas.create_line(x1, y1 + nh // 2, x2, y2 - nh // 2, fill="#8aa0b5")
+                else:
+                    gr_canvas.create_line(x1, y1 - nh // 2, x2, y2 + nh // 2, fill="#8aa0b5")
+                if q and q != 1:
+                    gr_canvas.create_text((x1 + x2) / 2 + 8, (y1 + y2) / 2, text="x%s" % q,
+                                          fill="#666", font=("Consolas", 8))
+            for n, (x, y) in pos.items():               # узлы
+                d = nodes[n]
+                gr_canvas.create_rectangle(x * unit - nw // 2, y * row - nh // 2,
+                                           x * unit + nw // 2, y * row + nh // 2,
+                                           fill=fills.get(d["kind"], "#eee"), outline="#555",
+                                           tags=("node", "n:" + n))
+                label = n if len(n) <= 24 else n[:22] + "…"
+                gr_canvas.create_text(x * unit, y * row, text=label, font=("Consolas", 9),
+                                      tags=("node", "n:" + n))
+            gr_canvas.config(scrollregion=gr_canvas.bbox("all"))
+            grs.config(text="карта «%s»: узлов %d · рёбер %d · вниз %d / вверх %d · %.2f с"
+                       % (root, len(nodes), len(edges), ddown, dup, time.time() - t0))
+        except Exception as e:                          # вкладка не должна ронять окно
+            try:
+                grs.config(text="карта не построена: %s" % e)
+            except Exception:
+                pass
+
     def _bottom_render():
         """Наполнить АКТИВНУЮ вкладку нижнего окна выбранной моделью (или автосводкой)."""
         model = _last["model"]
@@ -2016,6 +2242,9 @@ def run_gui():
             return
         if sel == str(lov):             # 08.10.2026 (V84): «Обзор» — сводка по всей базе (без модели)
             _overview_show()
+            return
+        if sel == str(lgr):             # 09.10.2026 (V85): «Граф» — карта родословной выбранной модели
+            _graph_show()
             return
         if not model:
             if sel == str(llinks):
