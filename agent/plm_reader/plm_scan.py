@@ -76,7 +76,7 @@ def first_param(par, keys):
     return ""
 def scan_file(path, settings):
     from plm_history import history      # ленивый импорт: разрывает цикл scan↔history (скилл §24)
-    raw = read_bytes(path, settings.get("max_size_mb", 0))
+    raw = read_bytes(path, settings.get("max_size_mb", 24))    # V86: умолчание24 = DEFAULT
     if raw is None:
         return None
     sec = sections(raw)

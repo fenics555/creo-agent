@@ -1903,21 +1903,36 @@ def run_gui():
                        % (n_files, n_models, n_links, n_der, n_ch))
             out.append("последний скан: %s · сводка собрана: %s"
                        % (last_scan, time.strftime("%d.%m.%Y %H:%M", time.localtime(now))))
+            marks = {}                             # V86: номер строки (1-based) -> модель (клик = переход)
+            # множества моделей — ОДНИМ проходом заранее: фильтр шаблонов + раздел «Сироты»
+            models = {r[0] for r in con.execute(
+                "SELECT DISTINCT model FROM snapshots WHERE model != ''")}
+            children = {r[0] for r in con.execute(
+                "SELECT DISTINCT child FROM links WHERE child != ''")}
+            parents = {r[0] for r in con.execute(
+                "SELECT DISTINCT parent FROM links WHERE parent != ''")}
             # ГОРЯЧИЕ: реальные изменения паспортов (modify) за 30 дней
             rows = con.execute("SELECT item, ts FROM changes WHERE kind='modify' AND ts >= ? "
                                "ORDER BY id DESC", (cut_hot,)).fetchall()
             hot, hot_ts = Counter(), {}
+            skipped = set()
             for item, ts in rows:
                 m = eng.stem(os.path.basename(item or ""))
-                if m:
-                    hot[m] += 1
-                    hot_ts.setdefault(m, ts)              # ORDER BY id DESC → первая встреча самая свежая
+                if len(m) < 3 or m not in models:   # V86: шаблоны/нет в базе — мусор журнала
+                    if m:
+                        skipped.add(m)
+                    continue
+                hot[m] += 1
+                hot_ts.setdefault(m, ts)              # ORDER BY id DESC → первая встреча самая свежая
             out.append("")
             out.append("ГОРЯЧИЕ ПРАВКИ за 30 дней: записей %d, моделей %d" % (len(rows), len(hot)))
+            if skipped:
+                out.append("   (шаблонных/не найдено в базе опущено: %d моделей)" % len(skipped))
             if not hot:
                 out.append("   — правок паспортов за период не было")
             for m, c in hot.most_common(15):
                 out.append("   %4d  %-42s  последняя %s" % (c, m[:42], hot_ts.get(m, "")[:19]))
+                marks[len(out)] = m                  # V86: клик по этой строке = переход на модель
             if len(hot) > 15:
                 out.append("   … ещё %d моделей" % (len(hot) - 15))
             # СТАРЫЕ: файл модели не менялся больше 2 лет
@@ -1932,15 +1947,10 @@ def run_gui():
             for m, mt in old:
                 out.append("   %-46s %s" % (m[:46],
                                             time.strftime("%d.%m.%Y", time.localtime(mt or 0))))
+                marks[len(out)] = m                  # V86: клик = переход
             if n_old > 15:
                 out.append("   … ещё %d" % (n_old - 15))
-            # СИРОТЫ: не входит ни в одну сборку
-            models = {r[0] for r in con.execute(
-                "SELECT DISTINCT model FROM snapshots WHERE model != ''")}
-            children = {r[0] for r in con.execute(
-                "SELECT DISTINCT child FROM links WHERE child != ''")}
-            parents = {r[0] for r in con.execute(
-                "SELECT DISTINCT parent FROM links WHERE parent != ''")}
+            # СИРОТЫ: не входит ни в одну сборку (множества вычислены выше)
             orphans = models - children
             solo = sorted(orphans - parents)
             out.append("")
@@ -1951,6 +1961,7 @@ def run_gui():
                 for m in solo[:20]:
                     i8 = info.get(m, ("", "", "", 0, "", "", 0, 0))
                     out.append("   %-40s %s" % (m[:40], (i8[1] or i8[0] or "")[:44]))
+                    marks[len(out)] = m              # V86: клик = переход
                 if len(solo) > 20:
                     out.append("   … ещё %d" % (len(solo) - 20))
             # ДУБЛИ: модель в нескольких папках
@@ -1963,6 +1974,7 @@ def run_gui():
             out.append("ДУБЛИ (модель в нескольких папках): моделей %d" % len(dups))
             for c, m in dups[:10]:
                 out.append("   %-44s папок: %d" % (m[:44], c))
+                marks[len(out)] = m                  # V86: клик = переход
             if len(dups) > 10:
                 out.append("   … ещё %d" % (len(dups) - 10))
             # ОДИНАКОВЫЙ ОБЪЁМ: возможные копии
@@ -1992,15 +2004,26 @@ def run_gui():
                 out.append("   %-18s %d" % (who[:18], c))
         finally:
             con.close()
-        return "\n".join(out)
+        return "\n".join(out), marks                 # V86: (текст, карта строк -> модель для кликов)
+
+    def _ov_dbl(ev=None):
+        """V86: двойной клик по строке «Обзора» = перейти на модель этой строки."""
+        try:
+            line = int(otv.index("@%d,%d" % (ev.x, ev.y)).split(".")[0])
+            m = (_last.get("ov_marks") or {}).get(line)
+            if m:
+                _goto_model(m)
+        except Exception:
+            pass
 
     def _overview_show(force=False):
         """V84: вкладка «Обзор» — сводка по всей базе (кэш в _last['ov_text']; «Обновить» = force)."""
         try:
             otv.configure(state="normal")
             otv.delete("1.0", "end")
+            otv.bind("<Double-1>", _ov_dbl)             # V86: replace тем же хэндлером безвреден
             if force or not _last.get("ov_text"):
-                _last["ov_text"] = _overview_text()
+                _last["ov_text"], _last["ov_marks"] = _overview_text()
                 _last["ov_built"] = time.strftime("%d.%m.%Y %H:%M:%S")
             otv.insert("end", _last["ov_text"] + "\n")
         except Exception as e:                          # вкладка не должна ронять окно
@@ -2839,7 +2862,7 @@ def run_gui():
             q.put(("prog", n, total, "", 0, 0))
 
         try:
-            res = eng.scan_to_base(roots, float(opts.get("max_size_mb") or 8), 3600.0,
+            res = eng.scan_to_base(roots, float(opts.get("max_size_mb", 24)), 3600.0,   # V86: «or 8» убивал 0
                                    (int(e_depth.get() or 0) or None),
                                    progress_cb=pc,
                                    stop_cb=lambda: getattr(root, "_plm_stop", False),

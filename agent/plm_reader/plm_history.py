@@ -158,7 +158,7 @@ def version_diff(path, settings):
         return []
     parsed = []
     for num, p in vers:
-        raw = read_bytes(p, settings.get("max_size_mb", 0))
+        raw = read_bytes(p, settings.get("max_size_mb", 24))   # V86: умолчание24 = DEFAULT
         if raw is None:
             parsed.append((num, {}, {}))
             continue
@@ -215,7 +215,7 @@ def versions_window(parent, tk, ttk, filedialog, title, rows):
     return win
 def history_rows(path, settings):
     """Полная история файла: список записей (ревизия, дата, кто, компьютер, версия, что изменено)."""
-    raw = read_bytes(path, settings.get("max_size_mb", 0))
+    raw = read_bytes(path, settings.get("max_size_mb", 24))    # V86: умолчание24 = DEFAULT
     if raw is None:
         return []
     chg = parse_changes(raw)
@@ -280,7 +280,7 @@ def copy_source_of(paths, settings):
         if not mn:
             continue
         try:
-            raw = read_bytes(p, settings.get("max_size_mb", 0))
+            raw = read_bytes(p, settings.get("max_size_mb", 24))   # V86: умолчание24 = DEFAULT
             if not raw:
                 with open(p, "rb") as f:
                     raw = f.read(2_000_000)      # блок копии лежит в шапке файла

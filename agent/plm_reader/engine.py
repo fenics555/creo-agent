@@ -2397,7 +2397,8 @@ def main():
     except Exception:
         _s = {}
     _roots, _excl = scan_config(_s)
-    _max_mb = float(_s.get("max_size_mb") or 8.0)
+    _mbv = _s.get("max_size_mb", 24)                   # V86: единое умолчание24; 0 = без ограничения
+    _max_mb = float(_mbv) if _mbv not in (None, "") else 24.0
     ap = argparse.ArgumentParser(description="PLM Reader " + VERSION)
     ap.add_argument("cmd", choices=["scan", "check", "count", "where", "changes", "tree", "rename-plan"])
     ap.add_argument("model", nargs="?")
