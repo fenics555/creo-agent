@@ -5,7 +5,7 @@ import os
 from pathlib import Path
 
 # Путь к harvest.db (берем из agent/data/harvest.db)
-HARVEST_DB = Path(r"D:\AI\tools\agent\data\harvest.db")
+HARVEST_DB = Path(__file__).resolve().parent / "data" / "harvest.db"  # канон №2
 
 def get_connection():
     """Возвращает read-only соединение."""
