@@ -3,10 +3,12 @@
 Если они расходятся — Creo не открывает модель по имени файла (XToolkitNotFound).
 Только чтение, без Creo. Запуск: cmnm_scan.py <папка> [ещё папки...] [--limit N]
 """
+import json
 import os
 import re
 import sys
 import time
+from pathlib import Path
 
 # Печать делаем кодировко-устойчивой: в cp1251 нет стрелки «→» (живая находка 23.09.2026).
 try:
@@ -14,9 +16,33 @@ try:
 except Exception:
     pass
 
+HERE = Path(__file__).resolve().parent
 CREO = re.compile(r"\.(prt|asm|drw|frm|sec|lay)(\.\d+)?$", re.I)
-LOG_DIR = r"D:\AI\log\cmnm_scan"
 REPORT_KEEP = int(os.environ.get("CMNM_REPORT_KEEP") or 20)   # сколько отчётов хранить
+
+
+def _log_dir():
+    """Папка отчётов. Закон канона №2: в КОДЕ нет абсолютного пути.
+    Берём из настроек settings\\settings.json (ключ log_dir); если не задан или диск
+    от него недоступен (перенос на другой ПК) — папка ВНУТРИ инструмента (переносимо).
+    Меняется через settings:set / окно, путь проверяется при старте."""
+    d = "log"
+    sf = HERE / "settings" / "settings.json"
+    try:
+        if sf.exists():
+            d = json.loads(sf.read_text(encoding="utf-8")).get("log_dir") or "log"
+    except Exception:
+        pass
+    p = Path(d) if os.path.isabs(d) else (HERE / d)
+    try:
+        if not p.parent.exists():
+            p = HERE / "log"
+    except OSError:
+        p = HERE / "log"
+    return str(p)
+
+
+LOG_DIR = _log_dir()
 
 
 def write_report(lines):

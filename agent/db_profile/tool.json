@@ -1,0 +1,19 @@
+{
+  "schema": 1,
+  "id": "db_profile",
+  "title": "ПРОФИЛЬ БАЗ ДОМА (кто сколько весит)",
+  "version": "1",
+  "kind": "check",
+  "group": "prog",
+  "needs_creo": false,
+  "class": "Р",
+  "engine": "db_profile.py",
+  "readme": "README.md",
+  "settings": "settings/settings.json",
+  "log_dir": "log",
+  "inherits": [],
+  "commands": ["run", "status"],
+  "ui": "ui_common",
+  "portable": "dev/portable_check.py",
+  "notes": "Волна 1.1 плана. Только чтение (mode=ro): мозг (chat/history/trail) против свода (models/files/bom/fts). Кандидат свода в локальную db\\ по канону. Миграцию делает спека Волны 1, не этот инструмент."
+}

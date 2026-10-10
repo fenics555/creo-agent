@@ -17,7 +17,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 import cmnm_scan as eng  # noqa: E402
 import ui_common as U  # noqa: E402  (волна 1: общий каркас окон; признаки дизайна — в нём)
 
-SETTINGS = Path(__file__).resolve().parent / "gui_settings.json"
+SETTINGS = Path(__file__).resolve().parent / "settings" / "settings.json"
 TITLE = "ВНУТРЕННИЕ ИМЕНА (CMNM) против имён файлов"
 
 
@@ -51,7 +51,7 @@ class App:
     def save(self):
         try:
             # roots читаем ИЗ СПИСКА, а не из roots_var: StringVar.get() отдаёт строку
-            # «('D:\\AAA', …)», и старая запись клала в настройки список букв.
+            # кортеж-строку, и старая запись клала в настройки список букв.
             self.st.update({"roots": list(self.lst.get(0, "end")), "limit": int(self.var_limit.get())})
             SETTINGS.write_text(json.dumps(self.st, ensure_ascii=False, indent=1), encoding="utf-8")
         except Exception:

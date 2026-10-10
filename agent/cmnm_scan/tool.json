@@ -1,7 +1,8 @@
 {
+  "schema": 1,
   "id": "cmnm_scan",
   "title": "ВНУТРЕННИЕ ИМЕНА Creo (CMNM)",
-  "version": 1,
+  "version": "3",
   "kind": "act",
   "group": "human",
   "needs_creo": false,
@@ -10,15 +11,12 @@
   "gui": "gui.py",
   "gui_bat": "cmnm_scan_gui.bat",
   "readme": "README.md",
-  "cli": [],
-  "inputs": [],
-  "outputs": {
-    "report": "",
-    "log": "D:\\AI\\log\\cmnm_scan"
-  },
-  "settings": "gui_settings.json",
-  "deps": [],
-  "approval": false,
+  "settings": "settings/settings.json",
+  "db": "db/cmnm_scan.db",
+  "log_dir": "log",
+  "inherits": [],
+  "commands": ["settings:get", "settings:set", "run", "status", "result"],
   "ui": "ui_common",
-  "notes": "Сгенерировано gen_contracts.py из programs.json и состава папки; проверить глазами. входы не описаны — заполнить."
+  "portable": "dev/portable_check.py",
+  "notes": "Эталон канона (Волна 0.3, 09.10.2026): настройки в settings/, своя db/, LOG_DIR из настроек без абс. пути в коде, inherits пуст (класс Р живёт сам). Код возврата 0/1/2."
 }

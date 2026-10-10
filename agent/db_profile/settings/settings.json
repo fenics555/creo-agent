@@ -1,0 +1,5 @@
+{
+  "schema": 1,
+  "dbs": ["data/agent.sqlite", "data/harvest.db"],
+  "note": "db_profile (Волна 1.1): список баз для профилирования, пути ОТНОСИТЕЛЬНО tools\\agent. Только чтение (mode=ro)."
+}

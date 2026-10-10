@@ -1,0 +1,7 @@
+{
+  "schema": 1,
+  "roots": [],
+  "limit": 0,
+  "log_dir": "log",
+  "report_keep": 20
+}
