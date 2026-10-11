@@ -1,0 +1,19 @@
+{
+  "schema": 1,
+  "id": "services_live",
+  "title": "ЖИВАЯ ПРОВЕРКА СТЕКА (слушает ли порт, отвечает ли агент)",
+  "version": "1",
+  "kind": "check",
+  "group": "prog",
+  "needs_creo": false,
+  "class": "Р",
+  "engine": "services_live.py",
+  "readme": "README.md",
+  "settings": "settings/settings.json",
+  "log_dir": "log",
+  "inherits": [],
+  "commands": ["run", "status"],
+  "ui": "ui_common",
+  "portable": "dev/portable_check.py",
+  "notes": "Волна 5.1 плана. Только чтение: слушает ли порт, отвечает ли /health, совпадает ли agent.pid с живым процессом. Образец — ctl.py status(). Закрывает дефект «checks.py зелёно при мёртвом агенте». Встраивается в checks.py блоком."
+}

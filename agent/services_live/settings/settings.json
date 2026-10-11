@@ -1,0 +1,10 @@
+{
+  "schema": 1,
+  "services": [
+    {"name": "агент", "port": 8765, "required": true, "health": "/health"},
+    {"name": "copy", "port": 8000, "required": false, "health": ""},
+    {"name": "CREOSON", "port": 8080, "required": false, "health": ""},
+    {"name": "Ollama", "port": 11434, "required": false, "health": ""}
+  ],
+  "note": "services_live (Волна 5.1): службы и порты. Обязателен только агент (8765). Только чтение."
+}
