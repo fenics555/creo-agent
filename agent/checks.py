@@ -74,6 +74,34 @@ def run_one(spec):
     r["secs"] = time.time() - t0
     return r
 # --- ОБЁРТКИ СУЩЕСТВУЮЩИХ ПРОВЕРОК --------------------------------------------
+@check("services_live", "Живой стек дома слушает (порт/health/pid)", "check", "house",
+       "error", app="services_live")
+def _run_services():
+    """Волна 5.1: checks.py раньше смотрел только ФАЙЛЫ, поэтому «всё зелёное» уживалось с
+    лежащим агентом (дефект из разбора 08.10). Этот блок зовёт services_live.check() — живые
+    порты, /health, agent.pid = живому процессу. На мёртвом стеке блок КРАСНЫЙ."""
+    sys.path.insert(0, str(AGENT / "services_live"))
+    try:
+        import services_live as eng
+        res = eng.check()
+    except Exception as e:
+        return _res(False, 0, 1, 0, "services_live не запустился: %s" % e)
+    items = []
+    for r in res["services"]:
+        good = r["good"]
+        items.append({"icon": "✅" if good else "❌", "verdict": "ok" if good else "error",
+                      "what": "%s :%d — %s%s"
+                              % (r["name"], r["port"], "жив" if good else "мёртв",
+                                 " (обязат.)" if r["required"] else "")})
+    ap = res["agent_pid"]
+    items.append({"icon": "✅" if ap["ok"] else "❌", "verdict": "ok" if ap["ok"] else "error",
+                  "what": "agent.pid: %s" % ap["why"]})
+    failed = sum(1 for i in items if i["verdict"] != "ok")
+    return _res(res["ok"], len(res["services"]) + 1, failed, 0,
+                "служб %d, agent.pid %s" % (len(res["services"]),
+                                            "OK" if ap["ok"] else "ПРОВАЛ"), items)
+
+
 @check("hol_check", "Таблицы отверстий .hol читаемы", "check", "hole_charts",
        "error", app="hol_check")
 def _run_hol():
