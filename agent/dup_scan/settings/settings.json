@@ -1,0 +1,7 @@
+{
+  "schema": 1,
+  "roots": [],
+  "ext": "prt,asm,drw,pdf",
+  "min_mb": 0.0,
+  "mode": "report"
+}

@@ -4,7 +4,7 @@ Creo и агент НЕ нужны. Ничего не удаляет: в реж�
 
 Запуск:
   dup_scan.py <папка> [ещё папки...] [--min-mb N] [--ext prt,asm,drw,pdf] [--apply]
-Отчёт: консоль + D:\\AI\\log\\dup_scan\\run_<дата>_<время>.txt
+Отчёт: консоль + <log_dir>\\run_<дата>_<время>.txt
 """
 import hashlib
 import os

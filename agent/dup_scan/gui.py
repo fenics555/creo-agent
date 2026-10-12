@@ -18,7 +18,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 import dup_scan as eng  # noqa: E402
 import ui_common as U  # noqa: E402  (волна 1: общий каркас окон, 6 дизайн-констант)
 
-SETTINGS = Path(r"D:\AI\tools\agent\data\dup_scan_settings.json")   # манифест п.19: настройки в data\
+SETTINGS = Path(__file__).resolve().parent / "settings" / "settings.json"  # канон: настройки в папке инструмента (Волна 6)
 
 
 class App:
@@ -54,7 +54,7 @@ class App:
     def save(self):
         try:
             # roots читаем ИЗ САМОГО СПИСКА, а не из roots_var: StringVar.get() отдаёт строку
-            # «('D:\\AAA', …)», и старая запись клала в настройки список букв.
+            # кортеж-строку, и старая запись клала в настройки список букв.
             self.st.update({"roots": list(self.lst.get(0, "end")), "ext": self.var_ext.get(),
                             "min_mb": float(self.var_min.get()), "mode": self.var_mode.get()})
             SETTINGS.parent.mkdir(parents=True, exist_ok=True)
@@ -149,7 +149,7 @@ class App:
             messagebox.showwarning("Не открыть", "%s\n%s" % (p, e))
 
     def roots(self):
-        """Список папок ИЗ САМОГО Listbox. StringVar.get() отдаёт строку «('D:\\AAA', …)»,
+        """Список папок ИЗ САМОГО Listbox. StringVar.get() отдаёт строку-кортеж,
         и list(...) из неё даёт список СИМВОЛОВ — это и ломало настройки (живая проба 03.10.2026)."""
         return list(self.lst.get(0, "end"))
 
