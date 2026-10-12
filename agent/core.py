@@ -33,6 +33,7 @@ BASE = Path(r"D:\AI\tools")
 HOST = socket.gethostname().replace(" ", "").replace("-", "")[:16]
 DATA_DIR = BASE / "agent" / "data"
 DB = DATA_DIR / "agent.sqlite"
+SUMMARY_DB = DATA_DIR / "summary.sqlite"   # сводная БД (Волна 1.2); мозг остаётся в agent.sqlite
 CONFIG_FILE = DATA_DIR / "config.json"
 ROOTS = BASE / "kb_roots.txt"
 if not ROOTS.exists(): ROOTS = BASE / "agent" / "kb_roots.txt"
@@ -227,7 +228,15 @@ def client_id(handler, b=None):
     return h or ip
 
 def db():
-    c = sqlite3.connect(DB, timeout=60); c.execute("PRAGMA journal_mode=WAL"); return c
+    c = sqlite3.connect(DB, timeout=60); c.execute("PRAGMA journal_mode=WAL")
+    # Волна 1.2: свод доступен как схема svod (mode=ro) для читателей свода.
+    # Читатели переключаются на svod.<таблица>; пока не переключены — свод живёт и в main.
+    try:
+        if SUMMARY_DB.exists():
+            c.execute("ATTACH DATABASE '%s' AS svod" % str(SUMMARY_DB))
+    except Exception:
+        pass
+    return c
 
 def save_fact(entity_type, entity_name, fact_key, value, source):
     """Сохранить факт в базу данных"""
