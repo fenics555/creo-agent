@@ -1,0 +1,14 @@
+TABLE bom
+CREATE TABLE bom (
+    parent TEXT,
+    child TEXT,
+    qty INTEGER DEFAULT 1
+)
+---
+TABLE links
+CREATE TABLE links (
+    parent TEXT,
+    child TEXT,
+    kind TEXT DEFAULT 'ref'
+)
+---
