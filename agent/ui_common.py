@@ -56,15 +56,19 @@ DOT_CHANGED = "●"   # зелёная точка колонки Status = отл
 DOT_SAME = "○"
 
 
-def settings_path(name):
-    """Путь настроек окна: agent\\data\\<имя>_settings.json (манифест п.19)."""
+def settings_path(name, tool_dir=None):
+    """Путь настроек окна. Канон (Волна 2): если передан tool_dir —
+    <tool_dir>\\settings\\settings.json (настройки в папке инструмента, переносимо);
+    иначе как раньше — agent\\data\\<имя>_settings.json (обратная совместимость)."""
+    if tool_dir:
+        return Path(tool_dir) / "settings" / "settings.json"
     return DATA_DIR / ("%s_settings.json" % name)
 
 
-def load_settings(name, defaults=None):
+def load_settings(name, defaults=None, tool_dir=None):
     """Читает настройки окна; при ошибке берёт умолчания и говорит почему."""
     d = dict(defaults or {})
-    p = settings_path(name)
+    p = settings_path(name, tool_dir)
     try:
         if p.exists():
             d.update(json.loads(p.read_text(encoding="utf-8")))
@@ -73,11 +77,11 @@ def load_settings(name, defaults=None):
     return d
 
 
-def save_settings(name, data):
+def save_settings(name, data, tool_dir=None):
     """Сохраняет настройки окна; возвращает путь или текст ошибки."""
-    p = settings_path(name)
+    p = settings_path(name, tool_dir)
     try:
-        DATA_DIR.mkdir(parents=True, exist_ok=True)
+        p.parent.mkdir(parents=True, exist_ok=True)
         payload = {k: v for k, v in data.items() if not k.startswith("_")}
         p.write_text(json.dumps(payload, ensure_ascii=False, indent=1), encoding="utf-8")
         return str(p)
