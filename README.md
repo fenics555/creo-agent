@@ -64,7 +64,7 @@
 | **`prog_tools.py`** | `agent\` | Мост «программы ↔ агент»: `prog_list`, `prog_run` (запуск движка в фоне), `prog_state`, `bases_list`, `jobs_show` (5 инструментов). |
 | **`dev\prog_runner.py`** | `agent\dev\` | Обёртка запуска: пишет вывод в `D:\AI\log\<программа>\run_last.txt` и докладывает в **ОБЩИЙ ЖУРНАЛ РАБОТ** (`core.job`): «запущено в фоне» → «завершено code=0 секунд=20.3». |
 | **`D:\AI\log\agent\jobs.log`** | журнал | Ход работ всех программ одной лентой (видно и человеку, и агенту: `jobs_show`). |
-| **`dev\skills_charge.py`** | `agent\dev\` | **ЗАРЯД ЗНАНИЙ**: собирает карту 145 скиллов (`repo\CORE\SKILL_CHARGE.md`) и стартовый набор Creo/CREOSON (`repo\CORE\SKILL_CHARGE_START.md`). |
+| **`dev\skills_charge.py`** | `agent\dev\` | **ЗАРЯД ЗНАНИЙ**: собирает карту 145 скиллов (`repo\SKILL_CHARGE.md`) и стартовый набор Creo/CREOSON (`repo\SKILL_CHARGE_START.md`). |
 | **`skills_map`** | инструмент | Карта скиллов по домену/подстроке: `skills_map(domain="creo", find="creoson")`; `rebuild=true` — пересобрать. |
 | **Варианты окна** | `agent\ui\variants\` | Три раскладки витрины: `v1_tabs` (вкладки сверху), `v2_side` (боковое меню), `v3_pult` (пульт). Данные живые: `/api/programs`, `/api/bases`, `/api/jobs`. |
 | **`_legacy\`** | `agent\_legacy\` | Устаревшее (не удаляем по канону): старое поколение перепечатки PDF + старая витрина переименования. |

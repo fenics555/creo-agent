@@ -214,7 +214,7 @@ def build_system(mode=1, question=""):
 Формат: свободный текст; код внутри блоков с языком; служебных тегов нет.
 Краткость ценится, но полнота решения важнее."""
     _SYS_CACHE.clear()  # надёжность: промпт всегда собирается свежим с диска
-    p = ((load_skill("MANIFEST.md") or "") + "\n\n" + (load_skill("SKILLS\\SKILL_agent_protocol.md") or DEFAULT_PROTO)).strip() + "\n"
+    p = ((load_skill("MANIFEST.md") or "") + "\n\n" + (load_skill("SKILL_agent_protocol.md") or DEFAULT_PROTO)).strip() + "\n"
     # ЗАРЯД ЗНАНИЙ (решение дома 24.09.2026). Раньше база знаний лежала в РАМ целиком (16 ГБ) и агент
     # «уже знал» скиллы; теперь память — FTS5-поиск, поэтому карта скиллов и стартовый набор Creo/CREOSON
     # подаются прямо в промпт (собирает dev\skills_charge.py). Главное направление дома — CREO.
@@ -222,8 +222,8 @@ def build_system(mode=1, question=""):
         _ncx = int(settings.get("num_ctx") or 8192)
     except Exception:
         _ncx = 8192
-    _charge = load_skill("CORE\\SKILL_CHARGE.md")
-    _start = load_skill("CORE\\SKILL_CHARGE_START.md")
+    _charge = load_skill("SKILL_CHARGE.md")
+    _start = load_skill("SKILL_CHARGE_START.md")
     _heavy = _domain_question(question)
     if _ncx >= 60000 and _start and _heavy:
         p += ("\n=== ЗАРЯД ЗНАНИЙ: СТАРТОВЫЙ НАБОР (это уже прочитано, опирайся на него) ===\n"
@@ -234,11 +234,11 @@ def build_system(mode=1, question=""):
     elif _heavy and _charge:
         p += "\n=== КАРТА СКИЛЛОВ (сокращённо) ===\n" + _charge[:20000] + "\n"
     elif _heavy:
-        p += ("\n=== СКИЛЛЫ: карта в D:\\AI\\repo\\CORE\SKILL_CHARGE.md, стартовый набор Creo/CREOSON — "
-              "D:\\AI\\repo\\CORE\SKILL_CHARGE_START.md (открывай read_file) ===\n")
+        p += ("\n=== СКИЛЛЫ: карта в D:\\AI\\repo\\SKILL_CHARGE.md, стартовый набор Creo/CREOSON — "
+              "D:\\AI\\repo\\SKILL_CHARGE_START.md (открывай read_file) ===\n")
     else:
         p += ("\n=== ВОПРОС НЕ ДОМОВЫЙ: заряд знаний и карта скиллов НЕ загружены (экономим время и токены). "
-              "Понадобится — карта в D:\\AI\\repo\\CORE\SKILL_CHARGE.md (read_file). ===\n")
+              "Понадобится — карта в D:\\AI\\repo\\SKILL_CHARGE.md (read_file). ===\n")
     core_lines, rest = [], []
     for t in TR.TOOLS:
         ps = ", ".join(t.get("params", {}).keys()) if t.get("params") else ""

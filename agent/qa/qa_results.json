@@ -50,7 +50,7 @@
     },
     {
       "#": 5,
-      "q": "прочитай файл D:\\AI\\repo\\CORE\SKILL_index.md",
+      "q": "прочитай файл D:\\AI\\repo\\SKILL_index.md",
       "expected": "read_file",
       "tools": [
         "read_file"
