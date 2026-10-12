@@ -24,7 +24,7 @@ def get_python_processes():
 
 def get_progress_status():
     statuses = []
-    for f in glob.glob(r"D:\AI\repo\PROGRESS_*.md"):
+    for f in glob.glob(r"D:\AI\repo\PROGRESS\PROGRESS_*.md"):
         try:
             with open(f, 'r', encoding='utf-8') as file:
                 content = file.read()

@@ -4,7 +4,7 @@
 # вместо слова «ОШИБКА»), код возврата стал 0 чисто / 1 нарушения / 2 нечего проверять
 # (постоянный 0 не позволял отличить «нарушений нет» от «нарушений 13»),
 # добавлен режим ПЕСОЧНИЦЫ: `python skills_check.py <корень дома>` — проверка идёт
-# по копии (repo\crash, repo\SKILL_*, repo\Prog\SKILL_*, эталон и отчёт — внутри песочницы).
+# по копии (repo\crash, repo\SKILLS\SKILL_*, repo\Prog\SKILL_*, эталон и отчёт — внутри песочницы).
 import os
 import re
 import sys
@@ -25,12 +25,12 @@ if SANDBOX:      # песочница: и проверяем, и пишем (э�
     BASELINE = os.path.join(SANDBOX, "baseline.txt")
     REPORT = os.path.join(SANDBOX, "skills_check_report.txt")
     CRASH = os.path.join(SANDBOX, "repo", "crash")
-    ROOTS = [os.path.join(SANDBOX, "repo"), os.path.join(SANDBOX, "repo", "Prog")]
+    ROOTS = [os.path.join(SANDBOX, "repo"), os.path.join(SANDBOX, "repo", "SKILLS"), os.path.join(SANDBOX, "repo", "CORE"), os.path.join(SANDBOX, "repo", "Prog")]
 else:
     BASELINE = r"D:\AI\tools\agent\data\skills_check_baseline.txt"
     REPORT = r"D:\AI\log\skills_check\skills_check_report.txt"
     CRASH = r"D:\AI\repo\crash"
-    ROOTS = [r"D:\AI\repo", r"D:\AI\repo\Prog"]
+    ROOTS = [r"D:\AI\repo", r"D:\AI\repo\SKILLS", r"D:\AI\repo\CORE", r"D:\AI\repo\Prog"]
 PTR = "\u044d\u0442\u043e\u0442 \u0444\u0430\u0439\u043b \u2014 \u0443\u043a\u0430\u0437\u0430\u0442\u0435\u043b\u044c"
 ERRF = "\u041e\u0428\u0418\u0411\u041a\u0410"
 NAMERX = re.compile(r"^\s*#?\s*name:\s*([\w\-]+)", re.M)

@@ -76,7 +76,7 @@ def tool_skills_map(domain="", find="", rebuild=False, **kw):
                            capture_output=True, text=True, encoding="utf-8", errors="replace",
                            cwd=str(core.BASE / "agent"), timeout=180)
         return "карта пересобрана:\n" + (r.stdout or "") + (r.stderr or "")
-    p = REPO / "SKILL_CHARGE.md"
+    p = REPO / "CORE" / "SKILL_CHARGE.md"
     if not p.exists():
         return ("карты ещё нет. Собрать: skills_map(rebuild=true) или "
                 "python dev\\skills_charge.py")

@@ -218,7 +218,7 @@ RC 4 `wrong_active_model`, запись прервана. Проба: `python de
   (`"ЖУРНАЛ"`, `"НАСТРОЙКИ"`, `"ПРАВИЛА …"`), хотя канон требует `" НАСТРОЙКИ "` —
   расхождение было сразу во всех 8 окнах волны 1, потому что они зовут каркас.
 ## Ссылки
-- Паспорт дома: `D:\AI\repo\PASSPORT.md` · Карта скиллов: `D:\AI\repo\SKILL_index.md`
+- Паспорт дома: `D:\AI\repo\CORE\PASSPORT.md` · Карта скиллов: `D:\AI\repo\CORE\SKILL_index.md`
 - Правила: `D:\AI\repo\MANIFEST.md` и `D:\AI\.clinerules`
 
 ## Лицензия

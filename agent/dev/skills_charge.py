@@ -18,8 +18,8 @@ import sys, re, datetime
 from pathlib import Path
 
 REPO = Path(r"D:\AI\repo")
-OUT_MAP = REPO / "SKILL_CHARGE.md"
-OUT_START = REPO / "SKILL_CHARGE_START.md"
+OUT_MAP = REPO / "CORE" / "SKILL_CHARGE.md"
+OUT_START = REPO / "CORE" / "SKILL_CHARGE_START.md"
 SHOW = "--show" in sys.argv
 
 # Стартовый набор: читать ВСЕГДА и сразу (порядок = приоритет).

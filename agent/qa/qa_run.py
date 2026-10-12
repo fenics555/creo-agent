@@ -90,7 +90,7 @@ def run():
             ("найди модель корпус", "models_find", 1),
             (None, "models_where", 1),
             ("сколько всего моделей в базе?", "models_stats", 1),
-            (r"прочитай файл D:\AI\repo\SKILL_index.md", "read_file", 1),
+            (r"прочитай файл D:\AI\repo\CORE\SKILL_index.md", "read_file", 1),
             ("что в базе знаний про пружины?", "search_kb", 1),
             ("переведи 150 Нм в кгсм", "calc", 1),
             ("какие накопленные проблемы по трейлам?", "trail_problems", 1),

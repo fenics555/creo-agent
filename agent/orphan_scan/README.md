@@ -113,7 +113,7 @@ python -X utf8 orphan_scan.py [папка...]         # код выхода 0 �
 2. Ожидаемый результат: `5 чертежей · 2 не сироты · 3 сироты`.
 3. Итоговые файлы прогона: журнал `D:\AI\log\orphan_scan\run_*.txt`,
    отчёт `D:\AI\log\reports\REPORT_orphan_scan_*.md`, полный список `orphans_*.txt`.
-4. История и уроки инструмента: `D:\AI\repo\PROGRESS_spec113.md` (журнал ноги 23.09.2026
+4. История и уроки инструмента: `D:\AI\repo\PROGRESS\PROGRESS_113_orphan_drawings.md` (журнал ноги 23.09.2026
    и эта правка 02.10.2026) и полный отчёт `D:\AI\log\reports\REPORT_orphan_scan_audit_2026-10-02.md`.
 5. Приёмка инструмента в доме: `D:\AI\tools\agent\audit_check.py` → `audit_tools_canon.txt`;
    строка программы — `D:\AI\tools\agent\data\programs.json`, реестр — `agent\dev\PROGRAM_REGISTRY.md`.
