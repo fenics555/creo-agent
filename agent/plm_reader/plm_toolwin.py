@@ -2204,8 +2204,21 @@ def run_gui():
                 return
             pos = _graph_layout(nodes, edges)
             unit, row, nw, nh = 170, 64, 158, 40
-            fills = {"root": "#ffe9a8", "up": "#d9e8fb", "down": "#eaf7ea", "der": "#fbe3d0"}
-            for a, b, kind, q in edges:                 # рёбра (сверху вниз по уровню)
+            fills = {"root": "#ffe9a8", "up": "#d9e8fb", "down": "#eaf7ea", "der": "#fbe3d0", "mfg": "#ffe0b0"}
+            # Legend для визуализации направлений
+            leg_items = [
+                ("root", "корень", "#ffe9a8"),
+                ("up", "вверх (родитель)", "#d9e8fb"),
+                ("down", "вниз (потомок)", "#eaf7ea"),
+                ("der", "заготовка/отливка", "#fbe3d0"),
+                ("mfg", "оснастка", "#ffe0b0"),
+            ]
+            x0, y0 = 10, 8
+            for kind, label, color in leg_items:
+                gr_canvas.create_rectangle(x0, y0, x0 + 14, y0 + 12, fill=color, outline="#555")
+                gr_canvas.create_text(x0 + 18, y0 + 6, text=label, font=("Consolas", 8))
+                y0 += 16
+            grs.config(text="легенда: ▼-создание, ▲-родословная, ◄-заготовка, ◆-оснастка")
                 if a not in pos or b not in pos:
                     continue
                 xa, ya = pos[a]
