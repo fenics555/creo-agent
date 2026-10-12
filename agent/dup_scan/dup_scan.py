@@ -11,6 +11,7 @@ import os
 import re
 import sys
 import time
+from pathlib import Path
 
 # Вывод в консоль делаем кодировко-устойчивым: в cp1251/cp866 нет стрелки «→», и print падал
 # в самом конце режима --apply (перенос уже сделан, а программа завершалась ошибкой). Живая находка 23.09.2026.
@@ -19,7 +20,20 @@ try:
 except Exception:
     pass
 
-LOG_DIR = r"D:\AI\log\dup_scan"
+_HERE = Path(__file__).resolve().parent
+def _log_dir():
+    """Канон №2: журнал из настроек, иначе log внутри папки инструмента (переносимо)."""
+    d = "log"
+    try:
+        import json as _j
+        s = _HERE / "settings" / "settings.json"
+        if s.exists():
+            d = _j.loads(s.read_text(encoding="utf-8")).get("log_dir") or "log"
+    except Exception:
+        pass
+    import os as _o
+    return d if _o.path.isabs(d) else str(_HERE / d)
+LOG_DIR = _log_dir()
 SKIP_DIRS = {"_trash", "_trash_dup", ".git", "__pycache__", "node_modules", "backup", "backups"}
 CREO_EXT = ("prt", "asm", "drw", "frm", "sec", "lay", "mfg", "xpr", "xas", "cgr", "neu", "stp")
 
