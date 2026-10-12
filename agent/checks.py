@@ -102,6 +102,44 @@ def _run_services():
                                             "OK" if ap["ok"] else "ПРОВАЛ"), items)
 
 
+@check("db_size", "Размер баз в норме (нет раздувания)", "check", "house", "warn",
+       app="db_profile")
+def _run_db_size():
+    """Волна 5.3: дом сам замечает рост БД. Зовёт db_profile (только чтение) — размер agent.sqlite
+    и harvest.db. Порог из настроек services_live/db_profile; превышение — ПРЕДУПРЕЖДЕНИЕ (не
+    провал): раздувание не ломает сейчас, но сигнал к миграции мозг/свод (Волна 1.2)."""
+    sys.path.insert(0, str(AGENT / "db_profile"))
+    try:
+        import db_profile as eng
+    except Exception as e:
+        return _res(False, 0, 1, 0, "db_profile не запустился: %s" % e)
+    # Порог (МБ) из настроек db_profile, иначе 400 МБ на файл.
+    warn_mb = 400
+    try:
+        warn_mb = float(eng.settings().get("warn_mb") or 400)
+    except Exception:
+        pass
+    dbs = eng.default_dbs()
+    infos = [eng.profile(x) for x in dbs]
+    items, big = [], 0
+    total_b = 0
+    for i in infos:
+        if not i["exists"]:
+            continue
+        mb = i["bytes"] / 1048576.0
+        total_b += i["bytes"]
+        over = mb > warn_mb
+        if over:
+            big += 1
+        items.append({"icon": "⚠️" if over else "✅", "verdict": "warn" if over else "ok",
+                      "what": "%s — %.1f МБ%s"
+                              % (Path(i["path"]).name, mb, " (порог %.0f МБ)" % warn_mb if over else "")})
+    ok = big == 0
+    return _res(ok, len(items), 0, big,
+                "баз %d, всего %.0f МБ, над порогем %d"
+                % (len(items), total_b / 1048576.0, big), items)
+
+
 @check("hol_check", "Таблицы отверстий .hol читаемы", "check", "hole_charts",
        "error", app="hol_check")
 def _run_hol():
