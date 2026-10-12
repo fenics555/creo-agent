@@ -24,9 +24,19 @@ import os
 import re
 import shutil
 import sys
+from pathlib import Path
 
-TARGET = r"Z:\PTC\CREO-START\НАСТРОЙКИ\ФАЙЛЫ_ОГРАНИЧЕНИЙ_ПАРАМЕТРОВ\list.lst"
-LOG_DIR = r"D:\AI\log\make_lst"
+# Канон №2 (Волна 2.2): пути из настроек, не зашиты в код.
+_HERE = Path(__file__).resolve().parent
+def _cfg():
+    try:
+        import json as _j
+        return _j.loads((_HERE / "settings" / "settings.json").read_text(encoding="utf-8"))
+    except Exception:
+        return {}
+# Боевой путь по умолчанию (если в настройках пусто) — прежний, переопределяется --target:
+TARGET = _cfg().get("target") or r"Z:\PTC\CREO-START\НАСТРОЙКИ\ФАЙЛЫ_ОГРАНИЧЕНИЙ_ПАРАМЕТРОВ\list.lst"
+LOG_DIR = _cfg().get("log_dir") or str(_HERE / "log")
 BACKUP_KEEP = 20        # сколько бэкапов храним в `_pre` рядом с файлом (живая правка 03.10.2026)
 
 

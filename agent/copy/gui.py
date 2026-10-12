@@ -46,12 +46,12 @@ class App:
         self.refresh_state()
 
     def load(self):
-        d = U.load_settings("copy", DEFAULTS)
+        d = U.load_settings("copy", DEFAULTS, tool_dir=HERE)
         self._pending = [] if "_error" not in d else [d["_error"]]
         return {k: v for k, v in d.items() if not k.startswith("_")}
 
     def save(self):
-        out = U.save_settings("copy", self.st)
+        out = U.save_settings("copy", self.st, tool_dir=HERE)
         if str(out).startswith("ошибка"):
             self._pending.append("настройки не сохранены: %s" % out)
 
@@ -111,7 +111,7 @@ class App:
         for s in self._pending:
             self.log(s)
         self._pending = []
-        self.log("настройки: %s" % U.settings_path("copy"))
+        self.log("настройки: %s" % U.settings_path("copy", HERE))
         # 03.10.2026: было HERE.parent.parent/"log" = D:\AI\tools\log — такой папки нет вовсе
         # (Test-Path -> False), журнал службы лежит в D:\AI\log\copy.
         self.log("журнал службы: %s" % LOG_DIR)

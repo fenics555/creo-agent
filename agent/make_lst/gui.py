@@ -25,7 +25,7 @@ DEFAULTS = {"target": "", "refs": ""}
 class App:
     def __init__(self, root=None):
         self.root = root or U.make_root("V2 — " + TITLE, "1020x660", minsize=(900, 560))
-        self.st = U.load_settings("make_lst", DEFAULTS)
+        self.st = U.load_settings("make_lst", DEFAULTS, tool_dir=HERE)
         self.st.setdefault("target", eng.TARGET)
         self.st.setdefault("refs", "")
         # Живая находка 03.10.2026 (аудит): окно не писало журнал ВООБЩЕ — след оставался только
@@ -38,7 +38,7 @@ class App:
     def save(self):
         """Настройки окна — каркасом (data\\make_lst_settings.json): путь цели и refs."""
         out = U.save_settings("make_lst", {"target": self.var_target.get(),
-                                            "refs": self.var_refs.get()})
+                                            "refs": self.var_refs.get()}, tool_dir=HERE)
         if str(out).startswith("ошибка"):
             self.log("настройки не сохранены: %s" % out)
 

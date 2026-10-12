@@ -33,7 +33,7 @@ AGENT_IMPORTS = re.compile(
     r"^\s*(import|from)\s+(core|loop|tools_registry|settings|agent|spec_tools|diagnostic_tools)\b",
     re.M)
 # Абсолютные пути Windows в коде — ломают перенос (закон канона №2).
-ABS_PATH = re.compile(r"[A-Za-z]:\\\\")
+ABS_PATH = re.compile(r"[A-Za-z]:\\")   # баг-фикс 10.10: ловим и D:\ (raw), и D:\\ (эскейп)
 
 
 def say(s=""):
