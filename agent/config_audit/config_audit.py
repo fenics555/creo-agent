@@ -29,7 +29,10 @@ for _p in (_AGENT,):                                   # общий модуль
 # Волна 2: программа зовёт ЕДИНУЮ точку входа, а не ищет модуль сам.
 # `creo_boot` сам добавит свои пути и честно переживёт отсутствие `creo_path`
 # (грабля волны 1: перенос падал с ModuleNotFoundError).
-import creo_boot as BOOT                                            # noqa: E402
+try:
+    import creo_boot as BOOT                                       # noqa: E402
+except Exception:
+    BOOT = None   # автономия (канон): без агента config_audit не падает                                            # noqa: E402
 
 # Журнал и отчёт программы (закон трёх рук, манифест п.19: одна база — один лог, один отчёт).
 LOG_DIR = r"D:\AI\log\config_audit"
@@ -59,7 +62,7 @@ def find_plugins_card():
             return cand
     return ""
 # Путь к config.pro по умолчанию — через общий поиск (рядом с батом запуска).
-CONFIG = sys.argv[1] if len(sys.argv) > 1 else (BOOT.config_path() or "")
+CONFIG = sys.argv[1] if len(sys.argv) > 1 else ((BOOT.config_path() if BOOT else "") or "")
 # $PROSTD не зависит от версии Creo: это папка настроек дома.
 VAR_DEFAULT = {"$PROSTD": r"Z:\PTC\CREO-START\НАСТРОЙКИ"}
 
@@ -87,7 +90,7 @@ def load_vars():
                 out[k] = v
     except Exception:
         pass
-    com, par, why = BOOT.find()
+    com, par, why = (BOOT.find() if BOOT else ("", "", ""))
     if par:
         out["$PRO_DIRECTORY"] = par
     if com:
@@ -98,7 +101,7 @@ def load_vars():
 def find_install():
     """(parametric, common_files, откуда) — для окна и отчёта, чтобы было видно,
     ПРОТИВ какого Creo шла проверка (при переезде домена это главный вопрос)."""
-    com, par, why = BOOT.find()
+    com, par, why = (BOOT.find() if BOOT else ("", "", ""))
     return par, com, why
 PATHY = re.compile(r"(?:[A-Za-z]:[\\/]|\$[A-Z_]+[\\/]|\\\\)")
 
