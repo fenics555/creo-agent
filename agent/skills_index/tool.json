@@ -1,0 +1,25 @@
+{
+  "schema": 1,
+  "id": "skills_index",
+  "title": "ИНДЕКС СКИЛЛОВ ДОМА (поиск по смыслу, эмбеддинги)",
+  "version": "1",
+  "kind": "act",
+  "group": "prog",
+  "needs_creo": false,
+  "class": "Р",
+  "engine": "skills_index.py",
+  "readme": "README.md",
+  "settings": "settings/settings.json",
+  "log_dir": "log",
+  "db": "db/skills_index.db",
+  "inherits": ["model_index"],
+  "commands": ["build", "search", "status"],
+  "cli": [
+    {"name": "build", "args": "[--full] [--keep N]", "desc": "построить/обновить индекс (staging -> publish сменой указателя)"},
+    {"name": "search", "args": "<запрос> [--top N] [--full]", "desc": "поиск скилла по смыслу, top-N кандидатов"},
+    {"name": "status", "args": "", "desc": "состояние индекса: версия, чанков, файлов, размер, возраст"}
+  ],
+  "ui": "ui_common",
+  "portable": "dev/portable_check.py",
+  "notes": "Волна нов.: самодостаточный поиск по смыслу (nomic-embed-text-v2-moe). Референс — repo\\INDEX (PowerShell, для тестов). Своя db\\, настройки в папке, в живую базу пишем только publish (staging -> versions -> CURRENT). Префиксы search_document:/search_query: обязательны."
+}
