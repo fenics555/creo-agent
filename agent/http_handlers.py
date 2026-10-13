@@ -579,6 +579,11 @@ class Hd(BaseHTTPRequestHandler):
             backup_dir = root / "_purge_backup" / datetime.datetime.now().strftime("%Y%m%d")
             res = purge_versions.execute(root, keep, creo_mode, backup_dir)
             self._j(res)
+        elif p == "/wiz_search":
+            # Третья рука skills_index (манифест п.19): визард поиска по смыслу в витрине,
+            # под щитом согласования. read-only; Ollama (nomic) тянется только в рантайме.
+            import skills_index_tools as _sk
+            self._j(_sk.search_preview(query=b.get("query") or "", top=b.get("top") or 5))
         elif p == "/wiz_orphan_preview":
             # Третья рука orphan_scan (манифест п.19): визард в витрине под щитом
             # согласования. Только чтение — ничего не меняет.
