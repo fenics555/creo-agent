@@ -26,7 +26,7 @@ def build_timeline(name="", window_days=7):
                 "error": "не указано имя модели. Скажи имя или открой модель в Creo."}
     events = []
     c = core.db()
-    row = c.execute("SELECT path, mtime FROM files WHERE path LIKE ?",
+    row = c.execute("SELECT path, mtime FROM svod.files WHERE path LIKE ?",
                     ("%" + name + "%",)).fetchone()
     if row:
         events.append({"date": row[1], "kind": "self", "label": name,
@@ -34,7 +34,7 @@ def build_timeline(name="", window_days=7):
         d = os.path.dirname(row[0])
         t0 = row[1] - window_days * 86400
         t1 = row[1] + window_days * 86400
-        for r in c.execute("SELECT path, mtime FROM files WHERE path LIKE ? AND mtime BETWEEN ? AND ?",
+        for r in c.execute("SELECT path, mtime FROM svod.files WHERE path LIKE ? AND mtime BETWEEN ? AND ?",
                            (d + "%", t0, t1)).fetchall():
             if r[0] != row[0]:
                 events.append({"date": r[1], "kind": "neighbor",

@@ -112,7 +112,16 @@ def variants(q):
 
 
 def _connect(db, ro=True):
-    return sqlite3.connect(("file:%s?mode=ro" % db) if ro else str(db), uri=ro)
+    c = sqlite3.connect(("file:%s?mode=ro" % db) if ro else str(db), uri=ro)
+    # Волна 1.2: свод (summary.sqlite) приаттачен как svod — bom/models читаются оттуда.
+    try:
+        import os as _os
+        _sum = _os.path.join(_os.path.dirname(db), "summary.sqlite")
+        if _os.path.exists(_sum):
+            c.execute("ATTACH DATABASE '%s' AS svod" % _sum)
+    except Exception:
+        pass
+    return c
 
 
 def find(query, limit=300, only_asm=False):
@@ -281,7 +290,7 @@ def bom(model, depth=2, limit=2000):
     def children(parent_name, level):
         if level > depth or len(out) >= limit:
             return
-        rows = c.execute("SELECT child, qty FROM bom WHERE LOWER(parent)=? LIMIT ?",
+        rows = c.execute("SELECT child, qty FROM svod.bom WHERE LOWER(parent)=? LIMIT ?",
                          (parent_name, limit)).fetchall()
         for i, (child, qty) in enumerate(rows):
             if len(out) >= limit:
@@ -310,7 +319,7 @@ def _path_of(c, name):
     """Где лежит файл с таким именем (ищем по индексу: сначала agent.sqlite, потом harvest.db)."""
     n = os.path.basename(str(name))
     try:
-        r = c.execute("SELECT path FROM models WHERE LOWER(name)=? LIMIT 1", (n.lower(),)).fetchone()
+        r = c.execute("SELECT path FROM svod.models WHERE LOWER(name)=? LIMIT 1", (n.lower(),)).fetchone()
         if r:
             return r[0]
     except Exception:

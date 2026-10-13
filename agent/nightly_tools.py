@@ -47,10 +47,10 @@ def tool_nightly_state(**kw):
                 parts = []
                 if "files" in have:
                     parts.append("файлов в индексе: %d" %
-                                 c.execute("SELECT COUNT(*) FROM files").fetchone()[0])
+                                 c.execute("SELECT COUNT(*) FROM svod.files").fetchone()[0])
                 if "fts_index" in have:
                     parts.append("строк в FTS: %d" %
-                                 c.execute("SELECT COUNT(*) FROM fts_index").fetchone()[0])
+                                 c.execute("SELECT COUNT(*) FROM svod.fts_index").fetchone()[0])
                 if "chunks" in have:
                     parts.append("чанков: %d" %
                                  c.execute("SELECT COUNT(*) FROM chunks").fetchone()[0])

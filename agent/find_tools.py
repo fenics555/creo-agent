@@ -56,7 +56,7 @@ def _groups(uniq, depth):
 def tool_models_find(q="", ext="", limit=20, **kw):
     where, args = _query(q, ext)
     c = core.db()
-    rows = c.execute("SELECT name, ext, path FROM models " + where + " ORDER BY path LIMIT 5000", args).fetchall()
+    rows = c.execute("SELECT name, ext, path FROM svod.models " + where + " ORDER BY path LIMIT 5000", args).fetchall()
     c.close()
     seen = {}
     for n, e, p in rows:
@@ -83,7 +83,7 @@ def tool_models_find(q="", ext="", limit=20, **kw):
 
 def tool_models_stats(**kw):
     c = core.db()
-    rows = c.execute("SELECT ext, COUNT(*) FROM models GROUP BY ext ORDER BY 2 DESC").fetchall()
+    rows = c.execute("SELECT ext, COUNT(*) FROM svod.models GROUP BY ext ORDER BY 2 DESC").fetchall()
     c.close()
     return "всего моделей: %d; по типам: %s" % (sum(r[1] for r in rows), ", ".join("%s=%d" % r for r in rows))
 

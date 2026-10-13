@@ -30,8 +30,8 @@ def _count_dir(path):
 
 def db_state(verbose=0):
     c = core.db()
-    f = (_q(c, "SELECT COUNT(*), MAX(mtime) FROM files") or [(0, None)])[0]
-    chunks_n = (_q(c, "SELECT COUNT(*) FROM fts_index") or [(0,)])[0][0]
+    f = (_q(c, "SELECT COUNT(*), MAX(mtime) FROM svod.files") or [(0, None)])[0]
+    chunks_n = (_q(c, "SELECT COUNT(*) FROM svod.fts_index") or [(0,)])[0][0]
     # 03.10.2026: `usage`/`usage_meta` удалены из agent.sqlite — ПЛМ ведёт PLM-READER.
     # Показываем ЖИВЫЕ цифры новой базы, а не остатки старой `bom` агента.
     plm_note = "ПЛМ-READER: н/д"

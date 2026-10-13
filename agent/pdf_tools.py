@@ -28,15 +28,15 @@ def _get_file_info(name):
     (чертежи сборок зовутся m-<имя>-...), регистр расширения любой."""
     c = core.db()
     res_pdf = c.execute(
-        "SELECT path, mtime FROM files WHERE (path LIKE ? OR path LIKE ? OR path LIKE ? OR path LIKE ?) "
+        "SELECT path, mtime FROM svod.files WHERE (path LIKE ? OR path LIKE ? OR path LIKE ? OR path LIKE ?) "
         "AND path NOT LIKE '%.tmp%' ORDER BY mtime DESC",
         (f"%{name}.pdf", f"%{name}.PDF", f"%\\m-{name}%.pdf", f"%\\m-{name}%.PDF")).fetchone()
     res_drw = c.execute(
-        "SELECT path, mtime FROM files WHERE (path LIKE ? OR path LIKE ? OR path LIKE ? OR path LIKE ?) "
+        "SELECT path, mtime FROM svod.files WHERE (path LIKE ? OR path LIKE ? OR path LIKE ? OR path LIKE ?) "
         "AND path NOT LIKE '%.tmp%' ORDER BY mtime DESC",
         (f"%{name}.drw", f"%{name}.DRW", f"%\\m-{name}%.drw", f"%\\m-{name}%.DRW")).fetchone()
     res_prt = c.execute(
-        "SELECT path, mtime FROM files WHERE (path LIKE ? OR path LIKE ? OR path LIKE ? OR path LIKE ?) "
+        "SELECT path, mtime FROM svod.files WHERE (path LIKE ? OR path LIKE ? OR path LIKE ? OR path LIKE ?) "
         "AND path NOT LIKE '%.tmp%' ORDER BY mtime DESC",
         (f"%{name}.prt", f"%{name}.PRT", f"%\\m-{name}%.prt", f"%\\m-{name}%.PRT")).fetchone()
     c.close()

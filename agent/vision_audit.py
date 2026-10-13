@@ -155,7 +155,7 @@ def audit_batch(limit=""):
     lim = int(limit) if limit else int(settings.get("audit_limit") or 20)
     c = core.db()
     try:
-        rows = c.execute("SELECT path, mtime FROM files").fetchall()
+        rows = c.execute("SELECT path, mtime FROM svod.files").fetchall()
     except Exception as e:
         return "ошибка БД: %s" % e
     finally:

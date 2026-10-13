@@ -15,7 +15,7 @@ def reload_model_matrix():
     try:
         c = db()
         ROWS = c.execute(
-            "SELECT m.name, m.path, e.emb FROM models m JOIN model_embs e ON e.name=m.name"
+            "SELECT m.name, m.path, e.emb FROM svod.models m JOIN svod.model_embs e ON e.name=m.name"
         ).fetchall()
         c.close()
         if ROWS:
@@ -55,7 +55,7 @@ def find_similar(name="", q="", top=10):
     qv = None
     if name:
         c = db()
-        r_emb = c.execute("SELECT emb FROM model_embs WHERE name=?", (name,)).fetchone()
+        r_emb = c.execute("SELECT emb FROM svod.model_embs WHERE name=?", (name,)).fetchone()
         if r_emb:
             qv = np.frombuffer(r_emb[0], np.float32)
         

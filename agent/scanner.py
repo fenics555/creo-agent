@@ -148,7 +148,7 @@ class ScannerLibrary:
         """Поиск дублей по имени в БД."""
         c = db()
         try:
-            rows = c.execute("SELECT name, COUNT(*) FROM models GROUP BY name HAVING COUNT(*) > 1 ORDER BY COUNT(*) DESC LIMIT 40").fetchall()
+            rows = c.execute("SELECT name, COUNT(*) FROM svod.models GROUP BY name HAVING COUNT(*) > 1 ORDER BY COUNT(*) DESC LIMIT 40").fetchall()
             return rows
         finally:
             c.close()
@@ -158,10 +158,10 @@ def init_db_schema():
     c = db()
     try:
         # Таблицы для файлов и FTS
-        c.execute("CREATE TABLE IF NOT EXISTS files(path TEXT PRIMARY KEY, mtime REAL, size INTEGER, hash TEXT, root TEXT, type TEXT)")
-        c.execute("CREATE VIRTUAL TABLE IF NOT EXISTS fts_index USING fts5(path UNINDEXED, content)")
+        c.execute("CREATE TABLE IF NOT EXISTS svod.files(path TEXT PRIMARY KEY, mtime REAL, size INTEGER, hash TEXT, root TEXT, type TEXT)")
+        c.execute("CREATE VIRTUAL TABLE IF NOT EXISTS svod.fts_index USING fts5(path UNINDEXED, content)")
         # Таблица для моделей
-        c.execute("CREATE TABLE IF NOT EXISTS models(name TEXT, ext TEXT, path TEXT)")
+        c.execute("CREATE TABLE IF NOT EXISTS svod.models(name TEXT, ext TEXT, path TEXT)")
         c.commit()
     finally:
         c.close()
@@ -197,8 +197,8 @@ def index_all(roots=None, quiet=False) -> Dict[str, int]:
     c = db()
     files = frags = 0
     try:
-        c.execute("CREATE VIRTUAL TABLE IF NOT EXISTS fts_index USING fts5(path UNINDEXED, content)")
-        c.execute("DELETE FROM fts_index")
+        c.execute("CREATE VIRTUAL TABLE IF NOT EXISTS svod.fts_index USING fts5(path UNINDEXED, content)")
+        c.execute("DELETE FROM svod.fts_index")
         for root in _kb_roots(roots):
             if not os.path.isdir(root):
                 continue
@@ -217,7 +217,7 @@ def index_all(roots=None, quiet=False) -> Dict[str, int]:
                     if not txt.strip():
                         continue
                     for i in range(0, len(txt), KB_FRAGMENT):
-                        c.execute("INSERT INTO fts_index(path, content) VALUES(?,?)",
+                        c.execute("INSERT INTO svod.fts_index(path, content) VALUES(?,?)",
                                   (full, txt[i:i + KB_FRAGMENT]))
                         frags += 1
                     files += 1
@@ -252,10 +252,10 @@ def kb_search(query: str, limit: int = 4, chars: int = 900) -> List[Tuple[str, s
             words = [w for w in re.split(r"[^\w\.\-]+", q, flags=re.UNICODE) if len(w) > 2]
             match = " OR ".join('"%s"' % w for w in words) or '"%s"' % q.replace('"', " ")
             # Забираем шире, чем limit: буст пересортирует, лишнее отсеется.
-            rows = c.execute("SELECT path, content FROM fts_index WHERE fts_index MATCH ? "
+            rows = c.execute("SELECT path, content FROM svod.fts_index WHERE svod.fts_index MATCH ? "
                              "ORDER BY rank LIMIT ?", (match, int(limit) * 4)).fetchall()
         except Exception:
-            rows = c.execute("SELECT path, content FROM fts_index WHERE content LIKE ? LIMIT ?",
+            rows = c.execute("SELECT path, content FROM svod.fts_index WHERE content LIKE ? LIMIT ?",
                              ("%" + q + "%", int(limit) * 4)).fetchall()
         # Буст: ранг FTS5 — чем меньше, тем лучше. Файлы репозитория получают ранний ранг,
         # остальные — свой. `repo_boost_min_sim` отсекает совпадения хуже порога (доля от худшего).

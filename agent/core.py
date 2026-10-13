@@ -134,10 +134,9 @@ def boot_report():
     except Exception:
         lines.append("СТАРТ: CREOSON=молчит")
     try:
-        c = sqlite3.connect(DB, timeout=10)
-        t = [r[0] for r in c.execute("SELECT name FROM sqlite_master WHERE type='table'").fetchall()]
-        nf = c.execute("SELECT COUNT(*) FROM files").fetchone()[0] if "files" in t else 0
-        nc = c.execute("SELECT COUNT(*) FROM chunks").fetchone()[0] if "chunks" in t else 0
+        c = db()
+        nf = c.execute("SELECT COUNT(*) FROM svod.files").fetchone()[0]
+        nc = c.execute("SELECT COUNT(*) FROM svod.chunks").fetchone()[0]
         c.close()
         lines.append("СТАРТ: База=%d файлов, %d чанков" % (nf, nc))
     except Exception: lines.append("СТАРТ: База=недоступна")

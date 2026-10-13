@@ -1,0 +1,47 @@
+OK db_tools.py              x1  SELECT COUNT(*), MAX(mtime) FROM files
+OK db_tools.py              x1  SELECT COUNT(*) FROM fts_index
+OK find_tools.py            x1  SELECT name, ext, path FROM models 
+OK find_tools.py            x1  SELECT ext, COUNT(*) FROM models GROUP BY ext
+OK http_handlers.py         x1  SELECT child FROM bom WHERE parent LIKE ?
+OK http_handlers.py         x1  SELECT child FROM links WHERE parent LIKE ?
+OK http_handlers.py         x1  SELECT path, mtime FROM files
+OK nightly_tools.py         x1  SELECT COUNT(*) FROM files
+OK nightly_tools.py         x1  SELECT COUNT(*) FROM fts_index
+OK pdf_tools.py             x3  FROM files WHERE
+OK similar_tools.py         x1  FROM models m JOIN model_embs e ON e.name=m.na
+OK similar_tools.py         x1  SELECT emb FROM model_embs WHERE name=?
+OK timeline_tools.py        x2  FROM files WHERE
+OK vision_audit.py          x1  SELECT path, mtime FROM files
+OK scanner.py               x1  CREATE TABLE IF NOT EXISTS files(path TEXT PRI
+OK scanner.py               x1  CREATE TABLE IF NOT EXISTS models(name TEXT, e
+OK scanner.py               x1  SELECT name, COUNT(*) FROM models GROUP BY nam
+OK scanner.py               x2  CREATE VIRTUAL TABLE IF NOT EXISTS fts_index U
+OK scanner.py               x1  DELETE FROM fts_index
+OK scanner.py               x1  INSERT INTO fts_index(path, content) VALUES(?,
+OK scanner.py               x1  SELECT path, content FROM fts_index WHERE fts_
+OK scanner.py               x1  SELECT path, content FROM fts_index WHERE cont
+OK navigator/navigator.py   x1  SELECT child, qty FROM bom WHERE LOWER(parent)
+OK navigator/navigator.py   x1  SELECT path FROM models WHERE LOWER(name)=? LI
+--- py_compile ---
+compile OK db_tools.py
+compile OK find_tools.py
+compile OK http_handlers.py
+compile OK nightly_tools.py
+compile OK pdf_tools.py
+compile OK similar_tools.py
+compile OK timeline_tools.py
+compile OK vision_audit.py
+compile OK scanner.py
+compile OK navigator/navigator.py
+--- итог ---
+  db_tools.py: замен 2
+  find_tools.py: замен 2
+  http_handlers.py: замен 3
+  navigator/navigator.py: замен 2
+  nightly_tools.py: замен 2
+  pdf_tools.py: замен 3
+  scanner.py: замен 9
+  similar_tools.py: замен 2
+  timeline_tools.py: замен 2
+  vision_audit.py: замен 1
+ВСЕ ЗАМЕНЫ ПРИМЕНЕНЫ, КОМПИЛЯЦИЯ ЧИСТА

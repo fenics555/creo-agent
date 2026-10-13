@@ -201,8 +201,8 @@ class Hd(BaseHTTPRequestHandler):
                 # при переезде связей на ПЛМ-READER. Здесь она стояла первой в списке и падала
                 # на каждом запросе — молча, потому что отказ глотает except ниже. Убрана:
                 # читаем только реально существующие хранилища (bom — 36 811 строк).
-                for sql in ("SELECT child FROM bom WHERE parent LIKE ?",
-                            "SELECT child FROM links WHERE parent LIKE ?"):
+                for sql in ("SELECT child FROM svod.bom WHERE parent LIKE ?",
+                            "SELECT child FROM svod.links WHERE parent LIKE ?"):
                     try:
                         rows = c.execute(sql, ("%" + name + "%",)).fetchall()
                         out = [r[0] for r in rows]
@@ -253,7 +253,7 @@ class Hd(BaseHTTPRequestHandler):
             if not users.token_info(self.headers.get("X-Token") or ""): return self._j({"error": "no token"})
             try:
                 c = core.db()
-                rows = c.execute("SELECT path, mtime FROM files").fetchall()
+                rows = c.execute("SELECT path, mtime FROM svod.files").fetchall()
                 c.close()
             except Exception as e:
                 self._j({"error": str(e)}); return
