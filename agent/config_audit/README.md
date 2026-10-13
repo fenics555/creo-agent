@@ -15,11 +15,13 @@
 | `config_audit_gui.bat` | **рука 2** — запуск окна |
 | `README.md` | этот паспорт |
 
-Третьей руки (визард витрины) **нет** — долг, зафиксирован в отчёте аудита.
+Третья рука (визард витрины) — есть (см. «ЗАКОН ТРЁХ РУК» ниже).
+**Автономия (12.10.2026):** `creo_boot` опционален (`try/except` + fallback) — без агента config_audit
+не находит Creo install, но НЕ падает. `portable_check` → ПЕРЕНОСИТ (`dev\fix_config_audit_boot.py`).
 
 ## ЗАКОН ТРЁХ РУК (манифест п.19)
 - **CLI:** `config_audit.bat "[путь]"` — код выхода **0** (всё на месте) · **1** (битые пути) · **2** (нечего проверять);
-- **Окно:** `config_audit_gui.bat` — настройки в `data\config_audit_settings.json`;
+- **Окно:** `config_audit_gui.bat` — настройки в `config_audit\settings\settings.json`;
 - **Визард витрины:** 🧙 МАСТЕР ОПЕРАЦИЙ → «Чистка» → **📋 Аудит config.pro** →
   `POST /wiz_config_audit` (`token`, `config`), только чтение. Отдаёт `total`, `missing`,
   список битых путей, применённые подстановки Creo и путь к отчёту. Без токена — **401**.
@@ -42,7 +44,7 @@
 (отчёт в `D:\AI\log\win_check\`).
 
 ## НАСТРОЙКИ — в одном месте
-`D:\AI\tools\agent\data\config_audit_settings.json`:
+`config_audit\settings\settings.json`:
 ```json
 {"last_config": "...", "creo_vars": {"$PROSTD": "Z:\\PTC\\CREO-START\\НАСТРОЙКИ"}}
 ```
@@ -79,7 +81,7 @@
 | ЧТЕНИЕ: проверяемые пути | 56 путей из config.pro + установка Creo | только чтение |
 | ЗАПИСЬ: журнал | `D:\AI\log\config_audit\run_<дата>_<время>.txt` | запись |
 | ЗАПИСЬ: отчёт | `D:\AI\log\reports\REPORT_config_audit_<дата>_<время>.md` | запись |
-| ЗАПИСЬ: настройки | `agent\data\config_audit_settings.json` | запись |
+| ЗАПИСЬ: настройки | `config_audit\settings\settings.json` | запись |
 | ЗАПИСЬ: CSV | куда укажет человек | по выбору |
 На диски конфигурации программа **не пишет** и ничего не удаляет.
 

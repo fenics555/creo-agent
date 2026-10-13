@@ -25,7 +25,7 @@
 | `empty_page` | страниц без текста и графики нет | warn |
 
 ## ЧЕК-ЛИСТ ПРАВИТСЯ ФАЙЛОМ, НЕ КОДОМ
-`D:\AI\tools\agent\data\drawing_audit_settings.json`: `notes` (плашки через `;`),
+`drawing_audit\settings\settings.json`: `notes` (плашки через `;`),
 `folders`, `hatch_pages`, `vector_min`, `show_ok`, `preview`. Кнопка «Применить» в окне
 записывает файл; при ручном редактировании файл читается при следующем запуске.
 

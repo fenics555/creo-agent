@@ -7,7 +7,7 @@
 Есть оконный режим и режим консоли. Класс Р: **Creo не нужен, агент не нужен.**
 
 ## НАСТРОЙКИ — в одном месте
-`D:\AI\tools\agent\data\purge_versions_settings.json`: `root`, `keep`, `creo_mode`, `backup_dir`, `history`.
+`purge_versions\settings\settings.json`: `root`, `keep`, `creo_mode`, `backup_dir`, `history`.
 Раньше окно писало в `purge_versions\gui_settings.json` — **такого файла в папке не было**, настройки
 молча терялись.
 
@@ -47,7 +47,7 @@
 - кнопка **ПЛАН** — считает и показывает таблицу «Группа | Версии | Уйдёт» (ничего не двигает);
 - кнопка **ЧИСТИТЬ** — включает только после плана, спрашивает подтверждение;
 - внизу строка ИНФО: что найдено, сколько освободится, куда уйдёт;
-- корни запоминаются в списке (последние 10), настройки — в `data\purge_settings.json`.
+- корни запоминаются в списке (последние 10), настройки — в `purge_versions\settings\settings.json`.
 - приёмка 04.10.2026: `probe_win_live.py purge_versions` — **OK=5 FAIL=0**;
   сквозная живая сборка дома `probe_all_windows_live.py` — **OK=18 FAIL=0**.
 

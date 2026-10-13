@@ -44,14 +44,14 @@ navigator_gui.bat
 | ЧТЕНИЕ: имена и состав | `data\agent.sqlite` → `models`, `bom` | только чтение |
 | ЧТЕНИЕ: полный список файлов, PDF-пары | `data\harvest.db` → `models_raw`, `pairs` | только чтение |
 | ЧТЕНИЕ: живая сессия (кнопка состава) | `creo_tools` агента → CREOSON → запущенный Creo | чтение + открытие/закрытие модели |
-| ЗАПИСЬ: настройки | `agent\data\navigator_settings.json` | запись |
+| ЗАПИСЬ: настройки | `navigator\settings\settings.json` | запись |
 | ЗАПИСЬ: журнал | `D:\AI\log\navigator\run_<дата>.txt` | запись |
 | ЗАПИСЬ: PNG по кнопке | куда укажет человек (диалог) | запись по запросу |
 
 Чужие базы не изменяются: соединение открывается как `file:…?mode=ro`.
 
 ## Настройки — одно место
-`D:\AI\tools\agent\data\navigator_settings.json` (создаётся сам, при отсутствии берутся умолчания):
+`navigator\settings\settings.json` (создаётся сам, при отсутствии берутся умолчания):
 ```json
 {"agent_db": "...\\agent.sqlite", "harvest_db": "...\\harvest.db",
  "preview_w": 300, "max_zoom": 8.0, "last_query": "turn"}
@@ -73,7 +73,7 @@ python navigator.py pdf <чертёж>      — где PDF и рисуется �
   `d25` → **3 позиции**; `000_haas-st30y-bmt65-sb.asm.1` → 2 позиции;
 - PDF найден и отрисован: `a887-94-1500-01.pdf` → 400×566 px, 1 страница (**0.18 с**), PyMuPDF 1.28.2;
 - **коды возврата живьём**: `find turn` → 0 · `find zzzznosuch` → 1 · без аргументов → 2 · `zzz` → 2;
-- журнал пишется: `D:\AI\log\navigator\run_<дата>.txt`, настройки — `data\navigator_settings.json`;
+- журнал пишется: `D:\AI\log\navigator\run_<дата>.txt`, настройки — `navigator\settings\settings.json`;
 - автотест окна (поиск → деталировка → PDF → зум → сброс → словами → живой состав) —
   **PASS 13, FAIL 0, NOTE 1**: `D:\AI\PROBA\nav_gui_test.py` (отчёт `nav_test_report.txt`).
   NOTE — живой состав: *«Creo не запущен. Дом НЕ поднимает Creo сам»* (это защита дома, не сбой);
@@ -87,7 +87,7 @@ python navigator.py pdf <чертёж>      — где PDF и рисуется �
    где таблицы `pairs` нет, — поиск падал тихо. Замер на 1500 парах: **33 позиции показывали
    «PDF нет», хотя PDF были**. Теперь пары читаются из своего соединения с `harvest.db`.
 3. **Не было ни лога, ни файла настроек** — единственная программа дома с `Log: False`.
-   Добавлены `D:\AI\log\navigator\run_*.txt` и `data\navigator_settings.json`.
+   Добавлены `D:\AI\log\navigator\run_*.txt` и `navigator\settings\settings.json`.
 4. **Коды возврата всегда были 0** — планировщик не мог отличить «нашли» от «состава нет» от «ошибка».
 5. `bom('')` больше не падает, окно запоминает прошлый запрос, в лог пишется честное время.
 
