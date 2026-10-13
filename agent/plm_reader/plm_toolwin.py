@@ -2219,6 +2219,8 @@ def run_gui():
                 gr_canvas.create_text(x0 + 18, y0 + 6, text=label, font=("Consolas", 8))
                 y0 += 16
             grs.config(text="легенда: ▼-создание, ▲-родословная, ◄-заготовка, ◆-оснастка")
+            # Edge rendering
+            for a, b, kind, q in edges:
                 if a not in pos or b not in pos:
                     continue
                 xa, ya = pos[a]
@@ -2227,12 +2229,15 @@ def run_gui():
                 if kind == "der":
                     gr_canvas.create_line(x1 + nw // 2, y1, x2 - nw // 2, y2,
                                           dash=(4, 3), fill="#c47a3a")
-                elif nodes[a]["level"] <= nodes[b]["level"]:
-                    gr_canvas.create_line(x1, y1 + nh // 2, x2, y2 - nh // 2, fill="#8aa0b5")
+                elif kind == "up":
+                    gr_canvas.create_line(x1, y1 + nh // 2, x2, y2 - nh // 2,
+                                          fill="#8ac8e8", width=1)
                 else:
-                    gr_canvas.create_line(x1, y1 - nh // 2, x2, y2 + nh // 2, fill="#8aa0b5")
+                    gr_canvas.create_line(x1, y1 - nh // 2, x2, y2 + nh // 2,
+                                          fill="#8ac48a", width=1)
                 if q and q != 1:
                     gr_canvas.create_text((x1 + x2) / 2 + 8, (y1 + y2) / 2, text="x%s" % q,
+                                          fill="#666", font=("Consolas", 8))
                                           fill="#666", font=("Consolas", 8))
             for n, (x, y) in pos.items():               # узлы
                 d = nodes[n]
