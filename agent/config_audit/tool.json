@@ -16,7 +16,7 @@
    "desc": "какой config.pro проверять; пусто = найденный движком"}
  ],
  "outputs": {"report": "отчёт config_audit", "log": "журнал прогона run_*.txt"},
- "settings": "config_audit_settings.json",
+ "settings": "settings/settings.json",
  "deps": ["creo_path"],
  "approval": false,
  "ui": "ui_common",

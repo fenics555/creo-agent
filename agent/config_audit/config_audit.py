@@ -35,7 +35,7 @@ import creo_boot as BOOT                                            # noqa: E402
 LOG_DIR = r"D:\AI\log\config_audit"
 REPORT_DIR = r"D:\AI\log\reports"
 REPORT_PREFIX = "REPORT_config_audit"
-SETTINGS_FILE = os.path.normpath(os.path.join(_AGENT, "data", "config_audit_settings.json"))
+SETTINGS_FILE = os.path.join(_HERE, "settings", "settings.json")
 # ЭТАП 9 (волна 10): карта плагинов дома. Читает audit_protk; живёт рядом с PROGRAM_REGISTRY.
 PLUGINS_CARD = os.path.normpath(os.path.join(_AGENT, "dev", "PLUGINS.md"))
 # АВТОНОМНОСТЬ (контракт 09_): при переносе программы в изоляцию папки `dev` рядом нет.

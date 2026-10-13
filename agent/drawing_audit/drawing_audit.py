@@ -36,7 +36,7 @@ for _p in (_AGENT, _HERE):
 
 LOG_DIR = Path(r"D:\AI\log\drawing_audit")
 REPORT_DIR = Path(r"D:\AI\log\reports")
-SETTINGS = _AGENT / "data" / "drawing_audit_settings.json"
+SETTINGS = _HERE / "settings" / "settings.json"
 
 # Боевые папки с PDF-чертежами библиотеки стандартных изделий (проба 03.10.2026).
 LIB = Path(r"Z:\PTC\CREO-START\Libraries\Библиотека_стандартных_изделий")

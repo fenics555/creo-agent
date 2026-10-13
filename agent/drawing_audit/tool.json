@@ -19,7 +19,7 @@
     "desc": "чек-лист обязательных плашек через «;»"}
  ],
  "outputs": {"report": "REPORT_drawing_audit_*.md", "log": "drawing_audit_*.csv"},
- "settings": "drawing_audit_settings.json",
+ "settings": "settings/settings.json",
  "deps": ["ui_common", "pymupdf"],
  "approval": false,
  "ui": "ui_common",

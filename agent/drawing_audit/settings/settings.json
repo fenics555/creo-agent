@@ -1,0 +1,13 @@
+{
+ "folders": [
+  "Z:\\PTC\\CREO-START\\Libraries\\Библиотека_стандартных_изделий\\Заклепки\\pdf",
+  "Z:\\PTC\\CREO-START\\Libraries\\Библиотека_стандартных_изделий\\Болты_винты\\pdf",
+  "Z:\\PTC\\CREO-START\\Libraries\\Библиотека_стандартных_изделий\\Гайки\\pdf",
+  "Z:\\PTC\\CREO-START\\Libraries\\Библиотека_стандартных_изделий\\Шайбы\\pdf"
+ ],
+ "notes": "ГОСТ;СТ;МАСС;ТВОР.;ПРОВЕР;ИЗМ.",
+ "hatch_pages": 1,
+ "vector_min": 50,
+ "show_ok": "нет",
+ "preview": "нет"
+}

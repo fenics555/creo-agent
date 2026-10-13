@@ -16,7 +16,7 @@
     "report": "",
     "log": "D:\\AI\\log\\log_clean"
   },
-  "settings": "log_clean_settings.json",
+  "settings": "settings/settings.json",
   "deps": [],
   "approval": false,
   "ui": "ui_common",

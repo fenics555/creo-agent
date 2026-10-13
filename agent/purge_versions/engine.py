@@ -6,7 +6,7 @@ EXTS = {'.prt', '.asm', '.drw', '.frm', '.lay', '.sec'}
 # --- автономная программа: всё своё рядом, логи по закону дома ---
 PROG_DIR = Path(__file__).resolve().parent
 LOG_DIR = Path(r"D:\AI\log\purge_versions")
-SETTINGS_FILE = Path(r"D:\AI\tools\agent\data\purge_versions_settings.json")
+SETTINGS_FILE = PROG_DIR / "settings" / "settings.json"
 
 class Lock:
     def __init__(self, p): self.p = Path(p)

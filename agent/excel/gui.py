@@ -35,7 +35,7 @@ class App:
         self.build()
 
     def load(self):
-        return U.load_settings("excel", DEFAULTS)
+        return U.load_settings("excel", DEFAULTS, tool_dir=HERE)
 
     def build(self):
         # --- каркас: результат СЛЕВА, настройки СПРАВА (константа 5) ---
@@ -130,7 +130,7 @@ class App:
                         log=self.log)
 
     def save_path(self, p):
-        out = U.save_settings("excel", {"last_path": p})
+        out = U.save_settings("excel", {"last_path": p}, tool_dir=HERE)
         if str(out).startswith("ошибка"):
             self.log("путь не сохранён: %s" % out)
 

@@ -31,18 +31,17 @@ DEFAULT_DAYS = 30
 # агента, но уборка резала по своей константе — человек ставил 14, а движок чистил по 30.
 # Теперь настройка УПРАВЛЯЕТ уборкой, если retention.json её ещё не переопределил.
 def _setting_days(default=DEFAULT_DAYS):
-    """Срок хранения из настроек агента; при отказе — константа движка."""
+    """Срок хранения из настроек инструмента (settings\\settings.json, канон автономии);
+    при отказе — константа движка. Больше НЕ тянем код агента (import settings) — иначе
+    инструмент не переносим (portable_check: импорт кода агента = дефект)."""
     try:
-        import sys as _s
-        _agent = Path(__file__).resolve().parents[1]
-        if str(_agent) not in _s.path:
-            _s.path.append(str(_agent))
-        import settings as _st
-        v = _st.get("log_days", None)
-        if isinstance(v, int) and v > 0:
-            return v
-        if isinstance(v, str) and v.strip().isdigit() and int(v) > 0:
-            return int(v)
+        sp = PROG_DIR / "settings" / "settings.json"
+        if sp.exists():
+            v = json.loads(sp.read_text(encoding="utf-8")).get("days")
+            if isinstance(v, int) and v > 0:
+                return v
+            if isinstance(v, str) and v.strip().isdigit() and int(v) > 0:
+                return int(v)
     except Exception:
         pass
     return default

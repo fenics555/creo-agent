@@ -16,7 +16,7 @@
      "desc": "файл спецификации XLSX для чтения (окно просмотра)"}
   ],
   "outputs": {"xlsx": "файл спецификации по пути агента", "log": "нет (модули без журнала)"},
-  "settings": "",
+  "settings": "settings/settings.json",
   "deps": [],
   "approval": false,
   "ui": "ui_common",

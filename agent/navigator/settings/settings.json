@@ -1,0 +1,7 @@
+{
+ "agent_db": "D:\\AI\\tools\\agent\\data\\agent.sqlite",
+ "harvest_db": "D:\\AI\\tools\\agent\\data\\harvest.db",
+ "preview_w": 300,
+ "max_zoom": 8.0,
+ "last_query": "turn"
+}

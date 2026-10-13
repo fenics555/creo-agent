@@ -16,7 +16,7 @@
     "report": "",
     "log": "D:\\AI\\log\\orphan_scan"
   },
-  "settings": "orphan_scan_settings.json",
+  "settings": "settings/settings.json",
   "deps": [],
   "approval": false,
   "ui": "ui_common",

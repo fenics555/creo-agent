@@ -16,7 +16,7 @@
     "report": "",
     "log": "D:\\AI\\log\\navigator"
   },
-  "settings": "navigator_settings.json",
+  "settings": "settings/settings.json",
   "deps": [
     "creo_tools"
   ],

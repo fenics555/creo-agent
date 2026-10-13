@@ -54,7 +54,7 @@ class App:
     def load(self):
         # Тот же файл data\creo_comb_settings.json, что был прописан константой; меняется способ
         # (через каркас), чтобы окно не вело свою копию пути настроек.
-        return U.load_settings("creo_comb", DEFAULTS)
+        return U.load_settings("creo_comb", DEFAULTS, tool_dir=HERE)
 
     def save(self):
         # ГРАБЛЯ ТАКОГО ЖЕ РОДА, что в log_clean (04.10.2026): сохраняем значения ИЗ ОКНА,
@@ -68,7 +68,7 @@ class App:
                             "save": bool(self.var_save.get())})
         except (tk.TclError, AttributeError):
             return          # окно ещё не собрано (save зовут галочки при создании)
-        out = U.save_settings("creo_comb", self.st)
+        out = U.save_settings("creo_comb", self.st, tool_dir=HERE)
         if str(out).startswith("ошибка"):
             self.log("настройки не сохранены: %s" % out)
 

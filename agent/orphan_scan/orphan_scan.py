@@ -15,7 +15,7 @@ LOG_DIR = r"D:\AI\log\orphan_scan"
 REPORT_DIR = r"D:\AI\log\reports"
 REPORT_PREFIX = "REPORT_orphan_scan"          # имя отчёта не привязано к номеру спеки
 # Закон трёх рук (манифест п.19): настройки окна живут в data\, рядом с остальными настройками дома
-SETTINGS_PATH = r"D:\AI\tools\agent\data\orphan_scan_settings.json"
+SETTINGS_PATH = os.path.join(os.path.dirname(os.path.abspath(__file__)), "settings", "settings.json")
 LEGACY_SETTINGS = r"D:\AI\tools\agent\orphan_scan\gui_settings.json"   # переносится при первом чтении
 
 def BASE_OF(fn):

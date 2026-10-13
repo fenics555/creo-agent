@@ -1,0 +1,11 @@
+{
+ "root": "D:\\AI\\PROBA\\postregen_clean",
+ "mask": "*.asm",
+ "only": "",
+ "postregen": "да",
+ "param_masks": "",
+ "rename_map": "",
+ "limit": "100",
+ "approve": "нет",
+ "dry_run": "да"
+}

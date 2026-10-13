@@ -85,7 +85,7 @@ class App:
 
         # Настройки окна живут файлом (манифест п.19) и подставляются В SPEC:
         # SettingsTable берёт значения из spec, параметра values у него нет.
-        saved = U.load_settings(SETTINGS) or {}
+        saved = U.load_settings(SETTINGS, tool_dir=_HERE) or {}
         spec = [dict(d) for d in DEFAULTS]
         for d in spec:
             if d["option"] in saved and saved[d["option"]] is not None:
@@ -100,7 +100,7 @@ class App:
         self._log_write(s)
 
     def save_settings(self, vals):
-        out = U.save_settings(SETTINGS, vals)
+        out = U.save_settings(SETTINGS, vals, tool_dir=_HERE)
         self.log("настройки сохранены: %s" % out)
         return out
 

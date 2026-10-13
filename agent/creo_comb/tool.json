@@ -16,7 +16,7 @@
     "report": "",
     "log": ""
   },
-  "settings": "creo_comb_settings.json",
+  "settings": "settings/settings.json",
   "deps": [
     "creo_path"
   ],

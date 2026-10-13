@@ -25,7 +25,7 @@ CREO_RE = re.compile(r"\.(prt|asm|drw|frm|sec|lay)(\.\d+)?$", re.I)
 # Раньше пути к базам и размеры превью были ЗАШИТЫ в коде, а в agent\data\ не было
 # ни navigator_settings.json, ни лога: единственная программа в audit_tools_canon.txt
 # с Log: False. Теперь значения читаются отсюда, кодированные — только умолчания.
-SETTINGS = Path(r"D:\AI\tools\agent\data\navigator_settings.json")
+SETTINGS = Path(__file__).resolve().parent / "settings" / "settings.json"
 LOG_DIR = Path(r"D:\AI\log\navigator")
 
 DEFAULTS = {"agent_db": str(AG_DB), "harvest_db": str(HV_DB),

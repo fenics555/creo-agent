@@ -16,7 +16,7 @@
     "report": "",
     "log": "D:\\AI\\log\\purge_versions"
   },
-  "settings": "purge_versions_settings.json",
+  "settings": "settings/settings.json",
   "deps": [
     "purge_versions"
   ],

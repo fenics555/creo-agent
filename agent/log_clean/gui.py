@@ -36,7 +36,7 @@ class App:
     def load(self):
         # Путь и запись — через каркас (тот же data\log_clean_settings.json, что был
         # прописан константой; меняется только способ, чтобы окно не вело свою копию пути).
-        return U.load_settings("log_clean", DEFAULTS)
+        return U.load_settings("log_clean", DEFAULTS, tool_dir=PROG_DIR)
 
     def save(self):
         # ГРАБЛЯ МОЕЙ ПЕРВОЙ ПРАВКИ (04.10.2026): после перевода `save` осталась в старом виде
@@ -46,7 +46,7 @@ class App:
             self.st.update(self.cur())
         except (tk.TclError, ValueError):
             return          # окно ещё не собрано (save зовут радиокнопки при создании)
-        out = U.save_settings("log_clean", self.st)
+        out = U.save_settings("log_clean", self.st, tool_dir=PROG_DIR)
         if str(out).startswith("ошибка"):
             self.log("настройки не сохранены: %s" % out)
 
@@ -144,7 +144,7 @@ class App:
         # потоке: на живом D:\AI\log (21 каталог, тысячи файлов) окно подвисало на секунды.
         # Tk-переменные из потока не читаем — числа забираем ЗДЕСЬ, в главном потоке.
         self.st.update(self.cur())
-        out = U.save_settings("log_clean", self.st)
+        out = U.save_settings("log_clean", self.st, tool_dir=PROG_DIR)
         if str(out).startswith("ошибка"):
             self.log("настройки не сохранены: %s" % out)
         root_dir = self.st["root"]
