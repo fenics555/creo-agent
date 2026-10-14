@@ -10,7 +10,8 @@
 
 КАРТА ВЛОЖЕННЫХ ФУНКЦИЙ (порядок = порядок в файле; ищи по `    def <имя>`):
 * окно/панель/статус: _lwheel, _paths_text, show_paths, pull_paths, open_paths, limit_changed, _row,
-  _auto_changed, stop_scan, _vgrid, _upd_status, _apply_update, check_updates_ui, show_facts,
+  _auto_changed, stop_scan, _vgrid, _upd_status, _upd_done_dialog + _restart_app (V90: кнопка
+  «Перезапустить» после обновления), _apply_update, check_updates_ui, show_facts,
   _copy_status, _status_menu, _wrap_data, _half_sash, _half_try
 * Проводник (верх): _e_short, _expl_root_paths, _expl_data, _expl_node, _expl_file_row, _expl_more,
   _expl_fill, fill_explorer, _expl_dbl
@@ -41,6 +42,7 @@ import datetime
 import time
 import threading
 import queue
+import subprocess
 import sys
 
 from plm_reader import (
@@ -600,6 +602,42 @@ def run_gui():
         except Exception:
             pass
 
+    def _restart_app():
+        """V90: «Перезапустить» — новая копия процесса (тот же python + тот же скрипт), текущая уходит."""
+        try:
+            script = os.path.abspath(sys.argv[0])
+            subprocess.Popen([sys.executable, script] + list(sys.argv[1:]),
+                             cwd=os.path.dirname(script) or None)
+            os._exit(0)                  # дочерняя копия уже запущена — фоновые потоки не ждём
+        except Exception as e:           # не вышло — сказать и оставить ручной перезапуск
+            try:
+                messagebox.showwarning("Перезапуск",
+                                       "Не удалось перезапустить: %s.\nПерезапустите вручную." % e)
+            except Exception:
+                pass
+
+    def _upd_done_dialog(remote, n_files, n_obsolete, note):
+        """V90: итог обновления — НЕ messagebox (там только «ОК»), а окно с кнопкой «Перезапустить»."""
+        win = tk.Toplevel(root)
+        win.title("Обновление")
+        win.transient(root)
+        ttk.Label(win, padding=(12, 10), justify="left", anchor="w",
+                  text=("Обновлено до %s.\nФайлов: %d, устаревших убрано: %d.%s\n\n"
+                        "Перезапустите программу — или нажмите «Перезапустить»."
+                        % (remote, n_files, n_obsolete, note))).pack(fill="both", expand=True)
+        bf = ttk.Frame(win, padding=(12, 0, 12, 10))
+        bf.pack(fill="x")
+        ttk.Button(bf, text="Перезапустить", command=_restart_app).pack(side="right")
+        ttk.Button(bf, text="ОК", command=win.destroy).pack(side="right", padx=(0, 6))
+        try:                              # по центру родителя и сверху остальных окон
+            win.update_idletasks()
+            x = root.winfo_rootx() + max(0, (root.winfo_width() - win.winfo_width()) // 2)
+            y = root.winfo_rooty() + max(0, (root.winfo_height() - win.winfo_height()) // 2)
+            win.geometry("+%d+%d" % (x, y))
+            win.attributes("-topmost", True)
+        except Exception:
+            pass
+
     def _apply_update(files, remote):
         def work():
             _upd_status("обновление: качаю файлы…")
@@ -610,11 +648,8 @@ def run_gui():
                         "отстал от кода) — они всё равно установлены: %s. Это не ошибка."
                         % ", ".join(warns)) if warns else ""
                 _upd_status("обновлено до %s — перезапустите программу" % remote)
-                root.after(0, lambda: messagebox.showinfo(
-                    "Обновление",
-                    "Обновлено до %s.\nФайлов: %d, устаревших убрано: %d.%s\n\n"
-                    "Перезапустите программу." % (remote, len(res.get("updated", [])),
-                                                  len(res.get("obsolete", [])), note)))
+                root.after(0, lambda: _upd_done_dialog(
+                    remote, len(res.get("updated", [])), len(res.get("obsolete", [])), note))
             else:
                 _upd_status("обновление не удалось: %s" % res.get("error"))
                 root.after(0, lambda: messagebox.showwarning(

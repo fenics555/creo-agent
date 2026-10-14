@@ -56,6 +56,13 @@ for needle in ("def _graph_data", "def _graph_layout", "def _graph_show",
     assert needle in src, "нет фрагмента: %s" % needle
 print("граф: заголовки _graph_data/_graph_layout/_graph_show, цикл рёбер, ветка up, leg_items — на месте")
 
+# --- V90: кнопка «Перезапустить» в итоге обновления -------------------------
+for needle in ("def _upd_done_dialog", "def _restart_app", "subprocess.Popen", "os._exit(0)"):
+    assert needle in src, "нет фрагмента V90: %s" % needle
+_upd = src.split("def _apply_update")[1].split("\n    def ")[0]
+assert "_upd_done_dialog" in _upd, "_apply_update всё ещё зовёт messagebox вместо окна с «Перезапустить»"
+print("обновление: окно итога с «Перезапустить» (spawn + os._exit) на месте")
+
 # --- V88: «Обзор» живёт в ВЕРХНЕМ ноутбуке (nb), из нижнего убран ----------------
 assert "nb.add(lov" in src, "вкладка «Обзор» не добавлена в ВЕРХНИЙ ноутбук"
 assert "lnb.add(lov" not in src, "вкладка «Обзор» всё ещё в нижнем ноутбуке"
