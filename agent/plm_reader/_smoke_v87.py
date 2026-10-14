@@ -1,0 +1,88 @@
+# -*- coding: utf-8 -*-
+"""V87 smoke: GenealogyWindow + граф — проверка без участия человека."""
+import os
+import sys
+
+if hasattr(sys.stdout, "reconfigure"):          # консоль cp1251 не должна ронять печать «▲»
+    try:
+        sys.stdout.reconfigure(encoding="utf-8", errors="replace")
+    except Exception:
+        pass
+
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+
+import engine
+import plm_toolwin
+
+assert hasattr(plm_toolwin, "GenealogyWindow"), "GenealogyWindow отсутствует"
+GW = plm_toolwin.GenealogyWindow
+assert hasattr(GW, "open") and hasattr(GW, "_sec_up") and hasattr(GW, "_sec_hist")
+
+# движок живой: известные изделия владельца (богатая родословная), иначе — первое из derived, иначе — крупное
+con = engine.connect()
+model = ""
+for cand in ("АЛ116-2-1_323927", "ЧСЗ-Л_801_04_75-401-10"):
+    n = con.execute("SELECT COUNT(*) FROM snapshots WHERE model=?", (cand,)).fetchone()[0]
+    if n:
+        model = cand
+        break
+if not model:
+    row = con.execute(
+        "SELECT child FROM derived WHERE child GLOB '[A-Za-zА-Яа-я]*' AND base != '' "
+        "ORDER BY child LIMIT 1").fetchone()
+    if not row:
+        row = con.execute(
+            "SELECT model FROM snapshots WHERE model GLOB '[A-Za-zА-Яа-я]*' "
+            "ORDER BY model LIMIT 1").fetchone()
+    model = row[0] if row else ""
+con.close()
+assert model, "база пуста — модели для пробы нет"
+print("модель пробы:", model)
+
+# --- данные GenealogyWindow (без Tk: только логика секций) ----------------
+bases = engine.derived_bases(model)
+der = engine.made_of_list(model, 500)
+kids = engine.plm_children(model)
+up = engine.plm_up_data(model, 8)
+print("происхождение: %d · производных: %d · состав: %d · входимость (ключей): %d"
+      % (len(bases), len(der), len(kids), len(up)))
+
+# --- данные графа ----------------------------------------------------------
+# _graph_data/_graph_layout живут внутри run_gui (замыкания) — проверяем через интроспекцию исходника
+import inspect
+src = inspect.getsource(plm_toolwin)
+for needle in ("def _graph_data", "def _graph_layout", "def _graph_show",
+               "for a, b, kind, q in edges:", "kind == \"up\"", "leg_items"):
+    assert needle in src, "нет фрагмента: %s" % needle
+print("граф: заголовки _graph_data/_graph_layout/_graph_show, цикл рёбер, ветка up, leg_items — на месте")
+
+# --- GenealogyWindow: Tk headless-проба ------------------------------------
+os.environ.setdefault("PLM_SELFCHECK", "0")
+try:
+    import tkinter as tk
+    root = tk.Tk()
+    root.withdraw()
+    w = GW(root, model)
+    # секции обязаны были построиться
+    secs = w.tv.get_children(w.tv.get_children()[0])
+    assert len(secs) == 5, "секций %d, ожидалось 5" % len(secs)
+    # раскрываем каждую секцию вручную (событие <<TreeviewOpen>> эмулируем вызовом)
+    for s in secs:
+        w.tv.item(s, open=True)
+        w.tv.focus(s)                        # фокус КЛАВИАТУРЫ на узле (его читает _on_open)
+        w.tv.selection_set(s)
+        w._on_open()
+        kids2 = w.tv.get_children(s)
+        assert kids2, "секция %s пуста" % w.tv.item(s, "text")
+        assert w.tv.item(kids2[0], "text") != "загрузка…", "секция %s не догрузилась" % w.tv.item(s, "text")
+        print("  секция OK:", w.tv.item(s, "text"))
+    # повторный вызов поднимает ТО ЖЕ окно (не плодит копий)
+    w2 = GW.open(root, model)
+    assert w2 is None or w2.win is w.win, "повторное открытие создало копию окна"
+    w._close()
+    root.destroy()
+    print("GenealogyWindow: Tk-проба OK (5 секций, повтор = поднять)")
+except ImportError:
+    print("tkinter недоступен — Tk-проба пропущена (логика класса проверена выше)")
+
+print("SMOKE OK")

@@ -23,6 +23,7 @@
   _text_tree_show (Текст), _hist_show (История), _overview_text + _overview_show (Обзор — сводка базы),
   _graph_data + _graph_layout + _graph_show (Граф — карта на canvas), _bottom_render, _bottom_show (pick=),
   _goto_model + _goto_node (двойной клик = перейти на деталь), _return_to_pick (кнопка «вернуться»),
+  _genealogy_open (V87: кнопка «Родословная» → отдельное окно GenealogyWindow),
   _nav_record/_nav_state/_nav_back/_nav_fwd (← → история), _goto_entry (поле «перейти к модели»),
   live_tree, expl_live, tree_live, on_tab
 * таблица/сорт/база: sort_key, set_sort, redraw, rebuild_tree, show_readme, check_base, show_check,
@@ -86,6 +87,302 @@ from plm_reader import (
     sections,
     tech_notes,
 )
+
+
+class GenealogyWindow:
+    """V87: отдельное окно «Родословная изделия» — кнопка «Родословная» над нижним окном.
+
+    Секции (ленивые — данные читаются при раскрытии узла):
+      ▲ ОТКУДА ПРИШЛО   — происхождение: заготовка / отливка / копия;
+      ▼ СДЕЛАНО ИЗ НЕЁ  — производные (с наименованием / объёмом / rev);
+      ▼ ОСНАСТКА (MFG)  — оснастка в прямом составе этой модели;
+      ▲ КУДА ВХОДИТ     — все сборки цепочки вверх;
+      ⧏ ИСТОРИЯ ФАЙЛОВ  — trail Creo по файлам изделия (правки, ревизии, кто менял).
+    Двойной клик по узлу-модели — перейти в неё, «← Назад» — вернуться; на модель ОДНО окно
+    (повторный вызов поднимает уже открытое — копий не плодит).
+    """
+
+    _open = {}                                  # модель -> её окно (повторный вызов = поднять)
+    COLS = ("Тип", "Изделие/файл", "Обозначение", "Наименование", "Кол-во")
+    _BASE_KIND = {"наследование": "заготовка", "производная": "отливка",
+                  "hash": "заготовка/отливка", "копия": "копия"}
+    _EMPTY_INFO = ("", "", "", 0, "", "", 0, 0)
+
+    @classmethod
+    def open(cls, parent, model, settings=None, status=None):
+        """Открыть окно модели (или поднять уже открытое — одно окно на модель)."""
+        win = cls._open.get(model)
+        if win is not None:
+            try:
+                win.deiconify()
+                win.lift()
+                win.focus_force()
+                return None
+            except Exception:
+                cls._open.pop(model, None)
+        return cls(parent, model, settings=settings, status=status)
+
+    def __init__(self, parent, model, settings=None, status=None):
+        import tkinter as tk
+        from tkinter import ttk
+        import engine as eng
+        self._tk, self._ttk, self._eng = tk, ttk, eng
+        self._settings = settings if isinstance(settings, dict) else None
+        self._status_cb = status
+        self._models = {}                       # узел дерева -> модель (двойной клик = переход)
+        self._lazy = {}                         # узел -> "секция" | "файл" (ленивая загрузка)
+        self._files = {}                        # узел файла -> путь файла (для истории)
+        self._stack = []                        # «← Назад» — предыдущие модели окна
+        self._reg = ""                          # модель, за которой окно зарегистрировано
+        self.cur = ""
+
+        win = tk.Toplevel(parent)
+        self.win = win
+        win.title("Родословная — %s" % model)
+        win.geometry("980x620")
+        win.minsize(640, 380)
+        win.protocol("WM_DELETE_WINDOW", self._close)
+
+        head = ttk.Frame(win, padding=(8, 6))
+        head.pack(fill="x")
+        self._back = ttk.Button(head, text="← Назад", state="disabled", command=self._go_back)
+        self._back.pack(side="left")
+        self._hlab = ttk.Label(head, text="", padding=(8, 0))
+        self._hlab.pack(side="left")
+
+        box = ttk.Frame(win, padding=6)
+        box.pack(fill="both", expand=True)
+        tv = ttk.Treeview(box, columns=self.COLS, show="tree headings")
+        tv.heading("#0", text="родословная")
+        tv.column("#0", width=360, anchor="w")
+        for c in self.COLS:
+            tv.heading(c, text=c)
+            tv.column(c, width=150 if c != "Кол-во" else 70, anchor="w")
+        vsb = ttk.Scrollbar(box, orient="vertical", command=tv.yview)
+        hsb = ttk.Scrollbar(box, orient="horizontal", command=tv.xview)
+        tv.configure(yscrollcommand=vsb.set, xscrollcommand=hsb.set)
+        tv.grid(row=0, column=0, sticky="nsew")
+        vsb.grid(row=0, column=1, sticky="ns")
+        hsb.grid(row=1, column=0, sticky="ew")
+        box.columnconfigure(0, weight=1)
+        box.rowconfigure(0, weight=1)
+        tv.tag_configure("sec", font=("Segoe UI", 9, "bold"))
+        tv.tag_configure("inh", foreground="#888")
+        self.tv = tv
+        tv.bind("<<TreeviewOpen>>", self._on_open)
+        tv.bind("<Double-1>", self._on_dbl)
+
+        self._load(model)
+
+    # ---- служебное -------------------------------------------------------
+    def _say(self, text):
+        if self._status_cb:
+            try:
+                self._status_cb(text)
+            except Exception:
+                pass
+
+    def _vals(self, m, info, qty=""):
+        """Строка дерева в формате нижнего окна (как _live_vals): (тип, модель, обозначение, наим., кол-во)."""
+        role = (info[5] or "") if len(info) > 5 else ""
+        kind = "оснастка" if role == "MFG" else ("изделие" if (info[6] or info[7]) else "деталь")
+        return (kind, m, info[0] or "", info[1] or "", qty)
+
+    def _register(self, model):
+        """Окно привязывается к текущей модели (для «повторный вызов = поднять, не копия»)."""
+        for k in [k for k, v in GenealogyWindow._open.items() if v is self.win]:
+            GenealogyWindow._open.pop(k, None)
+        GenealogyWindow._open[model] = self.win
+        self._reg = model
+
+    def _close(self):
+        if self._reg and GenealogyWindow._open.get(self._reg) is self.win:
+            GenealogyWindow._open.pop(self._reg, None)
+        try:
+            self.win.destroy()
+        except Exception:
+            pass
+
+    def _retext(self, node, label):
+        try:
+            self.tv.item(node, text=label)
+        except Exception:
+            pass
+
+
+    # ---- загрузка/навигация ----------------------------------------------
+    def _load(self, model, push=True):
+        tv = self.tv
+        if push and self.cur and self.cur != model:
+            self._stack.append(self.cur)
+            self._back.state(["!disabled"])
+        self.cur = model
+        self._models.clear()
+        self._lazy.clear()
+        self._files.clear()
+        tv.delete(*tv.get_children())
+        self._register(model)
+        info = self._eng.models_info([model]).get(model, self._EMPTY_INFO)
+        rn = tv.insert("", "end", open=True, text=model, values=self._vals(model, info))
+        self._models[rn] = model
+        secs = [("orig", "▲ ОТКУДА ПРИШЛО (происхождение): заготовка / отливка / копия"),
+                ("der",  "▼ СДЕЛАНО ИЗ НЕЁ (производные)"),
+                ("mfg",  "▼ ОСНАСТКА (MFG) этой модели"),
+                ("up",   "▲ КУДА ВХОДИТ (сборки, все уровни)"),
+                ("hist", "⧏ ИСТОРИЯ ФАЙЛОВ (правки Creo)")]
+        for kind, label in secs:
+            sn = tv.insert(rn, "end", text=label, tags=("sec",))
+            tv.insert(sn, "end", text="загрузка…")
+            self._lazy[sn] = kind
+        try:
+            tv.yview_moveto(0)
+        except Exception:
+            pass
+        self._hlab.config(text="изделие: %s   (двойной клик — перейти; секции раскрываются сами)" % model)
+        self.win.title("Родословная — %s" % model)
+        self._say("окно «Родословная»: %s" % model)
+
+    def _go_back(self):
+        if self._stack:
+            m = self._stack.pop()
+            self._load(m, push=False)
+            if not self._stack:
+                self._back.state(["disabled"])
+
+    def _on_dbl(self, _ev=None):
+        """Двойной клик по узлу-модели — перейти в неё (с возвратом «← Назад»)."""
+        node = self.tv.focus()
+        m = self._models.get(node)
+        if m and m != self.cur:
+            self._load(m)
+            self._back.state(["!disabled"])
+        return "break"
+
+    def _on_open(self, _ev=None):
+        """Раскрытие узла: ленивая загрузка секции / файла (плейсхолдер «загрузка…» = не читали)."""
+        node = self.tv.focus()
+        kind = self._lazy.get(node)
+        if not kind:
+            return
+        kids = self.tv.get_children(node)
+        if not kids or self.tv.item(kids[0], "text") != "загрузка…":
+            return
+        self.tv.delete(*kids)
+        try:
+            {"orig": self._sec_orig, "der": self._sec_der, "mfg": self._sec_mfg,
+             "up": self._sec_up, "hist": self._sec_hist, "file": self._sec_file}[kind](node)
+        except Exception as ex:
+            self.tv.insert(node, "end", text="ошибка: %s" % ex)
+        finally:
+            self._lazy.pop(node, None)
+
+
+    # ---- секции -----------------------------------------------------------
+    def _sec_orig(self, node):
+        """▲ ОТКУДА ПРИШЛО: заготовки/отливки + «модель скопирована от …» (из самой модели)."""
+        bases = self._eng.derived_bases(self.cur)
+        info = self._eng.models_info([b for b, _ in bases if b])
+        for b, k in bases:
+            kd = GenealogyWindow._BASE_KIND.get(k, k or "источник")
+            if not b:
+                self.tv.insert(node, "end", text="◄ %s: имя не найдено (в файле только код)" % kd)
+                continue
+            n = self.tv.insert(node, "end", text="◄ %s: %s" % (kd, b),
+                               values=self._vals(b, info.get(b, self._EMPTY_INFO)))
+            self._models[n] = b
+        if not bases:
+            self.tv.insert(node, "end", text="— происхождения в базе нет")
+        self._retext(node, "▲ ОТКУДА ПРИШЛО (происхождение): %d" % len(bases))
+
+    def _sec_der(self, node):
+        """▼ СДЕЛАНО ИЗ НЕЁ: производные/отражения с наименованием, объёмом и rev."""
+        rows = self._eng.made_of_list(self.cur, 500)
+        info = self._eng.models_info([r[0] for r in rows if r[0]])
+        for nm, kind, _name, vol, rev in rows:
+            kd = GenealogyWindow._BASE_KIND.get(kind, kind or "производная")
+            note = " ".join(x for x in (("%.0f мм³" % vol) if vol else "",
+                                        ("rev%s" % rev) if rev else "") if x)
+            n = self.tv.insert(node, "end", text="▼ %s: %s" % (kd, nm),
+                               values=self._vals(nm, info.get(nm, self._EMPTY_INFO), note))
+            self._models[n] = nm
+        if not rows:
+            self.tv.insert(node, "end", text="— из неё ничего не сделано")
+        self._retext(node, "▼ СДЕЛАНО ИЗ НЕЁ (производные): %d" % len(rows))
+
+    def _sec_mfg(self, node):
+        """▼ ОСНАСТКА (MFG): позиции прямого состава с ролью MFG."""
+        kids = self._eng.plm_children(self.cur)
+        info = self._eng.models_info([c for c, _ in kids])
+        n_mfg = 0
+        for c, q in kids:
+            i = info.get(c, self._EMPTY_INFO)
+            if (i[5] or "") != "MFG":
+                continue
+            n_mfg += 1
+            n = self.tv.insert(node, "end", text="◆ оснастка: %s  x%d" % (c, q),
+                               values=self._vals(c, i, "x%d" % q))
+            self._models[n] = c
+        if not n_mfg:
+            self.tv.insert(node, "end", text="— оснастки (MFG) в прямом составе нет")
+        self._retext(node, "▼ ОСНАСТКА (MFG): %d" % n_mfg)
+
+    def _sec_up(self, node):
+        """▲ КУДА ВХОДИТ: все сборки цепочки вверх (все уровни), уникальные."""
+        up = self._eng.plm_up_data(self.cur, 8)
+        chain = {}
+        for _ch, lst in up.items():
+            for par, qty in lst:
+                chain.setdefault(par, qty or 1)
+        chain.pop(self._eng.stem(self.cur), None)
+        info = self._eng.models_info(list(chain))
+        for p in sorted(chain):
+            n = self.tv.insert(node, "end", text="▲ %s  x%d" % (p, chain[p]),
+                               values=self._vals(p, info.get(p, self._EMPTY_INFO), "x%d" % chain[p]))
+            self._models[n] = p
+        if not chain:
+            self.tv.insert(node, "end", text="— в сборки не входит (верхняя позиция)")
+        self._retext(node, "▲ КУДА ВХОДИТ (сборки): %d" % len(chain))
+
+    def _sec_hist(self, node):
+        """⧏ ИСТОРИЯ: список файлов изделия (trail читается при раскрытии файла)."""
+        try:
+            con = self._eng.connect()
+            paths = [r[0] for r in con.execute("SELECT path FROM snapshots WHERE model=? ORDER BY path",
+                                                (self._eng.stem(self.cur),))]
+            con.close()
+        except Exception:
+            paths = []
+        for p in paths:
+            n = self.tv.insert(node, "end", text="файл: %s" % os.path.basename(p),
+                               values=("история", os.path.basename(p), "", "", ""))
+            self.tv.insert(n, "end", text="загрузка…")
+            self._lazy[n] = "file"
+            self._files[n] = p
+        if not paths:
+            self.tv.insert(node, "end", text="— файлов изделия в базе нет")
+        self._retext(node, "⧏ ИСТОРИЯ ФАЙЛОВ: файлов %d" % len(paths))
+
+    def _sec_file(self, node):
+        """Правки одного файла: trail Creo через history_rows (как вкладка «История файла»)."""
+        p = self._files.get(node)
+        if not p:
+            self.tv.insert(node, "end", text="— путь файла потерян")
+            return
+        if self._settings is None:
+            try:
+                self._settings = load_settings_file()
+            except Exception:
+                self._settings = {}
+        rows = history_rows(p, self._settings) or []
+        for row in rows:
+            self.tv.insert(node, "end", text="%s  rev%s  %s" % (
+                               row.get("Дата", ""), row.get("Ревизия", ""), row.get("Пользователь", "")),
+                           values=("правка", os.path.basename(p), row.get("Ревизия", ""),
+                                   row.get("Пользователь", ""), row.get("Что изменено", "") or ""),
+                           tags=("inh",))
+        if not rows:
+            self.tv.insert(node, "end", text="— следов правок (trail) в файле нет")
+        self._retext(node, "⧏ %s: записей %d" % (os.path.basename(p), len(rows)))
 
 
 def run_gui():
@@ -1268,6 +1565,8 @@ def run_gui():
     ttk.Button(ltopbar, text="Перейти",
                command=lambda: _goto_entry()).pack(side="left", padx=(4, 0))
     e_goto.bind("<Return>", lambda ev: _goto_entry())
+    ttk.Button(ltopbar, text="Родословная", width=11,           # V87: отдельное окно родословной
+               command=lambda: _genealogy_open()).pack(side="left", padx=(8, 0))
     lsubj = ttk.Label(ltopbar, text="", foreground="#555")
     lsubj.pack(side="left", padx=8)
     lnb = ttk.Notebook(lpane)                  # НИЖНЕЕ окно — ноутбук со своими режимами-вкладками
@@ -2238,7 +2537,6 @@ def run_gui():
                 if q and q != 1:
                     gr_canvas.create_text((x1 + x2) / 2 + 8, (y1 + y2) / 2, text="x%s" % q,
                                           fill="#666", font=("Consolas", 8))
-                                          fill="#666", font=("Consolas", 8))
             for n, (x, y) in pos.items():               # узлы
                 d = nodes[n]
                 gr_canvas.create_rectangle(x * unit - nw // 2, y * row - nh // 2,
@@ -2332,6 +2630,15 @@ def run_gui():
         m = _last.get("pick") or _last.get("model")
         if m:
             _bottom_show(m)
+
+    def _genealogy_open():
+        """V87: кнопка «Родословная» — отдельное окно родословной предмета низа (одно окно на модель)."""
+        m = _last.get("lroot") or _last.get("model") or ""
+        if not m:
+            lsubj.config(text="нет выбранной модели — окно «Родословная» не открыть")
+            return
+        GenealogyWindow.open(root, m, settings=settings,
+                             status=lambda s: lsubj.config(text=s))
 
     def _nav_record(model):
         """V83: запись истории переходов низа (кнопки ← →). Пустые/повторы не пишем, lock пропускаем."""
