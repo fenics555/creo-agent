@@ -56,6 +56,18 @@ for needle in ("def _graph_data", "def _graph_layout", "def _graph_show",
     assert needle in src, "нет фрагмента: %s" % needle
 print("граф: заголовки _graph_data/_graph_layout/_graph_show, цикл рёбер, ветка up, leg_items — на месте")
 
+# --- V88: «Обзор» живёт в ВЕРХНЕМ ноутбуке (nb), из нижнего убран ----------------
+assert "nb.add(lov" in src, "вкладка «Обзор» не добавлена в ВЕРХНИЙ ноутбук"
+assert "lnb.add(lov" not in src, "вкладка «Обзор» всё ещё в нижнем ноутбуке"
+assert "if nb.select() == str(lov)" in src, "on_tab не показывает обзор при входе на вкладку"
+_dbl = src.split("def _ov_dbl")[1].split("\n    def ")[0]
+assert "_bottom_show(m, pick=True)" in _dbl, "_ov_dbl не приравнен к выбору сверху"
+assert "_goto_model" not in _dbl, "_ov_dbl всё ещё зовёт старый переход"
+# dispatch нижнего окна больше не знает про обзор
+_render = src.split("def _bottom_render")[1].split("def _bottom_show")[0]
+assert "str(lov)" not in _render, "_bottom_render всё ещё рисует «Обзор»"
+print("обзор: вкладка в nb, on_tab лениво показывает, двойной клик = pick, dispatch низа чист")
+
 # --- GenealogyWindow: Tk headless-проба ------------------------------------
 os.environ.setdefault("PLM_SELFCHECK", "0")
 try:

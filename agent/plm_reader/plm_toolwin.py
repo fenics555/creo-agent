@@ -14,13 +14,14 @@
   _copy_status, _status_menu, _wrap_data, _half_sash, _half_try
 * Проводник (верх): _e_short, _expl_root_paths, _expl_data, _expl_node, _expl_file_row, _expl_more,
   _expl_fill, fill_explorer, _expl_dbl
-* Дерево/таблица (верх): debounce, _short, _file_row, node_add, _vals9, _fill_node, _model_values,
-  _kind, _resolve, node_add_model, on_open, _dbl_click, fill_tree_view, expand_all, row_uid, make_tree
+* Дерево/таблица/Обзор (верх): debounce, _short, _file_row, node_add, _vals9, _fill_node, _model_values,
+  _kind, _resolve, node_add_model, on_open, _dbl_click, fill_tree_view, expand_all, row_uid, make_tree,
+  _overview_text + _overview_show + _ov_dbl (Обзор — сводка по всей базе; V88: вкладка ВЕРХНЕГО окна)
 * инструменты ряда: purge_folder, _text_window, purge_show, purge_run, _lout, say, cap, _sel_model,
   where_selected, tree_down, tree_up, changes_selected, open_detail, lt_apply, _fmt, export_bom (состав→CSV)
 * НИЖНЕЕ окно (вкладки): _prop_show, _live_vals, _branch_updown, _ltv_model, ltv_open, _plm_data_ref,
   live_auto, _prod_show (Родословная), _links_show + _fill_up + ltv2_open (Связи), _made_window,
-  _text_tree_show (Текст), _hist_show (История), _overview_text + _overview_show (Обзор — сводка базы),
+  _text_tree_show (Текст), _hist_show (История),
   _graph_data + _graph_layout + _graph_show (Граф — карта на canvas), _bottom_render, _bottom_show (pick=),
   _goto_model + _goto_node (двойной клик = перейти на деталь), _return_to_pick (кнопка «вернуться»),
   _genealogy_open (V87: кнопка «Родословная» → отдельное окно GenealogyWindow),
@@ -765,6 +766,28 @@ def run_gui():
     # --- ПРОВОДНИК: папки склада иерархией (ленивая, из базы) — как в Проводнике Windows ---
     tab_expl = ttk.Frame(nb)
     nb.insert(0, tab_expl, text=" Проводник ")     # Проводник — ПЕРВАЯ вкладка
+
+    # ==== 08.10.2026 (V84): вкладка «Обзор» — сводка по ВСЕЙ базе. V88: перенесена СЮДА
+    # из нижнего ноутбука: низ показывает только выбранное сверху, а «Обзор» к выбору
+    # не привязан (сводка по всей базе) — его вкладка живёт в ВЕРХНЕМ окне ====
+    lov = ttk.Frame(nb, padding=4)
+    nb.add(lov, text=" Обзор ")                           # последняя вкладка верхнего окна
+    ovs_sum = ttk.Label(lov, text="сводка по базе: статистика · горячие правки · старые · сироты · дубли · авторы")
+    ovs_sum.pack(anchor="w")
+    ovctl = ttk.Frame(lov)
+    ovctl.pack(anchor="w", pady=2)
+    ttk.Button(ovctl, text="Обновить", command=lambda: _overview_show(True)).pack(side="left")
+    ttk.Label(ovctl, text="← сводка по ВСЕЙ базе; горячие — 30 дней, старые — 2 года; "
+                          "ДВОЙНОЙ клик по строке = нижнее окно перейдёт на модель",
+              foreground="#666").pack(side="left", padx=6)
+    ovbox = ttk.Frame(lov)
+    ovbox.pack(fill="both", expand=True)
+    otv = tk.Text(ovbox, font=("Consolas", 9), wrap="none", bg="#fbfbfb", state="disabled")
+    ovs = ttk.Scrollbar(ovbox, orient="vertical", command=otv.yview)
+    otv.configure(yscrollcommand=ovs.set)
+    ovs.pack(side="right", fill="y")
+    otv.pack(side="left", fill="both", expand=True)
+
     ebar = ttk.Frame(tab_expl, padding=(6, 4))
     ebar.pack(fill="x")
     ttk.Button(ebar, text="Обновить", command=lambda: fill_explorer()).pack(side="left", padx=4)
@@ -1674,23 +1697,7 @@ def run_gui():
     lnb.add(ltext, text=" Дерево текстом (вверх+вниз) ")   # 4-я вкладка: полное дерево текстом (вверх+вниз)
     lnb.add(lhist, text=" История файла ")                 # 5-я: история правок всех файлов изделия
 
-    # ==== 08.10.2026 (V84): вкладка «Обзор» — сводка по ВСЕЙ базе (выбор выше не важен) ====
-    lov = ttk.Frame(lnb, padding=4)
-    lnb.add(lov, text=" Обзор ")                           # 6-я: статистика/горячие/старые/сироты/дубли
-    ovs_sum = ttk.Label(lov, text="сводка по базе: статистика · горячие правки · старые · сироты · дубли · авторы")
-    ovs_sum.pack(anchor="w")
-    ovctl = ttk.Frame(lov)
-    ovctl.pack(anchor="w", pady=2)
-    ttk.Button(ovctl, text="Обновить", command=lambda: _overview_show(True)).pack(side="left")
-    ttk.Label(ovctl, text="← сводка по ВСЕЙ базе; горячие — 30 дней, старые — 2 года",
-              foreground="#666").pack(side="left", padx=6)
-    ovbox = ttk.Frame(lov)
-    ovbox.pack(fill="both", expand=True)
-    otv = tk.Text(ovbox, font=("Consolas", 9), wrap="none", bg="#fbfbfb", state="disabled")
-    ovs = ttk.Scrollbar(ovbox, orient="vertical", command=otv.yview)
-    otv.configure(yscrollcommand=ovs.set)
-    ovs.pack(side="right", fill="y")
-    otv.pack(side="left", fill="both", expand=True)
+    # ==== 08.10.2026 (V84) «Обзор» → V88: вкладка перенесена в ВЕРХНЕЕ окно (nb), см. выше ====
 
     # ==== 09.10.2026 (V85): вкладка «Граф» — карта родословной на canvas (вверх+вниз, клик=переход) ====
     lgr = ttk.Frame(lnb, padding=4)
@@ -2306,12 +2313,13 @@ def run_gui():
         return "\n".join(out), marks                 # V86: (текст, карта строк -> модель для кликов)
 
     def _ov_dbl(ev=None):
-        """V86: двойной клик по строке «Обзора» = перейти на модель этой строки."""
+        """V86/V88: двойной клик по строке «Обзора» = нижнее окно переходит на модель этой строки.
+        V88: обзор теперь в ВЕРХНЕМ окне — клик по нему приравнен к выбору сверху (pick=True)."""
         try:
             line = int(otv.index("@%d,%d" % (ev.x, ev.y)).split(".")[0])
             m = (_last.get("ov_marks") or {}).get(line)
             if m:
-                _goto_model(m)
+                _bottom_show(m, pick=True)
         except Exception:
             pass
 
@@ -2579,9 +2587,6 @@ def run_gui():
         if sel == str(lhist):           # 07.10.2026: история правок всех файлов изделия
             _hist_show(model)
             return
-        if sel == str(lov):             # 08.10.2026 (V84): «Обзор» — сводка по всей базе (без модели)
-            _overview_show()
-            return
         if sel == str(lgr):             # 09.10.2026 (V85): «Граф» — карта родословной выбранной модели
             _graph_show()
             return
@@ -2765,11 +2770,16 @@ def run_gui():
     _auto = {"done": False}
 
     def on_tab(ev=None):
-        """При входе на вкладку — только список верхних сборок (без «развернуть всё»)."""
+        """При входе на вкладку: «Дерево» — список верхних сборок; «Обзор» — сводка по базе."""
         try:
             if nb.index(nb.select()) == 1 and not _auto["done"]:
                 _auto["done"] = True
                 fill_tree_view()              # свёрнутый вид: корень + верхние сборки
+        except Exception:
+            pass
+        try:                                  # V88: «Обзор» — сводка по всей базе (кэш; кнопка = force)
+            if nb.select() == str(lov):
+                _overview_show()
         except Exception:
             pass
 
