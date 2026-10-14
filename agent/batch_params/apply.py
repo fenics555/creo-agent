@@ -116,6 +116,16 @@ def ensure_active(target_file, retries=3, pause=1.0):
         if isinstance(d, dict):
             got = str(d.get("file") or "").lower()
             got_dir = norm_dir(d.get("dirname") or "")
+            if not got:
+                # Creo 13 (14.10.2026): file/get_active отдаёт пустой data. Фолбэк — file/list:
+                # единственная открытая модель с целевым именем = активна. Z: read-only +
+                # копия в PROBA — вторая защита от записи в боевое.
+                lj = CT.creo_call("file", "list", {}, 15)
+                files = (lj.get("data") or {}).get("files") or []
+                if len(files) == 1 and str(files[0]).lower() == want_name:
+                    return True, "единственная открытая модель = целевая %s (file/list, get_active пуст в Creo 13)" % want_name
+                return False, ("открытые модели %s не дают однозначной цели %s — запись прервана"
+                               % (files or "нет", want_name))
             # Сверка ПО ПУТИ: сверка по имени не годится - стен у боевой и копии
             # одинаковый, именно это и вызвало инцидент 03.10.2026.
             if got == want_name and got_dir == norm_dir(want_dir):
@@ -183,6 +193,12 @@ def apply_plan(plan, approve=False, copy_only=True, dry_run=False, on_log=None):
                                                               if r["ok"]),
                     "results": results, "stopped": True, "shield": "wrong_active_model"}
         ok, note = set_param(s["file"], s["param"], s["value"])   # ПОЛНЫЙ ПУТЬ, не стем
+        # ЗАПИСЬ НА ДИСК (14.10.2026): set_param меняет только СЕССИЮ Creo. Без file:save
+        # параметр не долетает до диска копии (живой прогон: RC 0 «вышло 1», а mtime копии
+        # не изменился). Сохраняем в папку модели (dirname=папка копии, Z: read-only не трогаем).
+        if ok:
+            CT.creo_call("file", "save", {"file": Path(s["file"]).name,
+                                          "dirname": str(Path(s["file"]).parent)}, 20)
         results.append({"file": s["name"], "param": s["param"], "ok": ok, "note": note})
         log("%s %s %s=%s" % ("OK " if ok else "FAIL", s["name"], s["param"], s["value"]))
         time.sleep(0.05)                  # пауза, чтобы не долбить CREOSON
