@@ -1,11 +1,11 @@
 {
- "version": "V88",
- "version_num": 88,
+ "version": "V89",
+ "version_num": 89,
  "date": "14.10.2026",
- "notes": "V88: overview tab moved to upper window (base-wide summary is not selection-bound); lazy show on tab enter; dbl-click = pick",
+ "notes": "V89: DISK RULE - agents edit D:\\\\AI only; share Z: is updated BY OWNER BY HAND (sync_to_share forbidden for agents); AGENTS.md shipped",
  "files": {
   "engine.py": "29f384187244e10b6b100e162f5c6cdac8a86bfa99095f7659661b3f369046ab",
-  "plm_reader.py": "12b7a1be4c29901f4e501be5bfc6d3db9cbe45739a124831d75f2b4e80512b3b",
+  "plm_reader.py": "9026f2e8ab018d84b05040f5e02c4eaa9683420287f4a7033a50a8d0f544eabb",
   "plm_toolwin.py": "44da4a5f3ea3e86e4f16d40e4f258a0e7d5ff9c8d97a1bf257eac8b0f02fb85f",
   "plm_history.py": "0e8a1b414f3ad7c67175251fb4192e26431b0e9760bcce6ba6d9faf03ada8c77",
   "plm_parse.py": "c6bb33a412b6b606ad402e3eb78cd49246b77738b69d82be1b6218a1358c0312",
@@ -14,11 +14,12 @@
   "plm_scan.py": "e32d610e33932afaee4c952cb0b4564801508f0568d4360d7d039ffacb856f48",
   "plm_paths_window.py": "3572c5b86bb7e83bdeaada41d64a1dc753611b9b28644c36cecadd0bf197ab88",
   "creo_read.py": "5e027a85d6297c90f98c5435a3451bc94ed40dfc26fbe856aaf9d1b9c3f21d8d",
-  "README.md": "3386356d07b3e1b94d2bbe7fe2563313c98a583dab551031a18144299efdeff3",
+  "README.md": "aad84affeab5fd82d1a1a7139e83e2b71a050244da2c8bed2ed030b8889da0c3",
   "SHARE_copy.bat": "4eccb549a17251392337aeabbc3ef76233dfa3072beadff9d158cd6e932622ee",
   "plm_reader.bat": "bdd125397db3ac7e7432dbdb078a6a811ed4913fca02b062edb27907032fca3d",
   "plm_reader_gui.bat": "9f695898d5db6431e840784b9587c75304ca9e526b06f79d4b44ab026663bd20",
-  "make_version_json.py": "825c5b5f644121c5e3a676c44de7e65dd41b2b71c6f1d4d792578ce49cf66551",
-  ".gitignore": "a2cff3ee327770b2ef59e88b5f27474af13395dc2b1afc3d1a9d6ad91c45753e"
+  "make_version_json.py": "2aeb6a87f1b9d75d9a4a349ca29bb6b5637dbe2705e00cb1e52e66a39f65ebb0",
+  ".gitignore": "a2cff3ee327770b2ef59e88b5f27474af13395dc2b1afc3d1a9d6ad91c45753e",
+  "AGENTS.md": "3b08e6e81731ace78deac46df3b802de337c3924acb87c54fe1562a2573650ef"
  }
 }
