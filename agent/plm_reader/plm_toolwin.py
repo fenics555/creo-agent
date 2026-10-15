@@ -27,7 +27,7 @@
   _graph_data + _graph_layout + _graph_show (Граф — карта на canvas), _bottom_render, _bottom_show (pick=),
   _goto_model + _goto_node (двойной клик = перейти на деталь), _return_to_pick (кнопка «вернуться»),
   _genealogy_open (V87: кнопка «Родословная» → отдельное окно GenealogyWindow),
-  _sunburst_open (V91: кнопка «Солнце» → отдельное окно SunburstWindow — sunburst родословной),
+  _sunburst_open (V91: кнопка «Роза» → отдельное окно SunburstWindow — sunburst родословной),
   _nav_record/_nav_state/_nav_back/_nav_fwd (← → история), _goto_entry (поле «перейти к модели»),
   live_tree, expl_live, tree_live, on_tab
 * таблица/сорт/база: sort_key, set_sort, redraw, rebuild_tree, show_readme, check_base, show_check,
@@ -392,7 +392,7 @@ class GenealogyWindow:
 
 
 class SunburstWindow:
-    """V91: «Солнце родословной» — радиальная карта (sunburst), кнопка «Солнце» над нижним окном.
+    """V91/V92: «Роза родословной» — радиальная карта (sunburst), кнопка «Роза» над нижним окном.
 
     Центр — модель; ПОЛУКРУГА: справа состав ВНИЗ (зелёные оттенки), слева входимость ВВЕРХ
     (голубые); кольца = уровни глубины (спинбоксы 1–3), сектор пропорционален количеству
@@ -441,7 +441,7 @@ class SunburstWindow:
 
         win = tk.Toplevel(parent)
         self.win = win
-        win.title("Солнце — %s" % model)
+        win.title("Роза — %s" % model)
         win.geometry("920x680")
         win.minsize(560, 420)
         win.protocol("WM_DELETE_WINDOW", self._close)
@@ -491,18 +491,18 @@ class SunburstWindow:
             self._stack.append(self.cur)
             self._back.state(["!disabled"])
         self.cur = m
-        self.win.title("Солнце — %s" % m)
+        self.win.title("Роза — %s" % m)
         self._draw()
         if self._status_cb:
             try:
-                self._status_cb("солнце: %s" % m)
+                self._status_cb("роза: %s" % m)
             except Exception:
                 pass
 
     def _go_back(self):
         if self._stack:
             self.cur = self._stack.pop()
-            self.win.title("Солнце — %s" % self.cur)
+            self.win.title("Роза — %s" % self.cur)
             self._draw()
             if not self._stack:
                 self._back.state(["disabled"])
@@ -657,7 +657,7 @@ class SunburstWindow:
                            % (root, len(kids), len(pars), len(mfg)))
         except Exception as e:                      # окно не должно роняться
             try:
-                self._lab.config(text="солнце не построено: %s" % e)
+                self._lab.config(text="роза не построена: %s" % e)
             except Exception:
                 pass
 
@@ -1925,7 +1925,7 @@ def run_gui():
     e_goto.bind("<Return>", lambda ev: _goto_entry())
     ttk.Button(ltopbar, text="Родословная", width=11,           # V87: отдельное окно родословной
                command=lambda: _genealogy_open()).pack(side="left", padx=(8, 0))
-    ttk.Button(ltopbar, text="Солнце", width=8,                 # V91: sunburst-карта родословной
+    ttk.Button(ltopbar, text="Роза", width=8,                  # V91/V92: sunburst-карта родословной (имя V92)
                command=lambda: _sunburst_open()).pack(side="left", padx=(6, 0))
     lsubj = ttk.Label(ltopbar, text="", foreground="#555")
     lsubj.pack(side="left", padx=8)
@@ -3022,23 +3022,8 @@ def run_gui():
                 return
             pos = _graph_layout(nodes, edges)
             unit, row, nw, nh = 170, 64, 158, 40
-            fills = {"root": "#ffe9a8", "up": "#d9e8fb", "down": "#eaf7ea", "der": "#fbe3d0", "mfg": "#ffe0b0"}
-            # Legend для визуализации направлений
-            leg_items = [
-                ("root", "корень", "#ffe9a8"),
-                ("up", "вверх (родитель)", "#d9e8fb"),
-                ("down", "вниз (потомок)", "#eaf7ea"),
-                ("der", "заготовка/отливка", "#fbe3d0"),
-                ("mfg", "оснастка", "#ffe0b0"),
-            ]
-            x0, y0 = 10, 8
-            for kind, label, color in leg_items:
-                gr_canvas.create_rectangle(x0, y0, x0 + 14, y0 + 12, fill=color, outline="#555")
-                gr_canvas.create_text(x0 + 18, y0 + 6, text=label, font=("Consolas", 8))
-                y0 += 16
-            grs.config(text="легенда: ▼-создание, ▲-родословная, ◄-заготовка, ◆-оснастка")
-            # Edge rendering
-            for a, b, kind, q in edges:
+            fills = {"root": "#ffe9a8", "up": "#d9e8fb", "down": "#eaf7ea", "der": "#fbe3d0"}
+            for a, b, kind, q in edges:                 # рёбра (сверху вниз по уровню)
                 if a not in pos or b not in pos:
                     continue
                 xa, ya = pos[a]
@@ -3047,12 +3032,10 @@ def run_gui():
                 if kind == "der":
                     gr_canvas.create_line(x1 + nw // 2, y1, x2 - nw // 2, y2,
                                           dash=(4, 3), fill="#c47a3a")
-                elif kind == "up":
-                    gr_canvas.create_line(x1, y1 + nh // 2, x2, y2 - nh // 2,
-                                          fill="#8ac8e8", width=1)
+                elif nodes[a]["level"] <= nodes[b]["level"]:
+                    gr_canvas.create_line(x1, y1 + nh // 2, x2, y2 - nh // 2, fill="#8aa0b5")
                 else:
-                    gr_canvas.create_line(x1, y1 - nh // 2, x2, y2 + nh // 2,
-                                          fill="#8ac48a", width=1)
+                    gr_canvas.create_line(x1, y1 - nh // 2, x2, y2 + nh // 2, fill="#8aa0b5")
                 if q and q != 1:
                     gr_canvas.create_text((x1 + x2) / 2 + 8, (y1 + y2) / 2, text="x%s" % q,
                                           fill="#666", font=("Consolas", 8))
@@ -3157,10 +3140,10 @@ def run_gui():
                              status=lambda s: lsubj.config(text=s))
 
     def _sunburst_open():
-        """V91: кнопка «Солнце» — радиальная карта (sunburst) предмета низа (одно окно на приложение)."""
+        """V91/V92: кнопка «Роза» — радиальная карта (sunburst) предмета низа (одно окно на приложение)."""
         m = _last.get("lroot") or _last.get("model") or ""
         if not m:
-            lsubj.config(text="нет выбранной модели — окно «Солнце» не открыть")
+            lsubj.config(text="нет выбранной модели — окно «Роза» не открыть")
             return
         SunburstWindow.open(root, m, status=lambda s: lsubj.config(text=s))
 

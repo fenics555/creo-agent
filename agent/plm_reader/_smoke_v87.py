@@ -52,9 +52,11 @@ print("происхождение: %d · производных: %d · сост�
 import inspect
 src = inspect.getsource(plm_toolwin)
 for needle in ("def _graph_data", "def _graph_layout", "def _graph_show",
-               "for a, b, kind, q in edges:", "kind == \"up\"", "leg_items"):
+               "for a, b, kind, q in edges:", "#8aa0b5"):
     assert needle in src, "нет фрагмента: %s" % needle
-print("граф: заголовки _graph_data/_graph_layout/_graph_show, цикл рёбер, ветка up, leg_items — на месте")
+assert "leg_items" not in src, "легенда графа вернулась — владелец заказал СТАРЫЙ вариант (V92)"
+assert "8ac48a" not in src, "цветные рёбра вернулись — владелец заказал СТАРЫЙ вариант (V92)"
+print("граф: СТАРЫЙ вариант (V85/V86) — рёбра #8aa0b5 единым цветом, без легенды — на месте")
 
 # --- V90: кнопка «Перезапустить» в итоге обновления -------------------------
 for needle in ("def _upd_done_dialog", "def _restart_app", "subprocess.Popen", "os._exit(0)"):
@@ -63,13 +65,14 @@ _upd = src.split("def _apply_update")[1].split("\n    def ")[0]
 assert "_upd_done_dialog" in _upd, "_apply_update всё ещё зовёт messagebox вместо окна с «Перезапустить»"
 print("обновление: окно итога с «Перезапустить» (spawn + os._exit) на месте")
 
-# --- V91: «Карта» (treemap вверху) + «Солнце» (sunburst-окно) ----------------
+# --- V91: «Карта» (treemap вверху) + «Роза» (sunburst-окно) ----------------
 for needle in ("class SunburstWindow", "def _map_show", "def _squarify", "def _heat_color",
-               "nb.add(tab_map", "text=\"Солнце\"", "_map_click", "def _sunburst_open"):
+               "nb.add(tab_map", "text=\"Роза\"", "_map_click", "def _sunburst_open"):
     assert needle in src, "нет фрагмента V91: %s" % needle
 assert "str(tab_map)" in src, "on_tab не показывает карту при входе на вкладку"
 assert "_draw_tail" not in src, "остался временный заглушечный метод _draw_tail"
-print("карта+солнце: вкладка Карта, squarify, SunburstWindow, кнопка Солнце — на месте")
+assert "Солнце" not in src, "осталось старое имя «Солнце» — окно переименовано в «Роза» (V92)"
+print("карта+роза: вкладка Карта, squarify, SunburstWindow, кнопка Роза — на месте")
 
 # --- V88: «Обзор» живёт в ВЕРХНЕМ ноутбуке (nb), из нижнего убран ----------------
 assert "nb.add(lov" in src, "вкладка «Обзор» не добавлена в ВЕРХНИЙ ноутбук"
@@ -111,7 +114,7 @@ try:
     SW = plm_toolwin.SunburstWindow
     sw = SW(root, model)
     items = sw._cv.find_all()
-    assert items, "солнце ничего не нарисовало"
+    assert items, "роза ничего не нарисовала"
     n_arcs = len([i for i in items if "arc" in sw._cv.gettags(i)])
     sw._close()
     assert SW._inst is None, "_inst не очистился после закрытия"
