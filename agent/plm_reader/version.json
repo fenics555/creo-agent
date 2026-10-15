@@ -2,7 +2,7 @@
  "version": "V92",
  "version_num": 92,
  "date": "15.10.2026",
- "notes": "V92:graph-revert-to-old-V85-V86-style,no-legend,uniform-edges",
+ "notes": "V92: graph reverted to OLD style (uniform edges, no legend) and window renamed Sunburst to Raza",
  "files": {
   "engine.py": "29f384187244e10b6b100e162f5c6cdac8a86bfa99095f7659661b3f369046ab",
   "plm_reader.py": "268b1c6d17e6f8a28e12fa8c56296c7a65924c0938ac13d4e38280d095a276b4",
