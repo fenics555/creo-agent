@@ -34,8 +34,22 @@ DB = HERE / "db" / "skills_index.db"
 VERDIR = HERE / "db" / "versions"
 LOGDIR = HERE / "log"
 OLL = "http://127.0.0.1:11434"
-ROOTS = {"repo": Path(r"D:\AI\repo"), "tools": AGENT,
-         "agent_settings": Path(r"D:\AI\AGENT_SETTINGS"), "root": Path(r"D:\AI")}
+
+# ПЕРЕНОСИМОСТЬ (15.10.2026): корни НЕ зашиты. По умолчанию — дом, найденный от себя:
+#   skills_index -> tools\agent -> tools -> D:\AI (корень дома). Любой корень перекрывается
+#   настройкой "roots" в settings\settings.json — тогда копия на шаре/другом ПК работает со своими путями.
+DEFAULT_HOME = HERE.parents[2] if len(HERE.parents) > 2 else HERE
+
+
+def _resolve_roots(s):
+    """Корни корпуса: из settings roots (иначе — от расположения инструмента)."""
+    home = Path(s.get("home") or DEFAULT_HOME)
+    raw = s.get("roots") or {}
+    out = {}
+    for key, default in (("repo", home / "repo"), ("tools", home / "tools" / "agent"),
+                         ("agent_settings", home / "AGENT_SETTINGS"), ("root", home)):
+        out[key] = Path(raw[key]) if raw.get(key) else default
+    return out
 
 
 def settings():
@@ -44,6 +58,10 @@ def settings():
         return json.loads(p.read_text(encoding="utf-8"))
     except Exception:
         return {}
+
+
+# Корни корпуса (см. _resolve_roots выше): вычисляются ЗДЕСЬ — после объявления settings().
+ROOTS = _resolve_roots(settings())
 
 
 def log(msg):
