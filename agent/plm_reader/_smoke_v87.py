@@ -67,12 +67,15 @@ print("обновление: окно итога с «Перезапустить
 
 # --- V91: «Карта» (treemap вверху) + «Роза» (sunburst-окно) ----------------
 for needle in ("class SunburstWindow", "def _map_show", "def _squarify", "def _heat_color",
-               "nb.add(tab_map", "text=\"Роза\"", "_map_click", "def _sunburst_open"):
+               "nb.add(tab_map", "text=\"Роза\"", "_map_click", "def _sunburst_open",
+               "def _map_open", "btn_map_back", "mp_folder"):
     assert needle in src, "нет фрагмента V91: %s" % needle
 assert "str(tab_map)" in src, "on_tab не показывает карту при входе на вкладку"
 assert "_draw_tail" not in src, "остался временный заглушечный метод _draw_tail"
 assert "Солнце" not in src, "осталось старое имя «Солнце» — окно переименовано в «Роза» (V92)"
-print("карта+роза: вкладка Карта, squarify, SunburstWindow, кнопка Роза — на месте")
+assert "УРОВЕНЬ ПАПОК" in src and "УРОВЕНЬ МОДЕЛЕЙ" in src, "нет drill-down уровней карты (V93)"
+assert "_place_center" in src, "нет центрирования окна обновления (V93)"
+print("карта+роза: drill-down (папки/модели), кнопка назад, центры окон — на месте")
 
 # --- V88: «Обзор» живёт в ВЕРХНЕМ ноутбуке (nb), из нижнего убран ----------------
 assert "nb.add(lov" in src, "вкладка «Обзор» не добавлена в ВЕРХНИЙ ноутбук"

@@ -18,7 +18,8 @@
 * Дерево/таблица/Обзор (верх): debounce, _short, _file_row, node_add, _vals9, _fill_node, _model_values,
   _kind, _resolve, node_add_model, on_open, _dbl_click, fill_tree_view, expand_all, row_uid, make_tree,
   _overview_text + _overview_show + _ov_dbl (Обзор — сводка по всей базе; V88: вкладка ВЕРХНЕГО окна),
-  _map_show + _map_data + _squarify + _heat_color + _map_click (V91: «Карта» — treemap-тепло базы)
+  _map_show + _map_data + _squarify + _heat_color + _map_click/_map_motion/_map_open
+  (V91/V93: «Карта» — drill-down treemap: папки → модели, клик = открыть/выбрать)
 * инструменты ряда: purge_folder, _text_window, purge_show, purge_run, _lout, say, cap, _sel_model,
   where_selected, tree_down, tree_up, changes_selected, open_detail, lt_apply, _fmt, export_bom (состав→CSV)
 * НИЖНЕЕ окно (вкладки): _prop_show, _live_vals, _branch_updown, _ltv_model, ltv_open, _plm_data_ref,
@@ -444,6 +445,13 @@ class SunburstWindow:
         win.title("Роза — %s" % model)
         win.geometry("920x680")
         win.minsize(560, 420)
+        try:                              # V93: по центру основного окна (как окно обновления)
+            win.update_idletasks()
+            x = parent.winfo_rootx() + max(0, (parent.winfo_width() - 920) // 2)
+            y = parent.winfo_rooty() + max(0, (parent.winfo_height() - 680) // 2)
+            win.geometry("920x680+%d+%d" % (max(0, x), max(0, y)))
+        except Exception:
+            pass
         win.protocol("WM_DELETE_WINDOW", self._close)
 
         head = ttk.Frame(win, padding=(8, 6))
@@ -903,14 +911,29 @@ def run_gui():
         bf.pack(fill="x")
         ttk.Button(bf, text="Перезапустить", command=_restart_app).pack(side="right")
         ttk.Button(bf, text="ОК", command=win.destroy).pack(side="right", padx=(0, 6))
-        try:                              # по центру родителя и сверху остальных окон
-            win.update_idletasks()
-            x = root.winfo_rootx() + max(0, (root.winfo_width() - win.winfo_width()) // 2)
-            y = root.winfo_rooty() + max(0, (root.winfo_height() - win.winfo_height()) // 2)
-            win.geometry("+%d+%d" % (x, y))
-            win.attributes("-topmost", True)
-        except Exception:
-            pass
+        win.transient(root)
+
+        def _place_center(_again=False):
+            """V93: строго по центру ГЛАВНОГО окна; повтор после показа — размер уже измерен."""
+            try:
+                win.update_idletasks()
+                rw, rh = root.winfo_width(), root.winfo_height()
+                ww, wh = win.winfo_width(), win.winfo_height()
+                if rw < 100 or rh < 100 or ww < 40 or wh < 40:
+                    x = (win.winfo_screenwidth() - max(ww, 360)) // 2
+                    y = (win.winfo_screenheight() - max(wh, 160)) // 2
+                else:
+                    x = root.winfo_rootx() + (rw - ww) // 2
+                    y = root.winfo_rooty() + (rh - wh) // 2
+                win.geometry("+%d+%d" % (max(0, x), max(0, y)))
+                if _again:
+                    win.attributes("-topmost", True)
+                    win.attributes("-topmost", False)
+            except Exception:
+                pass
+
+        _place_center()
+        win.after(80, lambda: _place_center(True))
 
     def _apply_update(files, remote):
         def work():
@@ -1106,6 +1129,9 @@ def run_gui():
     mpctl = ttk.Frame(tab_map)
     mpctl.pack(anchor="w", pady=2)
     ttk.Button(mpctl, text="Обновить", command=lambda: _map_show(True)).pack(side="left")
+    btn_map_back = ttk.Button(mpctl, text="← Все папки", state="disabled",
+                              command=lambda: _map_open(""))
+    btn_map_back.pack(side="left", padx=(6, 0))
     mp_leg = tk.Canvas(mpctl, height=16, highlightthickness=0, bg="#f4f5f7")
     _lx = 2
     for _txt, _col in (("≤30 дней", "#e8963d"), ("< 6 мес", "#e8c93d"), ("< 1 год", "#a8cbe8"),
@@ -2763,27 +2789,41 @@ def run_gui():
         return sorted(by_folder.items(), key=lambda kv: -len(kv[1]))
 
     def _map_click(ev):
-        """V91: клик по ячейке карты = нижнее окно переходит на модель (приравнен к выбору сверху)."""
+        """V93: уровень папок — клик по папке = открыть её; уровень моделей = выбор внизу."""
         try:
             for it in reversed(map_canvas.find_overlapping(ev.x - 2, ev.y - 2,
                                                            ev.x + 2, ev.y + 2)):
                 for t in map_canvas.gettags(it):
+                    if t.startswith("f:"):
+                        _map_open(t[2:])
+                        return
                     if t.startswith("m:"):
                         _bottom_show(t[2:], pick=True)
                         return
         except Exception:
             pass
 
-    def _map_motion(ev):
-        """V91: курсор-«рука», пока курсор над ячейкой-моделью (у элементов canvas нет cursor)."""
+    def _map_open(folder):
+        """V93: навигация карты: '' = все папки, иначе — мозаика моделей одной папки."""
+        _last["mp_folder"] = folder or ""
         try:
-            hot = False
-            for it in reversed(map_canvas.find_overlapping(ev.x - 2, ev.y - 2,
-                                                           ev.x + 2, ev.y + 2)):
-                if any(t.startswith("m:") for t in map_canvas.gettags(it)):
-                    hot = True
-                    break
-            map_canvas.config(cursor="hand2" if hot else "")
+            btn_map_back.state(["!disabled"] if _last["mp_folder"] else ["disabled"])
+        except Exception:
+            pass
+        _map_show()
+
+    def _map_motion(ev):
+        """V93: курсор-«рука» над папкой/моделью; ставится только при СМЕНЕ состояния —
+        на V92 каждый Motion гонял find_overlapping по 40к элементам и мышь висла."""
+        try:
+            ids = map_canvas.find_overlapping(ev.x - 2, ev.y - 2, ev.x + 2, ev.y + 2)
+            hot = ""
+            if ids:
+                if any(t.startswith(("f:", "m:")) for t in map_canvas.gettags(ids[-1])):
+                    hot = "hand2"
+            if hot != _last.get("mp_cur"):
+                _last["mp_cur"] = hot
+                map_canvas.config(cursor=hot)
         except Exception:
             pass
 
@@ -2802,57 +2842,76 @@ def run_gui():
         _mp_rz["id"] = root.after(250, lambda: _map_show())
 
     def _map_show(force=False):
-        """V91: «Карта» — treemap-тепло базы (кэш в _last['mp_data']; «Обновить» = force)."""
+        """V93: «Карта» — drill-down treemap: папки → модели (кэш в _last['mp_data'])."""
         t0 = time.time()
         try:
             if force or not _last.get("mp_data"):
                 _last["mp_data"] = _map_data()
                 _last["mp_built"] = time.strftime("%d.%m.%Y %H:%M:%S")
             data = _last["mp_data"]
+            folder = _last.get("mp_folder") or ""
             map_canvas.delete("all")
+            map_canvas.config(cursor="")
+            _last["mp_cur"] = ""
             w = max(map_canvas.winfo_width(), 600)
             h = max(map_canvas.winfo_height(), 380)
-            folders = [(f, v) for f, v in data[:40]]
-            fvals = [max(len(v), 1) for _, v in folders]
-            rest_n = sum(len(v) for _, v in data[40:])
-            if rest_n:
-                folders.append(("…прочее: %d папок" % (len(data) - 40), []))
-                fvals.append(rest_n)
-            n_models = sum(fvals)
-            frects = _squarify(fvals, 0, 0, w, h)
-            for (fname, models), cnt, (fx, fy, fw, fh) in zip(folders, fvals, frects):
-                fx, fy = fx + 1, fy + 1
-                fw, fh = max(fw - 2, 2), max(fh - 2, 2)
-                map_canvas.create_rectangle(fx, fy, fx + fw, fy + fh,
-                                            fill="#f0f2f5", outline="#8a9099")
-                short = fname if len(fname) <= 44 else "…" + fname[-42:]
-                map_canvas.create_text(fx + 4, fy + 3, anchor="nw",
-                                       text="%s · %d" % (short, cnt),
-                                       font=("Segoe UI", 8, "bold"), fill="#333")
-                if not models:
-                    continue
-                pad, top = 3, 16                # мозаика моделей внутри папки
-                ix, iy = fx + pad, fy + top
-                iw, ih = fw - 2 * pad, fh - top - pad
-                if iw < 12 or ih < 12:
-                    continue
+            if not folder:
+                # УРОВЕНЬ ПАПОК: крупные блоки — размер = число моделей, цвет = свежесть
+                folders = [(f, v) for f, v in data[:40]]
+                fvals = [max(len(v), 1) for _, v in folders]
+                rest_n = sum(len(v) for _, v in data[40:])
+                if rest_n:
+                    folders.append(("…прочее: %d папок" % (len(data) - 40), []))
+                    fvals.append(rest_n)
+                frects = _squarify(fvals, 0, 0, w, h)
+                for (fname, models), cnt, (fx, fy, fw, fh) in zip(folders, fvals, frects):
+                    fx, fy = fx + 1, fy + 1
+                    fw, fh = max(fw - 2, 2), max(fh - 2, 2)
+                    fresh = max((mt for _m, mt in models), default=0)
+                    drill = bool(models) and not fname.startswith("…")
+                    tg = ("cell", "f:" + fname) if drill else ("cell",)
+                    map_canvas.create_rectangle(fx, fy, fx + fw, fy + fh,
+                                                fill=_heat_color(fresh), outline="#ffffff",
+                                                tags=tg)
+                    short = fname if len(fname) <= 40 else "…" + fname[-38:]
+                    map_canvas.create_text(fx + 8, fy + 8, anchor="nw", text=short,
+                                           font=("Segoe UI", 10, "bold"), fill="#1c2733",
+                                           width=max(fw - 16, 30), tags=tg)
+                    if fh >= 36:
+                        map_canvas.create_text(fx + 8, fy + fh - 8, anchor="sw",
+                                               text="%d моделей" % cnt,
+                                               font=("Segoe UI", 9), fill="#33404c", tags=tg)
+                maps_sum.config(text="карта базы от %s: папок %d · моделей %d · "
+                                  "КЛИК ПО ПАПКЕ = открыть её модели · цвет блока = свежесть "
+                                  "последней правки · %.2f с"
+                                % (_last.get("mp_built", "?"), len(data), sum(fvals),
+                                   time.time() - t0))
+            else:
+                # УРОВЕНЬ МОДЕЛЕЙ ОДНОЙ ПАПКИ: ячейки читаемого размера, клик = выбор внизу
+                models = dict(data).get(folder, [])
                 cells = sorted(models, key=lambda r: -r[1])[:500]
-                crects = _squarify([1] * len(cells), ix, iy, iw, ih)
-                for (m, mt), (cx, cy, cw, ch) in zip(cells, crects):
-                    if cw < 1 or ch < 1:
-                        continue
-                    map_canvas.create_rectangle(cx, cy, cx + cw, cy + ch,
-                                                fill=_heat_color(mt), outline="#fbfbfb",
-                                                tags=("cell", "m:" + m))
-                    if cw >= 54 and ch >= 13:    # подпись — только в просторных ячейках
-                        nm = m if len(m) <= 18 else m[:16] + "…"
-                        map_canvas.create_text(cx + 3, cy + 2, anchor="nw", text=nm,
-                                               font=("Segoe UI", 7), fill="#1c2733",
-                                               tags=("cell", "m:" + m))
-            maps_sum.config(text="карта базы от %s: папок %d · моделей %d · папок вне карты %d · "
-                                  "клик по ячейке = модель внизу · %.2f с"
-                           % (_last.get("mp_built", "?"), len(data), n_models,
-                              max(0, len(data) - 40), time.time() - t0))
+                rest = len(models) - len(cells)
+                title = folder if len(folder) <= 90 else "…" + folder[-88:]
+                map_canvas.create_text(10, 8, anchor="nw", text="Папка: " + title,
+                                       font=("Segoe UI", 11, "bold"), fill="#1c2733")
+                if cells:
+                    crects = _squarify([1] * len(cells), 0, 32, w, max(h - 34, 60))
+                    for (m, mt), (cx, cy, cw, ch) in zip(cells, crects):
+                        if cw < 1 or ch < 1:
+                            continue
+                        map_canvas.create_rectangle(cx, cy, cx + cw, cy + ch,
+                                                    fill=_heat_color(mt), outline="#fbfbfb",
+                                                    tags=("cell", "m:" + m))
+                        if cw >= 60 and ch >= 15:
+                            nm = m if len(m) <= 22 else m[:20] + "…"
+                            map_canvas.create_text(cx + 4, cy + 3, anchor="nw", text=nm,
+                                                   font=("Segoe UI", 8), fill="#1c2733",
+                                                   tags=("cell", "m:" + m))
+                maps_sum.config(text="папка «%s»: моделей %d%s · КЛИК ПО МОДЕЛИ = выбор внизу · "
+                                  "«← Все папки» — назад · %.2f с"
+                                % (folder, len(models),
+                                   (" (показано первых %d)" % len(cells)) if rest > 0 else "",
+                                   time.time() - t0))
         except Exception as e:                  # вкладка не должна ронять окно
             try:
                 map_canvas.delete("all")
@@ -3144,6 +3203,10 @@ def run_gui():
         m = _last.get("lroot") or _last.get("model") or ""
         if not m:
             lsubj.config(text="нет выбранной модели — окно «Роза» не открыть")
+            messagebox.showinfo(
+                "Роза",
+                "Окно «Роза» строится от модели.\n\nСначала выбери изделие в ЛЮБОЙ вкладке "
+                "верхнего окна — потом жми «Роза».")
             return
         SunburstWindow.open(root, m, status=lambda s: lsubj.config(text=s))
 
