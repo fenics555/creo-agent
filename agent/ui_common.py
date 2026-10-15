@@ -87,6 +87,26 @@ def save_settings(name, data, tool_dir=None):
         return str(p)
     except Exception as e:
         return "ошибка: %s" % e
+
+
+# --- MRU (недавние файлы/пути, переживают перезапуск) -------------------------
+def mru_add(name, value, tool_dir=None, limit=10):
+    """Добавить путь/значение в MRU окна (свежие сверху, без дублей, лимит max).
+    Живёт в settings\\settings.json под ключом mru — переживает перезапуск (закон п.19)."""
+    if not value:
+        return []
+    st = load_settings(name, {}, tool_dir)
+    lst = [v for v in (st.get("mru") or []) if v != value]
+    lst.insert(0, str(value))
+    lst = lst[:max(1, int(limit))]
+    st["mru"] = lst
+    save_settings(name, st, tool_dir)
+    return lst
+
+
+def mru_list(name, tool_dir=None):
+    """Список недавних (MRU) окна; свежие сверху. Пусто — значит ещё не пользовались."""
+    return load_settings(name, {}, tool_dir).get("mru") or []
 # --- КАРКАС ОКНА -------------------------------------------------------------
 def make_root(title, size="1020x620", minsize=(900, 560), tool_dir=None):
     """Окно с размерами, минимумом и общим фоном. Возвращает root."""

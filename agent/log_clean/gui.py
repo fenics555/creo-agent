@@ -11,7 +11,7 @@ import time
 import sys
 import tkinter as tk
 from pathlib import Path
-from tkinter import messagebox, simpledialog
+from tkinter import messagebox, simpledialog, ttk
 
 PROG_DIR = Path(__file__).resolve().parent
 sys.path.insert(0, str(PROG_DIR))
@@ -80,7 +80,10 @@ class App:
 
         tk.Label(top, text="Корень логов:", bg=U.BG).grid(row=0, column=0, sticky="w", padx=8, pady=(8, 2))
         self.var_root = tk.StringVar(value=self.st["root"])
-        tk.Entry(top, textvariable=self.var_root).grid(row=1, column=0, columnspan=2, sticky="ew", padx=8)
+        # Волна 11 (MRU): недавние корни выпадающим списком (переживают перезапуск).
+        ttk.Combobox(top, textvariable=self.var_root,
+                     values=U.mru_list("log_clean", tool_dir=PROG_DIR)).grid(
+            row=1, column=0, columnspan=2, sticky="ew", padx=8)
         tk.Button(top, text="Обзор", command=self.browse).grid(row=2, column=0, sticky="w", padx=8, pady=6)
         tk.Label(top, text="Срок по умолчанию (дней):", bg=U.BG).grid(
             row=3, column=0, sticky="w", padx=8)
@@ -120,6 +123,8 @@ class App:
         self.open_dir(str(Path(self.var_root.get()) / "_trash_clean"))
 
     def open_dir(self, p):
+        if p:
+            U.mru_add("log_clean", p, tool_dir=PROG_DIR)   # Волна 11: запомнить недавний корень
         try:
             os.startfile(p)
         except Exception as e:

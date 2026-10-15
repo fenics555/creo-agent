@@ -17,7 +17,8 @@
   _expl_fill, fill_explorer, _expl_dbl
 * Дерево/таблица/Обзор (верх): debounce, _short, _file_row, node_add, _vals9, _fill_node, _model_values,
   _kind, _resolve, node_add_model, on_open, _dbl_click, fill_tree_view, expand_all, row_uid, make_tree,
-  _overview_text + _overview_show + _ov_dbl (Обзор — сводка по всей базе; V88: вкладка ВЕРХНЕГО окна)
+  _overview_text + _overview_show + _ov_dbl (Обзор — сводка по всей базе; V88: вкладка ВЕРХНЕГО окна),
+  _map_show + _map_data + _squarify + _heat_color + _map_click (V91: «Карта» — treemap-тепло базы)
 * инструменты ряда: purge_folder, _text_window, purge_show, purge_run, _lout, say, cap, _sel_model,
   where_selected, tree_down, tree_up, changes_selected, open_detail, lt_apply, _fmt, export_bom (состав→CSV)
 * НИЖНЕЕ окно (вкладки): _prop_show, _live_vals, _branch_updown, _ltv_model, ltv_open, _plm_data_ref,
@@ -26,6 +27,7 @@
   _graph_data + _graph_layout + _graph_show (Граф — карта на canvas), _bottom_render, _bottom_show (pick=),
   _goto_model + _goto_node (двойной клик = перейти на деталь), _return_to_pick (кнопка «вернуться»),
   _genealogy_open (V87: кнопка «Родословная» → отдельное окно GenealogyWindow),
+  _sunburst_open (V91: кнопка «Солнце» → отдельное окно SunburstWindow — sunburst родословной),
   _nav_record/_nav_state/_nav_back/_nav_fwd (← → история), _goto_entry (поле «перейти к модели»),
   live_tree, expl_live, tree_live, on_tab
 * таблица/сорт/база: sort_key, set_sort, redraw, rebuild_tree, show_readme, check_base, show_check,
@@ -38,6 +40,7 @@
 import os
 import re
 import json
+import math
 import datetime
 import time
 import threading
@@ -386,6 +389,184 @@ class GenealogyWindow:
         if not rows:
             self.tv.insert(node, "end", text="— следов правок (trail) в файле нет")
         self._retext(node, "⧏ %s: записей %d" % (os.path.basename(p), len(rows)))
+
+
+class SunburstWindow:
+    """V91: «Солнце родословной» — радиальная карта (sunburst), кнопка «Солнце» над нижним окном.
+
+    Центр — модель; ПОЛУКРУГА: справа состав ВНИЗ (зелёные оттенки), слева входимость ВВЕРХ
+    (голубые); кольца = уровни глубины (спинбоксы 1–3), сектор пропорционален количеству
+    (вес = min(qty, 10) — один винт не съедает пол-розы). Оснастка MFG — оранжевая,
+    заготовки/отливки — коричневые пунктиром, сверх лимита (CAP) — серые «прочие».
+    Клик по дуге = перейти на модель (она становится центром), «← Назад» — назад.
+    Окно ОДНО на приложение: повторный вызов поднимает его и переводит на модель.
+    """
+
+    _inst = None
+    DOWN = ("#7cb87c", "#99cba9", "#b8ddc4", "#d4ecdc")
+    UP = ("#7cb4dc", "#9cc9e8", "#bcdcee", "#d8ecf6")
+    MFG = "#e8a33d"
+    DER = "#c47a3a"
+    ROOT = "#4a7fb5"
+    NEUTRAL = "#c9cfd6"
+    CAP = 18                                 # секторов на полукруго; остальное — «прочие»
+    CAP2 = 8                                 # секторов 2-го кольца на каждого родителя
+
+    @classmethod
+    def open(cls, parent, model, status=None):
+        """Открыть окно (или поднять уже открытое — одно окно, переход на модель)."""
+        if cls._inst is not None:
+            try:
+                inst = cls._inst
+                inst.win.deiconify()
+                inst.win.lift()
+                inst.win.focus_force()
+                if model:
+                    inst.goto(model)
+                return None
+            except Exception:
+                cls._inst = None
+        return cls(parent, model, status=status)
+
+    def __init__(self, parent, model, status=None):
+        import tkinter as tk
+        from tkinter import ttk
+        import engine as eng
+        self._tk, self._ttk, self._eng = tk, ttk, eng
+        self._status_cb = status
+        self._stack = []                      # «← Назад»
+        self._rz = None                       # debounce <Configure>
+        self.cur = ""
+        SunburstWindow._inst = self
+
+        win = tk.Toplevel(parent)
+        self.win = win
+        win.title("Солнце — %s" % model)
+        win.geometry("920x680")
+        win.minsize(560, 420)
+        win.protocol("WM_DELETE_WINDOW", self._close)
+
+        head = ttk.Frame(win, padding=(8, 6))
+        head.pack(fill="x")
+        self._back = ttk.Button(head, text="← Назад", state="disabled", command=self._go_back)
+        self._back.pack(side="left")
+        ttk.Button(head, text="Обновить", command=self._draw).pack(side="left", padx=(6, 0))
+        ttk.Label(head, text="вниз:").pack(side="left", padx=(12, 2))
+        self._dd = ttk.Spinbox(head, from_=1, to=3, width=3, command=self._draw)
+        self._dd.set(2)
+        self._dd.pack(side="left")
+        ttk.Label(head, text="вверх:").pack(side="left", padx=(6, 2))
+        self._du = ttk.Spinbox(head, from_=1, to=3, width=3, command=self._draw)
+        self._du.set(2)
+        self._du.pack(side="left")
+        ttk.Label(head, text="клик по дуге = перейти на модель; центр = текущая",
+                  foreground="#666").pack(side="left", padx=10)
+
+        self._cv = tk.Canvas(win, bg="#fbfbfb", highlightthickness=0)
+        self._cv.pack(fill="both", expand=True, padx=6, pady=(0, 2))
+        self._cv.bind("<Button-1>", self._click)
+
+        leg = tk.Canvas(win, height=18, highlightthickness=0, bg="#f4f5f7")
+        leg.pack(fill="x", padx=6, pady=(0, 2))
+        lx = 4
+        for col, txt in ((self.DOWN[0], "состав вниз"), (self.UP[0], "входимость вверх"),
+                         (self.MFG, "оснастка MFG"), (self.DER, "заготовка/отливка"),
+                         (self.NEUTRAL, "прочие (лимит)")):
+            leg.create_rectangle(lx, 3, lx + 12, 15, fill=col, outline="#888")
+            leg.create_text(lx + 16, 9, anchor="w", text=txt, font=("Segoe UI", 8))
+            lx += 16 + int(6.8 * len(txt)) + 16
+        self._lab = ttk.Label(win, text="", padding=(8, 0))
+        self._lab.pack(fill="x")
+
+        self._cv.bind("<Configure>", self._on_resize)
+        self.goto(model, push=False)
+
+    def goto(self, model, push=True):
+        """Перейти на модель (она — центр солнца); предыдущую — в «← Назад»."""
+        m = self._eng.stem(model or "")
+        if not m:
+            return
+        if push and self.cur and self.cur != m:
+            self._stack.append(self.cur)
+            self._back.state(["!disabled"])
+        self.cur = m
+        self.win.title("Солнце — %s" % m)
+        self._draw()
+        if self._status_cb:
+            try:
+                self._status_cb("солнце: %s" % m)
+            except Exception:
+                pass
+
+    def _go_back(self):
+        if self._stack:
+            self.cur = self._stack.pop()
+            self.win.title("Солнце — %s" % self.cur)
+            self._draw()
+            if not self._stack:
+                self._back.state(["disabled"])
+
+    def _on_resize(self, _ev=None):
+        if self._rz:
+            try:
+                self.win.after_cancel(self._rz)
+            except Exception:
+                pass
+        self._rz = self.win.after(200, self._draw)
+
+    def _close(self):
+        try:
+            self.win.destroy()
+        finally:
+            if SunburstWindow._inst is self:
+                SunburstWindow._inst = None
+
+    def _click(self, ev):
+        """V91: клик по дуге = перейти на модель этой дуги (она становится центром)."""
+        try:
+            for it in reversed(self._cv.find_overlapping(ev.x - 1, ev.y - 1, ev.x + 1, ev.y + 1)):
+                for t in self._cv.gettags(it):
+                    if t.startswith("m:"):
+                        self.goto(t[2:])
+                        return
+        except Exception:
+            pass
+
+    def _draw(self):
+        """V91: раскладка и отрисовка колец (вход, «Обновить», resize, смена глубины)."""
+        tk = self._tk
+        cv = self._cv
+        try:
+            cv.delete("all")
+            if not self.cur:
+                return
+            w = max(cv.winfo_width(), 420)
+            h = max(cv.winfo_height(), 340)
+            cx, cy = w / 2.0, h / 2.0
+            r0 = 62
+            r2 = min(w, h) * 0.40
+            if r2 < r0 + 60:
+                r2 = r0 + 60
+            r1 = r0 + (r2 - r0) * 0.45
+            root = self.cur
+            ddown = min(3, max(1, int(str(self._dd.get() or 2))))
+            dup = min(3, max(1, int(str(self._du.get() or 2))))
+            down = self._eng.plm_down_data(root, ddown)
+            up = self._eng.plm_up_data(root, dup)
+            kids = down.get(root, []) or []
+            pars = up.get(root, []) or []
+            info = self._eng.models_info([c for c, _ in kids] + [p for p, _ in pars])
+            mfg = {c for c, _ in kids if (info.get(c) or ("",) * 8)[5] == "MFG"}
+            try:
+                der = [b for b, _k in self._eng.derived_bases(root)[:6] if b]
+            except Exception:
+                der = []
+
+            def wt(q):
+                return min(q or 1, 10)       # вес сектора: qty с потолком (винт не съедает розу)
+
+    def _draw_tail(self):
+        pass
 
 
 def run_gui():
@@ -1625,6 +1806,8 @@ def run_gui():
     e_goto.bind("<Return>", lambda ev: _goto_entry())
     ttk.Button(ltopbar, text="Родословная", width=11,           # V87: отдельное окно родословной
                command=lambda: _genealogy_open()).pack(side="left", padx=(8, 0))
+    ttk.Button(ltopbar, text="Солнце", width=8,                 # V91: sunburst-карта родословной
+               command=lambda: _sunburst_open()).pack(side="left", padx=(6, 0))
     lsubj = ttk.Label(ltopbar, text="", foreground="#555")
     lsubj.pack(side="left", padx=8)
     lnb = ttk.Notebook(lpane)                  # НИЖНЕЕ окно — ноутбук со своими режимами-вкладками
@@ -2679,6 +2862,14 @@ def run_gui():
             return
         GenealogyWindow.open(root, m, settings=settings,
                              status=lambda s: lsubj.config(text=s))
+
+    def _sunburst_open():
+        """V91: кнопка «Солнце» — радиальная карта (sunburst) предмета низа (одно окно на приложение)."""
+        m = _last.get("lroot") or _last.get("model") or ""
+        if not m:
+            lsubj.config(text="нет выбранной модели — окно «Солнце» не открыть")
+            return
+        SunburstWindow.open(root, m, status=lambda s: lsubj.config(text=s))
 
     def _nav_record(model):
         """V83: запись истории переходов низа (кнопки ← →). Пустые/повторы не пишем, lock пропускаем."""
