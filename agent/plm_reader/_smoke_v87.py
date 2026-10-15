@@ -63,6 +63,14 @@ _upd = src.split("def _apply_update")[1].split("\n    def ")[0]
 assert "_upd_done_dialog" in _upd, "_apply_update всё ещё зовёт messagebox вместо окна с «Перезапустить»"
 print("обновление: окно итога с «Перезапустить» (spawn + os._exit) на месте")
 
+# --- V91: «Карта» (treemap вверху) + «Солнце» (sunburst-окно) ----------------
+for needle in ("class SunburstWindow", "def _map_show", "def _squarify", "def _heat_color",
+               "nb.add(tab_map", "text=\"Солнце\"", "_map_click", "def _sunburst_open"):
+    assert needle in src, "нет фрагмента V91: %s" % needle
+assert "str(tab_map)" in src, "on_tab не показывает карту при входе на вкладку"
+assert "_draw_tail" not in src, "остался временный заглушечный метод _draw_tail"
+print("карта+солнце: вкладка Карта, squarify, SunburstWindow, кнопка Солнце — на месте")
+
 # --- V88: «Обзор» живёт в ВЕРХНЕМ ноутбуке (nb), из нижнего убран ----------------
 assert "nb.add(lov" in src, "вкладка «Обзор» не добавлена в ВЕРХНИЙ ноутбук"
 assert "lnb.add(lov" not in src, "вкладка «Обзор» всё ещё в нижнем ноутбуке"
@@ -99,6 +107,16 @@ try:
     w2 = GW.open(root, model)
     assert w2 is None or w2.win is w.win, "повторное открытие создало копию окна"
     w._close()
+    # --- V91: SunburstWindow — Tk-проба (дуги рисуются без показа окна) -------
+    SW = plm_toolwin.SunburstWindow
+    sw = SW(root, model)
+    items = sw._cv.find_all()
+    assert items, "солнце ничего не нарисовало"
+    n_arcs = len([i for i in items if "arc" in sw._cv.gettags(i)])
+    sw._close()
+    assert SW._inst is None, "_inst не очистился после закрытия"
+    print("SunburstWindow: Tk-проба OK (объектов %d, дуг %d, закрытие чистит _inst)"
+          % (len(items), n_arcs))
     root.destroy()
     print("GenealogyWindow: Tk-проба OK (5 секций, повтор = поднять)")
 except ImportError:

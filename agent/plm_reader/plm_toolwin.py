@@ -465,6 +465,7 @@ class SunburstWindow:
         self._cv = tk.Canvas(win, bg="#fbfbfb", highlightthickness=0)
         self._cv.pack(fill="both", expand=True, padx=6, pady=(0, 2))
         self._cv.bind("<Button-1>", self._click)
+        self._cv.bind("<Motion>", self._motion)  # «рука» над кликабельной дугой
 
         leg = tk.Canvas(win, height=18, highlightthickness=0, bg="#f4f5f7")
         leg.pack(fill="x", padx=6, pady=(0, 2))
@@ -532,6 +533,19 @@ class SunburstWindow:
         except Exception:
             pass
 
+    def _motion(self, ev):
+        """V91: курсор-«рука», пока курсор над дугой-моделью (у canvas-элементов нет cursor)."""
+        try:
+            hot = False
+            for it in reversed(self._cv.find_overlapping(ev.x - 1, ev.y - 1,
+                                                         ev.x + 1, ev.y + 1)):
+                if any(t.startswith("m:") for t in self._cv.gettags(it)):
+                    hot = True
+                    break
+            self._cv.config(cursor="hand2" if hot else "")
+        except Exception:
+            pass
+
     def _draw(self):
         """V91: раскладка и отрисовка колец (вход, «Обновить», resize, смена глубины)."""
         tk = self._tk
@@ -565,8 +579,87 @@ class SunburstWindow:
             def wt(q):
                 return min(q or 1, 10)       # вес сектора: qty с потолком (винт не съедает розу)
 
-    def _draw_tail(self):
-        pass
+            def put_sectors(items, a_start, a_end, colors):
+                """Сектора 1-го кольца полукруга по весам; возвращает [(модель, a0, ext)]."""
+                items = sorted(items, key=lambda r: -wt(r[1]))
+                head = items[:self.CAP]
+                tail = sum(wt(q) for _, q in items[self.CAP:])
+                total = sum(wt(q) for _, q in head) + tail
+                if total <= 0:
+                    return []
+                span = a_end - a_start
+                out, a = [], a_start
+                for m, q in head:
+                    ext = span * wt(q) / total
+                    col = self.MFG if m in mfg else colors[len(out) % len(colors)]
+                    cv.create_arc(cx - r1, cy - r1, cx + r1, cy + r1, start=a, extent=ext,
+                                  fill=col, outline="#ffffff", style=tk.PIESLICE,
+                                  tags=("arc", "m:" + m))
+                    out.append((m, a, ext))
+                    a += ext
+                if tail:
+                    cv.create_arc(cx - r1, cy - r1, cx + r1, cy + r1, start=a, extent=a_end - a,
+                                  fill=self.NEUTRAL, outline="#ffffff", style=tk.PIESLICE)
+                for m, a0, ext in out:               # подписи 1-го кольца
+                    if ext < 12:
+                        continue
+                    rr = (r0 + r1) / 2.0
+                    mid = math.radians(a0 + ext / 2.0)
+                    nm = m if len(m) <= 16 else m[:15] + "…"
+                    cv.create_text(cx + rr * math.cos(mid), cy + rr * math.sin(mid),
+                                   text=nm, font=("Segoe UI", 8, "bold"), fill="#20303c")
+                return out
+
+            def ring2(parent_list, data, colors):
+                """2-е кольцо: дети каждого родителя внутри его сектора."""
+                for i, (m, a0, ext) in enumerate(parent_list):
+                    if ext < 8:
+                        continue
+                    sub = sorted(data.get(m, []) or [], key=lambda r: -wt(r[1]))[:self.CAP2]
+                    tot = sum(wt(q) for _, q in sub)
+                    if tot <= 0:
+                        continue
+                    a = a0
+                    for j, (cm, q) in enumerate(sub):
+                        cext = ext * wt(q) / tot
+                        col = colors[(i + j) % len(colors)]
+                        cv.create_arc(cx - r2, cy - r2, cx + r2, cy + r2, start=a, extent=cext,
+                                      fill=col, outline="#fbfbfb", style=tk.PIESLICE,
+                                      tags=("arc", "m:" + cm))
+                        if cext >= 16:
+                            rr = (r1 + r2) / 2.0
+                            mid = math.radians(a + cext / 2.0)
+                            nm = cm if len(cm) <= 18 else cm[:17] + "…"
+                            cv.create_text(cx + rr * math.cos(mid), cy + rr * math.sin(mid),
+                                           text=nm, font=("Segoe UI", 7), fill="#33404c")
+                        a += cext
+
+            # ПОЛУКРУГА: справа вниз (−90..90), слева вверх (90..270)
+            d1 = put_sectors(kids, -90, 90, self.DOWN)
+            if der:                                # заготовки/отливки — коричневые пунктиром
+                ext_each = min(24.0, 80.0 / max(len(der), 1))
+                a = 90 - ext_each * len(der)
+                for b in der:
+                    cv.create_arc(cx - r1, cy - r1, cx + r1, cy + r1, start=a, extent=ext_each,
+                                  fill=self.DER, outline="#fbfbfb", style=tk.PIESLICE,
+                                  dash=(3, 2), tags=("arc", "m:" + b))
+                    a += ext_each
+            u1 = put_sectors(pars, 90, 270, self.UP)
+            ring2(d1, down, self.DOWN)              # снаружи — второе кольцо
+            ring2(u1, up, self.UP)
+            cv.create_oval(cx - r0, cy - r0, cx + r0, cy + r0, fill=self.ROOT,
+                           outline="#2f5f8f", width=2)
+            nm = root if len(root) <= 14 else root[:13] + "…"
+            cv.create_text(cx, cy, text=nm, font=("Segoe UI", 10, "bold"), fill="#ffffff",
+                           width=int(r0 * 1.7))
+            self._lab.config(text="«%s»: состав (1-й ур.) %d · входимость %d · оснастка %d · "
+                                  "клик по дуге = перейти, «← Назад» — назад"
+                           % (root, len(kids), len(pars), len(mfg)))
+        except Exception as e:                      # окно не должно роняться
+            try:
+                self._lab.config(text="солнце не построено: %s" % e)
+            except Exception:
+                pass
 
 
 def run_gui():
@@ -1003,6 +1096,32 @@ def run_gui():
     otv.configure(yscrollcommand=ovs.set)
     ovs.pack(side="right", fill="y")
     otv.pack(side="left", fill="both", expand=True)
+
+    # ==== V91: вкладка «Карта» — treemap-тепло ВСЕЙ базы (папки → модели, цвет = свежесть) ====
+    tab_map = ttk.Frame(nb, padding=4)
+    nb.add(tab_map, text=" Карта ")                           # 5-я вкладка верхнего окна
+    maps_sum = ttk.Label(tab_map, text="карта базы: папки склада размером по числу моделей, "
+                                       "цвет ячейки — свежесть (оранжевый = правки за 30 дней)")
+    maps_sum.pack(anchor="w")
+    mpctl = ttk.Frame(tab_map)
+    mpctl.pack(anchor="w", pady=2)
+    ttk.Button(mpctl, text="Обновить", command=lambda: _map_show(True)).pack(side="left")
+    mp_leg = tk.Canvas(mpctl, height=16, highlightthickness=0, bg="#f4f5f7")
+    _lx = 2
+    for _txt, _col in (("≤30 дней", "#e8963d"), ("< 6 мес", "#e8c93d"), ("< 1 год", "#a8cbe8"),
+                       ("< 2 года", "#7fa3c4"), ("старые/нет данных", "#b8bfc7")):
+        mp_leg.create_rectangle(_lx, 2, _lx + 12, 14, fill=_col, outline="#999")
+        mp_leg.create_text(_lx + 16, 8, anchor="w", text=_txt, font=("Segoe UI", 8))
+        _lx += 16 + int(7.0 * len(_txt)) + 14
+    mp_leg.config(width=_lx + 2)
+    mp_leg.pack(side="left", padx=10)
+    mpbox = ttk.Frame(tab_map)
+    mpbox.pack(fill="both", expand=True)
+    map_canvas = tk.Canvas(mpbox, bg="#fbfbfb", highlightthickness=0)
+    map_canvas.pack(fill="both", expand=True)
+    map_canvas.bind("<Button-1>", lambda ev: _map_click(ev))
+    map_canvas.bind("<Motion>", lambda ev: _map_motion(ev))   # «рука» над ячейкой-моделью
+    map_canvas.bind("<Configure>", lambda ev: _map_resize())
 
     ebar = ttk.Frame(tab_expl, padding=(6, 4))
     ebar.pack(fill="x")
@@ -2568,6 +2687,180 @@ def run_gui():
         except Exception:
             pass
 
+    def _heat_color(ts):
+        """V91: цвет свежести ячейки карты по mtime (0/нет даты — серый)."""
+        if not ts:
+            return "#b8bfc7"
+        age = time.time() - ts
+        if age <= 30 * 86400:
+            return "#e8963d"                   # правки за 30 дней — горячий
+        if age <= 180 * 86400:
+            return "#e8c93d"
+        if age <= 365 * 86400:
+            return "#a8cbe8"
+        if age <= 730 * 86400:
+            return "#7fa3c4"
+        return "#b8bfc7"                        # старше 2 лет / нет данных
+
+    def _squarify(values, x, y, w, h):
+        """V91: squarified treemap (Bruls) — значения -> прямоугольники того же порядка."""
+        n = len(values)
+        rects = [None] * n
+        total = float(sum(values)) or 1.0
+        scale = (w * h) / total
+        vals = [max(v, 0.01) * scale for v in values]
+
+        def worst(row, side):
+            s = sum(row)
+            if s <= 0 or side <= 0:
+                return float("inf")
+            return max(side * side * max(row) / (s * s), (s * s) / (side * side * min(row)))
+
+        def place(row, rids, x, y, w, h):
+            s = sum(row)
+            if w >= h:                          # ряд поперёк — сверху, ячейки слева направо
+                th = s / w if w else 0
+                cx = x
+                for v, i in zip(row, rids):
+                    rw = v / th if th else 0
+                    rects[i] = (cx, y, rw, th)
+                    cx += rw
+                return x, y + th, w, h - th
+            tw = s / h if h else 0              # ряд вдоль — слева, ячейки сверху вниз
+            cy = y
+            for v, i in zip(row, rids):
+                rh = v / tw if tw else 0
+                rects[i] = (x, cy, tw, rh)
+                cy += rh
+            return x + tw, y, w - tw, h
+
+        row, rids = [], []
+        i = 0
+        while i < n:
+            side = w if w >= h else h
+            if not row or worst(row + [vals[i]], side) <= worst(row, side):
+                row.append(vals[i])
+                rids.append(i)
+                i += 1
+            else:
+                x, y, w, h = place(row, rids, x, y, w, h)
+                row, rids = [], []
+        if row:
+            place(row, rids, x, y, w, h)
+        return rects
+
+    def _map_data():
+        """V91: данные карты — [(папка, [(модель, mtime)])], папки по убыванию числа моделей."""
+        con = eng.connect()
+        try:
+            rows = con.execute("SELECT model, folder, MAX(mtime) FROM snapshots "
+                               "WHERE model != '' GROUP BY model").fetchall()
+        finally:
+            con.close()
+        by_folder = {}
+        for m, f, mt in rows:
+            by_folder.setdefault(f or "(без папки)", []).append((m, mt or 0))
+        return sorted(by_folder.items(), key=lambda kv: -len(kv[1]))
+
+    def _map_click(ev):
+        """V91: клик по ячейке карты = нижнее окно переходит на модель (приравнен к выбору сверху)."""
+        try:
+            for it in reversed(map_canvas.find_overlapping(ev.x - 2, ev.y - 2,
+                                                           ev.x + 2, ev.y + 2)):
+                for t in map_canvas.gettags(it):
+                    if t.startswith("m:"):
+                        _bottom_show(t[2:], pick=True)
+                        return
+        except Exception:
+            pass
+
+    def _map_motion(ev):
+        """V91: курсор-«рука», пока курсор над ячейкой-моделью (у элементов canvas нет cursor)."""
+        try:
+            hot = False
+            for it in reversed(map_canvas.find_overlapping(ev.x - 2, ev.y - 2,
+                                                           ev.x + 2, ev.y + 2)):
+                if any(t.startswith("m:") for t in map_canvas.gettags(it)):
+                    hot = True
+                    break
+            map_canvas.config(cursor="hand2" if hot else "")
+        except Exception:
+            pass
+
+    _mp_rz = {"id": None}
+
+    def _map_resize(ev=None):
+        """V91: перерисовать карту после изменения размера (debounce 250 мс; без первый-запусков)."""
+        if _mp_rz["id"]:
+            try:
+                root.after_cancel(_mp_rz["id"])
+            except Exception:
+                pass
+            _mp_rz["id"] = None
+        if not _last.get("mp_data"):
+            return                               # карту ещё не строили — базу на пустом месте не тянем
+        _mp_rz["id"] = root.after(250, lambda: _map_show())
+
+    def _map_show(force=False):
+        """V91: «Карта» — treemap-тепло базы (кэш в _last['mp_data']; «Обновить» = force)."""
+        t0 = time.time()
+        try:
+            if force or not _last.get("mp_data"):
+                _last["mp_data"] = _map_data()
+                _last["mp_built"] = time.strftime("%d.%m.%Y %H:%M:%S")
+            data = _last["mp_data"]
+            map_canvas.delete("all")
+            w = max(map_canvas.winfo_width(), 600)
+            h = max(map_canvas.winfo_height(), 380)
+            folders = [(f, v) for f, v in data[:40]]
+            fvals = [max(len(v), 1) for _, v in folders]
+            rest_n = sum(len(v) for _, v in data[40:])
+            if rest_n:
+                folders.append(("…прочее: %d папок" % (len(data) - 40), []))
+                fvals.append(rest_n)
+            n_models = sum(fvals)
+            frects = _squarify(fvals, 0, 0, w, h)
+            for (fname, models), cnt, (fx, fy, fw, fh) in zip(folders, fvals, frects):
+                fx, fy = fx + 1, fy + 1
+                fw, fh = max(fw - 2, 2), max(fh - 2, 2)
+                map_canvas.create_rectangle(fx, fy, fx + fw, fy + fh,
+                                            fill="#f0f2f5", outline="#8a9099")
+                short = fname if len(fname) <= 44 else "…" + fname[-42:]
+                map_canvas.create_text(fx + 4, fy + 3, anchor="nw",
+                                       text="%s · %d" % (short, cnt),
+                                       font=("Segoe UI", 8, "bold"), fill="#333")
+                if not models:
+                    continue
+                pad, top = 3, 16                # мозаика моделей внутри папки
+                ix, iy = fx + pad, fy + top
+                iw, ih = fw - 2 * pad, fh - top - pad
+                if iw < 12 or ih < 12:
+                    continue
+                cells = sorted(models, key=lambda r: -r[1])[:500]
+                crects = _squarify([1] * len(cells), ix, iy, iw, ih)
+                for (m, mt), (cx, cy, cw, ch) in zip(cells, crects):
+                    if cw < 1 or ch < 1:
+                        continue
+                    map_canvas.create_rectangle(cx, cy, cx + cw, cy + ch,
+                                                fill=_heat_color(mt), outline="#fbfbfb",
+                                                tags=("cell", "m:" + m))
+                    if cw >= 54 and ch >= 13:    # подпись — только в просторных ячейках
+                        nm = m if len(m) <= 18 else m[:16] + "…"
+                        map_canvas.create_text(cx + 3, cy + 2, anchor="nw", text=nm,
+                                               font=("Segoe UI", 7), fill="#1c2733",
+                                               tags=("cell", "m:" + m))
+            maps_sum.config(text="карта базы от %s: папок %d · моделей %d · папок вне карты %d · "
+                                  "клик по ячейке = модель внизу · %.2f с"
+                           % (_last.get("mp_built", "?"), len(data), n_models,
+                              max(0, len(data) - 40), time.time() - t0))
+        except Exception as e:                  # вкладка не должна ронять окно
+            try:
+                map_canvas.delete("all")
+                map_canvas.create_text(10, 10, anchor="nw", text="карта не построена: %s" % e,
+                                       fill="#a00", font=("Segoe UI", 10))
+            except Exception:
+                pass
+
     def _graph_data(model, ddown=4, dup=3):
         """V85: узлы/рёбра «Графа»: корень (level 0), состав вниз, входимость вверх, из чего сделана."""
         root = eng.stem(model or "")
@@ -3006,6 +3299,11 @@ def run_gui():
         try:                                  # V88: «Обзор» — сводка по всей базе (кэш; кнопка = force)
             if nb.select() == str(lov):
                 _overview_show()
+        except Exception:
+            pass
+        try:                                  # V91: «Карта» — treemap базы (кэш; кнопка = force)
+            if nb.select() == str(tab_map):
+                _map_show()
         except Exception:
             pass
 
