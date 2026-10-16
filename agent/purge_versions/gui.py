@@ -124,7 +124,10 @@ class PurgeGUI:
 
     def browse_root(self):
         p = filedialog.askdirectory()
-        if p: self.root_var.set(p); self.on_setting_changed()
+        if p:
+            self.root_var.set(p)
+            self.on_setting_changed()
+            U.mru_add("purge_versions", p, tool_dir=Path(__file__).resolve().parent)  # Волна 11: MRU недавних корней
 
     def run_preview(self):
         root = self.root_var.get()

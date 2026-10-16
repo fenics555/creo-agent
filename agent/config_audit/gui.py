@@ -146,6 +146,7 @@ class App:
             self.var_path.set(p)
             self.st["last_config"] = p
             self.save_settings()   # выбранный конфиг переживает перезапуск окна
+            U.mru_add("config_audit", p, tool_dir=Path(__file__).resolve().parent)  # Волна 11: MRU недавних конфигов
 
     def run(self):
         """Проверка: дерево слева, иконка статуса на каждой строке, сводка с процентом.
