@@ -65,17 +65,22 @@ _upd = src.split("def _apply_update")[1].split("\n    def ")[0]
 assert "_upd_done_dialog" in _upd, "_apply_update всё ещё зовёт messagebox вместо окна с «Перезапустить»"
 print("обновление: окно итога с «Перезапустить» (spawn + os._exit) на месте")
 
-# --- V91: «Карта» (treemap вверху) + «Роза» (sunburst-окно) ----------------
-for needle in ("class SunburstWindow", "def _map_show", "def _squarify", "def _heat_color",
-               "nb.add(tab_map", "text=\"Роза\"", "_map_click", "def _sunburst_open",
-               "def _map_open", "btn_map_back", "mp_folder"):
-    assert needle in src, "нет фрагмента V91: %s" % needle
+# --- V94: «Карта» (drill-down + мышь) + «Роза» (вкладка нижнего окна) --------
+for needle in ("def _map_show", "def _squarify", "def _heat_color",
+               "nb.add(tab_map", "_map_click", "def _map_open", "btn_map_back", "mp_folder",
+               "lnb.add(lroz", "def _roza_show", "def _roza_draw", "def _cv_wheel_smart",
+               "def _map_press", "def _roza_release"):
+    assert needle in src, "нет фрагмента V94: %s" % needle
 assert "str(tab_map)" in src, "on_tab не показывает карту при входе на вкладку"
+assert "str(lroz)" in src, "_bottom_render не знает про вкладку «Роза»"
 assert "_draw_tail" not in src, "остался временный заглушечный метод _draw_tail"
-assert "Солнце" not in src, "осталось старое имя «Солнце» — окно переименовано в «Роза» (V92)"
+assert "Солнце" not in src, "осталось старое имя «Солнце»"
+assert "SunburstWindow" not in src, "класс SunburstWindow остался — «Роза» теперь вкладка (V94)"
+assert "_sunburst_open" not in src, "остался обработчик кнопки «Роза» (V94: кнопки больше нет)"
 assert "УРОВЕНЬ ПАПОК" in src and "УРОВЕНЬ МОДЕЛЕЙ" in src, "нет drill-down уровней карты (V93)"
 assert "_place_center" in src, "нет центрирования окна обновления (V93)"
-print("карта+роза: drill-down (папки/модели), кнопка назад, центры окон — на месте")
+assert "canvasx(ev.x)" in src, "клики без canvasx/canvasy сломаются при зуме/пане (V94)"
+print("карта+роза: drill-down, мышь (зум/пан/клик), «Роза» — вкладка низа — на месте")
 
 # --- V88: «Обзор» живёт в ВЕРХНЕМ ноутбуке (nb), из нижнего убран ----------------
 assert "nb.add(lov" in src, "вкладка «Обзор» не добавлена в ВЕРХНИЙ ноутбук"
@@ -113,16 +118,6 @@ try:
     w2 = GW.open(root, model)
     assert w2 is None or w2.win is w.win, "повторное открытие создало копию окна"
     w._close()
-    # --- V91: SunburstWindow — Tk-проба (дуги рисуются без показа окна) -------
-    SW = plm_toolwin.SunburstWindow
-    sw = SW(root, model)
-    items = sw._cv.find_all()
-    assert items, "роза ничего не нарисовала"
-    n_arcs = len([i for i in items if "arc" in sw._cv.gettags(i)])
-    sw._close()
-    assert SW._inst is None, "_inst не очистился после закрытия"
-    print("SunburstWindow: Tk-проба OK (объектов %d, дуг %d, закрытие чистит _inst)"
-          % (len(items), n_arcs))
     root.destroy()
     print("GenealogyWindow: Tk-проба OK (5 секций, повтор = поднять)")
 except ImportError:
