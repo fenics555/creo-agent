@@ -217,9 +217,33 @@ RC 4 `wrong_active_model`, запись прервана. Проба: `python de
   Правка каркаса `ui_common.py`: три `LabelFrame` шли с заголовком без пробелов
   (`"ЖУРНАЛ"`, `"НАСТРОЙКИ"`, `"ПРАВИЛА …"`), хотя канон требует `" НАСТРОЙКИ "` —
   расхождение было сразу во всех 8 окнах волны 1, потому что они зовут каркас.
+## ИНДЕКС СКИЛЛОВ (поиск по смыслу) — `skills_index\`
+
+**Индексируем ТОЛЬКО `D:\AI\repo`** (решение владельца, 15.10.2026).
+В `repo` живут **только скиллы** — другого в индекс попадать не должно.
+
+- Корпус задаётся в `skills_index\settings\settings.json`: `"corpora": ["repo"]`.
+  Другие корни (`tools`, `AGENT_SETTINGS`, `root`) — **ЗАПРЕЩЕНЫ**: они тянут мусор
+  (чужой `VSCode\..., СПЕКИ\, Старые правила\`) и ломают выдачу.
+- Движок: `skills_index\skills_index.py` (CLI) · окно: `gui.py` / `skills_index_gui.bat` ·
+  витрина: кнопка 🔍 ПОИСК.
+- Инструменты живого агента: **`skills_search`** (поиск по смыслу) и **`skills_status`**
+  (состояние) — `skills_index_tools.py`; импортируют тот же движок и читают **ту же базу**
+  `skills_index\db\skills_index.db`. Инструменты дома и CLI — ОДИНАКОВЫЕ.
+- Запуск:
+```
+cd D:\AI\tools\agent\skills_index
+python -X utf8 skills_index.py build --full      # пересборка (после правок скиллов)
+python -X utf8 skills_index.py search --full --top 5 "<задача>"   # флаги ДО текста
+python -X utf8 skills_index.py status
+```
+- Факты (15.10.2026): корпус `repo` → **190 файлов, 1 410 чанков, 5,6 МБ**, сборка 22,6 с.
+  До сужения корпуса было 1445 файлов / 12 970 чанков / 51 МБ и в top-3 лез мусор.
+
 ## Ссылки
 - Паспорт дома: `D:\AI\repo\CORE\PASSPORT.md` · Карта скиллов: `D:\AI\repo\SKILL_index.md`
 - Правила: `D:\AI\repo\MANIFEST.md` и `D:\AI\.clinerules`
+
 
 ## Лицензия
 MIT

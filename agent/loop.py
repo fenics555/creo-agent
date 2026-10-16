@@ -207,6 +207,18 @@ def _domain_question(q):
     return (not q) or any(h in q for h in CREO_HINTS)
 
 
+def cline_cut(text, limit=48000):
+    """Усечение КАК В CLINE (extension.js, Ike): начало+конец 50/50, вырезается СЕРЕДИНА.
+    Cline: maxChars=48000; slice(0,half) + '[...truncated...]' + slice(-half)."""
+    s = "" if text is None else str(text)
+    if len(s) <= limit:
+        return s
+    half = -(-limit // 2)                 # ceil
+    tail = max(1, limit - half)
+    return "%s\n[... усечено; всего %d симв., вырезана середина. Уточни запрос (grep/head/tail) ...]\n%s" % (
+        s[:half], len(s), s[-tail:])
+
+
 def build_system(mode=1, question=""):
     if mode == 2:
         return """Ты — собеседник и помощник по любым темам. Язык ответа — русский; код, термины и формулы — как принято в теме.
@@ -214,7 +226,26 @@ def build_system(mode=1, question=""):
 Формат: свободный текст; код внутри блоков с языком; служебных тегов нет.
 Краткость ценится, но полнота решения важнее."""
     _SYS_CACHE.clear()  # надёжность: промпт всегда собирается свежим с диска
-    p = ((load_skill("MANIFEST.md") or "") + "\n\n" + (load_skill("SKILL_agent_protocol.md") or DEFAULT_PROTO)).strip() + "\n"
+    # --- ШАБЛОН CLINE (15.10.2026, см. repo\SKILL_cline_context_mechanism.md §3В) ---
+    #   Порядок: РОЛЬ -> ОБРЯД/КОНТЕКСТ -> ОКРУЖЕНИЕ -> REMEMBER -> ... -> ПРАВИЛА В КОНЦЕ.
+    _head = (
+        "Ты — ИИ-агент дома Инженера, работающий инструментами. Твоя цель — помочь Инженеру, "
+        "используя доступные инструменты. Отвечай на русском.\n\n"
+        "СОБЕРИ КОНТЕКСТ ПРЕЖДЕ, ЧЕМ РАБОТАТЬ: прежде чем отвечать на задание — изучи ПРАВИЛА ДОМА "
+        "(даны ниже) и выполни их ОБРЯД СТАРТА. Без этого отвечать по существу ЗАПРЕЩЕНО.\n\n"
+        "Окружение:\n<env>\n1. Рабочая папка: D:\\AI\n2. Дата: %s\n</env>\n\n"
+        "Помни:\n"
+        "- Сверяйся с ПРАВИЛАМИ ДОМА — это высший приоритет.\n"
+        "- Дай план перед действием; действуй одним шагом, не расплывайся.\n"
+        "- Используй АБСОЛЮТНЫЕ пути при обращении к файлам.\n"
+        "- НЕ выдумывай факты: нет данных — скажи «НЕТ ДАННЫХ: <чего не хватает>» и прочитай файл.\n"
+        "- Работай инструментами до завершения задачи; в конце проверь результат.\n\n"
+        "НАЧНИ с анализа задания и сбора контекста, объяви режим и план. Работай инструментами, "
+        "пока задача не выполнена. ЗАПРЕЩЕНО имитировать вызовы инструментов текстом.\n\n"
+        % __import__("datetime").date.today().isoformat()
+    )
+    _rules = ((load_skill("MANIFEST.md") or "") + "\n\n" + (load_skill("SKILL_agent_protocol.md") or DEFAULT_PROTO)).strip()
+    p = _head + "\n=== ПРАВИЛА ДОМА (главные) ===\n" + _rules + "\n=== КОНЕЦ ПРАВИЛ ===\n"
     # ЗАРЯД ЗНАНИЙ (решение дома 24.09.2026). Раньше база знаний лежала в РАМ целиком (16 ГБ) и агент
     # «уже знал» скиллы; теперь память — FTS5-поиск, поэтому карта скиллов и стартовый набор Creo/CREOSON
     # подаются прямо в промпт (собирает dev\skills_charge.py). Главное направление дома — CREO.
@@ -232,7 +263,7 @@ def build_system(mode=1, question=""):
         p += ("\n=== ЗАРЯД ЗНАНИЙ: КАРТА СКИЛЛОВ (одной строкой на скилл; тело — read_file/search_kb) ===\n"
               + _charge + "\n")
     elif _heavy and _charge:
-        p += "\n=== КАРТА СКИЛЛОВ (сокращённо) ===\n" + _charge[:20000] + "\n"
+        p += "\n=== КАРТА СКИЛЛОВ (сокращённо) ===\n" + cline_cut(_charge, 20000) + "\n"
     elif _heavy:
         p += ("\n=== СКИЛЛЫ: карта в D:\\AI\\repo\\SKILL_CHARGE.md, стартовый набор Creo/CREOSON — "
               "D:\\AI\\repo\\SKILL_CHARGE_START.md (открывай read_file) ===\n")
@@ -538,7 +569,7 @@ def run_loop(messages, client, has_link=False, on_step=None, opts_and_steps=None
                     _log("parallel[%d]: %s" % (len(others), ", ".join(o[0] for o in others)))
                     last_res = res; sig_prev = sig
                     messages.append({"role": "assistant", "content": raw})
-                    messages.append({"role": "user", "content": "[РЕЗУЛЬТАТ parallel]: %s" % res[:4000]})
+                    messages.append({"role": "user", "content": "[РЕЗУЛЬТАТ parallel]: %s" % cline_cut(res)})
                     continue
                 except Exception: pass
         t = TR.get(name)
@@ -560,7 +591,7 @@ def run_loop(messages, client, has_link=False, on_step=None, opts_and_steps=None
             _log("%s(%s) → %s" % (name, "без параметров" if not args else json.dumps(args, ensure_ascii=False), _two(res)))
         last_res = res
         messages.append({"role": "assistant", "content": raw})
-        messages.append({"role": "user", "content": "[РЕЗУЛЬТАТ %s]: %s" % (name, res[:4000])})
+        messages.append({"role": "user", "content": "[РЕЗУЛЬТАТ %s]: %s" % (name, cline_cut(res))})
     return {"answer": last_res or "не уложился в шаги", "think": think, "steps": steps_max, "log": steps_log}
 
 
@@ -737,7 +768,7 @@ def do_approve(pid, okf):
     msgs = p.get("messages")
     if msgs:
         msgs.append({"role": "assistant", "content": p.get("raw", "")})
-        msgs.append({"role": "user", "content": "[РЕЗУЛЬТАТ %s]: %s" % (p["name"], res[:4000])})
+        msgs.append({"role": "user", "content": "[РЕЗУЛЬТАТ %s]: %s" % (p["name"], cline_cut(res))})
         r = run_loop(msgs, p.get("client"), has_link=False)
         return {"res": res, "answer": _clean(r["answer"]), "think": r.get("think", ""), "log": r.get("log", [])}
     return {"res": res}
