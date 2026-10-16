@@ -19,7 +19,8 @@
   _kind, _resolve, node_add_model, on_open, _dbl_click, fill_tree_view, expand_all, row_uid, make_tree,
   _overview_text + _overview_show + _ov_dbl (Обзор — сводка по всей базе; V88: вкладка ВЕРХНЕГО окна),
   _map_show + _map_data + _squarify + _heat_color + _map_click/_map_motion/_map_open
-  (V91/V93: «Карта» — drill-down treemap: папки → модели, клик = открыть/выбрать)
+  (V91/V93: «Карта» — drill-down treemap: папки → модели, клик = открыть/выбрать),
+  _river_data + _river_show + _river_release/_river_wheel (V95: «Река» — таймлайн правок журнала)
 * инструменты ряда: purge_folder, _text_window, purge_show, purge_run, _lout, say, cap, _sel_model,
   where_selected, tree_down, tree_up, changes_selected, open_detail, lt_apply, _fmt, export_bom (состав→CSV)
 * НИЖНЕЕ окно (вкладки): _prop_show, _live_vals, _branch_updown, _ltv_model, ltv_open, _plm_data_ref,
@@ -885,6 +886,46 @@ def run_gui():
     map_canvas.bind("<Motion>", lambda ev: _map_motion(ev))   # «рука» над папкой/моделью
     map_canvas.bind("<MouseWheel>", lambda ev: _map_wheel(ev))
     map_canvas.bind("<Configure>", lambda ev: _map_resize())
+
+    # ==== V95: вкладка «Река» — таймлайн правок журнала (потоки моделей по месяцам) ====
+    tab_river = ttk.Frame(nb, padding=4)
+    nb.add(tab_river, text=" Река ")                           # 6-я вкладка верхнего окна
+    rv_sum = ttk.Label(tab_river, text="река правок: потоки изменений журнала по месяцам")
+    rv_sum.pack(anchor="w")
+    rvctl = ttk.Frame(tab_river)
+    rvctl.pack(anchor="w", pady=2)
+    ttk.Button(rvctl, text="Обновить", command=lambda: _river_show(True)).pack(side="left")
+    ttk.Label(rvctl, text="месяцев:").pack(side="left", padx=(8, 2))
+    rv_months = ttk.Spinbox(rvctl, from_=3, to=120, width=4,
+                            command=lambda: _river_show(True))
+    rv_months.set(36)
+    rv_months.pack(side="left")
+    ttk.Label(rvctl, text="топ:").pack(side="left", padx=(8, 2))
+    rv_top = ttk.Spinbox(rvctl, from_=5, to=20, width=3, command=lambda: _river_show(True))
+    rv_top.set(10)
+    rv_top.pack(side="left")
+    ttk.Button(rvctl, text="−", width=2,
+               command=lambda: _river_zoom(1 / 1.25)).pack(side="left", padx=(8, 0))
+    ttk.Button(rvctl, text="+", width=2, command=lambda: _river_zoom(1.25)).pack(side="left")
+    ttk.Label(rvctl, text="клик по потоку = модель · колесо = прокрутка/масштаб · тянуть = двигать",
+              foreground="#666").pack(side="left", padx=8)
+    rvbox = ttk.Frame(tab_river)
+    rvbox.pack(fill="both", expand=True)
+    rvbox.rowconfigure(0, weight=1)
+    rvbox.columnconfigure(0, weight=1)
+    river_canvas = tk.Canvas(rvbox, bg="#fbfbfb", highlightthickness=0)
+    rv_ys = ttk.Scrollbar(rvbox, orient="vertical", command=river_canvas.yview)
+    rv_xs = ttk.Scrollbar(rvbox, orient="horizontal", command=river_canvas.xview)
+    river_canvas.configure(yscrollcommand=rv_ys.set, xscrollcommand=rv_xs.set)
+    river_canvas.grid(row=0, column=0, sticky="nsew")
+    rv_ys.grid(row=0, column=1, sticky="ns")
+    rv_xs.grid(row=1, column=0, sticky="ew")
+    river_canvas.bind("<Button-1>", lambda ev: _river_press(ev))
+    river_canvas.bind("<B1-Motion>", lambda ev: _river_drag(ev))
+    river_canvas.bind("<ButtonRelease-1>", lambda ev: _river_release(ev))
+    river_canvas.bind("<Motion>", lambda ev: _river_motion(ev))
+    river_canvas.bind("<MouseWheel>", lambda ev: _river_wheel(ev))
+    river_canvas.bind("<Configure>", lambda ev: _river_resize())
 
     ebar = ttk.Frame(tab_expl, padding=(6, 4))
     ebar.pack(fill="x")
@@ -2638,6 +2679,205 @@ def run_gui():
     def _map_zoom(f):
         _cv_zoom_btn(map_canvas, f)                 # V94: кнопки −/+
 
+    # ==== V95: «Река» — handlers + агрегация журнала по месяцам ====
+    def _river_press(ev):
+        _cv_press(river_canvas, "rv_p", ev)
+
+    def _river_drag(ev):
+        _cv_drag(river_canvas, "rv_p", ev)
+
+    def _river_release(ev):
+        """Клик (без тянки) по потоку = нижнее окно переходит на модель."""
+        st = _last.get("rv_p")
+        _last["rv_p"] = None
+        if st and st[2]:
+            return
+        try:
+            x, y = river_canvas.canvasx(ev.x), river_canvas.canvasy(ev.y)
+            for it in reversed(river_canvas.find_overlapping(x - 1, y - 1, x + 1, y + 1)):
+                for t in river_canvas.gettags(it):
+                    if t.startswith("m:"):
+                        _bottom_show(t[2:], pick=True)
+                        return
+        except Exception:
+            pass
+
+    def _river_motion(ev):
+        try:
+            x, y = river_canvas.canvasx(ev.x), river_canvas.canvasy(ev.y)
+            ids = river_canvas.find_overlapping(x - 1, y - 1, x + 1, y + 1)
+            hot = ""
+            if ids and any(t.startswith("m:") for t in river_canvas.gettags(ids[-1])):
+                hot = "hand2"
+            if hot != _last.get("rv_cur"):
+                _last["rv_cur"] = hot
+                river_canvas.config(cursor=hot)
+        except Exception:
+            pass
+
+    def _river_wheel(ev):
+        _cv_wheel_smart(river_canvas, ev)
+
+    def _river_zoom(f):
+        _cv_zoom_btn(river_canvas, f)
+
+    def _river_resize(ev=None):
+        if _last.get("rv_rz"):
+            try:
+                root.after_cancel(_last["rv_rz"])
+            except Exception:
+                pass
+        if not _last.get("rv_sig"):
+            return
+        _last["rv_rz"] = root.after(250, lambda: _river_show())
+
+    def _river_data(months_back, top_n):
+        """V95: журнал → [(модель, [n по месяцам])], список месяцев, записи, число моделей."""
+        from collections import Counter
+        today = datetime.date.today()
+        m0 = today.month - 1 - (months_back - 1)
+        y0 = today.year + m0 // 12
+        mo0 = m0 % 12 + 1
+        cutoff = "%04d-%02d-01" % (y0, mo0)
+        months, y, mo = [], y0, mo0
+        while (y, mo) <= (today.year, today.month):
+            months.append("%04d-%02d" % (y, mo))
+            mo += 1
+            if mo > 12:
+                mo, y = 1, y + 1
+        con = eng.connect()
+        try:
+            models = {r[0] for r in con.execute(
+                "SELECT DISTINCT model FROM snapshots WHERE model != ''")}
+            rows = con.execute("SELECT ts, item FROM changes WHERE ts >= ?", (cutoff,)).fetchall()
+        finally:
+            con.close()
+        per = Counter()                                  # (модель, месяц) -> правок
+        for ts, item in rows:
+            mon = (ts or "")[:7]
+            if len(mon) != 7:
+                continue
+            m = eng.stem(os.path.basename(item or ""))
+            if m in models:
+                per[(m, mon)] += 1
+        tot = Counter()
+        for (m, mon), c in per.items():
+            tot[m] += c
+        top = [m for m, _ in tot.most_common(top_n)]
+        idx = {mon: i for i, mon in enumerate(months)}
+        flows = {m: [0] * len(months) for m in top}
+        other = [0] * len(months)
+        for (m, mon), c in per.items():
+            i = idx.get(mon)
+            if i is None:
+                continue
+            if m in flows:
+                flows[m][i] += c
+            else:
+                other[i] += c
+        streams = [(m, flows[m]) for m in top]
+        if any(other):
+            streams.append(("__prc__", other))
+        return streams, months, sum(tot.values()), len(tot)
+
+    def _river_show(force=False):
+        """V95: «Река» — stacked-потоки правок по месяцам (кэш в _last по (месяцев, топ))."""
+        t0 = time.time()
+        try:
+            months_back = int(str(rv_months.get() or 36))
+        except Exception:
+            months_back = 36
+        try:
+            top_n = int(str(rv_top.get() or 10))
+        except Exception:
+            top_n = 10
+        sig = (months_back, top_n)
+        try:
+            if force or _last.get("rv_sig") != sig or not _last.get("rv_streams"):
+                rv_sum.config(text="считаю журнал правок…")
+                _last["rv_streams"], _last["rv_mons"], _last["rv_rows"], _last["rv_models"] = \
+                    _river_data(months_back, top_n)
+                _last["rv_sig"] = sig
+            cv = river_canvas
+            cv.delete("all")
+            cv.config(cursor="")
+            _last["rv_cur"] = ""
+            streams = _last.get("rv_streams") or []
+            mons = _last.get("rv_mons") or []
+            if not streams or not mons:
+                rv_sum.config(text="нет правок за период %d мес" % months_back)
+                return
+            w = max(cv.winfo_width(), 600)
+            h = max(cv.winfo_height(), 300)
+            step = 26                               # мин. ширина месяца — контент может быть шире
+            W = max(w, len(mons) * step + 72)
+            pad_l, pad_t, axis_h = 56, 10, 24
+            plot_h = h - pad_t - axis_h
+            xf = [int(m[:4]) + (int(m[5:7]) - 1) / 12.0 for m in mons]
+            x0, x1 = xf[0], xf[-1] + 1 / 12.0
+
+            def X(f):
+                return pad_l + (f - x0) / (x1 - x0) * (W - pad_l - 16)
+
+            xs = [X(f) for f in xf]
+            totals = [sum(s[1][i] for s in streams) for i in range(len(mons))]
+            peak = max(totals) or 1
+            scale = plot_h / float(peak)
+            pal = ("#5b8db8", "#6fbf7c", "#e8a33d", "#b07cd1", "#c47a3a",
+                   "#4ab0b0", "#d16a8a", "#7f9c4a", "#8a7bd1", "#c9a227")
+            cum = [0] * len(mons)
+            ci = 0
+            for name, vals in streams:
+                bottom = list(cum)
+                topv = [bottom[i] + vals[i] for i in range(len(mons))]
+                if max(vals) > 0:
+                    if name == "__prc__":
+                        col = "#c9cfd6"
+                        tg = ("band",)
+                    else:
+                        col = pal[ci % len(pal)]
+                        tg = ("band", "m:" + name)
+                        ci += 1
+                    pts = [(xs[i], pad_t + plot_h - bottom[i] * scale) for i in range(len(mons))]
+                    pts += [(xs[i], pad_t + plot_h - topv[i] * scale)
+                            for i in range(len(mons) - 1, -1, -1)]
+                    cv.create_polygon(pts, fill=col, outline="#ffffff", width=1, tags=tg)
+                    if name != "__prc__":            # подпись у пикового месяца потока
+                        mi = max(range(len(vals)), key=lambda i: vals[i])
+                        if vals[mi] * scale >= 12:
+                            lbl = name if len(name) <= 20 else name[:18] + "…"
+                            cv.create_text(xs[mi],
+                                           pad_t + plot_h - (bottom[mi] + topv[mi]) / 2 * scale,
+                                           text=lbl, font=("Segoe UI", 8, "bold"), fill="#20303c")
+                cum = topv
+            # ось времени: подписи по кварталам, границы лет выделены
+            for i, m in enumerate(mons):
+                mo_, y_ = int(m[5:7]), int(m[:4])
+                if mo_ in (1, 4, 7, 10):
+                    cv.create_line(xs[i], pad_t, xs[i], pad_t + plot_h, fill="#eceef1")
+                    cv.create_text(xs[i], h - axis_h + 10, text="%02d.%02d" % (mo_, y_ % 100),
+                                   font=("Segoe UI", 8), fill="#555")
+                    if mo_ == 1:
+                        cv.create_line(xs[i], pad_t - 4, xs[i], pad_t + plot_h, fill="#c8ccd4")
+            # горизонтальная сетка по значению
+            for frac in (0.0, 0.5, 1.0):
+                yv = pad_t + plot_h - frac * plot_h
+                cv.create_line(pad_l - 6, yv, W - 16, yv, fill="#e6e8ec")
+                cv.create_text(4, yv, anchor="w", text="%d" % int(frac * peak),
+                               font=("Segoe UI", 8), fill="#777")
+            cv.create_line(pad_l - 6, pad_t + plot_h, W - 16, pad_t + plot_h, fill="#999")
+            cv.config(scrollregion=cv.bbox("all"))
+            peak_i = totals.index(max(totals))
+            rv_sum.config(text="река за %d мес: правок %d · моделей %d · пик %s (%d/мес) · "
+                               "клик по потоку = модель · %.1f с"
+                          % (months_back, _last.get("rv_rows", 0), _last.get("rv_models", 0),
+                             mons[peak_i], max(totals), time.time() - t0))
+        except Exception as e:                      # вкладка не должна ронять окно
+            try:
+                rv_sum.config(text="река не построена: %s" % e)
+            except Exception:
+                pass
+
     _mp_rz = {"id": None}
 
     def _map_resize(ev=None):
@@ -2936,9 +3176,14 @@ def run_gui():
                 cv.xview_scroll(-1 if ev.delta > 0 else 1, "units")
                 return
             bb = cv.bbox("all")
-            if bb and (bb[3] - bb[1] > cv.winfo_height() + 2 or
-                       bb[2] - bb[0] > cv.winfo_width() + 2):
-                cv.yview_scroll(-1 if ev.delta > 0 else 1, "units")
+            d = -1 if ev.delta > 0 else 1
+            v_over = bool(bb) and bb[3] - bb[1] > cv.winfo_height() + 2
+            h_over = bool(bb) and bb[2] - bb[0] > cv.winfo_width() + 2
+            if h_over and not v_over:               # контент шире вьюпорта (река) — вбок
+                cv.xview_scroll(d, "units")
+                return
+            if v_over or h_over:
+                cv.yview_scroll(d, "units")
                 return
             f = 1.15 if ev.delta > 0 else 1 / 1.15
             cv.scale("all", cv.canvasx(ev.x), cv.canvasy(ev.y), f, f)
@@ -3367,6 +3612,11 @@ def run_gui():
         try:                                  # V91: «Карта» — treemap базы (кэш; кнопка = force)
             if nb.select() == str(tab_map):
                 _map_show()
+        except Exception:
+            pass
+        try:                                  # V95: «Река» — таймлайн правок (кэш)
+            if nb.select() == str(tab_river):
+                _river_show()
         except Exception:
             pass
 
