@@ -899,7 +899,7 @@ def run_gui():
     ttk.Label(rvctl, text="шаг:").pack(side="left", padx=(8, 2))
     rv_step = ttk.Combobox(rvctl, values=("авто", "день", "неделя", "месяц"),
                            state="readonly", width=7)
-    rv_step.set("авто")
+    rv_step.set("неделя")                        # V97: по умолчанию неделя (журнал короткий)
     rv_step.bind("<<ComboboxSelected>>", lambda ev: _river_show(True))
     rv_step.pack(side="left")
     ttk.Label(rvctl, text="периодов:").pack(side="left", padx=(6, 2))
@@ -3938,10 +3938,16 @@ def run_gui():
                         log_line("selfcheck: ПУРГЕ ПЛАН выполнен — окно плана открыто")
                     except Exception as e:
                         log_line("selfcheck: ПУРГЕ ПЛАН упал: %s" % e)
-                nb.select(tabs[0])
+                nb.select(tab_river)             # V97: после самопроверки — на стартовую «Реку»
             except Exception as e:
                 log_line("selfcheck: ошибка %s" % e)
         root.after(1500, _selfcheck)
+    # ==== V97: стартовые вкладки — сверху «Река», снизу «Граф» ====
+    try:
+        nb.select(tab_river)
+        lnb.select(lgr)
+    except Exception:
+        pass
 
     def split_list(s):
         return [x.strip() for x in (s or "").replace(";", ",").split(",") if x.strip()]
