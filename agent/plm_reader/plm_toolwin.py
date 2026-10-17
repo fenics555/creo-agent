@@ -3949,6 +3949,28 @@ def run_gui():
     except Exception:
         pass
 
+    def _startup_top_model():
+        """V98: сразу показать «Граф» рекордсмена недели из «Реки» (фолбэк — крупнейшая сборка)."""
+        try:
+            m = ""
+            streams = _last.get("rv_streams") or []    # река уже посчитана при входе на вкладку
+            if streams and streams[0][0] and streams[0][0] != "__prc__":
+                m = streams[0][0]                      # первый поток = больше всего правок за неделю
+            if not m:
+                con = eng.connect()
+                try:
+                    row = con.execute("SELECT parent, COUNT(*) AS c FROM links WHERE parent != '' "
+                                      "GROUP BY parent ORDER BY c DESC, parent LIMIT 1").fetchone()
+                finally:
+                    con.close()
+                m = row[0] if row else ""
+            if m:
+                _bottom_show(m, pick=True)             # выбор сверху: низ строится, навигация пишется
+        except Exception:
+            pass
+
+    root.after(300, _startup_top_model)             # дать окну разложиться перед первой картой
+
     def split_list(s):
         return [x.strip() for x in (s or "").replace(";", ",").split(",") if x.strip()]
 

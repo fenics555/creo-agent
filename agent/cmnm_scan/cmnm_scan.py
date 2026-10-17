@@ -70,6 +70,28 @@ def missing_roots(roots):
     return [r for r in roots if not os.path.isdir(r)]
 
 
+def exclude_list(exclude):
+    """Список папок-исключений: если путь под одной из них — не сканировать."""
+    out = []
+    for ex in (exclude or []):
+        ex = (ex or "").strip().strip('"').strip("'")
+        ex = ex.replace("/", "\\")
+        while len(ex) > 3 and ex.endswith("\\"):
+            ex = ex[:-1]
+        if ex:
+            out.append(ex)
+    return out
+
+
+def _under_exclude(path, exclude):
+    """True, если path находится под одной из исключаемых папок (или равен ей)."""
+    path = path.replace("/", "\\")
+    for ex in exclude:
+        if path == ex or path.startswith(ex + "\\"):
+            return True
+    return False
+
+
 def strip_len_prefix(nm):
     """Внутреннее имя в заголовке идёт с 3-значным HEX-префиксом длины:
     «007d25.asm» = 7 символов «d25.asm», «00bplatina.prt» = 11 «platina.prt».
@@ -120,9 +142,10 @@ def base_of(fn):
     return CREO.sub("", fn, count=1)
 
 
-def scan(roots, limit=0, progress=None):
+def scan(roots, limit=0, progress=None, exclude=None):
     """Обход и сверка внутреннего имени с именем файла. НИЧЕГО не печатает и не пишет —
     точка входа для окна программы.
+    exclude — список папок-исключений (не сканировать ни внутри них, ни сами файлы).
     Возвращает: {'files': N, 'nofield': M, 'bad': [(полный путь, внутреннее имя, имя файла), ...],
                  'seconds': сек}
     Дефекты, найденные при переносе в окно (23.09.2026):
@@ -133,15 +156,21 @@ def scan(roots, limit=0, progress=None):
         if progress:
             progress(s)
 
+    exclude = exclude_list(exclude)
     total = nofield = 0
     bad = []
     t0 = time.time()
     for root in roots:
         for dirpath, _dirnames, filenames in os.walk(root):
+            if _under_exclude(dirpath, exclude):
+                _dirnames[:] = []
+                continue
             for fn in filenames:
+                full = os.path.join(dirpath, fn)
+                if _under_exclude(full, exclude):
+                    continue
                 if not CREO.search(fn):
                     continue
-                full = os.path.join(dirpath, fn)
                 total += 1
                 nm = header_name(full)
                 if nm is None:

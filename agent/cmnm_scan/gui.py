@@ -32,7 +32,7 @@ class App:
         self.build()
 
     def load(self):
-        d = {"roots": [], "limit": 0}
+        d = {"roots": [], "exclude": [], "limit": 0}
         try:
             if SETTINGS.exists():
                 d.update(json.loads(SETTINGS.read_text(encoding="utf-8")))
@@ -42,6 +42,8 @@ class App:
         # (так старый код писал `list(StringVar.get())`). Такое молча выкидываем.
         roots = [r for r in (d.get("roots") or []) if isinstance(r, str) and len(r) > 2]
         d["roots"] = roots
+        exclude = [r for r in (d.get("exclude") or []) if isinstance(r, str) and len(r) > 2]
+        d["exclude"] = exclude
         try:
             d["limit"] = int(d.get("limit") or 0)
         except Exception:
@@ -52,7 +54,10 @@ class App:
         try:
             # roots читаем ИЗ СПИСКА, а не из roots_var: StringVar.get() отдаёт строку
             # кортеж-строку, и старая запись клала в настройки список букв.
-            self.st.update({"roots": list(self.lst.get(0, "end")), "limit": int(self.var_limit.get())})
+            self.st.update({
+                "roots": list(self.lst.get(0, "end")),
+                "exclude": list(self.excl_lst.get(0, "end")),
+                "limit": int(self.var_limit.get())})
             SETTINGS.write_text(json.dumps(self.st, ensure_ascii=False, indent=1), encoding="utf-8")
         except Exception:
             pass
@@ -78,8 +83,8 @@ class App:
         self.sum_var, self.set_summary = U.summary(left)
 
         # --- справа: вкладки по смыслу (константа 3) ---
-        _nb, pages = U.tabs(right, ["Основное", "Папки"])
-        top, folders = pages[0], pages[1]
+        _nb, pages = U.tabs(right, ["Основное", "Папки", "Исключения"])
+        top, folders, excl_page = pages[0], pages[1], pages[2]
 
         tk.Label(top, text="Лимит файлов (0 — без предела):").pack(anchor="w", padx=6, pady=(6, 2))
         self.var_limit = tk.IntVar(value=self.st["limit"])
@@ -96,6 +101,16 @@ class App:
         tk.Button(row, text="Добавить папку…", command=self.add_root).pack(side="left", padx=3)
         tk.Button(row, text="Убрать", command=self.del_root).pack(side="left", padx=3)
         U.readme_button(row, str(Path(__file__).resolve().parent), lambda s: None)
+
+        # --- вкладка Исключения ---
+        tk.Label(excl_page, text="Папки-исключения (не сканировать):").pack(anchor="w", padx=6, pady=(6, 2))
+        self.exclude_var = tk.Variable(self.root, value=list(self.st.get("exclude") or []))
+        self.excl_lst = tk.Listbox(excl_page, listvariable=self.exclude_var, height=8, width=52)
+        self.excl_lst.pack(fill="both", expand=True, padx=6, pady=4)
+        erow = tk.Frame(excl_page)
+        erow.pack(fill="x", padx=6, pady=(0, 6))
+        tk.Button(erow, text="Добавить папку…", command=self.add_exclude).pack(side="left", padx=3)
+        tk.Button(erow, text="Убрать", command=self.del_exclude).pack(side="left", padx=3)
 
         # --- журнал внизу окна (каркас даёт моноширинный виджет + функцию лога) ---
         self.info, self._log = U.log_view(self.root, height=7, title="ЖУРНАЛ")
@@ -138,16 +153,44 @@ class App:
         roots.pop(sel[0])
         self.roots_var.set(self.cur_roots())
         self.save()
+
+    def cur_excludes(self):
+        """Текущий список папок-исключений ИЗ СПИСКА."""
+        try:
+            return list(self.excl_lst.get(0, "end"))
+        except Exception:
+            return []
+
+    def add_exclude(self):
+        p = filedialog.askdirectory()
+        if p:
+            exs = self.cur_excludes()
+            if p not in exs:
+                exs.append(p)
+                self.exclude_var.set(self.cur_excludes())
+                self.save()
+
+    def del_exclude(self):
+        sel = self.excl_lst.curselection()
+        if not sel:
+            return
+        exs = self.cur_excludes()
+        exs.pop(sel[0])
+        self.exclude_var.set(self.cur_excludes())
+        self.save()
 # ---------- проверка ----------
     def run(self):
         roots = self.cur_roots()
         if not roots:
             return messagebox.showwarning("Нет папок", "Добавьте хотя бы одну папку")
         self.save()
+        excludes = self.cur_excludes()
         for i in self.tree.get_children():
             self.tree.delete(i)
         self.b_find.config(state="disabled")
         self.log("проверяю: %s" % "; ".join(roots))
+        if excludes:
+            self.log("исключаю: %s" % "; ".join(excludes))
         for bad in eng.missing_roots(roots):
             self.log("ВНИМАНИЕ: папки нет на диске: %s" % bad)
         # Живая находка 02.10.2026 (аудит): Tk-переменные НЕЛЬЗЯ читать из фонового потока —
@@ -157,7 +200,7 @@ class App:
 
         def work():
             try:
-                res = eng.scan(roots, limit,
+                res = eng.scan(roots, limit, exclude=excludes,
                                progress=lambda s: self.root.after(0, self.log, s))
             except Exception as e:
                 self.root.after(0, lambda: (messagebox.showerror("Ошибка", str(e)),

@@ -1,6 +1,7 @@
 {
   "schema": 1,
   "roots": [],
+  "exclude": [],
   "limit": 0,
   "log_dir": "log",
   "report_keep": 20

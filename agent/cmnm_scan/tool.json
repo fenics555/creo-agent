@@ -12,7 +12,6 @@
   "gui_bat": "cmnm_scan_gui.bat",
   "readme": "README.md",
   "settings": "settings/settings.json",
-  "db": "db/cmnm_scan.db",
   "log_dir": "log",
   "inherits": [],
   "commands": ["settings:get", "settings:set", "run", "status", "result"],

@@ -98,6 +98,14 @@ for needle in ("rv_step.set(\"неделя\")", "nb.select(tab_river)", "lnb.sel
 assert "nb.select(tabs[0])" not in src, "selfcheck всё ещё сбрасывает вкладку на первую (V97)"
 print("старт: сверху «Река» (шаг неделя), снизу «Граф» — на месте")
 
+# --- V98: стартовый «Граф» = рекордсмен недели из «Реки» ---------------------
+for needle in ("def _startup_top_model", "root.after(300, _startup_top_model)"):
+    assert needle in src, "нет фрагмента V98: %s" % needle
+_st = src.split("def _startup_top_model")[1].split("\n    def ")[0]
+assert "rv_streams" in _st, "стартовый граф не берёт рекордсмена недели из «Реки»"
+assert "ORDER BY c DESC" in _st, "нет фолбэка на крупнейшую сборку"
+print("старт: граф рекордсмена недели (фолбэк — крупнейшая сборка) — на месте")
+
 # --- V88: «Обзор» живёт в ВЕРХНЕМ ноутбуке (nb), из нижнего убран ----------------
 assert "nb.add(lov" in src, "вкладка «Обзор» не добавлена в ВЕРХНИЙ ноутбук"
 assert "lnb.add(lov" not in src, "вкладка «Обзор» всё ещё в нижнем ноутбуке"
