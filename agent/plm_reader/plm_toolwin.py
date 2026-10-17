@@ -20,7 +20,8 @@
   _overview_text + _overview_show + _ov_dbl (Обзор — сводка по всей базе; V88: вкладка ВЕРХНЕГО окна),
   _map_show + _map_data + _squarify + _heat_color + _map_click/_map_motion/_map_open
   (V91/V93: «Карта» — drill-down treemap: папки → модели, клик = открыть/выбрать),
-  _river_data + _river_show + _river_release/_river_wheel (V95: «Река» — таймлайн правок журнала)
+  _river_data + _river_show + _river_release/_river_wheel
+  (V95/V96: «Река» — таймлайн правок: авто-шаг д/н/м, только modify, топ-N потоков)
 * инструменты ряда: purge_folder, _text_window, purge_show, purge_run, _lout, say, cap, _sel_model,
   where_selected, tree_down, tree_up, changes_selected, open_detail, lt_apply, _fmt, export_bom (состав→CSV)
 * НИЖНЕЕ окно (вкладки): _prop_show, _live_vals, _branch_updown, _ltv_model, ltv_open, _plm_data_ref,
@@ -895,11 +896,19 @@ def run_gui():
     rvctl = ttk.Frame(tab_river)
     rvctl.pack(anchor="w", pady=2)
     ttk.Button(rvctl, text="Обновить", command=lambda: _river_show(True)).pack(side="left")
-    ttk.Label(rvctl, text="месяцев:").pack(side="left", padx=(8, 2))
-    rv_months = ttk.Spinbox(rvctl, from_=3, to=120, width=4,
-                            command=lambda: _river_show(True))
-    rv_months.set(36)
-    rv_months.pack(side="left")
+    ttk.Label(rvctl, text="шаг:").pack(side="left", padx=(8, 2))
+    rv_step = ttk.Combobox(rvctl, values=("авто", "день", "неделя", "месяц"),
+                           state="readonly", width=7)
+    rv_step.set("авто")
+    rv_step.bind("<<ComboboxSelected>>", lambda ev: _river_show(True))
+    rv_step.pack(side="left")
+    ttk.Label(rvctl, text="периодов:").pack(side="left", padx=(6, 2))
+    rv_back = ttk.Spinbox(rvctl, from_=0, to=400, width=4,
+                          command=lambda: _river_show(True))
+    rv_back.set(0)                               # 0 = весь журнал целиком
+    rv_back.pack(side="left")
+    rv_new = ttk.Checkbutton(rvctl, text="+ новые (скан)")
+    rv_new.pack(side="left", padx=(6, 0))
     ttk.Label(rvctl, text="топ:").pack(side="left", padx=(8, 2))
     rv_top = ttk.Spinbox(rvctl, from_=5, to=20, width=3, command=lambda: _river_show(True))
     rv_top.set(10)
@@ -2731,147 +2740,194 @@ def run_gui():
             return
         _last["rv_rz"] = root.after(250, lambda: _river_show())
 
-    def _river_data(months_back, top_n):
-        """V95: журнал → [(модель, [n по месяцам])], список месяцев, записи, число моделей."""
+    def _river_data(step, back, top_n, with_new):
+        """V96: журнал → [(модель, [n по бинам])], бины (даты), фактический шаг, записи, модели.
+        Шаг: ≤62 дня — день, ≤240 — неделя, иначе месяц (auto). kind='new' — волна скана."""
         from collections import Counter
-        today = datetime.date.today()
-        m0 = today.month - 1 - (months_back - 1)
-        y0 = today.year + m0 // 12
-        mo0 = m0 % 12 + 1
-        cutoff = "%04d-%02d-01" % (y0, mo0)
-        months, y, mo = [], y0, mo0
-        while (y, mo) <= (today.year, today.month):
-            months.append("%04d-%02d" % (y, mo))
-            mo += 1
-            if mo > 12:
-                mo, y = 1, y + 1
         con = eng.connect()
         try:
+            min_ts = con.execute("SELECT MIN(ts) FROM changes").fetchone()[0]
             models = {r[0] for r in con.execute(
                 "SELECT DISTINCT model FROM snapshots WHERE model != ''")}
-            rows = con.execute("SELECT ts, item FROM changes WHERE ts >= ?", (cutoff,)).fetchall()
+            kinds = ("modify", "new") if with_new else ("modify",)
+            q = ",".join("?" * len(kinds))
+            rows = con.execute("SELECT ts, item FROM changes WHERE kind IN (%s)" % q,
+                               list(kinds)).fetchall()
         finally:
             con.close()
-        per = Counter()                                  # (модель, месяц) -> правок
-        for ts, item in rows:
-            mon = (ts or "")[:7]
-            if len(mon) != 7:
+        if not rows:
+            return [], [], "m", 0, 0
+
+        def pdate(s):
+            try:
+                return datetime.datetime.strptime((s or "")[:10], "%Y-%m-%d").date()
+            except Exception:
+                return None
+
+        dates = [pdate(r[0]) for r in rows]
+        dmin = min((d for d in dates if d), default=None)
+        if not dmin:
+            return [], [], "m", 0, 0
+        today = datetime.date.today()
+        span = (today - dmin).days + 1
+        if step == "auto":
+            step = "d" if span <= 62 else ("w" if span <= 240 else "m")
+
+        def bstart(d):
+            if step == "d":
+                return d
+            if step == "w":
+                return d - datetime.timedelta(days=d.weekday())
+            return d.replace(day=1)
+
+        bins, cur = [], bstart(today)
+        if back and back > 0:                    # последние N бинов
+            stops = []
+            for _ in range(back):
+                stops.append(cur)
+                if step == "m":
+                    y, mo = (cur.year - 1, 12) if cur.month == 1 else (cur.year, cur.month - 1)
+                    cur = cur.replace(year=y, month=mo)
+                else:
+                    cur -= datetime.timedelta(days=1 if step == "d" else 7)
+            bins = list(reversed(stops))
+        else:                                    # весь журнал
+            cur, guard = bstart(dmin), 0
+            while cur <= bstart(today) and guard < 1500:
+                bins.append(cur)
+                if step == "m":
+                    y, mo = (cur.year + 1, 1) if cur.month == 12 else (cur.year, cur.month + 1)
+                    cur = cur.replace(year=y, month=mo)
+                else:
+                    cur += datetime.timedelta(days=1 if step == "d" else 7)
+                guard += 1
+        if not bins:
+            return [], [], step, 0, 0
+        idx = {d: i for i, d in enumerate(bins)}
+        per = Counter()
+        for (ts, item), d in zip(rows, dates):
+            if not d:
+                continue
+            i = idx.get(bstart(d))
+            if i is None:
                 continue
             m = eng.stem(os.path.basename(item or ""))
             if m in models:
-                per[(m, mon)] += 1
+                per[(m, i)] += 1
         tot = Counter()
-        for (m, mon), c in per.items():
+        for (m, _i), c in per.items():
             tot[m] += c
         top = [m for m, _ in tot.most_common(top_n)]
-        idx = {mon: i for i, mon in enumerate(months)}
-        flows = {m: [0] * len(months) for m in top}
-        other = [0] * len(months)
-        for (m, mon), c in per.items():
-            i = idx.get(mon)
-            if i is None:
-                continue
+        flows = {m: [0] * len(bins) for m in top}
+        for (m, i), c in per.items():
             if m in flows:
                 flows[m][i] += c
-            else:
-                other[i] += c
-        streams = [(m, flows[m]) for m in top]
-        if any(other):
-            streams.append(("__prc__", other))
-        return streams, months, sum(tot.values()), len(tot)
+        return [(m, flows[m]) for m in top], bins, step, sum(tot.values()), len(tot)
 
     def _river_show(force=False):
-        """V95: «Река» — stacked-потоки правок по месяцам (кэш в _last по (месяцев, топ))."""
+        """V96: «Река» — stacked-потоки по бинам журнала (день/неделя/месяц; кэш по настройкам)."""
         t0 = time.time()
+        step_lbl = {"авто": "auto", "день": "d", "неделя": "w", "месяц": "m"}
         try:
-            months_back = int(str(rv_months.get() or 36))
+            step = step_lbl.get(rv_step.get(), "auto")
         except Exception:
-            months_back = 36
+            step = "auto"
+        try:
+            back = max(0, int(str(rv_back.get() or 0)))
+        except Exception:
+            back = 0
         try:
             top_n = int(str(rv_top.get() or 10))
         except Exception:
             top_n = 10
-        sig = (months_back, top_n)
+        try:
+            with_new = bool(rv_new.instate(["selected"]))
+        except Exception:
+            with_new = False
+        sig = (step, back, top_n, with_new)
         try:
             if force or _last.get("rv_sig") != sig or not _last.get("rv_streams"):
                 rv_sum.config(text="считаю журнал правок…")
-                _last["rv_streams"], _last["rv_mons"], _last["rv_rows"], _last["rv_models"] = \
-                    _river_data(months_back, top_n)
+                _last["rv_streams"], _last["rv_bins"], _last["rv_step_res"], \
+                    _last["rv_rows"], _last["rv_models"] = \
+                    _river_data(step, back, top_n, with_new)
                 _last["rv_sig"] = sig
             cv = river_canvas
             cv.delete("all")
             cv.config(cursor="")
             _last["rv_cur"] = ""
             streams = _last.get("rv_streams") or []
-            mons = _last.get("rv_mons") or []
-            if not streams or not mons:
-                rv_sum.config(text="нет правок за период %d мес" % months_back)
+            bins = _last.get("rv_bins") or []
+            step_res = _last.get("rv_step_res") or "m"
+            if not streams or not bins:
+                rv_sum.config(text="нет правок журнала (kind=modify%s) — возможно, базу только что "
+                                   "пересканировали" % (", new" if with_new else ""))
                 return
             w = max(cv.winfo_width(), 600)
             h = max(cv.winfo_height(), 300)
-            step = 26                               # мин. ширина месяца — контент может быть шире
-            W = max(w, len(mons) * step + 72)
-            pad_l, pad_t, axis_h = 56, 10, 24
+            n = len(bins)
+            W = max(w, n * 26 + 72)               # месяц/неделя/день — не мельче 26 px
+            pad_l, pad_t, axis_h = 56, 12, 24
             plot_h = h - pad_t - axis_h
-            xf = [int(m[:4]) + (int(m[5:7]) - 1) / 12.0 for m in mons]
-            x0, x1 = xf[0], xf[-1] + 1 / 12.0
-
-            def X(f):
-                return pad_l + (f - x0) / (x1 - x0) * (W - pad_l - 16)
-
-            xs = [X(f) for f in xf]
-            totals = [sum(s[1][i] for s in streams) for i in range(len(mons))]
+            xs = [pad_l + i * (W - pad_l - 16) / float(max(n - 1, 1)) for i in range(n)]
+            totals = [sum(s[1][i] for s in streams) for i in range(n)]
             peak = max(totals) or 1
             scale = plot_h / float(peak)
             pal = ("#5b8db8", "#6fbf7c", "#e8a33d", "#b07cd1", "#c47a3a",
                    "#4ab0b0", "#d16a8a", "#7f9c4a", "#8a7bd1", "#c9a227")
-            cum = [0] * len(mons)
+            cum = [0] * n
             ci = 0
             for name, vals in streams:
+                if max(vals) <= 0:
+                    continue
                 bottom = list(cum)
-                topv = [bottom[i] + vals[i] for i in range(len(mons))]
-                if max(vals) > 0:
-                    if name == "__prc__":
-                        col = "#c9cfd6"
-                        tg = ("band",)
-                    else:
-                        col = pal[ci % len(pal)]
-                        tg = ("band", "m:" + name)
-                        ci += 1
-                    pts = [(xs[i], pad_t + plot_h - bottom[i] * scale) for i in range(len(mons))]
-                    pts += [(xs[i], pad_t + plot_h - topv[i] * scale)
-                            for i in range(len(mons) - 1, -1, -1)]
-                    cv.create_polygon(pts, fill=col, outline="#ffffff", width=1, tags=tg)
-                    if name != "__prc__":            # подпись у пикового месяца потока
-                        mi = max(range(len(vals)), key=lambda i: vals[i])
-                        if vals[mi] * scale >= 12:
-                            lbl = name if len(name) <= 20 else name[:18] + "…"
-                            cv.create_text(xs[mi],
-                                           pad_t + plot_h - (bottom[mi] + topv[mi]) / 2 * scale,
-                                           text=lbl, font=("Segoe UI", 8, "bold"), fill="#20303c")
+                topv = [bottom[i] + vals[i] for i in range(n)]
+                col = pal[ci % len(pal)]
+                ci += 1
+                pts = [(xs[i], pad_t + plot_h - bottom[i] * scale) for i in range(n)]
+                pts += [(xs[i], pad_t + plot_h - topv[i] * scale) for i in range(n - 1, -1, -1)]
+                cv.create_polygon(pts, fill=col, outline="#ffffff", width=1,
+                                  tags=("band", "m:" + name))
+                mi = max(range(n), key=lambda i: vals[i])
+                if vals[mi] * scale >= 12:         # подпись у пикового месяца потока
+                    lbl = name if len(name) <= 20 else name[:18] + "…"
+                    cv.create_text(xs[mi], pad_t + plot_h - (bottom[mi] + topv[mi]) / 2 * scale,
+                                   text=lbl, font=("Segoe UI", 8, "bold"), fill="#20303c")
                 cum = topv
-            # ось времени: подписи по кварталам, границы лет выделены
-            for i, m in enumerate(mons):
-                mo_, y_ = int(m[5:7]), int(m[:4])
-                if mo_ in (1, 4, 7, 10):
+            # ось времени: подписи с шагом, границы месяцев/лет — линиями
+            stride = 1 if n <= 18 else (n + 17) // 18
+            for i, d in enumerate(bins):
+                if step_res in ("d", "w"):
+                    lab = "%02d.%02d" % (d.day, d.month)
+                    strong = d.day == 1
+                else:
+                    lab = "%02d.%02d" % (d.month, d.year % 100)
+                    strong = d.month == 1
+                if strong:
+                    cv.create_line(xs[i], pad_t - 5, xs[i], pad_t + plot_h, fill="#c2c8d0")
+                    if step_res in ("d", "w"):
+                        cv.create_text(xs[i], pad_t - 7, anchor="s",
+                                       text="%02d.%02d" % (d.month, d.year % 100),
+                                       font=("Segoe UI", 8, "bold"), fill="#333")
+                if i % stride == 0:
                     cv.create_line(xs[i], pad_t, xs[i], pad_t + plot_h, fill="#eceef1")
-                    cv.create_text(xs[i], h - axis_h + 10, text="%02d.%02d" % (mo_, y_ % 100),
+                    cv.create_text(xs[i], h - axis_h + 10, text=lab,
                                    font=("Segoe UI", 8), fill="#555")
-                    if mo_ == 1:
-                        cv.create_line(xs[i], pad_t - 4, xs[i], pad_t + plot_h, fill="#c8ccd4")
-            # горизонтальная сетка по значению
-            for frac in (0.0, 0.5, 1.0):
+            for frac in (0.0, 0.5, 1.0):           # сетка значений
                 yv = pad_t + plot_h - frac * plot_h
                 cv.create_line(pad_l - 6, yv, W - 16, yv, fill="#e6e8ec")
                 cv.create_text(4, yv, anchor="w", text="%d" % int(frac * peak),
                                font=("Segoe UI", 8), fill="#777")
             cv.create_line(pad_l - 6, pad_t + plot_h, W - 16, pad_t + plot_h, fill="#999")
             cv.config(scrollregion=cv.bbox("all"))
+            top_sum = sum(sum(s[1]) for s in streams)
             peak_i = totals.index(max(totals))
-            rv_sum.config(text="река за %d мес: правок %d · моделей %d · пик %s (%d/мес) · "
-                               "клик по потоку = модель · %.1f с"
-                          % (months_back, _last.get("rv_rows", 0), _last.get("rv_models", 0),
-                             mons[peak_i], max(totals), time.time() - t0))
+            step_ru = {"d": "день", "w": "неделя", "m": "месяц"}.get(step_res, step_res)
+            rv_sum.config(text="река (шаг %s): правок %d · моделей %d · топ-%d = %d%% правок · "
+                               "пик %s (%d) · клик по потоку = модель · %.1f с"
+                          % (step_ru, _last.get("rv_rows", 0), _last.get("rv_models", 0), top_n,
+                             int(100.0 * top_sum / max(_last.get("rv_rows", 1), 1)),
+                             bins[peak_i].strftime("%d.%m.%Y"), max(totals), time.time() - t0))
         except Exception as e:                      # вкладка не должна ронять окно
             try:
                 rv_sum.config(text="река не построена: %s" % e)

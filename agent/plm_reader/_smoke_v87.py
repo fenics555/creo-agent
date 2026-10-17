@@ -82,13 +82,15 @@ assert "_place_center" in src, "нет центрирования окна об�
 assert "canvasx(ev.x)" in src, "клики без canvasx/canvasy сломаются при зуме/пане (V94)"
 print("карта+роза: drill-down, мышь (зум/пан/клик), «Роза» — вкладка низа — на месте")
 
-# --- V95: «Река времени» — таймлайн правок журнала ---------------------------
+# --- V95/V96: «Река времени» — таймлайн правок журнала -----------------------
 for needle in ("nb.add(tab_river", "def _river_show", "def _river_data",
-               "def _river_release", "river_canvas", "create_polygon"):
-    assert needle in src, "нет фрагмента V95: %s" % needle
+               "def _river_release", "river_canvas", "create_polygon",
+               "rv_step", "rv_back", "rv_new", "kind IN"):
+    assert needle in src, "нет фрагмента V95/V96: %s" % needle
 assert "str(tab_river)" in src, "on_tab не показывает «Реку» при входе на вкладку"
-assert "streams.append((\"__prc__\"" in src, "нет потока «прочие» в реке"
-print("река: вкладка, агрегация журнала, stacked-потоки, клик по потоку — на месте")
+assert "__prc__" not in src, "«прочие» вернулись в стек — доминируют над топом (V96)"
+assert "rv_months" not in src, "остался спинбокс «месяцев» — нужен авто-шаг (V96)"
+print("река: авто-шаг (день/неделя/месяц), только modify, топ-N потоков, клик — на месте")
 
 # --- V88: «Обзор» живёт в ВЕРХНЕМ ноутбуке (nb), из нижнего убран ----------------
 assert "nb.add(lov" in src, "вкладка «Обзор» не добавлена в ВЕРХНИЙ ноутбук"
