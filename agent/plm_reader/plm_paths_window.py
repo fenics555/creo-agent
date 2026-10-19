@@ -47,6 +47,18 @@ class PathsWindow:
                             "Пусто = не дублировать:",
                   foreground="#555").pack(anchor="w", pady=(8, 0))
         self.sec_mir = self._section(box, "db_mirror")
+        ttk.Label(box, text="PURGE — КУДА СКЛАДЫВАТЬ СТАРЫЕ ВЕРСИИ (бэкап, удаления нет):",
+                  font=("", 10, "bold")).pack(anchor="w", pady=(14, 0))
+        ttk.Label(box, text="Пусто = <чистимая папка>\\_purge_backup\\ГГГГММДД. Можно указать свою — "
+                            "например, сетевой архив — старые версии уедут туда:",
+                  foreground="#555").pack(anchor="w")
+        pline = ttk.Frame(box)
+        pline.pack(fill="x", pady=(2, 0))
+        self.e_purge_dir = ttk.Entry(pline)
+        self.e_purge_dir.insert(0, settings.get("purge_backup_dir") or "")
+        self.e_purge_dir.pack(side="left", fill="x", expand=True)
+        ttk.Button(pline, text="Выбрать…", width=10,
+                   command=lambda: self._pick(self.e_purge_dir)).pack(side="left", padx=4)
         ttk.Label(box, text="Служебные модели — стволы, чьи связи мусорные (шаблоны/библиотеки). "
                             "По одному стволу в строке, можно вручную:",
                   font=("", 10, "bold")).pack(anchor="w", pady=(14, 0))
@@ -173,6 +185,7 @@ class PathsWindow:
         self.settings["template_folders"] = d["template_folders"]
         self.settings["db_dir"] = norm_path(self.e_db_dir.get())
         self.settings["db_mirror"] = d["db_mirror"]
+        self.settings["purge_backup_dir"] = norm_path(self.e_purge_dir.get())   # V99
         self.settings["service_models"] = d["service_models"]
         try:
             self.settings["mirror_keep"] = max(1, min(50, int(self.sp_mkeep.get() or 3)))

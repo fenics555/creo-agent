@@ -1197,6 +1197,7 @@ def purge_execute(root, keep=2, backup_dir=None, dry=False, items=None):
     root = Path(root)
     backup_dir = Path(backup_dir) if backup_dir else (
         root / "_purge_backup" / datetime.datetime.now().strftime("%Y%m%d"))
+    babs = os.path.abspath(str(backup_dir)) + os.sep   # V99: не ходить по самой бэкап-папке
     rep = {"root": str(root), "keep": keep, "dry": bool(dry), "было_версий": 0,
            "перенесено": [], "пропущено_с_причиной": [], "освобождено_байт": 0,
            "seconds": 0.0, "лишние": [], "групп": 0, "оставлено": 0}
@@ -1219,7 +1220,10 @@ def purge_execute(root, keep=2, backup_dir=None, dry=False, items=None):
             % (root, len(rep["перенесено"]), rep["освобождено_байт"] / 1048576.0, rep["seconds"]))
         return rep
     for dp, dirs, _fs in os.walk(root):
-        dirs[:] = [d for d in dirs if d != "_purge_backup"]
+        dirs[:] = [d for d in dirs
+                   if d != "_purge_backup"
+                   and not (os.path.abspath(os.path.join(dp, d)) + os.sep).lower()
+                   .startswith(babs.lower())]      # V99: своя бэкап-папка внутри склада — не чистится
         grps, _ = version_groups(dp)
         for base, members in grps.items():
             rep["групп"] += 1

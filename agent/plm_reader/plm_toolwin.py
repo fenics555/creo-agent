@@ -1475,7 +1475,12 @@ def run_gui():
             lbl.config(text="Purge: выбери существующую папку (кнопка «Пути и исключения…»)")
             return
         keep = int(e_keep.get() or 2)
-        bdir = os.path.join(folder, "_purge_backup")
+        try:                                      # V99: папка бэкапа из настроек (пусто = как раньше)
+            user_bdir = (settings.get("purge_backup_dir") or "").strip()
+        except Exception:
+            user_bdir = ""
+        bdir = (os.path.join(user_bdir, datetime.datetime.now().strftime("%Y%m%d"))
+                if user_bdir else os.path.join(folder, "_purge_backup"))
         if not mb.askyesno("Purge",
                            "Перенести в БЭКАП %d лишних версий (%.1f МБ)?\n%s\n\n"
                            "Удаления нет: файлы уедут в %s"
@@ -1485,7 +1490,7 @@ def run_gui():
 
         def work():
             try:
-                rep = eng.purge_execute(folder, keep, None, items=plan["candidates"])
+                rep = eng.purge_execute(folder, keep, bdir, items=plan["candidates"])
                 out = ("перенесено %d версий, освобождено %.1f МБ, за %.1f с\nбэкап: %s"
                        % (len(rep["перенесено"]), rep["освобождено_байт"] / 1048576.0,
                           rep["seconds"], bdir))

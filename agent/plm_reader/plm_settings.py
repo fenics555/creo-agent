@@ -19,6 +19,7 @@ DEFAULT_SETTINGS = {
     "latest_only": True,
     "depth": 0,
     "purge_keep": 2,
+    "purge_backup_dir": "",  # V99: куда класть старые версии Purge (пусто = <папка>\_purge_backup\ГГГГММДД)
     "auto_refresh": True,
     "full": False,
     "columns": ["Файл", "Обозначение", "Наименование", "Материал", "Объём, мм³",

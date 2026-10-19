@@ -106,6 +106,17 @@ assert "rv_streams" in _st, "стартовый граф не берёт рек�
 assert "ORDER BY c DESC" in _st, "нет фолбэка на крупнейшую сборку"
 print("старт: граф рекордсмена недели (фолбэк — крупнейшая сборка) — на месте")
 
+# --- V99: папка бэкапа Purge настраивается в «Пути, исключения» --------------
+import plm_paths_window
+src2 = inspect.getsource(plm_paths_window)
+for needle in ("purge_backup_dir", "e_purge_dir"):
+    assert needle in src2, "нет фрагмента V99 (окно путей): %s" % needle
+assert "purge_backup_dir" in src, "purge_run не читает настройку purge_backup_dir"
+assert "eng.purge_execute(folder, keep, bdir" in src, "purge_execute не получает папку владельца"
+import plm_settings
+assert "purge_backup_dir" in plm_settings.DEFAULT_SETTINGS, "нет ключа purge_backup_dir в DEFAULT_SETTINGS"
+print("purge: папка бэкапа настраивается («Пути, исключения») и передаётся в движок — на месте")
+
 # --- V88: «Обзор» живёт в ВЕРХНЕМ ноутбуке (nb), из нижнего убран ----------------
 assert "nb.add(lov" in src, "вкладка «Обзор» не добавлена в ВЕРХНИЙ ноутбук"
 assert "lnb.add(lov" not in src, "вкладка «Обзор» всё ещё в нижнем ноутбуке"
