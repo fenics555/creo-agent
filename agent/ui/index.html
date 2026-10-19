@@ -86,9 +86,51 @@ button.send:hover{background:#1177dd;}
 .setting-row .val{font-family:Consolas,monospace;color:#ce9178;background:#1e1e1e;padding:2px 6px;border-radius:3px;border:1px solid #333;}
 .empty{color:var(--text-muted);font-style:italic;padding:20px;text-align:center;}
 .hidden{display:none !important;}
+/* RESIZE Р РЈР§РљР (РєР°Рє РІ VS Code) */
+.panel-toggle.dragging {
+  background: #007acc !important;
+  opacity: 0.8;
+}
+#main { position: relative; }
+#sidebar { transition: none; }
+#right { transition: none; }
+/* ==== Р›РћР“РРќ-Р­РљР РђРќ ==== */
+#login-screen { position: fixed; inset: 0; background: #252526; z-index: 200; display: flex; align-items: center; justify-content: center; }
+#login-screen.hidden { display: none; }
+.login-card { background: #2d2d2f; border: 1px solid #333; border-radius: 8px; padding: 32px; width: 340px; box-shadow: 0 8px 24px rgba(0,0,0,.4); }
+.login-card h2 { color: #569cd6; margin-bottom: 20px; font-size: 18px; text-align: center; }
+.login-row { margin-bottom: 14px; }
+.login-row label { display: block; margin-bottom: 6px; color: #cccccc; font-size: 12px; }
+.login-row input { width: 100%; background: #1e1e1e; border: 1px solid #333; color: #d4d4d4; border-radius: 4px; padding: 8px 10px; font-size: 13px; box-sizing: border-box; }
+.login-row input:focus { outline: none; border-color: #007acc; }
+.login-err { color: #f48771; font-size: 11px; margin-bottom: 12px; display: none; text-align: center; }
+.login-actions { display: flex; gap: 10px; margin-top: 8px; }
+.btn-login { background: #007acc; color: #fff; border: none; border-radius: 4px; padding: 8px 16px; cursor: pointer; font-weight: 600; flex: 1; }
+.btn-login:hover { background: #1177dd; }
+.btn-reg { background: transparent; border: 1px solid #444; color: #cccccc; border-radius: 4px; padding: 8px 12px; cursor: pointer; font-size: 12px; }
+.btn-reg:hover { background: #333; border-color: #007acc; }
+
+/* РљРЅРѕРїРєР° РїСЂРѕС„РёР»СЏ РІ Р·Р°РіРѕР»РѕРІРєРµ */
+#top .user-block { display: flex; align-items: center; gap: 10px; margin-left: 12px; }
+#top .user-name { color: #d4d4d4; font-size: 11px; background: #333; padding: 2px 8px; border-radius: 10px; }
+#top .btn-logout { background: transparent; border: 1px solid #444; color: #cccccc; padding: 2px 8px; border-radius: 4px; font-size: 11px; cursor: pointer; }
+#top .btn-logout:hover { background: #333; }
+#top .btn-admin { background: #4a6f2b; color: #fff; border: none; border-radius: 4px; padding: 2px 8px; font-size: 11px; cursor: pointer; margin-left: 6px; }
+#top .btn-admin:hover { background: #5c8a38; }
 </style>
 </head>
-<body>
+<body><div id="login-screen">
+  <div class="login-card">
+    <h2>&#128272; Р’С…РѕРґ РІ РђРіРµРЅС‚</h2>
+    <div class="login-err" id="login-err">РќРµРІРµСЂРЅС‹Р№ Р»РѕРіРёРЅ РёР»Рё РїР°СЂРѕР»СЊ</div>
+    <div class="login-row"><label>Р›РѕРіРёРЅ</label><input id="login-login" placeholder="Р»РѕРіРёРЅ"></div>
+    <div class="login-row"><label>РџР°СЂРѕР»СЊ</label><input id="login-pw" type="password" placeholder="РїР°СЂРѕР»СЊ"></div>
+    <div class="login-actions">
+      <button class="btn-login" id="btn-do-login">Р’РѕР№С‚Рё</button>
+      <button class="btn-reg" id="btn-do-reg">Р РµРіРёСЃС‚СЂР°С†РёСЏ</button>
+    </div>
+  </div>
+</div>
 <div id="top">
   <div class="brand">&#9632; АГЕНТ v15</div>
   <div class="sep"></div>
@@ -100,6 +142,11 @@ button.send:hover{background:#1177dd;}
   <div class="indicator" id="ind-creoson">Creoson ●</div>
   <div class="indicator" id="ind-agent">Агент ●</div>
   <button class="btn" id="btn-toggle-right">&#9654; Статистика</button>
+  <div class="user-block" id="user-block" style="display:none;">
+    <span class="user-name" id="user-name">—</span>
+    <button class="btn-admin" id="btn-admin" style="display:none;">Админка</button>
+    <button class="btn-logout" id="btn-logout">Выйти</button>
+  </div>
   <button class="btn" id="btn-toggle-sidebar">&#9654; Навигация</button>
 </div>
 <div id="main">
@@ -167,4 +214,5 @@ button.send:hover{background:#1177dd;}
 <script src="/ui/app.js"></script>
 </body>
 </html>
+
 
