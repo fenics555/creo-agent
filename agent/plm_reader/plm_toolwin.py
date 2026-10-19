@@ -3954,7 +3954,7 @@ def run_gui():
         try:
             m = ""
             streams = _last.get("rv_streams") or []    # река уже посчитана при входе на вкладку
-            if streams and streams[0][0] and streams[0][0] != "__prc__":
+            if streams and streams[0][0]:
                 m = streams[0][0]                      # первый поток = больше всего правок за неделю
             if not m:
                 con = eng.connect()
