@@ -17,5 +17,5 @@
   "commands": ["settings:get", "settings:set", "run", "status", "result"],
   "ui": "ui_common",
   "portable": "dev/portable_check.py",
-  "notes": "Эталон канона (Волна 0.3, 09.10.2026): настройки в settings/, своя db/, LOG_DIR из настроек без абс. пути в коде, inherits пуст (класс Р живёт сам). Код возврата 0/1/2."
+  "notes": "Эталон канона (Волна 0.3, 09.10.2026): настройки в settings/settings.json (с exclude, без БД), LOG_DIR из настроек без абс. пути в коде, inherits пуст (класс Р живёт сам). Код возврата 0/1/2. Программа не использует базу — только отчёты в log/."
 }
