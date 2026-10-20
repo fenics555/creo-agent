@@ -15,9 +15,16 @@ class CreoProtocolDecoder:
         0x02: (0, 's'),   # STRING
         0x03: (8, 'd'),   # DOUBLE
     }
-
     def __init__(self, endian='<'):
         self.endian = endian
+
+
+
+    def _clean_name(self, name: str) -> str:
+        """Очищает имя от управляющих символов и лишних пробелов."""
+        # Удаляем непечатные символы (оставляем только printable ASCII)
+        cleaned = "".join(c for c in name if 32 <= ord(c) <= 126)
+        return cleaned.strip()
 
     def decode_next_value(self, data: bytes, offset: int):
         curr = offset
