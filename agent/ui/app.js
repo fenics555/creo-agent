@@ -1,4 +1,4 @@
-﻿// АГЕНТ v15 — VS Code Style клиент
+// АГЕНТ v15 — VS Code Style клиент
 var TK = localStorage.getItem('tk') || '';
 var base = '';
 function $ (id) { return document.getElementById(id); }
@@ -170,6 +170,61 @@ function loadSettings() { api('/settings', null, function (d) {
     sb.appendChild(div);
   });
 }); };
+
+function login() {
+  var loginEl = $('login-login');
+  var pwEl = $('login-pw');
+  var errEl = $('login-err');
+  if (!loginEl || !pwEl) return;
+  var login = loginEl.value.trim();
+  var pw = pwEl.value.trim();
+  if (!login || !pw) { errEl.style.display = 'block'; return; }
+  api('/login', { login: login, pw: pw }, function (d) {
+    if (d && d.ok && d.token) {
+      TK = d.token;
+      localStorage.setItem('tk', TK);
+      errEl.style.display = 'none';
+      $('login-screen').classList.add('hidden');
+      $('user-block').style.display = 'flex';
+      $('user-name').textContent = d.login || login;
+      if (d.is_manager) { $('btn-admin').style.display = 'inline-block'; }
+      loadStatus(); loadTools(); loadPrograms(); loadLog(); loadSettings();
+      setInterval(chatPoll, 5000);
+      logOut('Вход: ' + (d.login || login));
+    } else { errEl.style.display = 'block'; }
+  }, function (e) {
+    errEl.style.display = 'block';
+    logOut('Ошибка входа: ' + e, 'err');
+  });
+}
+
+function register() {
+  var loginEl = $('login-login');
+  var pwEl = $('login-pw');
+  var errEl = $('login-err');
+  if (!loginEl || !pwEl) return;
+  var login = loginEl.value.trim();
+  var pw = pwEl.value.trim();
+  if (!login || !pw) { errEl.style.display = 'block'; return; }
+  api('/register', { login: login, pw: pw }, function (d) {
+    if (d && !d.error) { logOut('Регистрация прошла. Войдите.'); }
+    else { errEl.textContent = d && d.msg ? d.msg : 'Ошибка регистрации'; errEl.style.display = 'block'; }
+  }, function (e) { errEl.style.display = 'block'; });
+}
+
+function logout() {
+  TK = ''; localStorage.removeItem('tk');
+  $('login-screen').classList.remove('hidden');
+  $('user-block').style.display = 'none';
+  $('btn-admin').style.display = 'none';
+  $('tools-body').innerHTML = '';
+  $('programs-body').innerHTML = '';
+  $('settings-body').innerHTML = '';
+  $('log-body').innerHTML = '';
+  $('chat-msgs').innerHTML = '<div class="msg system">Войдите в систему для работы с агентом.</div>';
+  logOut('Вы вышли из системы');
+}
+
 function initResizer(handleEl, panelEl, min) {
   var startX = 0, startSize = 0;
   handleEl.addEventListener('mousedown', function (e) {
@@ -203,14 +258,28 @@ document.addEventListener('DOMContentLoaded', function () {
   $('btn-clear-output').addEventListener('click', function () { $('output-body').innerHTML = ''; });
   $('btn-send').addEventListener('click', chatSend);
   $('chat-input').addEventListener('keydown', function (e) { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); chatSend(); } });
-  initResizer($('toggle-sidebar'), $('sidebar'), 180);
+    initResizer($('toggle-sidebar'), $('sidebar'), 180);
   initResizer($('toggle-right'), $('right'), 200);
-  loadStatus();
-  loadTools();
-  loadPrograms();
-  loadLog();
-  loadSettings();
-  setInterval(loadStatus, 10000);
-  if (hasToken()) { setInterval(chatPoll, 5000); }
-  logOut('UI инициализирован');
+
+  if ($('btn-do-login')) $('btn-do-login').addEventListener('click', login);
+  if ($('btn-do-reg')) $('btn-do-reg').addEventListener('click', register);
+  if ($('btn-logout')) $('btn-logout').addEventListener('click', logout);
+  if ($('btn-admin')) $('btn-admin').addEventListener('click', function () {
+    logOut('РђРґРјРёРЅРєР°: РїРѕРєР° РЅРµ СЂРµР°Р»РёР·РѕРІР°РЅР° РІ СЌС‚РѕРј РѕРєРЅРµ');
+  });
+  if ($('login-login')) $('login-login').addEventListener('keydown', function (e) { if (e.key === 'Enter') login(); });
+  if ($('login-pw')) $('login-pw').addEventListener('keydown', function (e) { if (e.key === 'Enter') login(); });
+
+  if (hasToken()) {
+    $('login-screen').classList.add('hidden');
+    $('user-block').style.display = 'flex';
+    $('btn-admin').style.display = 'none';
+    loadStatus(); loadTools(); loadPrograms(); loadLog(); loadSettings();
+    setInterval(chatPoll, 5000);
+    logOut('UI РёРЅРёС†РёР°Р»РёР·РёСЂРѕРІР°РЅ (РІРѕР№РґРµРЅ)');
+  } else {
+    $('login-screen').classList.remove('hidden');
+    $('user-block').style.display = 'none';
+    logOut('UI РёРЅРёС†РёР°Р»РёР·РёСЂРѕРІР°РЅ (С‚СЂРµР±СѓРµС‚СЃСЏ РІС…РѕРґ)');
+  }
 });
