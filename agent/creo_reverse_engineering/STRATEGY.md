@@ -48,4 +48,61 @@
 * **Revision/Rename**: `MdlStatus → mtrack_data`.
 
 ---
-*(End of Part 1 - To be continued)*
+
+## 🔗 PART 3: CONNECTION THEORY (Deep Links)
+
+### 3.1. Four Types of Connections to Detect
+
+1.  **Inheritance / Deriving (inherit):**
+    * `06700423-01.prt` $\leftarrow$ `226_595-223_985-136_3-01` (via `MdlRefInfo.top_to_part_models` or `FeatRefData`).
+    * `06700423-01_z.prt` (stock) $\leftarrow$ same source.
+2.  **BOM (Inclusion):**
+    * `06700423-01.asm` contains `06700423-01.PRT` (via `Dwg_Models`).
+3.  **Family Table (Instances):**
+    * `bolt.prt` (generic) $\to$ `bolt_m6x20.prt` (instance) $\to$ `assembly_A.asm` (used in).
+4.  **External References (xref):**
+    * `p_foreign_source` or `ext` links.
+
+### 3.2. Family Table Logic (The "Instance" Problem)
+A generic part (e.g., `bolt.prt`) isn't directly in a BOM. The **instance** is.
+* **The Link**: `Generic` $\to$ `FamilyInf` $\to$ `Sld_DrvTable` $\to$ `instances`.
+* **Transitive Closure**: `Assembly` $\to$ `Instance` $\to` `Generic`.
+* **Reporting**: Show "Direct" (if generic is used) and "Indirect" (if instance is used) connections.
+
+---
+
+
+
+## 🛠️ PART 4: IMPLEMENTATION & UI (Tactical)
+
+### 4.1. Implementation Roadmap
+
+#### 🔴 Priority 1: Core Engine Fixes
+* **Decoder**: Implement strict length reading (no `find(e0)`). Implement endianness detection via `MACH`.
+* **Extractor**: Capture the entire `record` block (from one `feat_id` to the next) for the classifier.
+* **Mapping**: Build `body_id` $\to$ `feat_id` map in `AllFeatur` to link `GeomDepen`.
+
+#### 🟠 Priority 2: Connection Logic
+* **Family Parser**: Module to parse `FamilyInf` and `Sld_DrvTable`.
+* **Component Parser**: Module to extract `instance_name` from `FeatDefsCmp`.
+* **Graph Resolver**: A module that builds a graph with edge types (`inherit`, `component`, `instance_of`, `used_in`).
+
+#### 🟡 Priority 3: UI & Reporting
+* **Visualizer**: Show connections as `Direct` vs `Via Instance`.
+* **Smart Warnings**: "Renaming this part will affect N instances in M assemblies."
+
+### 4.2. Recommended Modules for CR-Toolkit
+
+1.  **`creo_family_parser.py`**: For `FamilyInf` and `Sld_DrvTable`.
+2.  **`creo_component_parser.py`**: For `FeatDefsCmp` (instance names/parent/ext).
+3.  **`creo_connection_graph.py`**: To handle the transitive closure (Assembly $\to$ Instance $\to$ Generic).
+4.  **`creo_connection_resolver.py`**: The orchestrator that reports "Who uses what".
+
+### 4.3. Implementation Recipes
+
+* **Detect Section Type**: Use magic bytes (`\x1f\x8b` for gzip, `\xff\xd8` for jpeg, `Sld_` for structured, `#UGC` for ASCII).
+* **Find All Links**: Use `MdlRefInfo` for upstream, `Dwg_Models` for BOM, and `FeatDefsCmp` for instances.
+* **Handle Names**: Always check for `instance_name` vs `name`.
+
+---
+*(End of Strategy)*
