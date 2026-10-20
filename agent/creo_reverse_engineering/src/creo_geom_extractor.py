@@ -1,43 +1,28 @@
-﻿import re
+import re
 import os
 import sys
+import struct
+
+# Добавляем пути для импортов
 sys.path.append('D:/AI/tools/agent')
 sys.path.append('D:/AI/tools/agent/creo_reverse_engineering/src')
-from creo_protocol_decoder import CreoProtocolDecoder
-from plm_reader.creo_read import parse_toc
 
-def extract_params_via_protocol(decoder, record_data):
-    """
-    Использует протокол для последовательного разбора параметров внутри записи.
-    Возвращает список найденных значений (тип, значение, имя).
-    """
-    params = []
-    offset = 0
-    
-    while offset < len(record_data):
-        val, next_off, v_type, name = decoder.decode_next_value(record_data, offset)
-        
-        if v_type in ["EOF", "NO_HEADER", "DECODE_FAILED"]:
-            break
-        
-        if name:
-            params.append({
-                "name": name,
-                "value": val,
-                "type": v_type
-            })
-            
-        if next_off <= offset:
-            break
-        offset = next_off
-        
-    return params
+from creo_protocol_decoder import CreoProtocolDecoder
+from plm_reader.creo_read import parse_toc, read
+
+def _detect_endianness(data: bytes) -> str:
+    """Определяет порядок байтов по заголовку MACH."""
+    if b"MACH SUN_SunOS" in data[:1024]:
+        return '>'
+    return '<'
 
 def scan_all_features(file_path):
-    """Сканирует AllFeatur для извлечения параметров каждого признака."""
-    print(f"--- Protocol-Aware Scan (AllFeatur): {file_path} ---")
+    """
+    Сканирует AllFeatur, используя feat_id как якорь для разделения записей.
+    Это делает парсинг устойчивым к мусору между записями.
+    """
+    print(f"--- [V3] Record-Centric Scan (AllFeatur): {file_path} ---")
     try:
-        from plm_reader.creo_read import read
         data = read(file_path)
         toc = parse_toc(data)
         
@@ -48,75 +33,71 @@ def scan_all_features(file_path):
         feat_off, feat_len = toc['AllFeatur']
         feat_data = data[feat_off : feat_off + feat_len]
         
-        decoder = CreoProtocolDecoder()
+        endian = _detect_endianness(data)
+        print(f"Detected endianness: {'Big-Endian' if endian == '>' else 'Little-Endian'}")
+        decoder = CreoProtocolDecoder(endian=endian)
+        
+        # 1. Находим позиции всех feat_id
+        # Ищем паттерн: [e0] [01] [feat_id] [\0]
+        feat_id_pattern = b'\xe0\x01feat_id\x00'
+        id_positions = []
+        pos = feat_data.find(feat_id_pattern)
+        while pos != -1:
+            id_positions.append(pos)
+            pos = feat_data.find(feat_id_pattern, pos + 1)
+            
+        print(f"Найдено потенциальных feat_id: {len(id_positions)}")
+        
+        if not id_positions:
+            print("Warning: No feat_id anchors found. The file might be corrupted or use a different format.")
+            return []
+
         results = []
         
-        current_feature = None
-        current_feat_id = None
-        
-        # Сканируем все e0 блоки в AllFeatur
-        curr = 0
-        while curr < len(feat_data):
-            val, next_off, v_type, name = decoder.decode_next_value(feat_data, curr)
+        # 2. Разрезаем данные на записи на основе найденных позиций
+        for i in range(len(id_positions)):
+            start_pos = id_positions[i]
+            # Конец записи — это начало следующей позиции или конец данных
+            end_pos = id_positions[i+1] if i+1 < len(id_positions) else len(feat_data)
             
-            if v_type in ["EOF", "NO_HEADER", "DECODE_FAILED"]:
-                break
+            record_data = feat_data[start_pos:end_pos]
             
-            # Если встретили feat_id — это новый признак или обновление текущего
-            if name == 'feat_id':
-                if current_feature:
-                    results.append(current_feature)
+            # 3. Парсим запись с помощью декодера
+            feature = {
+                'id': None,
+                'body_id': None,
+                'params': [],
+                'offset': feat_off + start_pos,
+                'record': record_data
+            }
+            
+            # Используем локальный декодер для этой записи
+            # Чтобы не зависеть от внешнего смещения
+            rec_curr = 0
+            while rec_curr < len(record_data):
+                val, next_off, v_type, name = decoder.decode_next_value(record_data, rec_curr)
                 
-                current_feat_id = str(val)
-                current_feature = {
-                    'id': current_feat_id,
-                    'body_id': None,
-                    'params': [],
-                    'offset': feat_off + curr,
-                    'record': feat_data[curr:next_off]
-                }
-                current_feature['params'].append({'name': name, 'value': val, 'type': v_type})
-            
-            # Если встретили body_id — привязываем к текущему признаку
-            elif name == 'body_id':
-                if current_feature:
-                    current_feature['body_id'] = str(val)
-                else:
-                    # Если body_id пришел без feat_id (аномалия), создаем "безымянный" признак
-                    current_feat_id = None
-                    current_feature = {
-                        'id': None,
-                        'body_id': str(val),
-                        'params': [],
-                        'offset': feat_off + curr,
-                        'record': feat_data[curr:next_off]
-                    }
-                current_feature['params'].append({'name': name, 'value': val, 'type': v_type})
-            
+                if v_type in ["EOF", "NO_HEADER", "DECODE_FAILED"]:
+                    break
+                
+                if name == 'feat_id':
+                    feature['id'] = str(val)
+                elif name == 'body_id':
+                    feature['body_id'] = str(val)
+                
+                if name:
+                    feature['params'].append({'name': name, 'value': val, 'type': v_type})
+                
+                if next_off <= rec_curr:
+                    break
+                rec_curr = next_off
+                
+            if feature['id']:
+                results.append(feature)
             else:
-                # Обычное поле
-                if current_feature:
-                    current_feature['params'].append({'name': name, 'value': val, 'type': v_type})
-                else:
-                    # Если нашли поле до первого ID, создаем заглушку
-                    current_feat_id = None
-                    current_feature = {
-                        'id': None,
-                        'body_id': None,
-                        'params': [],
-                        'offset': feat_off + curr,
-                        'record': feat_data[curr:next_off]
-                    }
-                    current_feature['params'].append({'name': name, 'value': val, 'type': v_type})
+                print(f"Warning: Found record at {start_pos} but no feat_id parsed.")
 
-            if next_off <= curr:
-                break
-            curr = next_off
-
-        if current_feature:
-            results.append(current_feature)
-            
-        print(f"Найдено признаков: {len(results)}")
+        print(f"Успешно извлечено признаков: {len(results)}")
         return results
 
     except Exception as e:
@@ -126,12 +107,10 @@ def scan_all_features(file_path):
         return []
 
 if __name__ == "__main__":
-    import sys
-    import os
-    BASE_DIR = os.path.abspath(os.path.join(os.path.dirname(__file__), '..', '..'))
-    sys.path.insert(0, BASE_DIR)
-    sys.path.insert(0, os.path.join(BASE_DIR, 'plm_reader'))
     test_file = r"D:\AI\PROBA\models\00080-03.prt"
-    all_feats = scan_all_features(test_file)
-    for feat in all_feats:
-        print(f"ID: {feat['id']} | BodyID: {feat['body_id']} | Params: {len(feat['params'])}")
+    if os.path.exists(test_file):
+        all_feats = scan_all_features(test_file)
+        for feat in all_feats:
+            print(f"ID: {feat['id']} | BodyID: {feat['body_id']} | Params: {len(feat['params'])}")
+    else:
+        print(f"Test file not found: {test_file}")
