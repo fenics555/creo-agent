@@ -1,43 +1,87 @@
-# Creo Reverse Engineering Toolkit
+﻿# 🛠️ Комплект инструментов для реверс-инжиниринга Creo (CR-Toolkit)
 
-**Version:** 1.0.0  
-**Last Updated:** 20.10.2026
+**Версия:** 1.0.0  
+**Статус:** `STABLE`  
+**Последнее обновление:** 20.10.2026  
+**Владелец:** Engineering Agent
 
-## Description
-A professional-grade toolset for surgical extraction of feature trees and parameters from Creo parametric models. This toolkit bypasses the need for a running Creo instance by directly parsing the binary structure of `.prt`, `.asm`, and `.drw` files.
+---
 
-## Architecture
+## 🎯 Обзор
 
-The toolkit is organized into modular components:
+**CR-Toolkit** — это профессиональный набор инструментов, предназначенный для хирургического извлечения структурных и параметрических данных из моделей PTC Creo (`.prt`, `.asm`, `.drw`).
 
-### Core Engine
-- `src/creo_protocol_decoder.py`: The low-level binary protocol engine. It handles the detection and decoding of `e0` type-indicator headers and ensures robust extraction even in the presence of noise or complex padding.
+В отличие от высокоуровневых API (CREOSON/JLINK), которые требуют запущенного экземпляра Creo, CR-Toolkit работает на **бинарном уровне**. Он выполняет прямой парсинг файлов для реконструкции внутренней иерархии признаков (Feature Tree), параметров и связей модели, что делает его идеальным для высокоскоростной, "безголовой" (headless) и масштабной обработки данных.
 
-### Extraction & Analysis
-- `src/creo_geom_extractor.py`: The primary scanner. It identifies feature definition markers (`feat_defs_`) and extracts all associated parameters (INT, DOUBLE, STRING).
-- `src/creo_tree_builder.py`: The hierarchy reconstructor. It parses parent-child relationships (e.g., `parent_id`, `sub_feat_id`) to build a structured feature tree.
-- `src/creo_feature_classifier.py`: The feature type classifier. It uses attribute keys (like `AE_Type`) to identify whether a feature is an Extrude, Sketch, Datum Plane, etc.
+## 🏗️ Архитектура и конвейер данных
 
-### Orchestration
-- `creo_orchestrator.py`: The main entry point. It coordinates the full workflow: reading the TOC, scanning features, building the tree, and providing a unified report.
+Инструментарий следует модульному конвейеру (pipeline), который преобразует необработанные бинарные данные в структурированную информацию.
 
-## Usage
+### 🔄 Поток данных (Pipeline)
 
-To perform a full reverse engineering scan on a Creo file:
+1.  **Обнаружение TOC** (`creo_read`): Поиск таблицы содержимого (TOC) для определения смещений критических секций (например, `FeatDefs`, `NeuPrtSld`).
+2.  **Сканирование признаков** (`creo_geom_extractor`): Идентификация маркеров определения признаков (`feat_defs_`) и извлечение их необработанных бинарных записей.
+3.  **Декодирование параметров** (`creo_protocol_decoder`): Хирургическое декодирование проприетарного протокола на основе заголовков `e0` для извлечения значений `INT`, `DOUBLE` и `STRING`.
+4.  **Классификация типов** (`creo_feature_classifier`): Анализ атрибутивных ключей (например, `AE_Type`) для определения типа признака (Extrude, Sketch, Datum Plane и т.д.).
+5.  **Восстановление дерева** (`creo_tree_builder`): Парсинг ключей отношений родитель-потомок (например, `parent_id`, `sub_feat_id`) для восстановления иерархии модели.
+6.  **Оркестрация** (`creo_orchestrator`): Агрегация всех модулей в единый структурированный отчет.
+
+## 📦 Каталог модулей
+
+| Модуль | Ответственность | Ключевой метод |
+| :--- | :--- | :--- |
+| **`creo_protocol_decoder.py`** | Низкоуровневое декодирование бинарного потока (работа с сигнатурой `e0`). | `decode_next_value()` |
+| **`creo_geom_extractor.py`** | Высокоуровневое сканирование признаков и параметров. | `scan_all_features()` |
+| **`creo_tree_builder.py`** | Реконструкция иерархии признаков (дерева). | `build_tree()` |
+| **`creo_feature_classifier.py`** | Идентификация типов признаков (Extrude, Sketch и др.). | `classify()` |
+| **`creo_orchestrator.py`** | Полный автоматизированный рабочий процесс. | `execute()` |
+
+## 🚀 Использование
+
+### Основная команда (Оркестратор)
+Основной способ использования — через оркестратор, который выполняет полный цикл анализа.
 
 ```bash
-python creo_orchestrator.py <path_to_target_file>
+python D:\AI\tools\agent\creo_reverse_engineering\creo_orchestrator.py <путь_к_файлу>
 ```
 
-Example:
+**Пример:**
 ```bash
-python creo_orchestrator.py "D:\AI\PROBA\models\...\23-1017gri-02.prt.1"
+python D:\AI\tools\agent\creo_reverse_engineering\creo_orchestrator.py "D:\AI\PROBA\models\...\23-1017gri-02.prt.1"
 ```
 
-## Directory Structure
+### Интеграция в пользовательские скрипты
+Вы можете импортировать отдельные модули для создания специализированных инструментов. 
+*Примечание: Убедитесь, что `D:\AI\tools\agent\creo_reverse_engineering\src` добавлена в ваш `sys.path`.*
 
-- `creo_orchestrator.py`: Main entry point.
-- `src/`: Core implementation modules.
-- `docs/`: Documentation and technical references.
-- `tests/`: Unit and integration tests.
-- `work/`: Temporary workspace for processing.
+```python
+from creo_geom_extractor import scan_all_features
+from creo_tree_builder import CreoTreeBuilder
+
+# 1. Извлечение параметров
+features = scan_all_features("model.prt.1")
+
+# 2. Построение дерева
+builder = CreoTreeBuilder("model.prt.1")
+# ... (загрузка признаков и построение)
+```
+
+## 🛠️ Технические характеристики
+
+*   **Кодировка:** UTF-8 / Windows-1251 (обработка через санитайзер).
+*   **Поддерживаемые типы данных:** 
+    *   `INT` (4 байта, Little/Big Endian)
+    *   `DOUBLE` (8 байт, IEEE 754)
+    *   `STRING` (терминированные нулем строки)
+*   **Сигнатура протокола:** `0xe0` (Подтип/Длина + `e0` + Тип).
+
+## ⚠️ Известные ограничения
+
+*   **Только чтение:** Инструментарий работает только в режиме чтения. Он не поддерживает запись или изменение файлов Creo.
+*   **Сложность:** Чрезвычайно сложные сборки с глубокими циклическими зависимостями в TOC могут потребовать ручной проверки смещений.
+*   **Версии файлов:** Оптимизировано для Creo от 7.0 до 13.0.
+
+## 📜 Лицензия и обслуживание
+
+Этот инструментарий является частью **Creo Agent Engineering Tools**. 
+Любые изменения должны соответствовать протоколу `D:\AI\.clinerules`.
