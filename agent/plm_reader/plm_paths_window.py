@@ -21,10 +21,27 @@ class PathsWindow:
         self.win.title("Пути, исключения и база данных")
         self.win.geometry("860x720")
         self.win.transient(parent)
+        # V100: содержимое — в canvas с вертикальной прокруткой (настроек стало больше окна)
+        self.cv = tk.Canvas(self.win, highlightthickness=0)
+        vsb = ttk.Scrollbar(self.win, orient="vertical", command=self.cv.yview)
+        self.cv.configure(yscrollcommand=vsb.set)
+        vsb.pack(side="right", fill="y")
+        self.cv.pack(side="left", fill="both", expand=True)
+
+        def _wheel(ev):
+            try:
+                self.cv.yview_scroll(-1 if ev.delta > 0 else 1, "units")
+            except Exception:
+                pass
+
+        for _w in (self.cv,):
+            _w.bind("<MouseWheel>", _wheel)
         self.rows = {"folders": [], "exclude": [], "template_folders": [], "db_mirror": [],
                      "service_models": []}
-        box = ttk.Frame(self.win, padding=10)
-        box.pack(fill="both", expand=True)
+        box = ttk.Frame(self.cv, padding=10)
+        self.cv.create_window((0, 0), window=box, anchor="nw")
+        box.bind("<Configure>", lambda e: self.cv.configure(scrollregion=self.cv.bbox("all")))
+        box.bind("<MouseWheel>", _wheel)            # колесо над пустыми зонами фрейма
         ttk.Label(box, text="Папки сканирования (одна строка = один путь):",
                   font=("", 10, "bold")).pack(anchor="w")
         self.sec_scan = self._section(box, "folders")
