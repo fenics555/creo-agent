@@ -4,11 +4,11 @@ import json
 from datetime import datetime
 
 # Add paths to sys.path to ensure modules can be found
-sys.path.insert(0, r'D:\AI\tools\agent\plm_reader')
+sys.path.insert(0, r'D:\AI\tools\agent')
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), 'src'))
 
 try:
-    import creo_read
+    from plm_reader import creo_read
     from creo_geom_extractor import scan_all_features
     from creo_tree_builder import CreoTreeBuilder
     from creo_feature_classifier import CreoFeatureClassifier

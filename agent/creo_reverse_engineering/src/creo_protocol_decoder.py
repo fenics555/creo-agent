@@ -22,9 +22,10 @@ class CreoProtocolDecoder:
 
     def _clean_name(self, name: str) -> str:
         """Очищает имя от управляющих символов и лишних пробелов."""
-        # Удаляем непечатные символы (оставляем только printable ASCII)
+        # 1. Удаляем непечатные символы
         cleaned = "".join(c for c in name if 32 <= ord(c) <= 126)
-        return cleaned.strip()
+        # 2. Удаляем мусорные знаки препинания по краям
+        return cleaned.strip("()[]{}!@#$%^&*+=- ")
 
     def decode_next_value(self, data: bytes, offset: int):
         curr = offset
@@ -40,7 +41,7 @@ class CreoProtocolDecoder:
                 if name_end == -1:
                     curr += 1
                     continue
-                name = data[name_start:name_end].decode('utf-8', errors='ignore').strip()
+                name = self._clean_name(data[name_start:name_end].decode('utf-8', errors='ignore'))
                 val_start = name_end + 1
                 if type_byte == 0x00:
                     curr = val_start
@@ -83,7 +84,7 @@ class CreoProtocolDecoder:
                 if name_end == -1:
                     return None, data_len, "EOF", ""
 
-                name = data[curr:name_end].decode('utf-8', errors='ignore').strip()
+                name = self._clean_name(data[curr:name_end].decode('utf-8', errors='ignore'))
                 if not name or len(name) < 2:
                     curr = name_end + 1
                     continue

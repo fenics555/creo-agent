@@ -86,7 +86,7 @@ def scan_all_features(file_path):
                     feature['body_id'] = str(val)
                 
                 if name:
-                    feature['params'].append({'name': name, 'value': val, 'type': v_type})
+                    feature['params'].append((name, val))
                 
                 if next_off <= rec_curr:
                     break

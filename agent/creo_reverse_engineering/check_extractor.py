@@ -22,10 +22,9 @@ feats = scan_all_features(test_file)
 print(f"Found {len(feats)} features.")
 
 for i, f in enumerate(feats):
-    print(f"\n--- Feature {i} ---")
-    print("ID: " + repr(f.get('id')))
-    print("BodyID: " + repr(f.get('body_id')))
-    print("Params:")
+    out = f"\n--- Feature {i} ---\n"
+    out += f"ID: {repr(f.get('id'))} | BodyID: {repr(f.get('body_id'))}\n"
+    out += "Params:\n"
     for p in f.get('params', []):
-        line = f"  - {repr(p['name'])}: {repr(p['value'])} ({repr(p['type'])})"
-        print(line)
+        out += f"  - {repr(p['name'])}: {repr(p['value'])} ({repr(p['type'])})\n"
+    sys.stdout.buffer.write(out.encode('utf-8'))
