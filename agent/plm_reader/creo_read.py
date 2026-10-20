@@ -53,20 +53,30 @@ def parse_toc(raw):
                          r"(?: ([0-9a-f]{2,8}))?(.*)$", line)
             if m and (not m.group(5).strip() or m.group(5).strip()[0] in "0123456789-"):
                 ln = int(m.group(4), 16) if m.group(4) else int(m.group(3), 16)
-                out[m.group(1)] = (int(m.group(2), 16), max(ln, 1))
+                key = m.group(1)
+                # Normalize ND: keys
+                nd_re = re.compile(r"^ND:\d+:(.+?)(?::\d+)?$")
+                nd_match = nd_re.match(key)
+                if nd_match:
+                    key = nd_match.group(1)
+                out[key] = (int(m.group(2), 16), max(ln, 1))
         if nxt < 0 or nxt >= len(raw):
             break
         pos = nxt
     return out
 
 
+def _endian(raw):
+    return "big" if b"MACH SUN_SunOS" in raw[:512] else "little"
+
 def real(raw, key):
     """Числовое поле `e0 02 <имя> 00 ed <8 байт BE double>` (объём, масса)."""
     m = re.search(rb"\xe0\x02" + key.encode() + rb"\x00\xed", raw)
     if not m or m.end() + 8 > len(raw):
         return None
+    fmt = ">d" if _endian(raw) == "big" else "<d"
     try:
-        return struct.unpack(">d", raw[m.end():m.end() + 8])[0]
+        return struct.unpack(fmt, raw[m.end():m.end() + 8])[0]
     except Exception:
         return None
 
@@ -79,13 +89,21 @@ def params(raw, toc):
     for src in (raw[off:off + ln], raw):
         for m in re.finditer(
                 rb"([\x20-\xff]{3,32})\x00(?:\xe2\x33|\x27\x88\x20\xe3\x33)(.{0,80}?)\x00", src, re.S):
-            t = re.search(r"[\w]+$", m.group(1).decode("utf-8", "replace"))
             try:
-                v = m.group(2).decode("utf-8")
-            except UnicodeDecodeError:
-                continue
+                t = m.group(1).decode("utf-8", "replace").strip()
+            except Exception:
+                t = m.group(1).decode("cp1251", "replace").strip()
+            
+            try:
+                v = m.group(2).decode("utf-8", "replace").strip()
+            except Exception:
+                try:
+                    v = m.group(2).decode("cp1251", "replace").strip()
+                except Exception:
+                    continue
+                    
             if t and v and "\x00" not in v:
-                out.setdefault(t.group(0), " ".join(v.split()))
+                out[t] = v
     return out
 
 
@@ -245,7 +263,7 @@ def passport(path, stems=()):
     refs = {c: nm[c] for c in nm if c != stem(os.path.basename(path)) and c in stems and len(c) >= 5}
     h = last_hist(raw) or ("", "", "")
     return {"path": path, "size": len(raw), "mtime": os.path.getmtime(path),
-            "volume": vol or 0.0, "material": pr.get("PTC_MASTER_MATERIAL") or "",
+            "volume": vol or 0.0, "material": pr.get("PTC_MATERIAL_NAME") or pr.get("PTC_MASTER_MATERIAL") or "",
             "name": pr.get("\u041d\u0410\u0418\u041c\u0415\u041d\u041e\u0412\u0410\u041d\u0418\u0415") or "",
             "designation": pr.get("\u041e\u0411\u041e\u0417\u041d\u0410\u0427\u0415\u041d\u0418\u0415") or "",
             "rev": h[0], "author": h[1], "revdate": h[2],

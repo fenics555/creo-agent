@@ -66,6 +66,7 @@ class CreoLinksExtractor:
     def _parse_component_section(self, section_name: str, data: bytes, base_offset: int):
         """Parses component data to find target component names and instance names."""
         curr = 0
+        assembly_name = self._get_current_model_name()
         while curr < len(data):
             val, next_off, v_type, name = self.decoder.decode_next_value(data, curr)
             if not name or v_type == "EOF":
@@ -75,17 +76,16 @@ class CreoLinksExtractor:
                 next_val, next_next_off, next_v_type, next_name = self.decoder.decode_next_value(data, next_off)
                 
                 if next_v_type == "STRING" and next_name:
-                    source = "ASSEMBLY_CONTEXT" 
                     self.edges.append(CreoEdge(
-                        source=source,
-                        target=next_name,
+                        source=assembly_name,
+                        target=name,
                         edge_type="contains_via_instance",
                         metadata={"instance_name": next_name, "comp_name": name}
                     ))
-                elif next_v_type == "STRING":
-                    self.edges.append(CreoEdge(
-                        source="ASSEMBLY_CONTEXT",
-                        target=name,
+                
+                curr = next_next_off if next_next_off > curr else next_off + 1
+            else:
+                curr = next_off if next_off > curr else curr + 1
                         edge_type="contains",
                         metadata={"comp_name": name}
                     ))
@@ -125,27 +125,77 @@ class CreoLinksExtractor:
         """
         Family Table: instance -> generic.
         """
-        if b"FamilyInf" in self.raw_data:
-            for section_name, (offset, length) in self.toc.items():
-                if "FamilyInf" in section_name:
-                    section_data = self.raw_data[offset : offset + length]
-                    # Decode to string first to allow Unicode regex
-                    decoded_data = section_data.decode('latin-1')
-                    matches = re.finditer(r"\x00([A-Za-zА-Яа-я0-9_\-\.]{2,48})\x00", decoded_data)
-                    found_instances = []
-                    for m in matches:
-                        name = m.group(1)
-                        if name not in ("FamilyInfo", "drv_tbl_ptr", "inherit_rep", "generics", "instances"):
-                            found_instances.append(name)
+        if b"FamilyInf" not in self.raw_data:
+            return
+
+        drv_tbl_offset = None
+        instances = []
+
+        # 1. Parse FamilyInf to find instances and the pointer to the table
+        for section_name, (offset, length) in self.toc.items():
+            if "FamilyInf" in section_name:
+                section_data = self.raw_data[offset : offset + length]
+                curr = 0
+                while curr < len(section_data):
+                    val, next_off, v_type, name = self.decoder.decode_next_value(section_data, curr)
+                    if not name or v_type == "EOF":
+                        break
                     
-                    if found_instances:
-                        for inst in found_instances:
-                            self.edges.append(CreoEdge(
-                                source=inst,
-                                target="GENERIC_PARENT",
-                                edge_type="instance_of",
-                                metadata={"family_table": True}
-                            ))
+                    if name == "drv_tbl_ptr":
+                        if isinstance(val, int):
+                            drv_tbl_offset = val
+                        elif isinstance(val, str) and val.isdigit():
+                            drv_tbl_offset = int(val)
+                    elif name in ("FamilyInfo", "inherit_rep", "generics", "instances"):
+                        pass
+                    else:
+                        if isinstance(val, str):
+                            instances.append(val)
+                    
+                    curr = next_off
+                break
+
+        # 2. Attempt to resolve the generic parent
+        target_data = None
+        if drv_tbl_offset and drv_tbl_offset > 0:
+            target_data = self.raw_data[drv_tbl_offset:]
+        elif "Sld_DrvTable" in self.toc:
+            off, ln = self.toc["Sld_DrvTable"]
+            target_data = self.raw_data[off : off + ln]
+        elif "DrvTable" in self.toc:
+            off, ln = self.toc["DrvTable"]
+            target_data = self.raw_data[off : off + ln]
+
+        if target_data:
+            # The table is a sequence of null-terminated strings (pairs: inst, gen)
+            matches = re.finditer(rb"\x00([A-Za-zА-Яа-я0-9_\-\.]{2,48})\x00", target_data)
+            names_in_table = []
+            for m in matches:
+                try:
+                    names_in_table.append(m.group(1).decode('latin-1'))
+                except:
+                    continue
+            
+            for i in range(0, len(names_in_table) - 1, 2):
+                inst = names_in_table[i]
+                gen = names_in_table[i+1]
+                if inst and gen:
+                    self.edges.append(CreoEdge(
+                        source=inst,
+                        target=gen,
+                        edge_type="instance_of",
+                        metadata={"family_table": True}
+                    ))
+        else:
+            for inst in instances:
+                if inst:
+                    self.edges.append(CreoEdge(
+                        source=inst,
+                        target="GENERIC_PARENT",
+                        edge_type="instance_of",
+                        metadata={"family_table": True}
+                    ))
+
 
     def _extract_mfg_links(self):
         """
