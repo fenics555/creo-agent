@@ -2,6 +2,7 @@
 import os
 import sys
 sys.path.append('D:/AI/tools/agent')
+sys.path.append('D:/AI/tools/agent/creo_reverse_engineering/src')
 from creo_protocol_decoder import CreoProtocolDecoder
 from plm_reader.creo_read import parse_toc
 
@@ -51,6 +52,7 @@ def scan_all_features(file_path):
         results = []
         
         current_feature = None
+        current_feat_id = None
         
         # Сканируем все e0 блоки в AllFeatur
         curr = 0
@@ -60,25 +62,52 @@ def scan_all_features(file_path):
             if v_type in ["EOF", "NO_HEADER", "DECODE_FAILED"]:
                 break
             
-            # Если мы нашли field, который является идентификатором, начинаем новый признак
-            if name in ['feat_id', 'body_id']:
+            # Если встретили feat_id — это новый признак или обновление текущего
+            if name == 'feat_id':
                 if current_feature:
                     results.append(current_feature)
                 
+                current_feat_id = str(val)
                 current_feature = {
-                    'id': str(val) if name == 'feat_id' else None,
-                    'body_id': str(val) if name == 'body_id' else None,
+                    'id': current_feat_id,
+                    'body_id': None,
                     'params': [],
-                    'offset': feat_off + curr
+                    'offset': feat_off + curr,
+                    'record': feat_data[curr:next_off]
                 }
-                # Если это был body_id, мы всё равно должны добавить его в params для полноты
                 current_feature['params'].append({'name': name, 'value': val, 'type': v_type})
+            
+            # Если встретили body_id — привязываем к текущему признаку
+            elif name == 'body_id':
+                if current_feature:
+                    current_feature['body_id'] = str(val)
+                else:
+                    # Если body_id пришел без feat_id (аномалия), создаем "безымянный" признак
+                    current_feat_id = None
+                    current_feature = {
+                        'id': None,
+                        'body_id': str(val),
+                        'params': [],
+                        'offset': feat_off + curr,
+                        'record': feat_data[curr:next_off]
+                    }
+                current_feature['params'].append({'name': name, 'value': val, 'type': v_type})
+            
             else:
+                # Обычное поле
                 if current_feature:
                     current_feature['params'].append({'name': name, 'value': val, 'type': v_type})
                 else:
-                    # Если нашли поле до первого ID - это какой-то системный блок или мусор
-                    pass
+                    # Если нашли поле до первого ID, создаем заглушку
+                    current_feat_id = None
+                    current_feature = {
+                        'id': None,
+                        'body_id': None,
+                        'params': [],
+                        'offset': feat_off + curr,
+                        'record': feat_data[curr:next_off]
+                    }
+                    current_feature['params'].append({'name': name, 'value': val, 'type': v_type})
 
             if next_off <= curr:
                 break
@@ -97,6 +126,11 @@ def scan_all_features(file_path):
         return []
 
 if __name__ == "__main__":
+    import sys
+    import os
+    BASE_DIR = os.path.abspath(os.path.join(os.path.dirname(__file__), '..', '..'))
+    sys.path.insert(0, BASE_DIR)
+    sys.path.insert(0, os.path.join(BASE_DIR, 'plm_reader'))
     test_file = r"D:\AI\PROBA\models\00080-03.prt"
     all_feats = scan_all_features(test_file)
     for feat in all_feats:
