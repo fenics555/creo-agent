@@ -11,7 +11,7 @@ def extract_params_via_protocol(record_data):
     offset = 0
     
     while offset < len(record_data):
-        val, next_off, v_type = decoder.decode_next_value(record_data, offset)
+        val, next_off, v_type, name = decoder.decode_next_value(record_data, offset)
         
         if v_type in ["EOF", "NO_HEADER", "DECODE_FAILED"]:
             break
@@ -75,9 +75,8 @@ def scan_all_features(file_path):
         return []
 
 if __name__ == "__main__":
+    # Test local logic
     test_file = r"D:\AI\PROBA\models\23-1017GRI 2кап чистовой BDF 5 1_2''\23-1017gri-02.prt.1"
     all_feats = scan_all_features(test_file)
     for feat in all_feats:
-        # Safe print for Windows terminal
-        out = f"ID: {feat['id']} | Params: {feat['params']}"
-        print(out.encode('cp1251', errors='replace').decode('cp1251'))
+        print(f"ID: {feat['id']} | Params: {feat['params']}")

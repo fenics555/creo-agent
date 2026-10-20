@@ -86,7 +86,7 @@ class CreoTreeBuilder:
                         val_start += 1
                     
                     # Use the decoder to get the value following the key
-                    val, next_off, v_type = self.decoder.decode_next_value(data, val_start)
+                    val, next_off, v_type, name = self.decoder.decode_next_value(data, val_start)
                     
                     # Only consider numeric (INT) values as potential feature IDs
                     if v_type == 'INT':
