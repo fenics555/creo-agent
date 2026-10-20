@@ -1,12 +1,15 @@
 ﻿import re
+import os
+import sys
+sys.path.append('D:/AI/tools/agent')
 from creo_protocol_decoder import CreoProtocolDecoder
+from plm_reader.creo_read import parse_toc
 
-def extract_params_via_protocol(record_data):
+def extract_params_via_protocol(decoder, record_data):
     """
     Использует протокол для последовательного разбора параметров внутри записи.
-    Возвращает список найденных значений (тип, значение).
+    Возвращает список найденных значений (тип, значение, имя).
     """
-    decoder = CreoProtocolDecoder()
     params = []
     offset = 0
     
@@ -16,12 +19,12 @@ def extract_params_via_protocol(record_data):
         if v_type in ["EOF", "NO_HEADER", "DECODE_FAILED"]:
             break
         
-        if v_type == "DOUBLE":
-            params.append(("DOUBLE", val))
-        elif v_type == "INT":
-            params.append(("INT", val))
-        elif v_type == "STRING":
-            params.append(("STRING", val))
+        if name:
+            params.append({
+                "name": name,
+                "value": val,
+                "type": v_type
+            })
             
         if next_off <= offset:
             break
@@ -30,53 +33,71 @@ def extract_params_via_protocol(record_data):
     return params
 
 def scan_all_features(file_path):
-    """Сканирует файл, используя протокол для извлечения параметров каждого признака."""
-    print(f"--- Protocol-Aware Scan: {file_path} ---")
+    """Сканирует AllFeatur для извлечения параметров каждого признака."""
+    print(f"--- Protocol-Aware Scan (AllFeatur): {file_path} ---")
     try:
-        with open(file_path, 'rb') as f:
-            data = f.read()
+        from plm_reader.creo_read import read
+        data = read(file_path)
+        toc = parse_toc(data)
+        
+        if 'AllFeatur' not in toc:
+            print("Error: AllFeatur section not found in TOC.")
+            return []
             
-            pattern = re.compile(b'feat_defs_')
-            matches = list(pattern.finditer(data))
+        feat_off, feat_len = toc['AllFeatur']
+        feat_data = data[feat_off : feat_off + feat_len]
+        
+        decoder = CreoProtocolDecoder()
+        results = []
+        
+        current_feature = None
+        
+        # Сканируем все e0 блоки в AllFeatur
+        curr = 0
+        while curr < len(feat_data):
+            val, next_off, v_type, name = decoder.decode_next_value(feat_data, curr)
             
-            print(f"Найдено признаков: {len(matches)}")
+            if v_type in ["EOF", "NO_HEADER", "DECODE_FAILED"]:
+                break
             
-            results = []
-            for i, m in enumerate(matches):
-                feat_start = m.start()
+            # Если мы нашли field, который является идентификатором, начинаем новый признак
+            if name in ['feat_id', 'body_id']:
+                if current_feature:
+                    results.append(current_feature)
                 
-                if i + 1 < len(matches):
-                    feat_end = matches[i+1].start()
+                current_feature = {
+                    'id': str(val) if name == 'feat_id' else None,
+                    'body_id': str(val) if name == 'body_id' else None,
+                    'params': [],
+                    'offset': feat_off + curr
+                }
+                # Если это был body_id, мы всё равно должны добавить его в params для полноты
+                current_feature['params'].append({'name': name, 'value': val, 'type': v_type})
+            else:
+                if current_feature:
+                    current_feature['params'].append({'name': name, 'value': val, 'type': v_type})
                 else:
-                    feat_end = len(data)
-                
-                record_data = data[feat_start:feat_end]
-                
-                id_match = re.search(b'feat_defs_([a-zA-Z0-9_]+)', record_data)
-                if id_match:
-                    raw_feat_id = id_match.group(1).decode('utf-8', errors='ignore')
-                    id_digits = re.search(r'\d+', raw_feat_id)
-                    feat_id = id_digits.group() if id_digits else raw_feat_id
-                else:
-                    feat_id = f"unknown_{feat_start}"
+                    # Если нашли поле до первого ID - это какой-то системный блок или мусор
+                    pass
 
-                params = extract_params_via_protocol(record_data)
-                
-                results.append({
-                    'id': feat_id,
-                    'offset': feat_start,
-                    'record': record_data, # Added for classification
-                    'params': params
-                })
+            if next_off <= curr:
+                break
+            curr = next_off
+
+        if current_feature:
+            results.append(current_feature)
             
-            return results
+        print(f"Найдено признаков: {len(results)}")
+        return results
+
     except Exception as e:
+        import traceback
+        traceback.print_exc()
         print(f"Ошибка при сканировании: {e}")
         return []
 
 if __name__ == "__main__":
-    # Test local logic
-    test_file = r"D:\AI\PROBA\models\23-1017GRI 2кап чистовой BDF 5 1_2''\23-1017gri-02.prt.1"
+    test_file = r"D:\AI\PROBA\models\00080-03.prt"
     all_feats = scan_all_features(test_file)
     for feat in all_feats:
-        print(f"ID: {feat['id']} | Params: {feat['params']}")
+        print(f"ID: {feat['id']} | BodyID: {feat['body_id']} | Params: {len(feat['params'])}")
