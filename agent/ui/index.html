@@ -1,9 +1,12 @@
-<!DOCTYPE html>
+﻿<!DOCTYPE html>
 <html lang="ru">
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
-<title>АГЕНТ v15 — VS Code Style</title>
+<meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
+<meta http-equiv="Pragma" content="no-cache">
+<meta http-equiv="Expires" content="0">
+<title>РђР“Р•РќРў v15 вЂ” VS Code Style</title>
 <style>
 * { box-sizing: border-box; margin: 0; padding: 0; }
 :root { --bg:#1e1e1e; --sidebar:#252526; --accent:#007acc; --text:#cccccc; --text-muted:#858585; --success:#4ec9b0; --warn:#dcdcaa; --error:#f48771; }
@@ -86,7 +89,7 @@ button.send:hover{background:#1177dd;}
 .setting-row .val{font-family:Consolas,monospace;color:#ce9178;background:#1e1e1e;padding:2px 6px;border-radius:3px;border:1px solid #333;}
 .empty{color:var(--text-muted);font-style:italic;padding:20px;text-align:center;}
 .hidden{display:none !important;}
-/* RESIZE Р РЈР§РљР (РєР°Рє РІ VS Code) */
+/* RESIZE Р В Р Р€Р В§Р С™Р В (Р С”Р В°Р С” Р Р† VS Code) */
 .panel-toggle.dragging {
   background: #007acc !important;
   opacity: 0.8;
@@ -94,7 +97,7 @@ button.send:hover{background:#1177dd;}
 #main { position: relative; }
 #sidebar { transition: none; }
 #right { transition: none; }
-/* ==== Р›РћР“РРќ-Р­РљР РђРќ ==== */
+/* ==== Р вЂєР С›Р вЂњР ВР Сњ-Р В­Р С™Р В Р С’Р Сњ ==== */
 #login-screen { position: fixed; inset: 0; background: #252526; z-index: 200; display: flex; align-items: center; justify-content: center; }
 #login-screen.hidden { display: none; }
 .login-card { background: #2d2d2f; border: 1px solid #333; border-radius: 8px; padding: 32px; width: 340px; box-shadow: 0 8px 24px rgba(0,0,0,.4); }
@@ -110,7 +113,7 @@ button.send:hover{background:#1177dd;}
 .btn-reg { background: transparent; border: 1px solid #444; color: #cccccc; border-radius: 4px; padding: 8px 12px; cursor: pointer; font-size: 12px; }
 .btn-reg:hover { background: #333; border-color: #007acc; }
 
-/* РљРЅРѕРїРєР° РїСЂРѕС„РёР»СЏ РІ Р·Р°РіРѕР»РѕРІРєРµ */
+/* Р С™Р Р…Р С•Р С—Р С”Р В° Р С—РЎР‚Р С•РЎвЂћР С‘Р В»РЎРЏ Р Р† Р В·Р В°Р С–Р С•Р В»Р С•Р Р†Р С”Р Вµ */
 #top .user-block { display: flex; align-items: center; gap: 10px; margin-left: 12px; }
 #top .user-name { color: #d4d4d4; font-size: 11px; background: #333; padding: 2px 8px; border-radius: 10px; }
 #top .btn-logout { background: transparent; border: 1px solid #444; color: #cccccc; padding: 2px 8px; border-radius: 4px; font-size: 11px; cursor: pointer; }
@@ -121,98 +124,99 @@ button.send:hover{background:#1177dd;}
 </head>
 <body><div id="login-screen">
   <div class="login-card">
-    <h2>&#128272; Р’С…РѕРґ РІ РђРіРµРЅС‚</h2>
-    <div class="login-err" id="login-err">РќРµРІРµСЂРЅС‹Р№ Р»РѕРіРёРЅ РёР»Рё РїР°СЂРѕР»СЊ</div>
-    <div class="login-row"><label>Р›РѕРіРёРЅ</label><input id="login-login" placeholder="Р»РѕРіРёРЅ"></div>
-    <div class="login-row"><label>РџР°СЂРѕР»СЊ</label><input id="login-pw" type="password" placeholder="РїР°СЂРѕР»СЊ"></div>
+    <h2>&#128272; Р вЂ™РЎвЂ¦Р С•Р Т‘ Р Р† Р С’Р С–Р ВµР Р…РЎвЂљ</h2>
+    <div class="login-err" id="login-err">Р СњР ВµР Р†Р ВµРЎР‚Р Р…РЎвЂ№Р в„– Р В»Р С•Р С–Р С‘Р Р… Р С‘Р В»Р С‘ Р С—Р В°РЎР‚Р С•Р В»РЎРЉ</div>
+    <div class="login-row"><label>Р вЂєР С•Р С–Р С‘Р Р…</label><input id="login-login" placeholder="Р В»Р С•Р С–Р С‘Р Р…"></div>
+    <div class="login-row"><label>Р СџР В°РЎР‚Р С•Р В»РЎРЉ</label><input id="login-pw" type="password" placeholder="Р С—Р В°РЎР‚Р С•Р В»РЎРЉ"></div>
     <div class="login-actions">
-      <button class="btn-login" id="btn-do-login">Р’РѕР№С‚Рё</button>
-      <button class="btn-reg" id="btn-do-reg">Р РµРіРёСЃС‚СЂР°С†РёСЏ</button>
+      <button class="btn-login" id="btn-do-login">Р вЂ™Р С•Р в„–РЎвЂљР С‘</button>
+      <button class="btn-reg" id="btn-do-reg">Р В Р ВµР С–Р С‘РЎРѓРЎвЂљРЎР‚Р В°РЎвЂ Р С‘РЎРЏ</button>
     </div>
   </div>
 </div>
 <div id="top">
-  <div class="brand">&#9632; АГЕНТ v15</div>
+  <div class="brand">&#9632; РђР“Р•РќРў v15</div>
   <div class="sep"></div>
-  <div class="pill" id="pill-model">модель: —</div>
-  <div class="pill" id="pill-tools">инструментов: —</div>
-  <div class="pill" id="pill-programs">программ: —</div>
+  <div class="pill" id="pill-model">РјРѕРґРµР»СЊ: вЂ”</div>
+  <div class="pill" id="pill-tools">РёРЅСЃС‚СЂСѓРјРµРЅС‚РѕРІ: вЂ”</div>
+  <div class="pill" id="pill-programs">РїСЂРѕРіСЂР°РјРј: вЂ”</div>
   <div class="spacer"></div>
-  <div class="indicator" id="ind-ollama">Ollama ●</div>
-  <div class="indicator" id="ind-creoson">Creoson ●</div>
-  <div class="indicator" id="ind-agent">Агент ●</div>
-  <button class="btn" id="btn-toggle-right">&#9654; Статистика</button>
+  <div class="indicator" id="ind-ollama">Ollama в—Џ</div>
+  <div class="indicator" id="ind-creoson">Creoson в—Џ</div>
+  <div class="indicator" id="ind-agent">РђРіРµРЅС‚ в—Џ</div>
+  <button class="btn" id="btn-toggle-right">&#9654; РЎС‚Р°С‚РёСЃС‚РёРєР°</button>
   <div class="user-block" id="user-block" style="display:none;">
-    <span class="user-name" id="user-name">—</span>
-    <button class="btn-admin" id="btn-admin" style="display:none;">Админка</button>
-    <button class="btn-logout" id="btn-logout">Выйти</button>
+    <span class="user-name" id="user-name">вЂ”</span>
+    <button class="btn-admin" id="btn-admin" style="display:none;">РђРґРјРёРЅРєР°</button>
+    <button class="btn-logout" id="btn-logout">Р’С‹Р№С‚Рё</button>
   </div>
-  <button class="btn" id="btn-toggle-sidebar">&#9654; Навигация</button>
+  <button class="btn" id="btn-toggle-sidebar">&#9654; РќР°РІРёРіР°С†РёСЏ</button>
 </div>
 <div id="main">
   <div id="sidebar">
-    <div id="sidebar-header">Навигация</div>
+    <div id="sidebar-header">РќР°РІРёРіР°С†РёСЏ</div>
     <div id="sidebar-items">
-      <div class="sb-item active" data-tab="overview"><span class="icon">&#128203;</span>Обзор</div>
-      <div class="sb-item" data-tab="chat"><span class="icon">&#128172;</span>Чат</div>
-      <div class="sb-item" data-tab="tools"><span class="icon">&#128187;</span>Инструменты</div>
-      <div class="sb-item" data-tab="programs"><span class="icon">&#127969;</span>Программы</div>
-      <div class="sb-item" data-tab="settings"><span class="icon">&#9998;</span>Настройки</div>
-      <div class="sb-item" data-tab="log"><span class="icon">&#128197;</span>Лог</div>
+      <div class="sb-item active" data-tab="overview"><span class="icon">&#128203;</span>РћР±Р·РѕСЂ</div>
+      <div class="sb-item" data-tab="chat"><span class="icon">&#128172;</span>Р§Р°С‚</div>
+      <div class="sb-item" data-tab="tools"><span class="icon">&#128187;</span>РРЅСЃС‚СЂСѓРјРµРЅС‚С‹</div>
+      <div class="sb-item" data-tab="programs"><span class="icon">&#127969;</span>РџСЂРѕРіСЂР°РјРјС‹</div>
+      <div class="sb-item" data-tab="settings"><span class="icon">&#9998;</span>РќР°СЃС‚СЂРѕР№РєРё</div>
+      <div class="sb-item" data-tab="log"><span class="icon">&#128197;</span>Р›РѕРі</div>
     </div>
   </div>
-  <div class="panel-toggle" id="toggle-sidebar" title="Навигация">&#9654;</div>
+  <div class="panel-toggle" id="toggle-sidebar" title="РќР°РІРёРіР°С†РёСЏ">&#9654;</div>
   <div id="center">
-    <div id="tabs"><div class="tab active" data-tab="overview">Обзор</div></div>
+    <div id="tabs"><div class="tab active" data-tab="overview">РћР±Р·РѕСЂ</div></div>
     <div id="workarea">
       <div class="tab-content active" id="tab-overview">
-        <div class="stat-card"><h4>Статус системы</h4>
-          <div class="stat-row"><span>Агент</span><span class="val" id="stat-agent">—</span></div>
-          <div class="stat-row"><span>Ollama</span><span class="val" id="stat-ollama">—</span></div>
-          <div class="stat-row"><span>Creoson</span><span class="val" id="stat-creoson">—</span></div>
-          <div class="stat-row"><span>Модель</span><span class="val" id="stat-model">—</span></div>
-          <div class="stat-row"><span>Инструментов</span><span class="val" id="stat-tools">—</span></div>
-          <div class="stat-row"><span>Блоков</span><span class="val" id="stat-blocks">—</span></div>
+        <div class="stat-card"><h4>РЎС‚Р°С‚СѓСЃ СЃРёСЃС‚РµРјС‹</h4>
+          <div class="stat-row"><span>РђРіРµРЅС‚</span><span class="val" id="stat-agent">вЂ”</span></div>
+          <div class="stat-row"><span>Ollama</span><span class="val" id="stat-ollama">вЂ”</span></div>
+          <div class="stat-row"><span>Creoson</span><span class="val" id="stat-creoson">вЂ”</span></div>
+          <div class="stat-row"><span>РњРѕРґРµР»СЊ</span><span class="val" id="stat-model">вЂ”</span></div>
+          <div class="stat-row"><span>РРЅСЃС‚СЂСѓРјРµРЅС‚РѕРІ</span><span class="val" id="stat-tools">вЂ”</span></div>
+          <div class="stat-row"><span>Р‘Р»РѕРєРѕРІ</span><span class="val" id="stat-blocks">вЂ”</span></div>
         </div>
-        <div class="stat-card"><h4>Окно контекста</h4>
-          <div class="stat-row"><span>Запрошено</span><span class="val" id="stat-ctx-req">—</span></div>
-          <div class="stat-row"><span>Сессия</span><span class="val" id="stat-ctx-sess">—</span></div>
-          <div class="stat-row"><span>Режим</span><span class="val" id="stat-mode">—</span></div>
+        <div class="stat-card"><h4>РћРєРЅРѕ РєРѕРЅС‚РµРєСЃС‚Р°</h4>
+          <div class="stat-row"><span>Р—Р°РїСЂРѕС€РµРЅРѕ</span><span class="val" id="stat-ctx-req">вЂ”</span></div>
+          <div class="stat-row"><span>РЎРµСЃСЃРёСЏ</span><span class="val" id="stat-ctx-sess">вЂ”</span></div>
+          <div class="stat-row"><span>Р РµР¶РёРј</span><span class="val" id="stat-mode">вЂ”</span></div>
         </div>
-        <div class="chart" id="chart-tools"><div style="position:absolute;top:6px;left:8px;font-size:11px;color:var(--text-muted);">Инструменты по группам</div></div>
+        <div class="chart" id="chart-tools"><div style="position:absolute;top:6px;left:8px;font-size:11px;color:var(--text-muted);">РРЅСЃС‚СЂСѓРјРµРЅС‚С‹ РїРѕ РіСЂСѓРїРїР°Рј</div></div>
       </div>
       <div class="tab-content" id="tab-chat">
-        <div id="chat-msgs"><div class="msg system">Подключено к агенту. Готово к сообщениям.</div></div>
-        <div id="chat-input-area"><input id="chat-input" placeholder="Сообщение агенту…" autocomplete="off"><button class="send" id="btn-send">Отправить</button></div>
+        <div id="chat-msgs"><div class="msg system">РџРѕРґРєР»СЋС‡РµРЅРѕ Рє Р°РіРµРЅС‚Сѓ. Р“РѕС‚РѕРІРѕ Рє СЃРѕРѕР±С‰РµРЅРёСЏРј.</div></div>
+        <div id="chat-input-area"><input id="chat-input" placeholder="РЎРѕРѕР±С‰РµРЅРёРµ Р°РіРµРЅС‚СѓвЂ¦" autocomplete="off"><button class="send" id="btn-send">РћС‚РїСЂР°РІРёС‚СЊ</button></div>
       </div>
-      <div class="tab-content" id="tab-tools"><table class="table"><thead><tr><th>Имя</th><th>Группа</th><th>Описание</th></tr></thead><tbody id="tools-body"></tbody></table></div>
-      <div class="tab-content" id="tab-programs"><table class="table"><thead><tr><th>ID</th><th>Название</th><th>Статус</th></tr></thead><tbody id="programs-body"></tbody></table></div>
+      <div class="tab-content" id="tab-tools"><table class="table"><thead><tr><th>РРјСЏ</th><th>Р“СЂСѓРїРїР°</th><th>РћРїРёСЃР°РЅРёРµ</th></tr></thead><tbody id="tools-body"></tbody></table></div>
+      <div class="tab-content" id="tab-programs"><table class="table"><thead><tr><th>ID</th><th>РќР°Р·РІР°РЅРёРµ</th><th>РЎС‚Р°С‚СѓСЃ</th></tr></thead><tbody id="programs-body"></tbody></table></div>
       <div class="tab-content" id="tab-settings"><div id="settings-body"></div></div>
       <div class="tab-content" id="tab-log"><div id="log-body"></div></div>
     </div>
   </div>
-  <div class="panel-toggle" id="toggle-right" title="Статистика">&#9654;</div>
+  <div class="panel-toggle" id="toggle-right" title="РЎС‚Р°С‚РёСЃС‚РёРєР°">&#9654;</div>
   <div id="right">
-    <div id="right-header">Информация <span id="btn-close-right" style="cursor:pointer;font-size:11px;color:var(--text-muted);">&#10006;</span></div>
+    <div id="right-header">РРЅС„РѕСЂРјР°С†РёСЏ <span id="btn-close-right" style="cursor:pointer;font-size:11px;color:var(--text-muted);">&#10006;</span></div>
     <div id="right-content">
-      <div class="stat-card"><h4>Ресурсы</h4>
-        <div class="stat-row"><span>Моделей</span><span class="val" id="stat-models">—</span></div>
-        <div class="stat-row"><span>Скилов</span><span class="val" id="stat-skills">—</span></div>
-        <div class="stat-row"><span>Чанков</span><span class="val" id="stat-chunks">—</span></div>
-        <div class="stat-row"><span>Баз</span><span class="val" id="stat-bases">—</span></div>
+      <div class="stat-card"><h4>Р РµСЃСѓСЂСЃС‹</h4>
+        <div class="stat-row"><span>РњРѕРґРµР»РµР№</span><span class="val" id="stat-models">вЂ”</span></div>
+        <div class="stat-row"><span>РЎРєРёР»РѕРІ</span><span class="val" id="stat-skills">вЂ”</span></div>
+        <div class="stat-row"><span>Р§Р°РЅРєРѕРІ</span><span class="val" id="stat-chunks">вЂ”</span></div>
+        <div class="stat-row"><span>Р‘Р°Р·</span><span class="val" id="stat-bases">вЂ”</span></div>
       </div>
-      <div class="stat-card"><h4>Нагрузка</h4><div class="chart" id="chart-load"></div></div>
-      <div class="stat-card"><h4>События</h4><div id="right-events" style="font-size:11px;color:var(--text-muted);"></div></div>
+      <div class="stat-card"><h4>РќР°РіСЂСѓР·РєР°</h4><div class="chart" id="chart-load"></div></div>
+      <div class="stat-card"><h4>РЎРѕР±С‹С‚РёСЏ</h4><div id="right-events" style="font-size:11px;color:var(--text-muted);"></div></div>
     </div>
   </div>
 </div>
 <div id="output-panel">
-  <div id="output-header">Вывод <span class="spacer"></span><button class="btn" id="btn-clear-output">Очистить</button><button class="btn" id="btn-toggle-output">&#9660;</button></div>
+  <div id="output-header">Р’С‹РІРѕРґ <span class="spacer"></span><button class="btn" id="btn-clear-output">РћС‡РёСЃС‚РёС‚СЊ</button><button class="btn" id="btn-toggle-output">&#9660;</button></div>
   <div id="output-body"></div>
 </div>
-<div id="statusbar"><div class="item"><span class="dot" id="sb-dot"></span><span id="sb-status">Готов</span></div><div class="item" id="sb-time">—</div><div class="item" id="sb-user">—</div><div class="item" id="sb-layout">v2</div></div>
-<script src="/ui/app.js"></script>
+<div id="statusbar"><div class="item"><span class="dot" id="sb-dot"></span><span id="sb-status">Р“РѕС‚РѕРІ</span></div><div class="item" id="sb-time">вЂ”</div><div class="item" id="sb-user">вЂ”</div><div class="item" id="sb-layout">v2</div></div>
+<script src="/ui/app.js?v=2"></script>
 </body>
 </html>
+
 
 
