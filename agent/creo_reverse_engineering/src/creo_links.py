@@ -47,16 +47,26 @@ class CreoLinksExtractor:
 
     def extract_all(self) -> List[Dict[str, Any]]:
         """The main entry point: extracts all types of edges."""
+        print(f"DEBUG: TOC contains: {list(self.toc.keys())}")
         self._extract_bom_links()
         self._extract_inheritance_links()
         self._extract_family_links()
+        self._extract_audit_links()
+
         self._extract_mfg_links()
+        if "MdlStatus" in self.toc:
+            print("DEBUG: --- MdlStatus Section Start ---")
+            off, ln = self.toc["MdlStatus"]
+            section_data = self.raw_data[off : off + ln]
+            print(f"DEBUG: MdlStatus length: {ln}")
+            print(f"DEBUG: MdlStatus header: {section_data[:100]!r}")
+            print("DEBUG: --- MdlStatus Section End ---")
         return [e.to_dict() for e in self.edges]
 
     def _extract_bom_links(self):
         """
         BOM links: assembly -> component.
-        Looking for 'FeatDefsCmp' or similar component data in assemblies.
+        Looking for component data in assemblies.
         """
         for section_name, (offset, length) in self.toc.items():
             if "FeatDefsCmp" in section_name or "Comp_Data" in section_name:
@@ -73,6 +83,7 @@ class CreoLinksExtractor:
                 break
             
             if v_type == "STRING" and len(name) > 2:
+                # In component sections, we often have [ComponentName] [InstanceName]
                 next_val, next_next_off, next_v_type, next_name = self.decoder.decode_next_value(data, next_off)
                 
                 if next_v_type == "STRING" and next_name:
@@ -82,13 +93,14 @@ class CreoLinksExtractor:
                         edge_type="contains_via_instance",
                         metadata={"instance_name": next_name, "comp_name": name}
                     ))
-                
-                curr = next_next_off if next_next_off > curr else next_off + 1
-            else:
-                curr = next_off if next_off > curr else curr + 1
+                else:
+                    self.edges.append(CreoEdge(
+                        source=assembly_name,
+                        target=name,
                         edge_type="contains",
                         metadata={"comp_name": name}
                     ))
+                
                 curr = next_next_off if next_next_off > curr else next_off + 1
             else:
                 curr = next_off if next_off > curr else curr + 1
@@ -133,13 +145,17 @@ class CreoLinksExtractor:
 
         # 1. Parse FamilyInf to find instances and the pointer to the table
         for section_name, (offset, length) in self.toc.items():
+            print(f"DEBUG: Checking section: {section_name}")
             if "FamilyInf" in section_name:
+                print(f"DEBUG: Found FamilyInf section: {section_name} at {offset}")
                 section_data = self.raw_data[offset : offset + length]
                 curr = 0
                 while curr < len(section_data):
                     val, next_off, v_type, name = self.decoder.decode_next_value(section_data, curr)
                     if not name or v_type == "EOF":
                         break
+                    
+                    print(f"DEBUG: Decoded value: {val} (type: {v_type}, name: {name})")
                     
                     if name == "drv_tbl_ptr":
                         if isinstance(val, int):
@@ -149,7 +165,7 @@ class CreoLinksExtractor:
                     elif name in ("FamilyInfo", "inherit_rep", "generics", "instances"):
                         pass
                     else:
-                        if isinstance(val, str):
+                        if isinstance(val, str) and len(val) > 2 and val.isprintable():
                             instances.append(val)
                     
                     curr = next_off
@@ -168,7 +184,7 @@ class CreoLinksExtractor:
 
         if target_data:
             # The table is a sequence of null-terminated strings (pairs: inst, gen)
-            matches = re.finditer(rb"\x00([A-Za-zА-Яа-я0-9_\-\.]{2,48})\x00", target_data)
+            matches = re.finditer(rb"\x00([^\x00]{2,48})\x00", target_data)
             names_in_table = []
             for m in matches:
                 try:
@@ -196,6 +212,43 @@ class CreoLinksExtractor:
                         metadata={"family_table": True}
                     ))
 
+
+
+    def _extract_mfg_links(self):
+        """
+        Manufacturing: stock, tool, fixture.
+        """
+        if b"Mfg_info" in self.raw_data:
+            # Parsing Mfg_info is heavy; for now, look for common markers
+            pass
+
+    def _extract_audit_links(self):
+        """
+        Audit: Extracts attributes from MdlStatus.
+        """
+        if "MdlStatus" not in self.toc:
+            return
+
+        off, ln = self.toc["MdlStatus"]
+        section_data = self.raw_data[off : off + ln]
+        
+        # Basic scanner for [Attribute] = [Value] patterns in the MdlStatus section
+        # Since we don't know the exact structure, we look for null-delimited strings
+        matches = re.finditer(rb"\x00([^\x00]{2,48})\x00", section_data)
+        attributes = []
+        for m in matches:
+            try:
+                attr = m.group(1).decode('latin-1')
+                if attr.strip():
+                    attributes.append(attr)
+            except:
+                continue
+        
+        # If we found attributes, we can add them as metadata to the model itself
+        # For now, we'll just print them to verify
+        if attributes:
+            # In a real implementation, these would be part of the model's property graph
+            pass
 
     def _extract_mfg_links(self):
         """
