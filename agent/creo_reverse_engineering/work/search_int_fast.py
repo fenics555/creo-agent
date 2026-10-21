@@ -1,5 +1,6 @@
 import os
 import struct
+import sys
 
 def search_for_int(directory, target_int):
     print(f"Searching for 4-byte integer {target_int} (hex: {hex(target_int)}) in {directory}...")
@@ -16,7 +17,7 @@ def search_for_int(directory, target_int):
                         if target_bytes in content:
                             print(f"[+] Found in: {file_path}")
                             found_files.append(file_path)
-                except Exception as e:
+                except Exception:
                     pass
     return found_files
 

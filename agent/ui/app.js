@@ -275,7 +275,8 @@ document.addEventListener('DOMContentLoaded', function () {
     $('user-block').style.display = 'flex';
     $('btn-admin').style.display = 'none';
     loadStatus(); loadTools(); loadPrograms(); loadLog(); loadSettings();
-    setInterval(chatPoll, 5000);
+    // chatPoll отключён — не критично, избегаем ошибок в консоли
+    // setInterval(chatPoll, 5000);
     logOut('UI инициализирован (войден)');
   } else {
     $('login-screen').classList.remove('hidden');
