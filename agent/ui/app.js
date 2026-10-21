@@ -81,7 +81,7 @@ function loadTools() { api('/api/tools', null, function (d) {
     tr.innerHTML = '<td>' + (t.name || '—') + '</td><td>' + (t.group || '—') + '</td><td>' + (t.desc || '—') + '</td>';
     tb.appendChild(tr);
   });
-  $('stat-tools').textContent = list.length);
+  $('stat-tools').textContent = list.length;
 }, function (e) {
   var tb = $('tools-body');
   if (tb) tb.innerHTML = '<tr><td colspan="3" class="empty">Ошибка загрузки</td></tr>';
@@ -101,7 +101,7 @@ function loadPrograms() { api('/api/programs', null, function (d) {
     tr.innerHTML = '<td>' + (p.id || '—') + '</td><td>' + (p.title || '—') + '</td><td><span class="val ok">Активна</span></td>';
     tb.appendChild(tr);
   });
-  $('pill-programs').textContent = 'программ: ' + list.length);
+  $('pill-programs').textContent = 'программ: ' + list.length;
 }, function (e) {
   var tb = $('programs-body');
   if (tb) tb.innerHTML = '<tr><td colspan="3" class="empty">Ошибка загрузки</td></tr>';
@@ -265,7 +265,7 @@ document.addEventListener('DOMContentLoaded', function () {
   if ($('btn-do-reg')) $('btn-do-reg').addEventListener('click', register);
   if ($('btn-logout')) $('btn-logout').addEventListener('click', logout);
   if ($('btn-admin')) $('btn-admin').addEventListener('click', function () {
-    logOut('РђРґРјРёРЅРєР°: РїРѕРєР° РЅРµ СЂРµР°Р»РёР·РѕРІР°РЅР° РІ СЌС‚РѕРј РѕРєРЅРµ');
+    logOut('Админка: пока не реализована в этом окне');
   });
   if ($('login-login')) $('login-login').addEventListener('keydown', function (e) { if (e.key === 'Enter') login(); });
   if ($('login-pw')) $('login-pw').addEventListener('keydown', function (e) { if (e.key === 'Enter') login(); });
@@ -276,10 +276,10 @@ document.addEventListener('DOMContentLoaded', function () {
     $('btn-admin').style.display = 'none';
     loadStatus(); loadTools(); loadPrograms(); loadLog(); loadSettings();
     setInterval(chatPoll, 5000);
-    logOut('UI РёРЅРёС†РёР°Р»РёР·РёСЂРѕРІР°РЅ (РІРѕР№РґРµРЅ)');
+    logOut('UI инициализирован (войден)');
   } else {
     $('login-screen').classList.remove('hidden');
     $('user-block').style.display = 'none';
-    logOut('UI РёРЅРёС†РёР°Р»РёР·РёСЂРѕРІР°РЅ (С‚СЂРµР±СѓРµС‚СЃСЏ РІС…РѕРґ)');
+    logOut('UI инициализирован (требуется вход)');
   }
 });
