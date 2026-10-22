@@ -1,4 +1,4 @@
-﻿import sys
+import sys
 import os
 import re
 from typing import List, Dict, Any, Tuple, Set
@@ -19,7 +19,9 @@ class CreoEdge:
         self.metadata = metadata or {}
 
     def __repr__(self):
-        meta_str = f" | {self.metadata}" if self.metadata else ""
+        meta_str = ""
+        if self.metadata:
+            meta_str = " | " + str(self.metadata)
         return f"({self.source}) --[{self.type}]--> ({self.target}){meta_str}"
 
     def to_dict(self) -> Dict[str, Any]:
@@ -33,6 +35,7 @@ class CreoEdge:
 class CreoLinksExtractor:
     """
     Extracts typed relationships (edges) from Creo files to build a functional graph.
+    Implementation Deepened with Gemini PODSkAZKA knowledge.
     """
     def __init__(self, file_path: str):
         self.file_path = file_path
@@ -41,230 +44,171 @@ class CreoLinksExtractor:
         self.endian = self._detect_endianness()
         self.decoder = CreoProtocolDecoder(endian=self.endian)
         self.edges: List[CreoEdge] = []
+        self.model_name = os.path.basename(file_path).split('.')[0]
 
     def _detect_endianness(self) -> str:
         return '>' if b"MACH SUN_SunOS" in self.raw_data[:1024] else '<'
 
+    def determine_plm_relation_type(self) -> str:
+        """Classifies the entity based on TOC signatures and filename."""
+        if "NeuAsmSld" in self.toc or "SolidPersistTable" in self.toc:
+            if "FullMData" in self.toc:
+                return "Технологический техпроцесс механообработки (CAM)"
+            return "Сборочная единица (Сборка)"
+        
+        if "FeatDefs" in self.toc:
+            cmnm = self.file_path.lower()
+            if "_z" in cmnm or "_zag" in cmnm:
+                return "Деталь-заготовка (Предыдущая обработка)"
+            if "_o" in cmnm or "_otl" in cmnm:
+                return "Деталь-отливка (Исходный металл)"
+            return "Конструкторская деталь (КД)"
+            
+        return "Неизвестная сущность PLM"
+
     def extract_all(self) -> List[Dict[str, Any]]:
         """The main entry point: extracts all types of edges."""
-        print(f"DEBUG: TOC contains: {list(self.toc.keys())}")
+        print(f"[*] Extracting links for: {self.model_name}")
+        print(f"[*] Detected PLM Type: {self.determine_plm_relation_type()}")
+        
         self._extract_bom_links()
         self._extract_inheritance_links()
         self._extract_family_links()
         self._extract_audit_links()
-
         self._extract_mfg_links()
-        if "MdlStatus" in self.toc:
-            print("DEBUG: --- MdlStatus Section Start ---")
-            off, ln = self.toc["MdlStatus"]
-            section_data = self.raw_data[off : off + ln]
-            print(f"DEBUG: MdlStatus length: {ln}")
-            print(f"DEBUG: MdlStatus header: {section_data[:100]!r}")
-            print("DEBUG: --- MdlStatus Section End ---")
+        
         return [e.to_dict() for e in self.edges]
 
     def _extract_bom_links(self):
-        """
-        BOM links: assembly -> component.
-        Looking for component data in assemblies.
-        """
-        for section_name, (offset, length) in self.toc.items():
-            if "FeatDefsCmp" in section_name or "Comp_Data" in section_name:
-                section_data = self.raw_data[offset : offset + length]
-                self._parse_component_section(section_name, section_data, offset)
-
-    def _parse_component_section(self, section_name: str, data: bytes, base_offset: int):
-        """Parses component data to find target component names and instance names."""
-        curr = 0
-        assembly_name = self._get_current_model_name()
-        while curr < len(data):
-            val, next_off, v_type, name = self.decoder.decode_next_value(data, curr)
-            if not name or v_type == "EOF":
-                break
-            
-            if v_type == "STRING" and len(name) > 2:
-                # In component sections, we often have [ComponentName] [InstanceName]
-                next_val, next_next_off, next_v_type, next_name = self.decoder.decode_next_value(data, next_off)
-                
-                if next_v_type == "STRING" and next_name:
+        """BOM links: assembly -> component."""
+        for section_name in ["SolidPersistTable", "Comp_Data", "FeatDefsCmp"]:
+            if section_name in self.toc:
+                off, ln = self.toc[section_name]
+                data = self.raw_data[off : off + ln]
+                matches = re.finditer(rb'\x00([^\x00]{2,48})\x00', data)
+                found_names = []
+                for m in matches:
+                    try:
+                        name = m.group(1).decode('latin-1').strip()
+                        if name and name != self.model_name:
+                            found_names.append(name)
+                    except: continue
+                for name in found_names:
                     self.edges.append(CreoEdge(
-                        source=assembly_name,
+                        source=self.model_name,
                         target=name,
                         edge_type="contains_via_instance",
-                        metadata={"instance_name": next_name, "comp_name": name}
+                        metadata={"section": section_name}
                     ))
-                else:
-                    self.edges.append(CreoEdge(
-                        source=assembly_name,
-                        target=name,
-                        edge_type="contains",
-                        metadata={"comp_name": name}
-                    ))
-                
-                curr = next_next_off if next_next_off > curr else next_off + 1
-            else:
-                curr = next_off if next_off > curr else curr + 1
 
     def _extract_inheritance_links(self):
-        """
-        Inheritance: part -> parent (derive), part -> base (mirror/stock).
-        """
-        # 1. Mirror/Stock: Looking for MERGE_BASE_PART
-        if b"MERGE_BASE_PART" in self.raw_data:
-            matches = re.finditer(rb"MERGE_BASE_PART\x00([A-Za-z0-9_\-\.]{4,47})\x00", self.raw_data)
-            for m in matches:
-                base_name = m.group(1).decode('latin-1')
-                self.edges.append(CreoEdge(
-                    source=self._get_current_model_name(),
-                    target=base_name,
-                    edge_type="mirror_of",
-                    metadata={"role": "stock/mirror"}
-                ))
-
-        # 2. Derived/Inherit: Looking for MdlRefInfo or FeatRefData
-        if b"MdlRefInfo" in self.raw_data or b"top_to_part_models" in self.raw_data:
-            matches = re.finditer(rb"top_to_part_models\x00([A-Za-z0-9_\-\.]{4,47})\x00", self.raw_data)
-            for m in matches:
-                parent_name = m.group(1).decode('latin-1')
-                self.edges.append(CreoEdge(
-                    source=self._get_current_model_name(),
-                    target=parent_name,
-                    edge_type="inherit",
-                    metadata={"relation": "derived"}
-                ))
-
-    def _extract_family_links(self):
-        """
-        Family Table: instance -> generic.
-        """
-        if b"FamilyInf" not in self.raw_data:
-            return
-
-        drv_tbl_offset = None
-        instances = []
-
-        # 1. Parse FamilyInf to find instances and the pointer to the table
-        for section_name, (offset, length) in self.toc.items():
-            print(f"DEBUG: Checking section: {section_name}")
-            if "FamilyInf" in section_name:
-                print(f"DEBUG: Found FamilyInf section: {section_name} at {offset}")
-                section_data = self.raw_data[offset : offset + length]
-                curr = 0
-                while curr < len(section_data):
-                    val, next_off, v_type, name = self.decoder.decode_next_value(section_data, curr)
-                    if not name or v_type == "EOF":
-                        break
-                    
-                    print(f"DEBUG: Decoded value: {val} (type: {v_type}, name: {name})")
-                    
-                    if name == "drv_tbl_ptr":
-                        if isinstance(val, int):
-                            drv_tbl_offset = val
-                        elif isinstance(val, str) and val.isdigit():
-                            drv_tbl_offset = int(val)
-                    elif name in ("FamilyInfo", "inherit_rep", "generics", "instances"):
-                        pass
-                    else:
-                        if isinstance(val, str) and len(val) > 2 and val.isprintable():
-                            instances.append(val)
-                    
-                    curr = next_off
-                break
-
-        # 2. Attempt to resolve the generic parent
-        target_data = None
-        if drv_tbl_offset and drv_tbl_offset > 0:
-            target_data = self.raw_data[drv_tbl_offset:]
-        elif "Sld_DrvTable" in self.toc:
-            off, ln = self.toc["Sld_DrvTable"]
-            target_data = self.raw_data[off : off + ln]
-        elif "DrvTable" in self.toc:
-            off, ln = self.toc["DrvTable"]
-            target_data = self.raw_data[off : off + ln]
-
-        if target_data:
-            # The table is a sequence of null-terminated strings (pairs: inst, gen)
-            matches = re.finditer(rb"\x00([^\x00]{2,48})\x00", target_data)
-            names_in_table = []
+        """Inheritance: Part -> Parent (via top_to_part_models or MERGE_BASE_PART)."""
+        patterns = {
+            "top_to_part_models": rb'top_to_part_models\x00([^\x00]+)\x00',
+            "MERGE_BASE_PART": rb'MERGE_BASE_PART\x00([^\x00]+)\x00'
+        }
+        for rel_type, pattern in patterns.items():
+            matches = re.finditer(pattern, self.raw_data)
             for m in matches:
                 try:
-                    names_in_table.append(m.group(1).decode('latin-1'))
-                except:
-                    continue
-            
-            for i in range(0, len(names_in_table) - 1, 2):
-                inst = names_in_table[i]
-                gen = names_in_table[i+1]
-                if inst and gen:
+                    parent_name = m.group(1).decode('latin-1').strip()
                     self.edges.append(CreoEdge(
-                        source=inst,
-                        target=gen,
-                        edge_type="instance_of",
-                        metadata={"family_table": True}
+                        source=self.model_name,
+                        target=parent_name,
+                        edge_type="inherit" if "top" in rel_type else "mirror_of",
+                        metadata={"method": rel_type}
                     ))
-        else:
-            for inst in instances:
-                if inst:
-                    self.edges.append(CreoEdge(
-                        source=inst,
-                        target="GENERIC_PARENT",
-                        edge_type="instance_of",
-                        metadata={"family_table": True}
-                    ))
+                except: continue
 
-
-
-    def _extract_mfg_links(self):
-        """
-        Manufacturing: stock, tool, fixture.
-        """
-        if b"Mfg_info" in self.raw_data:
-            # Parsing Mfg_info is heavy; for now, look for common markers
-            pass
-
+    def _extract_family_links(self):
+        """Family Table: Instance -> Generic Parent."""
+        if "FamilyInf" in self.toc:
+            off, ln = self.toc["FamilyInf"]
+            data = self.raw_data[off : off + ln]
+            matches = re.finditer(rb'\x00([^\x00]{2,48})\x00', data)
+            names = []
+            for m in matches:
+                try:
+                    name = m.group(1).decode('latin-1').strip()
+                    if name: names.append(name)
+                except: continue
+            for i in range(0, len(names) - 1, 2):
+                self.edges.append(CreoEdge(
+                    source=names[i],
+                    target=names[i+1],
+                    edge_type="instance_of",
+                    metadata={"family_table": True}
+                ))
     def _extract_audit_links(self):
-        """
-        Audit: Extracts attributes from MdlStatus.
-        """
+        """Audit: Extracts attributes from MdlStatus."""
         if "MdlStatus" not in self.toc:
             return
-
         off, ln = self.toc["MdlStatus"]
         section_data = self.raw_data[off : off + ln]
         
-        # Basic scanner for [Attribute] = [Value] patterns in the MdlStatus section
-        # Since we don't know the exact structure, we look for null-delimited strings
-        matches = re.finditer(rb"\x00([^\x00]{2,48})\x00", section_data)
-        attributes = []
-        for m in matches:
-            try:
-                attr = m.group(1).decode('latin-1')
-                if attr.strip():
-                    attributes.append(attr)
-            except:
-                continue
+        patterns = {
+            "user": rb'user_name\x00([^\x00]+)\x00',
+            "version": rb'Proe_version\x00([^\x00]+)\x00'
+        }
+        # For Cyrillic, we use encoded bytes
+        comp_pattern = "Наименование компьютера:\\s*'([^']+)'".encode('cp1251')
         
-        # If we found attributes, we can add them as metadata to the model itself
-        # For now, we'll just print them to verify
-        if attributes:
-            # In a real implementation, these would be part of the model's property graph
-            pass
+        metadata = {}
+        for key, pattern in patterns.items():
+            match = re.search(pattern, section_data)
+            if match:
+                try:
+                    val = match.group(1).decode('latin-1')
+                    metadata[key] = val.strip()
+                except: continue
+        
+        comp_match = re.search(comp_pattern, section_data)
+        if comp_match:
+            try:
+                metadata["computer"] = comp_match.group(1).decode('cp1251').strip()
+            except: pass
+
+        if metadata:
+            self.edges.append(CreoEdge(
+                source=self.model_name,
+                target="AUDIT_LOG",
+                edge_type="has_history",
+                metadata=metadata
+            ))
 
     def _extract_mfg_links(self):
-        """
-        Manufacturing: stock, tool, fixture.
-        """
-        if b"Mfg_info" in self.raw_data:
-            # Parsing Mfg_info is heavy; for now, look for common markers
-            pass
-
-    def _get_current_model_name(self) -> str:
-        """Returns the name of the file being processed."""
-        return os.path.basename(self.file_path).split('.')[0]
+        """Manufacturing: stock, tool, fixture from FullMData/LargeText."""
+        if "LargeText" in self.toc:
+            off, ln = self.toc["LargeText"]
+            lt_data = self.raw_data[off : off + ln]
+            cam_keywords = [b'CHERN', b'CHIST', b'SV', b'FR', b'FASKA', b'RASTOCHKA', b'CENTROVKA']
+            found_ops = set()
+            for kw in cam_keywords:
+                if kw in lt_data:
+                    match = re.search(rb'[^\x00]*' + kw + b'[^\x00]*', lt_data)
+                    if match:
+                        try:
+                            op_name = match.group().decode('cp1251', errors='ignore').strip()
+                            found_ops.add(op_name)
+                        except: continue
+            if found_ops:
+                tool_matches = re.finditer(rb'T\d{4}', lt_data)
+                tools = []
+                for tm in tool_matches:
+                    try: tools.append(tm.group().decode('ascii'))
+                    except: continue
+                self.edges.append(CreoEdge(
+                    source=self.model_name,
+                    target="CNC_PROCESS",
+                    edge_type="machining_route",
+                    metadata={
+                        "operations": sorted(list(found_ops)),
+                        "tools": sorted(list(set(tools)))
+                    }
+                ))
 
 if __name__ == "__main__":
-    # Test script
-    TEST_FILE = r"D:\AI\PROBA\models\00080-03.prt"
+    TEST_FILE = r"D:\AI\tools\agent\creo_reverse_engineering\work\complex_mock.prt"
     if os.path.exists(TEST_FILE):
         extractor = CreoLinksExtractor(TEST_FILE)
         edges = extractor.extract_all()

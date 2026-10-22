@@ -1,0 +1,78 @@
+    def _extract_audit_links(self):
+        """Audit: Extracts attributes from MdlStatus."""
+        if "MdlStatus" not in self.toc:
+            return
+        off, ln = self.toc["MdlStatus"]
+        section_data = self.raw_data[off : off + ln]
+        
+        patterns = {
+            "user": rb'user_name\x00([^\x00]+)\x00',
+            "version": rb'Proe_version\x00([^\x00]+)\x00'
+        }
+        # For Cyrillic, we use encoded bytes
+        comp_pattern = "Наименование компьютера:\\s*'([^']+)'".encode('cp1251')
+        
+        metadata = {}
+        for key, pattern in patterns.items():
+            match = re.search(pattern, section_data)
+            if match:
+                try:
+                    val = match.group(1).decode('latin-1')
+                    metadata[key] = val.strip()
+                except: continue
+        
+        comp_match = re.search(comp_pattern, section_data)
+        if comp_match:
+            try:
+                metadata["computer"] = comp_match.group(1).decode('cp1251').strip()
+            except: pass
+
+        if metadata:
+            self.edges.append(CreoEdge(
+                source=self.model_name,
+                target="AUDIT_LOG",
+                edge_type="has_history",
+                metadata=metadata
+            ))
+
+    def _extract_mfg_links(self):
+        """Manufacturing: stock, tool, fixture from FullMData/LargeText."""
+        if "LargeText" in self.toc:
+            off, ln = self.toc["LargeText"]
+            lt_data = self.raw_data[off : off + ln]
+            cam_keywords = [b'CHERN', b'CHIST', b'SV', b'FR', b'FASKA', b'RASTOCHKA', b'CENTROVKA']
+            found_ops = set()
+            for kw in cam_keywords:
+                if kw in lt_data:
+                    match = re.search(rb'[^\x00]*' + kw + b'[^\x00]*', lt_data)
+                    if match:
+                        try:
+                            op_name = match.group().decode('cp1251', errors='ignore').strip()
+                            found_ops.add(op_name)
+                        except: continue
+            if found_ops:
+                tool_matches = re.finditer(rb'T\d{4}', lt_data)
+                tools = []
+                for tm in tool_matches:
+                    try: tools.append(tm.group().decode('ascii'))
+                    except: continue
+                self.edges.append(CreoEdge(
+                    source=self.model_name,
+                    target="CNC_PROCESS",
+                    edge_type="machining_route",
+                    metadata={
+                        "operations": sorted(list(found_ops)),
+                        "tools": sorted(list(set(tools)))
+                    }
+                ))
+
+if __name__ == "__main__":
+    TEST_FILE = r"D:\AI\tools\agent\creo_reverse_engineering\work\complex_mock.prt"
+    if os.path.exists(TEST_FILE):
+        extractor = CreoLinksExtractor(TEST_FILE)
+        edges = extractor.extract_all()
+        print(f"Extracted {len(edges)} edges:")
+        for e in edges:
+            print(f"  {e}")
+    else:
+        print(f"Test file not found: {TEST_FILE}")
