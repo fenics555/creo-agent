@@ -1,23 +1,24 @@
 {
     "metadata": {
-        "parsed_at": "complex_mock.bin",
-        "status": "success"
+        "parsed_at": "complex_mock.prt",
+        "status": "success",
+        "detected_role": "Деталь (Part)"
     },
     "mapping_table": [
         {
             "name": "Param_Mass",
             "value": 12.345,
-            "type": "DOUBLE"
+            "type": "double"
         },
         {
             "name": "Param_Vol",
             "value": 0.987,
-            "type": "DOUBLE"
+            "type": "double"
         },
         {
             "name": "Fixture_Name",
             "value": "Fixture_10X1-D12",
-            "type": "STRING"
+            "type": "string"
         }
     ]
 }

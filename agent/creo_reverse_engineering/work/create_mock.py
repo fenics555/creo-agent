@@ -7,7 +7,7 @@ def create_mock(file_path, mode="part"):
     Modes:
     - 'part': A simple part with mapping table.
     - 'part_with_parent': A part with mapping table AND inheritance link.
-    - 'assembly': An assembly with mapping table AND BOM links.
+    - 'assembly': An assembly with BOM links (no mapping table).
     """
     
     # 1. Base segments (Mapping Table)
@@ -26,7 +26,6 @@ def create_mock(file_path, mode="part"):
         
     elif mode == "assembly":
         # Segment containing list of child components
-        # Format: [marker][count][name1\x00][name2\x00]...
         children = [b"child_1.prt\x00", b"child_2.prt\x00", b"child_3.prt\x00"]
         bom_data = bytearray(b'\xe0\x05' + struct.pack('<I', len(children)))
         for child in children:
@@ -61,14 +60,20 @@ def create_mock(file_path, mode="part"):
     offsets["setup_data"] = setup_start_off
     buffer.extend(setup_placeholder)
     
-    # 4. Mapping Table
-    mt_start_off = len(buffer)
-    offsets["mapping_table"] = mt_start_off
-    buffer.extend(mt_data)
+    # 4. Mapping Table (Only for parts)
+    mt_start_off = None
+    if mode != "assembly":
+        mt_start_off = len(buffer)
+        offsets["mapping_table"] = mt_start_off
+        buffer.extend(mt_data)
     
     # 5. Fix rel_offset in setup_data
-    # rel_offset = mt_start_off - setup_start_off
-    rel_offset = mt_start_off - setup_start_off
+    if mt_start_off is not None:
+        rel_offset = mt_start_off - setup_start_off
+    else:
+        # For assembly, maybe point to some dummy or just 0
+        rel_offset = 0
+        
     buffer[setup_start_off + len(setup_name) + len(setup_key) : setup_start_off + len(setup_name) + len(setup_key) + 2] = struct.pack('<H', rel_offset)
 
     # 6. Construct TOC
@@ -116,9 +121,10 @@ def create_mock(file_path, mode="part"):
     print(f"Created {mode} mock: {file_path}")
 
 if __name__ == "__main__":
-    base_dir = r"D:\AI\tools\agent\creo_reverse_engineering\work"
+    base_dir = r"D:\\AI\\tools\\agent\\creo_reverse_engineering\\work"
     os.makedirs(base_dir, exist_ok=True)
     
     create_mock(os.path.join(base_dir, "simple_mock.prt"), mode="part")
     create_mock(os.path.join(base_dir, "complex_mock.prt"), mode="part_with_parent")
     create_mock(os.path.join(base_dir, "assembly_mock.asm"), mode="assembly")
+

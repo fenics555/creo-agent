@@ -3,7 +3,7 @@ import json
 import os
 
 def run_test():
-    mock_file = r"D:\AI\tools\agent\creo_reverse_engineering\work\complex_mock.bin"
+    mock_file = r"D:\AI\tools\agent\creo_reverse_engineering\work\complex_mock.prt"
     output_json = r"D:\AI\tools\agent\creo_reverse_engineering\work\test_output.json"
     log_file = r"D:\AI\log\creo_reverse_engineering\test_results.log"
     parser_script = r"D:\AI\tools\agent\creo_reverse_engineering\creo_mapping_table_parser.py"
@@ -42,7 +42,7 @@ def run_test():
     # Extract the actual list from the dictionary
     mapping_entries = parsed_data.get("mapping_table", [])
 
-    # Expected data from complex_mock.bin
+    # Expected data from complex_mock.prt
     expected_entries = [
         {"name": "Param_Mass", "value": 12.345},
         {"name": "Param_Vol", "value": 0.987},
