@@ -1,6 +1,7 @@
 import sys
 import os
 import re
+import struct
 from typing import List, Dict, Any, Tuple, Set
 
 # Add paths to sys.path
