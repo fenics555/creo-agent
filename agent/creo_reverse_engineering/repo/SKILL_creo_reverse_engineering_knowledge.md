@@ -37,3 +37,23 @@ The goal is to build a functional graph where nodes are entities and edges are t
 ## 4. MdlStatus Specification
 * Contains material (`PTC_MATERIAL_NAME`), mass, and audit attributes.
 * Key for identifying the "as-built" state of a part.
+
+
+## 5. Protocol Synchronization (Parsing Patterns)
+
+### 5.1. Mapping Table Discovery
+To prevent the "Synchronization Loop", use the following pattern for mocking and parsing:
+
+1.  **TOC Header**: Every binary must start with a `#UGC_TOC` block.
+    *   Format: `[NAME]: [ABS_OFFSET_HEX] [SIZE_HEX]`
+    *   The parser uses this to find `setup_data` and `mapping_table`.
+
+2.  **Setup Data Structure**:
+    *   The `setup_data` block acts as a bridge between the TOC and the Mapping Table.
+    *   **Pattern**: `[setup_name\x00] [id_map_info_ptr\x00] [rel_offset_LE_2bytes]`
+    *   **rel_offset**: The offset from the **beginning of the `setup_data` block** to the absolute start of the `mapping_table`.
+
+3.  **Data Types**:
+    *   Markers: `0xe0`
+    *   Strings: `0x02` + `[string]\x00`
+    *   Doubles: `0x03` + `[name]\x00` + `[8-byte double]`

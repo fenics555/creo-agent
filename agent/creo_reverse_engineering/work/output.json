@@ -1,0 +1,23 @@
+{
+    "metadata": {
+        "parsed_at": "complex_mock.bin",
+        "status": "success"
+    },
+    "mapping_table": [
+        {
+            "name": "Param_Mass",
+            "value": 12.345,
+            "type": "DOUBLE"
+        },
+        {
+            "name": "Param_Vol",
+            "value": 0.987,
+            "type": "DOUBLE"
+        },
+        {
+            "name": "Fixture_Name",
+            "value": "Fixture_10X1-D12",
+            "type": "STRING"
+        }
+    ]
+}
