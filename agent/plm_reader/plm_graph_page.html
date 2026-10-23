@@ -256,7 +256,7 @@ function draw(root){
         const n = ND[m]; if (!n) continue;
         const use = (dir === "d" ? n.o : n.n) || [];
         for (const t of use.slice(0, __CHILDMAX__)){
-          const nm = t[0];
+          const nm = String(t[0]);   // GRABLYA 23.10.2026: index in links is NUMBER, ND keys are STRINGS
           if (!ND[nm] || nm === root || seen.has(nm)) continue;
           seen.add(nm);
           total++;
@@ -280,7 +280,11 @@ function draw(root){
 
   const rows = {};
   Object.entries(N).forEach(([m, d]) => { (rows[d] = rows[d] || []).push(m); });
-  const cols = Object.keys(rows).map(Number).sort((a, b) => a - b);
+  // ⚠️ ГРАБЛЯ 23.10.2026: Object.entries()/Object.keys() дают ключи СТРОКАМИ,
+  // а `.map(Number)` превращал их в ЧИСЛА → rows[0] не находился (ключ "0") →
+  // `rows[c].sort()` падал с TypeError → ГРАФ БЫЛ ПУСТ (ошибок в консоли не видно).
+  // Лечение: ключи оставляем СТРОКАМИ, а числовую сортировку делаем по значению.
+  const cols = Object.keys(rows).sort((a, b) => Number(a) - Number(b));
   const CW = 250, RH = 24, pos = {};
   let x = 20;
   for (const c of cols){
@@ -308,8 +312,10 @@ function draw(root){
            '" stroke="' + c + '" stroke-width="' + (k.startsWith("main") ? "2" : "1.2") +
            '" fill="none" marker-end="url(#ar-' + k + ')"/>';
   }
-  for (const m of Object.keys(pos)){
-    const [px, py] = pos[m], n = ND[m];
+  for (const m0 of Object.keys(pos)){
+    const m = String(m0);                 // GRABLYA 23.10.2026: ключи могут быть числами
+    const [px, py] = pos[m0], n = ND[m];
+    if (!n) continue;                     // узла нет в данных — не рисуем (иначе TypeError)
     const c = m === root ? "#56a6ff" : (n.m ? "#c98a5a" : "#59666f");
     svg += '<g class="nd" data-m="' + m + '" style="cursor:pointer">' +
       '<rect x="' + px + '" y="' + py + '" width="212" height="18" rx="4" fill="' +
