@@ -22,6 +22,8 @@ from collections import defaultdict
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 DST = os.path.join(HERE, "CREO_GRAPH.html")
+# Режим изображений из настроек (auto/pict/draw/none) — ставится в main/collect.
+_media_mode = "auto"
 # Шаблон страницы: рядом с инструментом (переносимость), при отсутствии — из env.
 TEMPLATE = os.path.join(HERE, "plm_graph_page.html")
 
@@ -80,19 +82,38 @@ def collect_from_db(media_dir=None):
                 v = creo if creo.upper().startswith("CREO") else ("Creo " + creo)
             path = row[1] or ""
             img = ""
-            # ПРЕВЬЮ: читаем файл и вырезаем картинку (по сигнатуре, не по TOC-офсету)
-            if media_dir and path and os.path.isfile(path) and not nodes.get(model, {}).get("i"):
+            img2 = ""                                  # второй вид (чертёж), если есть
+            # ПРЕВЬЮ: собираем КАРТИНКУ и ЧЕРТЁЖ (оба, если есть) — по требованию владельца
+            mode = (media_dir and _media_mode) or "none"
+            if media_dir and mode != "none" and path and os.path.isfile(path) \
+                    and not nodes.get(model, {}).get("i"):
                 try:
                     raw = open(path, "rb").read()
-                    data, ext = cut_preview(raw)
-                    if data:
-                        if not os.path.isdir(media_dir):
-                            os.makedirs(media_dir)
-                        img = hashlib.sha256(data).hexdigest()[:20] + "." + ext
-                        dst = os.path.join(media_dir, img)
+                    # ВАЖНО: в файлах бывает ТОЛЬКО JPEG (даже у .drw) — собираем всё найденное
+                    found = cut_preview(raw, "all")
+                    if mode == "pict":
+                        found = [f for f in found if f[1] == "jpg"]
+                    elif mode == "draw":
+                        found = [f for f in found if f[1] == "bmp"]
+                    data, ext = found[0] if found else (b"", "")
+                    if len(found) > 1:
+                        d2 = found[1]
+                    else:
+                        d2 = (b"", "")
+                    if not os.path.isdir(media_dir):
+                        os.makedirs(media_dir)
+                    for blob, ex, key in ((data, ext, "i"), (d2[0], d2[1], "i2")):
+                        if not blob:
+                            continue
+                        fname = hashlib.sha256(blob).hexdigest()[:20] + "." + ex
+                        dst = os.path.join(media_dir, fname)
                         if not os.path.exists(dst):
                             with open(dst, "wb") as f:
-                                f.write(data)
+                                f.write(blob)
+                        if key == "i":
+                            img = fname
+                        else:
+                            img2 = fname
                     if not v:
                         mv = RE_CREO.search(raw[:3000])
                         v = ("Creo " + mv.group(1).decode()) if mv else (
@@ -108,7 +129,7 @@ def collect_from_db(media_dir=None):
                 kind, mfg = "?", False
             if not img and model in nodes:          # уже есть узел с превью — не затираем
                 continue
-            nodes[model] = {"k": kind, "v": v, "m": mfg, "i": img,
+            nodes[model] = {"k": kind, "v": v, "m": mfg, "i": img, "i2": img2,
                             "s": int(row[6] or 0), "p": path.split("\\")[-1],
                             "role": role}
         for row in con.execute("SELECT parent, child, qty FROM links"):
@@ -161,16 +182,13 @@ def jpeg_size(d):
     return 0, 0
 
 
-def cut_preview(raw):
-    """Превью из файла: искать ПО СИГНАТУРЕ (TOC-офсет DwgData НЕ ведёт к картинке!).
-
-    Возвращает (bytes, 'jpg'|'bmp') или (b'', '').
-    """
+def _find_jpg(raw):
+    """Первый ВАЛИДНЫЙ JPEG (сигнатура + проверка маркера SOF). (bytes,'jpg')|(b'','')."""
     j = -1
     while True:
         j = raw.find(b"\xff\xd8\xff", j + 1)
         if j < 0:
-            break
+            return b"", ""
         e = raw.find(b"\xff\xd9", j + 3)
         if e <= 0:
             continue
@@ -180,17 +198,45 @@ def cut_preview(raw):
         w, h = jpeg_size(cand)
         if w and h and 16 <= w <= 4096 and 16 <= h <= 4096:
             return cand, "jpg"
+
+
+def _find_bmp(raw):
+    """Первый ВАЛИДНЫЙ BMP (размер и WxH из заголовка). (bytes,'bmp')|(b'','')."""
     b = -1
     while True:
         b = raw.find(b"BM", b + 1)
         if b < 0 or b + 26 > len(raw):
-            break
+            return b"", ""
         size = int.from_bytes(raw[b + 2:b + 6], "little")
         w = int.from_bytes(raw[b + 18:b + 22], "little", signed=True)
         h = int.from_bytes(raw[b + 22:b + 26], "little", signed=True)
         if 1024 <= size <= len(raw) - b and 16 <= abs(w) <= 4096 and 16 <= abs(h) <= 4096:
             return raw[b:b + size], "bmp"
-    return b"", ""
+
+
+def cut_preview(raw, want="both"):
+    """Превью из файла: ПО СИГНАТУРЕ (TOC-офсет DwgData НЕ ведёт к картинке!).
+
+    want: "both" — что найдётся (важно: в файлах бывает ТОЛЬКО JPEG, даже у .drw);
+          "jpg" | "bmp" — строго этот формат; "all" — вернуть список ВСЕХ найденных.
+    Возвращает (bytes, 'jpg'|'bmp') или (b'', ''); для "all" — [(bytes, ext), …].
+    """
+    if want == "all":
+        out = []
+        j, e = _find_jpg(raw)
+        if j:
+            out.append((j, e))
+        b, e = _find_bmp(raw)
+        if b:
+            out.append((b, e))
+        return out
+    j, e1 = _find_jpg(raw)
+    b, e2 = _find_bmp(raw)
+    if want == "jpg":
+        return (j, e1)
+    if want == "bmp":
+        return (b, e2)
+    return (j, e1) if j else (b, e2)
 
 
 def collect_from_snapshots(media_dir=None):
@@ -283,7 +329,8 @@ def selfcheck(html):
     for name, cnt in _Counter(fns).items():
         if cnt > 1:
             errs.append("дубль функции %s (%d раз) — окно останется ПУСТЫМ" % (name, cnt))
-    for lit in ("__DATA__", "__STATS__", "__MEDIA__"):
+    for lit in ("__DATA__", "__STATS__", "__MEDIA__", "__DEPTH__", "__NODESMAX__",
+                "__CHILDMAX__", "__LISTMAX__", "__LINKSMAX__", "__CARDH__", "__THUMB__"):
         if lit in html:
             errs.append("не подставлен литерал %s" % lit)
     esc = re.findall(r"\\u00[0-9a-fA-F]{2}", js)
@@ -293,6 +340,31 @@ def selfcheck(html):
 
 
 # --------------------------------------------------------------------- HTML-страница
+def load_settings():
+    """Настройки графа из settings.json (правило дома: НЕ зашивать в код).
+
+    Ключи: graph_depth, graph_nodes_max, graph_children_max, graph_list_max,
+    graph_links_max, graph_card_h, graph_thumb, graph_media, graph_open_browser.
+    Недостающие берутся из plm_settings.DEFAULT_SETTINGS.
+    """
+    cfg = {"graph_depth": 3, "graph_nodes_max": 120, "graph_children_max": 25,
+           "graph_list_max": 800, "graph_links_max": 120, "graph_card_h": 230,
+           "graph_thumb": 40, "graph_media": True, "graph_image_mode": "auto",
+           "graph_open_browser": True}
+    try:
+        import plm_settings
+        cfg.update({k: v for k, v in plm_settings.load_settings_file().items() if k in cfg})
+    except Exception:                  # noqa: BLE001
+        try:
+            p = os.path.join(HERE, "settings", "settings.json")
+            if os.path.isfile(p):
+                raw = json.load(open(p, encoding="utf-8"))
+                cfg.update({k: v for k, v in raw.items() if k in cfg})
+        except Exception:              # noqa: BLE001
+            pass
+    return cfg
+
+
 def build_html(nodes, edges, media_dir, stats_extra=None):
     """Собирает автономную страницу (0 CDN) и возвращает текст HTML."""
     out_, in_ = defaultdict(list), defaultdict(list)
@@ -302,15 +374,25 @@ def build_html(nodes, edges, media_dir, stats_extra=None):
     nd = {}
     for m, v in nodes.items():
         nd[m] = {"k": v.get("k", "?"), "v": v.get("v", ""), "m": bool(v.get("m")),
-                 "i": v.get("i", ""), "s": v.get("s", 0), "p": v.get("p", ""),
+                 "i": v.get("i", ""), "i2": v.get("i2", ""),
+                 "s": v.get("s", 0), "p": v.get("p", ""),
                  "o": [[e["to"], e["type"]] for e in out_.get(m, [])],
                  "n": [[e["from"], e["type"]] for e in in_.get(m, [])]}
-    st = {"nodes": len(nd), "edges": len(edges),
-          "media": sum(1 for v in nodes.values() if v.get("i"))}
+    n_img = sum(1 for v in nodes.values() if v.get("i"))
+    st = {"nodes": len(nd), "edges": len(edges), "media": n_img,
+          "no_img": len(nd) - n_img}
     if stats_extra:
         st.update(stats_extra)
     rel = os.path.relpath(media_dir, HERE).replace("\\", "/") if media_dir else "."
+    cfg = load_settings()
     page = load_page_template()
+    for key, val in (("__DEPTH__", cfg["graph_depth"]), ("__NODESMAX__", cfg["graph_nodes_max"]),
+                     ("__CHILDMAX__", cfg["graph_children_max"]),
+                     ("__LISTMAX__", cfg["graph_list_max"]),
+                     ("__LINKSMAX__", cfg["graph_links_max"]),
+                     ("__CARDH__", cfg["graph_card_h"]), ("__THUMB__", cfg["graph_thumb"])):
+        page = page.replace(key, str(val))
+    st["cfg"] = {k: v for k, v in cfg.items() if k != "graph_media"}
     return (page.replace("__DATA__", json.dumps(nd, ensure_ascii=False))
                 .replace("__STATS__", json.dumps(st, ensure_ascii=False))
                 .replace("__MEDIA__", rel))
@@ -333,7 +415,11 @@ def load_page_template():
 
 def main():
     no_open = "--no-open" in sys.argv
-    media = os.path.join(HERE, "db", "media")
+    global _media_mode
+    cfg = load_settings()
+    _media_mode = (cfg.get("graph_image_mode") or "auto").lower()
+    media = None if _media_mode == "none" or not cfg.get("graph_media") \
+        else os.path.join(HERE, "db", "media")
     nodes, edges = collect_from_db(media)      # превью собираются и в базовом режиме
     src = "база"
     if not nodes:
@@ -354,7 +440,7 @@ def main():
     print("источник: %s | узлов %d | рёбер %d | с превью %d"
           % (src, len(nodes), len(edges), sum(1 for v in nodes.values() if v.get("i"))))
     print("->", DST)
-    if not no_open:
+    if not no_open and cfg.get("graph_open_browser", True):
         try:
             import webbrowser
             webbrowser.open("file:///" + DST.replace("\\", "/"))
