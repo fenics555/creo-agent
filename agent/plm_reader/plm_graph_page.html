@@ -222,9 +222,12 @@ function draw(root){
     for (let depth = 1; depth <= 3 && frontier.length; depth++){
       const next = [];
       for (const m of frontier){
+        // ЖЁСТКИЙ ЛИМИТ: иначе на базе (26k+ узлов) хаб с сотнями детей
+        // переполняет обход и граф не рисуется вовсе
+        if (Object.keys(N).length > 120) return;
         const n = ND[m]; if (!n) continue;
         const use = (dir === "d" ? n.o : n.n) || [];
-        for (const t of use.slice(0, 40)){
+        for (const t of use.slice(0, 25)){
           const nm = t[0];
           if (!ND[nm] || nm === root || seen.has(nm)) continue;
           seen.add(nm);
@@ -302,6 +305,12 @@ function draw(root){
 }
 
 render();
-const first = shown.find(m => ND[m].m) || shown[0];
+// Стартовый узел: сначала MFG-сборка, потом любой СО СВЯЗЯМИ (иначе граф пуст и
+// выглядит как «граф не работает»), и только затем первый из списка.
+const first = shown.find(m => ND[m].m && (ND[m].o.length + ND[m].n.length)) ||
+              shown.find(m => ND[m].o.length + ND[m].n.length) ||
+              shown[0];
 if (first) show(first);
+else document.getElementById("card").innerHTML =
+  '<h2>Пусто</h2><div class="meta">в базе нет моделей — просканируйте склад</div>';
 </script></body></html>

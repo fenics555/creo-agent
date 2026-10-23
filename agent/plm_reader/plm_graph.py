@@ -49,13 +49,15 @@ def _norm(name):
     return s.upper()
 
 
-def collect_from_db():
-    """Узлы и рёбра из базы plm_reader.
+def collect_from_db(media_dir=None):
+    """Узлы и рёбра из базы plm_reader (+ превью и размеры из файлов, если доступны).
 
     Схема (engine.SCHEMA): snapshots(path, model, folder, size, volume, material, name,
     designation, rev, author, revdate, role, seen, hist, creo, created);
     links(parent, child, qty, source); derived(child, base, kind, source).
-    Возвращает (nodes, edges) или (None, None), если базы нет.
+
+    media_dir задан → из КАЖДОГО файла вырезается превью (по сигнатуре, SHA-256) и
+    кладётся в media_dir. Возвращает (nodes, edges) или (None, None), если базы нет.
     """
     if engine is None:
         return None, None
@@ -64,8 +66,9 @@ def collect_from_db():
     except Exception:                  # noqa: BLE001
         return None, None
     nodes, edges = {}, []
+    import hashlib
     try:
-        for row in con.execute("SELECT model, path, volume, material, creo, role "
+        for row in con.execute("SELECT model, path, volume, material, creo, role, size "
                                "FROM snapshots"):
             model = _norm(row[0]) or _norm((row[1] or "").split("\\")[-1])
             if not model:
@@ -75,8 +78,38 @@ def collect_from_db():
             v = ""
             if creo:
                 v = creo if creo.upper().startswith("CREO") else ("Creo " + creo)
-            nodes[model] = {"k": "PART", "v": v, "m": False, "i": "",
-                            "s": 0, "p": (row[1] or "").split("\\")[-1],
+            path = row[1] or ""
+            img = ""
+            # ПРЕВЬЮ: читаем файл и вырезаем картинку (по сигнатуре, не по TOC-офсету)
+            if media_dir and path and os.path.isfile(path) and not nodes.get(model, {}).get("i"):
+                try:
+                    raw = open(path, "rb").read()
+                    data, ext = cut_preview(raw)
+                    if data:
+                        if not os.path.isdir(media_dir):
+                            os.makedirs(media_dir)
+                        img = hashlib.sha256(data).hexdigest()[:20] + "." + ext
+                        dst = os.path.join(media_dir, img)
+                        if not os.path.exists(dst):
+                            with open(dst, "wb") as f:
+                                f.write(data)
+                    if not v:
+                        mv = RE_CREO.search(raw[:3000])
+                        v = ("Creo " + mv.group(1).decode()) if mv else (
+                            "ProE/Wildfire" if RE_PROE.search(raw[:3000]) else "")
+                    kind = "?"
+                    mt = PAT_TYPE.search(raw[:400])
+                    if mt:
+                        kind = mt.group(1).decode("latin-1")
+                    mfg = b"ASSEM_MFG" in raw[:400]
+                except OSError:
+                    kind, mfg = "?", False
+            else:
+                kind, mfg = "?", False
+            if not img and model in nodes:          # уже есть узел с превью — не затираем
+                continue
+            nodes[model] = {"k": kind, "v": v, "m": mfg, "i": img,
+                            "s": int(row[6] or 0), "p": path.split("\\")[-1],
                             "role": role}
         for row in con.execute("SELECT parent, child, qty FROM links"):
             p, c = _norm(row[0]), _norm(row[1])
@@ -301,7 +334,7 @@ def load_page_template():
 def main():
     no_open = "--no-open" in sys.argv
     media = os.path.join(HERE, "db", "media")
-    nodes, edges = collect_from_db()
+    nodes, edges = collect_from_db(media)      # превью собираются и в базовом режиме
     src = "база"
     if not nodes:
         nodes, edges = collect_from_snapshots(media)
