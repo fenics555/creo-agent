@@ -101,7 +101,9 @@ function kindTag(n){
 }
 function matches(m){
   const n = ND[m];
-  if (q.value && !m.toLowerCase().includes(q.value.toLowerCase())) return false;
+  // ключ узла — ЧИСЛО (index); ищем по имени и по папке (одноимённые различимы)
+  const hay = ((n.nm || m) + " " + (n.dir || "")).toLowerCase();
+  if (q.value && !hay.includes(q.value.toLowerCase())) return false;
   if (fk.value && n.k !== fk.value) return false;
   if (fv.value && n.v !== fv.value) return false;
   const linked = n.o.length + n.n.length;
@@ -150,8 +152,12 @@ function matches(m){
   window.addEventListener("touchend", () => { drag = null; });
 })();
 function render(){
+  // Сортировка: сначала «живые» узлы (связи В ОБЕ стороны) — из них граф строится,
+  // затем по общему числу связей. Так список не начинается мёртвыми шаблонами.
+  const score = m => (ND[m].o.length && ND[m].n.length ? 1e9 : 0)
+                   + Math.min(ND[m].o.length, 5000) + Math.min(ND[m].n.length, 5000);
   const keys = Object.keys(ND).filter(matches).sort((a,b) =>
-    (ND[b].o.length + ND[b].n.length) - (ND[a].o.length + ND[a].n.length) || a.localeCompare(b));
+    score(b) - score(a) || (ND[a].nm || "").localeCompare(ND[b].nm || ""));
   shown = keys.slice(0, __LISTMAX__);
   list.innerHTML = shown.map(m => {
     const n = ND[m], linked = n.o.length + n.n.length;
@@ -159,15 +165,17 @@ function render(){
     const im = n.i ? '<img loading="lazy" src="' + IMG + n.i + '" title="' + n.i + '">'
                    : '<div class="noimg" title="в файле нет превью">' +
                      (n.k.split("/")[0].slice(0, 4)) + '</div>';
+    const nm = n.nm || m, dir = n.dir ? ' <i style="color:#5f6f7f">· ' + n.dir + '</i>' : '';
     return '<div class="row" data-m="' + m + '">' + im +
-      '<div class="nm"><b>' + kindTag(n) + m + '</b><span>' + n.v +
+      '<div class="nm"><b>' + kindTag(n) + nm + '</b><span>' + n.v + dir +
       ' · состав ' + n.o.length + ' · входит ' + n.n.length + ' · ' +
       (n.s/1048576).toFixed(2) + ' МБ</span></div></div>';
   }).join("");
   document.getElementById("stats").textContent =
-    "показано " + shown.length + " из " + keys.length + " · моделей " +
-    Object.keys(ND).length + " · рёбер " + ST.edges +
-    " · с превью " + (ST.media || 0) + " · без превью " + (ST.no_img || 0);
+    "показано " + shown.length + " из " + keys.length + " · в странице " +
+    Object.keys(ND).length + " моделей · рёбер " + ST.edges +
+    " · с превью " + (ST.media || 0) +
+    (ST.all_nodes ? " · в базе всего " + ST.all_nodes + " / " + ST.all_edges + " связей" : "");
 }
 list.addEventListener("click", e => {
   const r = e.target.closest(".row"); if (r) show(r.dataset.m);
@@ -186,13 +194,15 @@ function show(m){
                     '<figcaption>чертёж</figcaption></figure>';
   if (!prev) prev = '<span style="color:#5a6773;text-align:center;padding:10px">' +
                     'нет превью<br><small>в файле нет картинки/чертежа</small></span>';
+  const nmOf = k => (ND[k] && (ND[k].nm || k)) || k;
   const li = arr => arr.length ? arr.slice(0, __LINKSMAX__).map(x =>
-      '<li data-m="' + x[0] + '"><span class="t">' + x[1] + '</span>' + x[0] + '</li>').join("")
+      '<li data-m="' + x[0] + '"><span class="t">' + x[1] + '</span>' + nmOf(x[0]) + '</li>').join("")
     : "<li style='color:#5a6773'>—</li>";
   document.getElementById("card").innerHTML =
-    '<h2>' + m + '</h2>' +
+    '<h2>' + (n.nm || m) + '</h2>' +
     '<div class="meta">' + kindTag(n) + ' тип ' + n.k + ' · Creo ' + n.v +
-      ' · ' + (n.s/1048576).toFixed(2) + ' МБ<br>' + n.p + '</div>' +
+      ' · ' + (n.s/1048576).toFixed(2) + ' МБ<br>' +
+      '<span style="color:#7f8fa2">папка:</span> ' + (n.dir || '—') + '</div>' +
     '<div class="flex"><div class="prev">' + prev + '</div>' +
     '<div class="cols"><div><h3>Состав — что использует (' + n.o.length +
       ')</h3><ul>' + li(n.o) + '</ul></div>' +
@@ -304,7 +314,8 @@ function draw(root){
     svg += '<g class="nd" data-m="' + m + '" style="cursor:pointer">' +
       '<rect x="' + px + '" y="' + py + '" width="212" height="18" rx="4" fill="' +
       (m === root ? "#213042" : "#1b2128") + '" stroke="' + c + '"/>' +
-      '<text x="' + (px + 6) + '" y="' + (py + 13) + '">' + m.slice(0, 32) + '</text></g>';
+      '<text x="' + (px + 6) + '" y="' + (py + 13) + '">' +
+      (((n.nm || m).length > 32) ? (n.nm || m).slice(0, 31) + '…' : (n.nm || m)) + '</text></g>';
   }
   let leg = "";
   for (const k of Object.keys(CLR)){
@@ -324,11 +335,22 @@ function draw(root){
 }
 
 render();
-// Стартовый узел: сначала MFG-сборка, потом любой СО СВЯЗЯМИ (иначе граф пуст и
-// выглядит как «граф не работает»), и только затем первый из списка.
-const first = shown.find(m => ND[m].m && (ND[m].o.length + ND[m].n.length)) ||
-              shown.find(m => ND[m].o.length + ND[m].n.length) ||
-              shown[0];
+// Стартовый узел для ГРАФА: нужен такой, у которого есть связи В ОБЕ СТОРОНЫ
+// (иначе граф односторонний или вовсе пуст — у шаблона «состав 0»).
+// Порядок: MFG с двумя сторонами → любой с двумя сторонами → с одной → первый.
+const both = m => ND[m].o.length && ND[m].n.length;
+const any1 = m => ND[m].o.length || ND[m].n.length;
+let first = shown.find(m => ND[m].m && both(m)) ||
+            shown.find(both) ||
+            shown.find(m => ND[m].m && any1(m)) ||
+            shown.find(any1) ||
+            shown[0];
+// если у выбранного нет связей — ищем по ВСЕМУ списку (не только видимым строкам)
+if (first && !any1(first)){
+  const alt = Object.keys(ND).find(m => ND[m].o.length && ND[m].n.length) ||
+              Object.keys(ND).find(any1);
+  if (alt) first = alt;
+}
 if (first) show(first);
 else document.getElementById("card").innerHTML =
   '<h2>Пусто</h2><div class="meta">в базе нет моделей — просканируйте склад</div>';

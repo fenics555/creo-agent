@@ -24,6 +24,10 @@ HERE = os.path.dirname(os.path.abspath(__file__))
 DST = os.path.join(HERE, "CREO_GRAPH.html")
 # Режим изображений из настроек (auto/pict/draw/none) — ставится в main/collect.
 _media_mode = "auto"
+# Предел чтения файлов и бюджет времени (сек) — из настроек; защита от зависания на сети Z:.
+_media_max = 25000
+_scan_budget = 120.0
+count_media = 0                     # сколько превью уже в кэше (глобально)
 # Шаблон страницы: рядом с инструментом (переносимость), при отсутствии — из env.
 TEMPLATE = os.path.join(HERE, "plm_graph_page.html")
 
@@ -49,6 +53,159 @@ def _norm(name):
         if i > 0:
             return s[:i].upper()
     return s.upper()
+
+
+def _media_cache_path():
+    return os.path.join(HERE, "db", "media_cache.json")
+
+
+def _load_media_cache():
+    """Кэш: путь файла → (превью1, превью2). Чтобы НЕ читать файлы каждый раз (сеть Z:).
+
+    Первый прогон — собирает и сохраняет; последующие берут готовое мгновенно.
+    """
+    p = _media_cache_path()
+    if os.path.isfile(p):
+        try:
+            with open(p, encoding="utf-8") as f:
+                data = json.load(f)
+            if isinstance(data, dict):
+                return {k: tuple(v) for k, v in data.items()}
+        except Exception:              # noqa: BLE001
+            pass
+    return {}
+
+
+def _save_media_cache(cache):
+    try:
+        d = os.path.dirname(_media_cache_path())
+        if not os.path.isdir(d):
+            os.makedirs(d)
+        with open(_media_cache_path(), "w", encoding="utf-8") as f:
+            json.dump(cache, f, ensure_ascii=False)
+    except Exception:                  # noqa: BLE001
+        pass
+
+
+def collect_by_path(media_dir=None):
+    """Узлы по ПУТИ файла (правильная модель: одноимённые в разных папках — РАЗНЫЕ узлы).
+
+    Проверка _diag_collide.py: 80% связей неоднозначны по имени (KIR-401-60X67-01 — 23 пути).
+    Ключ узла = путь. Имя хранится отдельно (для отображения и поиска).
+    Связи links(parent, child) хранят ИМЕНА → связываем с узлами через индекс имя→пути
+    (если имя одно — прямая связь; если их несколько — берём все варианты как отдельные рёбра).
+    """
+    if engine is None:
+        return None, None
+    try:
+        con = engine.connect()
+    except Exception:                  # noqa: BLE001
+        return None, None
+    nodes, edges = {}, []
+    import hashlib
+    import time
+    by_name = defaultdict(list)         # имя → [ключ-путь, …]
+    cache = _load_media_cache()         # путь → (i, i2) — НЕ читаем файл повторно
+    t0 = time.time()
+    budget = float(_scan_budget)        # сек: ограничение на чтение файлов (настройка)
+    read_files = 0
+    cnt_media = len(cache)              # ЛОКАЛЬНЫЙ счётчик (глобальный нельзя менять без global)
+    # Уже собранные файлы в media\ — их хэши можно проверить БЕЗ чтения Creo (быстро)
+    have_media = set()
+    if media_dir and os.path.isdir(media_dir):
+        try:
+            have_media = {f.lower() for f in os.listdir(media_dir)}
+        except OSError:
+            have_media = set()
+    try:
+        for row in con.execute("SELECT model, path, volume, material, creo, role, size, "
+                               "name, designation FROM snapshots"):
+            path = row[1] or ""
+            if not path:
+                continue
+            key = path                        # КЛЮЧ = ПУТЬ (одноимённые не склеиваются)
+            name = _norm(row[0]) or _norm(path.split("\\")[-1])
+            if not name:
+                continue
+            by_name[name].append(key)
+            creo = (row[4] or "")
+            v = creo if creo.upper().startswith("CREO") else (("Creo " + creo) if creo else "")
+            img = img2 = ""
+            kind = "?"
+            mfg = False
+            # КЭШ: если файл уже читали — берём готовые превью, к диску не идём
+            if path in cache:
+                img, img2 = cache[path]
+            elif media_dir and cnt_media < int(_media_max) \
+                    and (time.time() - t0) < budget and os.path.isfile(path):
+                try:
+                    read_files += 1
+                    raw = open(path, "rb").read()
+                    found = cut_preview(raw, "all")
+                    if _media_mode == "pict":
+                        found = [f for f in found if f[1] == "jpg"]
+                    elif _media_mode == "draw":
+                        found = [f for f in found if f[1] == "bmp"]
+                    if not os.path.isdir(media_dir):
+                        os.makedirs(media_dir)
+                    for i2, item in enumerate(found[:2]):
+                        if not item or not item[0]:
+                            continue
+                        blob, ex = item
+                        fname = hashlib.sha256(blob).hexdigest()[:20] + "." + ex
+                        dstp = os.path.join(media_dir, fname)
+                        if not os.path.exists(dstp):
+                            with open(dstp, "wb") as f:
+                                f.write(blob)
+                        if i2 == 0:
+                            img = fname
+                        else:
+                            img2 = fname
+                    mt = PAT_TYPE.search(raw[:400])
+                    if mt:
+                        kind = mt.group(1).decode("latin-1")
+                    mfg = b"ASSEM_MFG" in raw[:400]
+                    if not v:
+                        mv = RE_CREO.search(raw[:3000])
+                        v = ("Creo " + mv.group(1).decode()) if mv else (
+                            "ProE/Wildfire" if RE_PROE.search(raw[:3000]) else "")
+                except OSError:
+                    pass
+            nodes[key] = {"k": kind, "v": v, "m": mfg, "i": img, "i2": img2,
+                          "s": int(row[6] or 0), "p": path, "role": (row[5] or "").upper(),
+                          "n": name, "d": (row[8] or "")}
+            if img or img2:
+                cache[path] = (img, img2)
+                cnt_media += 1
+        # связи: имена → пути (все варианты; если имя одно — одно ребро)
+        for row in con.execute("SELECT parent, child, qty FROM links"):
+            for pk in by_name.get(_norm(row[0]), []):
+                for ck in by_name.get(_norm(row[1]), []):
+                    if pk != ck:
+                        edges.append({"from": pk, "to": ck, "type": "деталь", "channel": "db"})
+        for row in con.execute("SELECT child, base, kind FROM derived"):
+            k0 = (row[2] or "").lower()
+            kind2 = "копия" if "коп" in k0 else "заготовка"
+            for ck in by_name.get(_norm(row[0]), []):
+                for bk in by_name.get(_norm(row[1]), []):
+                    if ck != bk:
+                        edges.append({"from": ck, "to": bk, "type": kind2, "channel": "db"})
+    except Exception as e:             # noqa: BLE001
+        # НЕ ГЛУШИМ: раньше исключение съедалось и откат шёл на неверную модель
+        # (ключ = имя) — из-за этого граф строился «не тот». Теперь видно.
+        print("ОШИБКА collect_by_path: %s: %s" % (type(e).__name__, e), flush=True)
+        import traceback
+        traceback.print_exc()
+        return None, None
+    finally:
+        try:
+            con.close()
+        except Exception:              # noqa: BLE001
+            pass
+    _save_media_cache(cache)
+    print("кэш превью: %d записей (прочитано файлов за прогон: %d, %.0f с)"
+          % (len(cache), read_files, time.time() - t0), flush=True)
+    return (nodes, edges) if nodes else (None, None)
 
 
 def collect_from_db(media_dir=None):
@@ -336,6 +493,13 @@ def selfcheck(html):
     esc = re.findall(r"\\u00[0-9a-fA-F]{2}", js)
     if esc:
         errs.append("экранированные \\uXXXX в JS: %d" % len(esc))
+    # ГРАБЛЯ 23.10.2026: граф пуст, если уровень считать как строку (depth * "d" = NaN).
+    if re.search(r"\*\s*dir\b", js) and 'var dir' not in js and 'const sign' not in js:
+        errs.append("граф: уровень считается как depth * dir (строка) → NaN → пустой граф")
+    # Проверка картинок делается В PYTHON (plm_graph), а не в JS — поэтому здесь только
+    # убеждаемся, что страница знает про два превью (i и i2).
+    if '"i2"' not in js and "n.i2" not in js:
+        errs.append("граф: страница не показывает второй вид (чертёж)")
     return errs
 
 
@@ -350,6 +514,7 @@ def load_settings():
     cfg = {"graph_depth": 3, "graph_nodes_max": 120, "graph_children_max": 25,
            "graph_list_max": 800, "graph_links_max": 120, "graph_card_h": 230,
            "graph_thumb": 40, "graph_media": True, "graph_image_mode": "auto",
+           "graph_media_limit": 25000, "graph_scan_budget": 120, "graph_page_nodes": 12000,
            "graph_open_browser": True}
     try:
         import plm_settings
@@ -371,20 +536,52 @@ def build_html(nodes, edges, media_dir, stats_extra=None):
     for e in edges:
         out_[e["from"]].append(e)
         in_[e["to"]].append(e)
+    # КОМПАКТНО: в страницу идут только узлы, у которых ЕСТЬ связи или превью,
+    # плюс ограничение объёма (иначе 46 МБ — браузер не отрисует).
+    cfg0 = load_settings()
+    limit_nodes = int(cfg0.get("graph_page_nodes", 12000))
+    # ОТСЕВ ШАБЛОНОВ и служебных: они «входят в тысячи сборок» и портят список
+    # (SBORKA_MM — 3682, SBORKA_MFG — 1975, MM_PART — 1847, папки ШАБЛОНЫ/НАСТРОЙКИ).
+    SVC = re.compile(r"^(SBORKA_MM|SBORKA_MFG|MFG_NC|MFG_NC_NEW|INLBS_MFG_NC|MM_PART|MM_ASSY|"
+                     r"MM_|TEMPLATE|REGEN_BACKUP|NONE|NULL)$", re.I)
+    SVC_DIR = re.compile(r"(ШАБЛОН|НАСТРОЙК|TEMPLATE|\\СИСТЕМН)", re.I)
+
+    def _svc(k):
+        v = nodes[k]
+        nm = (v.get("n") or "").upper()
+        return bool(SVC.match(nm)) or bool(SVC_DIR.search(v.get("p") or ""))
+
+    live = [k for k, v in nodes.items()
+            if (out_.get(k) or in_.get(k) or v.get("i")) and not _svc(k)]
+    live.sort(key=lambda k: -(len(out_.get(k, ())) + len(in_.get(k, ()))))
+    keep = set(live[:limit_nodes])
+    idx = {k: i for i, k in enumerate(sorted(keep))}      # ключ → номер (коротко)
     nd = {}
     for m, v in nodes.items():
-        nd[m] = {"k": v.get("k", "?"), "v": v.get("v", ""), "m": bool(v.get("m")),
-                 "i": v.get("i", ""), "i2": v.get("i2", ""),
-                 "s": v.get("s", 0), "p": v.get("p", ""),
-                 "o": [[e["to"], e["type"]] for e in out_.get(m, [])],
-                 "n": [[e["from"], e["type"]] for e in in_.get(m, [])]}
-    n_img = sum(1 for v in nodes.values() if v.get("i"))
-    st = {"nodes": len(nd), "edges": len(edges), "media": n_img,
-          "no_img": len(nd) - n_img}
+        if m not in keep:
+            continue
+        # m — КЛЮЧ (путь); nm — имя для показа и поиска; folder — папка (чтобы различить одноимённые)
+        full = v.get("p", "") or m
+        nm = v.get("n") or _norm(full.split("\\")[-1])
+        folder = full.rsplit("\\", 2)[-2] if "\\" in full else ""
+        nd[idx[m]] = {"k": v.get("k", "?"), "v": v.get("v", ""), "m": bool(v.get("m")),
+                      "i": v.get("i", ""), "i2": v.get("i2", ""),
+                      "s": v.get("s", 0), "nm": nm, "dir": folder,
+                      "o": [[idx[e["to"]], e["type"]] for e in out_.get(m, [])
+                            if e["to"] in idx],
+                      "n": [[idx[e["from"]], e["type"]] for e in in_.get(m, [])
+                            if e["from"] in idx]}
+    # статистика — ПО СТРАНИЦЕ (в неё попадает часть узлов), а не по всей базе
+    n_img = sum(1 for v in nd.values() if v.get("i"))
+    n_e = sum(len(v.get("o") or []) for v in nd.values())
+    st = {"nodes": len(nd), "edges": n_e, "media": n_img, "no_img": len(nd) - n_img,
+          "all_nodes": len(nodes), "all_edges": len(edges)}
     if stats_extra:
         st.update(stats_extra)
     rel = os.path.relpath(media_dir, HERE).replace("\\", "/") if media_dir else "."
     cfg = load_settings()
+    # ГРАБЛЯ 23.10.2026: страница «пустая», если она гигантская — браузер не парсит 46 МБ.
+    # Поэтому связи пишем КОМПАКТНО (короткие ключи) + ограничиваем список узлов в странице.
     page = load_page_template()
     for key, val in (("__DEPTH__", cfg["graph_depth"]), ("__NODESMAX__", cfg["graph_nodes_max"]),
                      ("__CHILDMAX__", cfg["graph_children_max"]),
@@ -415,13 +612,19 @@ def load_page_template():
 
 def main():
     no_open = "--no-open" in sys.argv
-    global _media_mode
+    global _media_mode, _media_max, _scan_budget, count_media
     cfg = load_settings()
     _media_mode = (cfg.get("graph_image_mode") or "auto").lower()
+    _media_max = int(cfg.get("graph_media_limit", 25000))
+    _scan_budget = float(cfg.get("graph_scan_budget", 120))
+    count_media = 0
     media = None if _media_mode == "none" or not cfg.get("graph_media") \
         else os.path.join(HERE, "db", "media")
-    nodes, edges = collect_from_db(media)      # превью собираются и в базовом режиме
-    src = "база"
+    nodes, edges = collect_by_path(media)      # КЛЮЧ = ПУТЬ (одноимённые — разные узлы)
+    src = "база (по путям)"
+    if not nodes:
+        nodes, edges = collect_from_db(media)
+        src = "база (по именам)"
     if not nodes:
         nodes, edges = collect_from_snapshots(media)
         src = "файлы"
