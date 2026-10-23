@@ -2,7 +2,7 @@
  "version": "V100",
  "version_num": 100,
  "date": "23.10.2026",
- "notes": "V100: PDM-Console - autonomous HTML graph from DB (26071 nodes/34926 edges), 6 semantic edge colors, two-way graph walk, draggable splitters, previews by signature + SHA256 dedup, JS selfcheck; CREO_GRAPH.html gitignored",
+ "notes": "V100 PDM-Console: autonomous HTML graph from DB (12000 page nodes / 55814 edges, 46756 in base), keyed by PATH (80% ambiguous names), 6 edge colors, two-way walk, previews by signature (25000 cached), JS selfcheck; _check_page.py acceptance fixed (was looking in _diag)",
  "files": {
   "engine.py": "460e52e5d7480e78a89d661f7f46ad07a29771595ac270783fda60c4b1ddae11",
   "plm_reader.py": "acc5217025595ee3f2f005c4e756cacf5d56ce233c9f8a1bdaf0926be565c015",
@@ -10,7 +10,7 @@
   "plm_history.py": "0e8a1b414f3ad7c67175251fb4192e26431b0e9760bcce6ba6d9faf03ada8c77",
   "plm_parse.py": "c6bb33a412b6b606ad402e3eb78cd49246b77738b69d82be1b6218a1358c0312",
   "plm_dbview.py": "ca213c77054efaa4d7b180b39999a38117ad3938ece256c2bc79b6310e8b09df",
-  "plm_settings.py": "11b6eed7d44b65ca86dd8669e3595bf7cc44cd16e659b34890c6824f0ef4d37b",
+  "plm_settings.py": "c8e21fd2c8eb49cee1e0fa9504bae75d7ad97d82b2a70a8f7b55266db39dbb12",
   "plm_scan.py": "e32d610e33932afaee4c952cb0b4564801508f0568d4360d7d039ffacb856f48",
   "plm_paths_window.py": "bf1a2bc91ec4ec2398b8c1bb1b5997c4a295e2f8f76dde5353e3ead97b14eb21",
   "creo_read.py": "9175d7a8ffc3007faf098c4077919c4a3a7bea79cd253cfd4054231347cc64e0",
@@ -19,9 +19,9 @@
   "plm_reader.bat": "bdd125397db3ac7e7432dbdb078a6a811ed4913fca02b062edb27907032fca3d",
   "plm_reader_gui.bat": "9f695898d5db6431e840784b9587c75304ca9e526b06f79d4b44ab026663bd20",
   "make_version_json.py": "4603968533bec13a05defb4a164246728b9649d50d524479f639493eeed7c92f",
-  ".gitignore": "482e14fc7ede8f365cd236572e697f654064607d8b41b4687803ca7a3911e667",
+  ".gitignore": "2f08b9c39e8e196c234d241901bd0555a5702635731aff829fde96c4349efa5f",
   "AGENTS.md": "3b08e6e81731ace78deac46df3b802de337c3924acb87c54fe1562a2573650ef",
-  "plm_graph.py": "9fdd191fcb4f37e7d78a026202e5989a97d2cf72789462e376cd52c69612894c",
-  "plm_graph_page.html": "736194745f2150e8db87bd4c9b7663815c62698a4ebaec2370b56f126e8990f2"
+  "plm_graph.py": "207682938eb3055e3b81ebfafcdf209e23980d4b8d04179e6d2157db694e4b32",
+  "plm_graph_page.html": "89d07b145d82d19fa2c11e4194698d72fa57e077f58fed2d3fac4c128d3a0b03"
  }
 }
