@@ -2,7 +2,7 @@
  "version": "V100",
  "version_num": 100,
  "date": "23.10.2026",
- "notes": "V100: PDM-Console - autonomous HTML graph (0 CDN) from DB: 26071 nodes, 34926 edges; 6 semantic edge colors; draggable splitters; previews JPEG/BMP by signature with SHA-256 dedup; JS selfcheck before release",
+ "notes": "V100: PDM-Console - autonomous HTML graph from DB (26071 nodes/34926 edges), 6 semantic edge colors, two-way graph walk, draggable splitters, previews by signature + SHA256 dedup, JS selfcheck; CREO_GRAPH.html gitignored",
  "files": {
   "engine.py": "460e52e5d7480e78a89d661f7f46ad07a29771595ac270783fda60c4b1ddae11",
   "plm_reader.py": "acc5217025595ee3f2f005c4e756cacf5d56ce233c9f8a1bdaf0926be565c015",
@@ -19,7 +19,7 @@
   "plm_reader.bat": "bdd125397db3ac7e7432dbdb078a6a811ed4913fca02b062edb27907032fca3d",
   "plm_reader_gui.bat": "9f695898d5db6431e840784b9587c75304ca9e526b06f79d4b44ab026663bd20",
   "make_version_json.py": "4603968533bec13a05defb4a164246728b9649d50d524479f639493eeed7c92f",
-  ".gitignore": "a2cff3ee327770b2ef59e88b5f27474af13395dc2b1afc3d1a9d6ad91c45753e",
+  ".gitignore": "482e14fc7ede8f365cd236572e697f654064607d8b41b4687803ca7a3911e667",
   "AGENTS.md": "3b08e6e81731ace78deac46df3b802de337c3924acb87c54fe1562a2573650ef",
   "plm_graph.py": "9fdd191fcb4f37e7d78a026202e5989a97d2cf72789462e376cd52c69612894c",
   "plm_graph_page.html": "736194745f2150e8db87bd4c9b7663815c62698a4ebaec2370b56f126e8990f2"
