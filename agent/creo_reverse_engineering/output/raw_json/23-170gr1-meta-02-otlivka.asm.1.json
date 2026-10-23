@@ -1,0 +1,245 @@
+{
+    "model_name": "23-170gr1-meta-02-otlivka",
+    "plm_type": "Технологический техпроцесс механообработки (CAM)",
+    "edges": [
+        {
+            "source": "23-170gr1-meta-02-otlivka",
+            "target": "°‰‘FЧ’б3",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "23-170gr1-meta-02-otlivka",
+            "target": "жЈП’ЋЖ§ђМи",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "23-170gr1-meta-02-otlivka",
+            "target": "Sld_BasBasData",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "23-170gr1-meta-02-otlivka",
+            "target": "feat_defs_979",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "23-170gr1-meta-02-otlivka",
+            "target": "Sld_FeatDefsCmp",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "23-170gr1-meta-02-otlivka",
+            "target": "feat_defs_1000",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "23-170gr1-meta-02-otlivka",
+            "target": "place_instruction_ptrs",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "23-170gr1-meta-02-otlivka",
+            "target": "data(plin_info_sub_feat)",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "23-170gr1-meta-02-otlivka",
+            "target": "data(plin_info_pntsrf_1stpnt)",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "23-170gr1-meta-02-otlivka",
+            "target": "data(plin_info_ui_step)",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "23-170gr1-meta-02-otlivka",
+            "target": "dat_ptr(comp_data)",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "23-170gr1-meta-02-otlivka",
+            "target": "23-170GR1-META-02",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "23-170gr1-meta-02-otlivka",
+            "target": "simpl_rep",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "23-170gr1-meta-02-otlivka",
+            "target": "inherit_rep",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "23-170gr1-meta-02-otlivka",
+            "target": "p_foreign_source",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "23-170gr1-meta-02-otlivka",
+            "target": "minor_vers",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "23-170gr1-meta-02-otlivka",
+            "target": "interchange_info",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "23-170gr1-meta-02-otlivka",
+            "target": "user_data",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "23-170gr1-meta-02-otlivka",
+            "target": "mp_report_data",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "23-170gr1-meta-02-otlivka",
+            "target": "mass_prop",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "23-170gr1-meta-02-otlivka",
+            "target": "checksum",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "23-170gr1-meta-02-otlivka",
+            "target": "mp_checksum",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "23-170gr1-meta-02-otlivka",
+            "target": "alt_vals_info",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "23-170gr1-meta-02-otlivka",
+            "target": "item_info",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "23-170gr1-meta-02-otlivka",
+            "target": "feat_list_rev_info",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "23-170gr1-meta-02-otlivka",
+            "target": "mdl_geom_rev",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "23-170gr1-meta-02-otlivka",
+            "target": "tstamp",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "23-170gr1-meta-02-otlivka",
+            "target": "comp_list_rev_info",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "23-170gr1-meta-02-otlivka",
+            "target": "info(tuples_list_rev_info)",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "23-170gr1-meta-02-otlivka",
+            "target": "appl_data",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "23-170gr1-meta-02-otlivka",
+            "target": "CHUGUN_VCH50",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "23-170gr1-meta-02-otlivka",
+            "target": "alumni_info",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "23-170gr1-meta-02-otlivka",
+            "target": "moved_comp",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "23-170gr1-meta-02-otlivka",
+            "target": "restr_comp",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "23-170gr1-meta-02-otlivka",
+            "target": "rpl_conncts",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "23-170gr1-meta-02-otlivka",
+            "target": "sub_feat_arr",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "23-170gr1-meta-02-otlivka",
+            "target": "AUDIT_LOG",
+            "type": "has_history",
+            "metadata": {
+                "rev": "631",
+                "author": "USER",
+                "date": "10.06.25 06:30"
+            }
+        },
+        {
+            "source": "23-170gr1-meta-02-otlivka",
+            "target": "CNC_PROCESS",
+            "type": "mfg_operation_of",
+            "metadata": {
+                "operations": [
+                    "ASM_FRONT\u0000",
+                    "dma_sld_freeze\u0000"
+                ],
+                "method": "semantic_large_text"
+            }
+        }
+    ],
+    "parameters": {}
+}

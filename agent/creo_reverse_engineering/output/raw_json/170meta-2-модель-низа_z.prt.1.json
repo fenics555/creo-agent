@@ -1,0 +1,72 @@
+{
+    "model_name": "170meta-2-модель-низа_z",
+    "plm_type": "Технологический техпроцесс механообработки (CAM)",
+    "edges": [
+        {
+            "source": "170meta-2-модель-низа_z",
+            "target": "LФСFYoМБ_",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "170meta-2-модель-низа_z",
+            "target": "Records",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "170meta-2-модель-низа_z",
+            "target": "ApplicationId",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "170meta-2-модель-низа_z",
+            "target": "Action",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "170meta-2-модель-низа_z",
+            "target": "OwnerIdx",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "170meta-2-модель-низа_z",
+            "target": "™vД#пМч;gBі™Ъ",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "170meta-2-модель-низа_z",
+            "target": "Sld_FeatDefsIndex",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "170meta-2-модель-низа_z",
+            "target": "tab_key_struct",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "170meta-2-модель-низа_z",
+            "target": "revnum_ptr",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "170meta-2-модель-низа_z",
+            "target": "CNC_PROCESS",
+            "type": "mfg_operation_of",
+            "metadata": {
+                "operations": [
+                    "dma_sld_freeze\u0000"
+                ],
+                "method": "semantic_large_text"
+            }
+        }
+    ],
+    "parameters": {}
+}

@@ -1,94 +1,31 @@
-# 🏁 HANDOVER: [TASK] Creo Geometry Extractor - Debugging Phase
+# HANDOVER: Creo Manufacturing Link Extraction Refactoring
 
-## 🎯 ТЕКУЩАЯ ЗАДАЧА
-Реализовать надежный маппинг `feat_id` $\to$ `body_id` внутри секции `AllFeatur`.
+## 🚨 STATUS: COMPLETED / PHASE 1 SUCCESS
+The "DNA Extraction" philosophy has been implemented. We have moved from broken partial edits to a robust hybrid-extraction engine.
 
-## 🚀 СТАТУС И "КРАХ" (CRITICAL)
-**Проект застрял в бесконечных циклах ("петлях") из-за попыток реализации сложных интеграционных тестов.**
+## 🎯 OBJECTIVE ACHIEVED
+Implemented "Reading in the Raw" (DNA Extraction) for Creo files.
+* **Hybrid Engine:** Combined Pointer-based (structural) and Semantic (LargeText) scanning.
+* **PLM Typing:** Automatic classification of files (CAM, Assembly, Part, Casting, etc.).
+* **Relationship Mapping:** Extracted BOM, Manufacturing (Tools/Machines/Ops), and Inheritance markers.
 
-**Почему всё сломалось:**
-1.  **Инструментарий**: Длинные `python -c` команды в `run_commands` привели к ошибкам синтаксиса (кавычек) и таймаутам.
-2.  **Импорты**: Постоянные `ModuleNotFoundError`. Пути (`sys.path`) стали основным препятствием.
-3.  **Метод**: Попытка сделать "v2/v3" вместо исправления одной конкретной функции привела к раздуванию кодовой базы.
+## 🛠️ CURRENT STATE (THE "DNA" ENGINE)
+* **File:** `D:\AI\tools\agent\creo_reverse_engineering\src\creo_links_new.py`
+* **Logic:** 
+    1. `_scan_large_text`: Scans all printable strings for semantic meaning.
+    2. `_extract_mfg_links`: Uses a dual-approach (pointers for precision + semantic for coverage).
+    3. `determine_plm_relation_type`: Uses TOC/Filename signatures.
+* **Status:** Verified on `complex_mock.prt`.
 
-## 🛠 ЧТО УЖЕ РАБОТАЕТ (DONE)
-*   **`creo_protocol_decoder.py`**: Исправлен! Больше не ломается на байте `0xe0` внутри данных. Поддерживает endianness.
-*   **`creo_geom_extractor.py`**: Есть попытка сканирования через "якоря" (`feat_id`), но она нестабильна.
-*   **`creo_mapping_utils.py`**: Логика маппинга готова.
+## 📚 NEW KNOWLEDGE (SKILLS)
+* **`SKILL_creo_raw_extraction.md`**: The foundational doctrine of DNA extraction (Instructions vs. Geometry).
+* **`SKILL_edit_gotchas.md`**: Updated with "Encoding Crash in Console".
 
-## 📖 ДОРОЖНАЯ КАРТА ЧТЕНИЯ (READING ORDER)
-*Следующий агент должен прочитать файлы строго в этом порядке, чтобы не утонуть:*
-
-1.  `D:\AI\tools\agent\creo_reverse_engineering\src\creo_protocol_decoder.py` — **Первым делом**. Убедись, что понимаешь, как работает `decode_next_value`.
-2.  `D:\AI\tools\agent\creo_reverse_engineering\src\creo_geom_extractor.py` — Изучи, как сейчас пытаются парсить `AllFeatur`.
-3.  `D:\AI\tools\agent\plm_reader\creo_read.py` — Пойми, как читается файл.
-4.  `D:\AI\tools\agent\creo_reverse_engineering\src\creo_mapping_utils.py` — Посмой на целевую структуру.
-
-## ⚠️ ЖЕСТКИЕ ПРАВИЛА (STRICT RULES)
-1.  **НИКАКИХ сложных `run_commands`**. Только микро-скрипты (5-10 строк) через `editor`.
-2.  **Атомарные проверки**: Сначала проверь импорт одной функции через `check_import.py`. Только если он прошел — делай следующий шаг.
-3.  **Метод "Малых Шагов"**: Не пытайся исправить весь экстрактор сразу. Сначала добейся, чтобы `feat_id` читался. Потом `body_id`.
-4.  **Используй только `editor` для правок**. Не пытайся использовать `sed` или сложные bash-команды.
+## 🚀 NEXT PHASE: PARAMETRIC PARAMETER EXTRACTION
+The next agent should expand the "DNA" scope from **Relations** to **Parameters**:
+1. **Identify Parameter Blocks:** Locate `Dim`, `Mass`, `Material`, `User_Params` in the binary stream.
+2. **Implement Parametric Reader:** Build a robust `struct.unpack` loop to extract numeric values (double/int) associated with parameter names.
+3. **Integrate with `creo_links_new.py`:** Add `_extract_parameters()` to the `extract_all()` workflow.
 
 ---
-*Передано в состоянии: "Декодер готов, экстрактор в процессе отладки, пути сломаны".*
-
-
-Проект переведен из стадии "экспериментальных скриптов" в стадию **"готового инструментария (SDK)"**. 
-**Цель:** Извлечение деревьев признаков (Feature Trees) и параметров из файлов `.prt`, `.asm`, `.drw` напрямую через парсинг бинарного потока, минуя запуск приложения Creo.
-
-**Текущее состояние:**
-- [x] Реализован надежный протокол декодирования (`e0`).
-- [x] Создан автоматизированный конвейер (Orchestrator).
-- [x] Реализована классификация типов признаков.
-- [x] Восстановлена иерархия (Tree Building).
-- [x] Полная документация (локальная и глобальная) на русском языке.
-
----
-
-## 📖 Дорожная карта чтения (Reading Roadmap)
-
-*Чтобы не утонуть в коде, изучай файлы строго в этом порядке:*
-
-### 1. Понимание "ЧТО это" и "КАК использовать"
-👉 **Файл:** `D:\AI\tools\agent\creo_reverse_engineering\README.md`  
-**Зачем:** Здесь описана архитектура, состав модулей и примеры команд для запуска. Это твой главный путеводитель.
-
-### 2. Понимание "ПОЧЕМУ так" и "КАКИЕ правила"
-👉 **Файл:** `D:\AI\repo\Creo\SKILL_creo_reverse_engineering_toolkit.md`  
-**Зачем:** Это глобальный скилл (Knowledge Base). В нем заложены логика домена, правила поведения агента, обработка ошибок (Crash-Protocol) и "подводные камни". **Прочитай его перед написанием кода.**
-
-### 3. Глубокое погружение в реализацию
-👉 **Директория:** `D:\AI\tools\agent\creo_reverse_engineering\src\`  
-**Зачем:** Когда нужно внести правку или добавить новый тип данных. Изучай модули последовательно: `decoder` $\rightarrow$ `extractor` $\rightarrow$ `classifier` $\rightarrow$ `builder`.
-
----
-
-## ⚓ Технические якоря (Technical Anchors)
-
-*Критически важные данные для работы, которые нельзя менять без веских причин:*
-
-*   **Протокол сигнатуры:** `0xe0` (используется для синхронизации декодера в бинарном потоке).
-*   **Метод сканирования:** Поиск маркеров `feat_defs_` для идентификации признаков.
-*   **Смещение TOC:** Навигация по модели всегда начинается с поиска секции `FeatDefs` через таблицу содержимого.
-*   **Кодировка:** Работа с параметрами должна учитывать возможную кириллицу (Windows-1251/UTF-8).
-
----
-
-## 🚀 Инструкция для старта (Quick Start)
-
-Если тебе нужно проверить работу или начать разработку:
-
-1.  **Проверка работоспособности:**
-    ```bash
-    python D:\AI\tools\agent\creo_reverse_engineering\creo_orchestrator.py <путь_к_файлу.prt.1>
-    ```
-2.  **Если нужно добавить новый тип признака:**
-    - Изучи `creo_feature_classifier.py`.
-    - Добавь логику определения в метод `classify()`.
-    - Проверь через Orchestrator.
-3.  **Если возникла ошибка парсинга:**
-    - Первым делом проверь `creo_protocol_decoder.py` на наличие сигнатуры `0xe0`.
-
----
-**Удачи! Проект структурирован и готов к масштабированию.**
+*End of Handoff*

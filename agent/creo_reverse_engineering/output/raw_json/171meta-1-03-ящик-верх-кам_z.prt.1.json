@@ -1,0 +1,46 @@
+{
+    "model_name": "171meta-1-03-ящик-верх-кам_z",
+    "plm_type": "Технологический техпроцесс механообработки (CAM)",
+    "edges": [
+        {
+            "source": "171meta-1-03-ящик-верх-кам_z",
+            "target": "LФСFYoМБ_",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "171meta-1-03-ящик-верх-кам_z",
+            "target": "іyS·%xъб",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "171meta-1-03-ящик-верх-кам_z",
+            "target": "{ЬM‚usћ0Г¦„qАб",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "171meta-1-03-ящик-верх-кам_z",
+            "target": "AUDIT_LOG",
+            "type": "has_history",
+            "metadata": {
+                "rev": "47",
+                "author": "USER",
+                "date": "11.07.25 11:41"
+            }
+        },
+        {
+            "source": "171meta-1-03-ящик-верх-кам_z",
+            "target": "CNC_PROCESS",
+            "type": "mfg_operation_of",
+            "metadata": {
+                "operations": [
+                    "dma_sld_freeze\u0000"
+                ],
+                "method": "semantic_large_text"
+            }
+        }
+    ],
+    "parameters": {}
+}

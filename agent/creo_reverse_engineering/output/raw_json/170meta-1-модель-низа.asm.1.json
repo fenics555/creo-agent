@@ -1,0 +1,3339 @@
+{
+    "model_name": "170meta-1-модель-низа",
+    "plm_type": "Технологический техпроцесс механообработки (CAM)",
+    "edges": [
+        {
+            "source": "170meta-1-модель-низа",
+            "target": "PI§¶ИУ€=†CБЌ",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "170meta-1-модель-низа",
+            "target": "Ч&ЧБrS",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "170meta-1-модель-низа",
+            "target": "K;Br€Ўq)",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "170meta-1-модель-низа",
+            "target": "3pµnDы",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "170meta-1-модель-низа",
+            "target": "tЇµ‹о¦",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "170meta-1-модель-низа",
+            "target": "P|,і%зоЖ+",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "170meta-1-модель-низа",
+            "target": "пЏѓґтsР™",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "170meta-1-модель-низа",
+            "target": "2,2ЂI",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "170meta-1-модель-низа",
+            "target": "аGd-Ж",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "170meta-1-модель-низа",
+            "target": "kЂEАЫ.",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "170meta-1-модель-низа",
+            "target": "; `©ДУщa",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "170meta-1-модель-низа",
+            "target": "ТЂjЂ-`",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "170meta-1-модель-низа",
+            "target": "®tїЂ$",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "170meta-1-модель-низа",
+            "target": "°‡ЪC6",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "170meta-1-модель-низа",
+            "target": "sЂp@3",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "170meta-1-модель-низа",
+            "target": ".Ђ|Ђ\"",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "170meta-1-модель-низа",
+            "target": ".АРА†W",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "170meta-1-модель-низа",
+            "target": "nґ‰<;",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "170meta-1-модель-низа",
+            "target": "dwЅ9ч",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "170meta-1-модель-низа",
+            "target": "0`џ,L¦",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "170meta-1-модель-низа",
+            "target": "AЂ=@2",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "170meta-1-модель-низа",
+            "target": "Шя.ќ‘№4",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "170meta-1-модель-низа",
+            "target": "<в\"qX",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "170meta-1-модель-низа",
+            "target": "№Ђ±yЩьl.фгљ{Нгі2",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "170meta-1-модель-низа",
+            "target": "Х9гЇ3Oъ›",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "170meta-1-модель-низа",
+            "target": "CЂYА:",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "170meta-1-модель-низа",
+            "target": "ВТ@Ђ% +ё/Н",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "170meta-1-модель-низа",
+            "target": "\\qrr_Ыz",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "170meta-1-модель-низа",
+            "target": "ѕF\"@_",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "170meta-1-модель-низа",
+            "target": ">UЛcp",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "170meta-1-модель-низа",
+            "target": "i{l{n{Е",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "170meta-1-модель-низа",
+            "target": "x{z{|{~{h",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "170meta-1-модель-низа",
+            "target": "†{€{Љ{q",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "170meta-1-модель-низа",
+            "target": "Г{Е{х",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "170meta-1-модель-низа",
+            "target": "ы{э{я{°Q*",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "170meta-1-модель-низа",
+            "target": "|;e\"|)K%|‚",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "170meta-1-модель-низа",
+            "target": "6|8|µ6;|э]z",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "170meta-1-модель-низа",
+            "target": "…|‡|xM/T‹|ш",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "170meta-1-модель-низа",
+            "target": "сOє\"ЇeK",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "170meta-1-модель-низа",
+            "target": ">ЃЊJф",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "170meta-1-модель-низа",
+            "target": "cЃѕ$¶",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "170meta-1-модель-низа",
+            "target": "fthdэ",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "170meta-1-модель-низа",
+            "target": "*Uл;ў",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "170meta-1-модель-низа",
+            "target": "ВjIS§c†",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "170meta-1-модель-низа",
+            "target": "ѕ;}eI",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "170meta-1-модель-низа",
+            "target": "}e™{у",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "170meta-1-модель-низа",
+            "target": ",=ЮHM",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "170meta-1-модель-низа",
+            "target": "сOУOл",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "170meta-1-модель-низа",
+            "target": "ЄcЪ/П",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "170meta-1-модель-низа",
+            "target": "iM‚‚ю",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "170meta-1-модель-низа",
+            "target": "IG‡':",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "170meta-1-модель-низа",
+            "target": "r‚jѓp",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "170meta-1-модель-низа",
+            "target": "сO7i\"",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "170meta-1-модель-низа",
+            "target": "¶^jѓK",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "170meta-1-модель-низа",
+            "target": "сOXVУ=±",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "170meta-1-модель-низа",
+            "target": ">9>Ѓ“\"",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "170meta-1-модель-низа",
+            "target": "*ѓсOё",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "170meta-1-модель-низа",
+            "target": "=9‘Qj",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "170meta-1-модель-низа",
+            "target": "u@і@I",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "170meta-1-модель-низа",
+            "target": "\\tC=F",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "170meta-1-модель-низа",
+            "target": "№…»…J",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "170meta-1-модель-низа",
+            "target": "хt1uO",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "170meta-1-модель-низа",
+            "target": "к#li@",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "170meta-1-модель-низа",
+            "target": "QuЌ?ЏS",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "170meta-1-модель-низа",
+            "target": "БZ‘DA",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "170meta-1-модель-низа",
+            "target": "·V]kЏoxo8",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "170meta-1-модель-низа",
+            "target": "ќgя>S",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "170meta-1-модель-низа",
+            "target": "QЛ>‹EЃhѓh…hЛ7{h}h)ZG†°nq@“gе",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "170meta-1-модель-низа",
+            "target": "щsыsэs8",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "170meta-1-модель-низа",
+            "target": "F2p`8",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "170meta-1-модель-низа",
+            "target": "†:ЯsЕ",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "170meta-1-модель-низа",
+            "target": "VVе2М>r",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "170meta-1-модель-низа",
+            "target": "З†A(B?Б†в",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "170meta-1-модель-низа",
+            "target": "@Uч>њ",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "170meta-1-модель-низа",
+            "target": ":1ї>Н",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "170meta-1-модель-низа",
+            "target": "ЛvhB>",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "170meta-1-модель-низа",
+            "target": "®:°:І:Ъ]µ:·:±>N",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "170meta-1-модель-низа",
+            "target": "?Џoм…ш",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "170meta-1-модель-низа",
+            "target": "уyO?€",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "170meta-1-модель-низа",
+            "target": "п{„E№EX",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "170meta-1-модель-низа",
+            "target": "єAЏoі",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "170meta-1-модель-низа",
+            "target": "ОLс|·M(",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "170meta-1-модель-низа",
+            "target": "~rЂrм",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "170meta-1-модель-низа",
+            "target": "yE)?©r“r•r—r‡:Iz¬",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "170meta-1-модель-низа",
+            "target": "U6Лq¬",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "170meta-1-модель-низа",
+            "target": "nB99T",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "170meta-1-модель-низа",
+            "target": "¤€¦€Љ",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "170meta-1-модель-низа",
+            "target": "ьqgO¤‡X8г",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "170meta-1-модель-низа",
+            "target": "hg:ИYіXS",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "170meta-1-модель-низа",
+            "target": "µ\\э€я€B?ц€І.щ€Оg¦",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "170meta-1-модель-низа",
+            "target": "Тs«gT",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "170meta-1-модель-низа",
+            "target": "°gІg€B|D?",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "170meta-1-модель-низа",
+            "target": "ѓ`”RЎ",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "170meta-1-модель-низа",
+            "target": "q<ЇEn[ъ",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "170meta-1-модель-низа",
+            "target": "вr#9I",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "170meta-1-модель-низа",
+            "target": "c‰e‰°",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "170meta-1-модель-низа",
+            "target": "Оgoi}",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "170meta-1-модель-низа",
+            "target": "v=рn…?Й€ЯC|€",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "170meta-1-модель-низа",
+            "target": "р†(rє",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "170meta-1-модель-низа",
+            "target": "•†µ†·†№†Ъ9[",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "170meta-1-модель-низа",
+            "target": "dsЭ?х7H",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "170meta-1-модель-низа",
+            "target": "M‡]T}",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "170meta-1-модель-низа",
+            "target": "б8я>N",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "170meta-1-модель-низа",
+            "target": "yL^,Yk?",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "170meta-1-модель-низа",
+            "target": "ЃIї€;",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "170meta-1-модель-низа",
+            "target": "RЃйvц",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "170meta-1-модель-низа",
+            "target": "EIњfA",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "170meta-1-модель-низа",
+            "target": "N‡©gg",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "170meta-1-модель-низа",
+            "target": "InD:!",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "170meta-1-модель-низа",
+            "target": "ЇAЪ9И",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "170meta-1-модель-низа",
+            "target": "n':ў@¤@0",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "170meta-1-модель-низа",
+            "target": "Ъ9њ@ћ@в",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "170meta-1-модель-низа",
+            "target": "‚†ЭЉyC»8Ѕ8Е",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "170meta-1-модель-низа",
+            "target": "Phi;Shќ",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "170meta-1-модель-низа",
+            "target": "вЉgCiCщЉфЉnCЁ",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "170meta-1-модель-низа",
+            "target": "J[ ‰|…ЙsҐЉG‡kDЪv8nU",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "170meta-1-модель-низа",
+            "target": "j†М>ч",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "170meta-1-модель-низа",
+            "target": ":FB;эAџ",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "170meta-1-модель-низа",
+            "target": "*8йv¦",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "170meta-1-модель-низа",
+            "target": "йѓдq§",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "170meta-1-модель-низа",
+            "target": "ЊcдqQ€S€U€B",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "170meta-1-модель-низа",
+            "target": "s$ж‹и‹к‹ЅDа‹в‹м",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "170meta-1-модель-низа",
+            "target": "Шr¶Iєa8",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "170meta-1-модель-низа",
+            "target": ")Zf>в",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "170meta-1-модель-низа",
+            "target": "†:Lrф",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "170meta-1-модель-низа",
+            "target": "®Xэl]",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "170meta-1-модель-низа",
+            "target": "}Yї>ј",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "170meta-1-модель-низа",
+            "target": "B?zЊ|Њ~ЊЎ",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "170meta-1-модель-низа",
+            "target": "5>7>.",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "170meta-1-модель-низа",
+            "target": "»S\\wЯ",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "170meta-1-модель-низа",
+            "target": "L^SJR",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "170meta-1-модель-низа",
+            "target": "#VћbEHщ",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "170meta-1-модель-низа",
+            "target": "U}™DDIд",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "170meta-1-модель-низа",
+            "target": "}aЯ_q",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "170meta-1-модель-низа",
+            "target": "МЊОЊ®Xp",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "170meta-1-модель-низа",
+            "target": "к…ќoџob4ўo¤o¦oЌ?^",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "170meta-1-модель-низа",
+            "target": "m$›oѓ",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "170meta-1-модель-низа",
+            "target": "ъOЬ_Й",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "170meta-1-модель-низа",
+            "target": "Э%,ѓйvз",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "170meta-1-модель-низа",
+            "target": "/bКk]",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "170meta-1-модель-низа",
+            "target": "FnHn4:РЊ[‰t",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "170meta-1-модель-низа",
+            "target": "НЋПЋC",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "170meta-1-модель-низа",
+            "target": "KoЗЋд",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "170meta-1-модель-низа",
+            "target": "A@=@e",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "170meta-1-модель-низа",
+            "target": "M‡©M™",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "170meta-1-модель-низа",
+            "target": "Ѓ*@9л‰А",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "170meta-1-модель-низа",
+            "target": "“gЏohЋjЋlЋC",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "170meta-1-модель-низа",
+            "target": "TЊcnS",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "170meta-1-модель-низа",
+            "target": "\"Fѕ>cn°‡Z",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "170meta-1-модель-низа",
+            "target": "¤uЦSa",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "170meta-1-модель-низа",
+            "target": "[ЃЂЏ‚ЏщTq?yЏ{Џђ",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "170meta-1-модель-низа",
+            "target": "¦Gг(Q",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "170meta-1-модель-низа",
+            "target": "ЙЋD:¬Љz",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "170meta-1-модель-низа",
+            "target": "ЕRs>‡",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "170meta-1-модель-низа",
+            "target": "Ф8¬E)Oђ",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "170meta-1-модель-низа",
+            "target": "C:я>R",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "170meta-1-модель-низа",
+            "target": ";{':LI·",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "170meta-1-модель-низа",
+            "target": "CkНx6",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "170meta-1-модель-низа",
+            "target": "ЉpжbKЌо",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "170meta-1-модель-низа",
+            "target": ")Y„Pр",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "170meta-1-модель-низа",
+            "target": "Ч>s>—",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "170meta-1-модель-низа",
+            "target": "kђnЌoodЋЯX#",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "170meta-1-модель-низа",
+            "target": "Ruл‰)",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "170meta-1-модель-низа",
+            "target": "&Џ(Џt‡iXxX;",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "170meta-1-модель-низа",
+            "target": "sX-‘Д",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "170meta-1-модель-низа",
+            "target": "U‘ў/M‘O‘Х",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "170meta-1-модель-низа",
+            "target": "уЊPEР",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "170meta-1-модель-низа",
+            "target": "’66oНXЕ",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "170meta-1-модель-низа",
+            "target": "ў<АX«",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "170meta-1-модель-низа",
+            "target": "·kБEф",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "170meta-1-модель-низа",
+            "target": "сpў<F",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "170meta-1-модель-низа",
+            "target": "І‹s>э",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "170meta-1-модель-низа",
+            "target": "nRБEЙ",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "170meta-1-модель-низа",
+            "target": "*Z¤vКq D'D!’Ќ",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "170meta-1-модель-низа",
+            "target": "к†z@e",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "170meta-1-модель-низа",
+            "target": "2‚G’I’K’эBмwC’E’љ",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "170meta-1-модель-низа",
+            "target": "вS±i2",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "170meta-1-модель-низа",
+            "target": "Юl±w-",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "170meta-1-модель-низа",
+            "target": "V‹е‚«’э",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "170meta-1-модель-низа",
+            "target": "N?Щ@1",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "170meta-1-модель-низа",
+            "target": "~yљoйvЩ",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "170meta-1-модель-низа",
+            "target": "дq3Ћп",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "170meta-1-модель-низа",
+            "target": "9Ћ;Ћѕ‘-ЋА‘ПђЅ?‚FТђѕqVЋXЋZЋ\\Ћ^ЋmЊйvш",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "170meta-1-модель-низа",
+            "target": "‘t‡1‘lXOS’",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "170meta-1-модель-низа",
+            "target": "VE%tжB(t‹‘!‰KЏ–Ћ›ђ>Ќ8n2",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "170meta-1-модель-низа",
+            "target": "rЋL‰y",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "170meta-1-модель-низа",
+            "target": "|(®Y™Dк‡",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "170meta-1-модель-низа",
+            "target": "БPЎЋD",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "170meta-1-модель-низа",
+            "target": "ц;Vzb",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "170meta-1-модель-низа",
+            "target": "КJЭ$и",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "170meta-1-модель-низа",
+            "target": "&nП’:ЌС’—“Ж“щ8ґr—sT",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "170meta-1-модель-низа",
+            "target": "d>я>U",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "170meta-1-модель-низа",
+            "target": "\"‚+8U",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "170meta-1-модель-низа",
+            "target": "ЁЏg:«L<",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "170meta-1-модель-низа",
+            "target": ">I#”,Ћ–“иtБ‘w:T†\"u>",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "170meta-1-модель-низа",
+            "target": "Ћ<Ќnђ'‰…",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "170meta-1-модель-низа",
+            "target": "•“Д“&”’‘ъ8‡",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "170meta-1-модель-низа",
+            "target": "U€I\\s",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "170meta-1-модель-низа",
+            "target": "ф‡1uP",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "170meta-1-модель-низа",
+            "target": "Le19Z",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "170meta-1-модель-низа",
+            "target": "W9ФED",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "170meta-1-модель-низа",
+            "target": "‹€Н”¤Z2",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "170meta-1-модель-низа",
+            "target": "3?0xU",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "170meta-1-модель-низа",
+            "target": "yRg’9oў7Dx’~ь?e",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "170meta-1-модель-низа",
+            "target": "п•с•с",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "170meta-1-модель-низа",
+            "target": "Ј7m^В",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "170meta-1-модель-низа",
+            "target": "°BЪIэrс",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "170meta-1-модель-низа",
+            "target": "|ђ‹nJ",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "170meta-1-модель-низа",
+            "target": "rЋhO\"CЈ”›",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "170meta-1-модель-низа",
+            "target": "QF`{1ЊF",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "170meta-1-модель-низа",
+            "target": "#ђ#9ЁNБ",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "170meta-1-модель-низа",
+            "target": "Дv§oѓ–aЋMЏ<•Ћ”ч",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "170meta-1-модель-низа",
+            "target": "&@ХbF",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "170meta-1-модель-низа",
+            "target": "eђе•w",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "170meta-1-модель-низа",
+            "target": "uBЪ]*",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "170meta-1-модель-низа",
+            "target": "¶…qtј",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "170meta-1-модель-низа",
+            "target": "±—і—Ьs}tН",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "170meta-1-модель-низа",
+            "target": "7vеEе•ѕ”",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "170meta-1-модель-низа",
+            "target": "uB.‹\"IS",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "170meta-1-модель-низа",
+            "target": "Кq§”Ю\"Ь",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "170meta-1-модель-низа",
+            "target": "д—Сg®•з—¤q“JLЊmJ4",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "170meta-1-модель-низа",
+            "target": "ІrШUь?ј",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "170meta-1-модель-низа",
+            "target": "k‰g:»",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "170meta-1-модель-низа",
+            "target": "q†аnE—ОЌЉ”ш—ї–†–=•\"†@•Q",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "170meta-1-модель-низа",
+            "target": "z“^AH",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "170meta-1-модель-низа",
+            "target": "P‚Ў7~w|",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "170meta-1-модель-низа",
+            "target": "ЧAШs2",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "170meta-1-модель-низа",
+            "target": "·BиI4",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "170meta-1-модель-низа",
+            "target": "ш‹O?—",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "170meta-1-модель-низа",
+            "target": "uwPRН",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "170meta-1-модель-низа",
+            "target": "ox§”Ч",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "170meta-1-модель-низа",
+            "target": "+uэ…2",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "170meta-1-модель-низа",
+            "target": "ц‰5”і",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "170meta-1-модель-низа",
+            "target": "µr\\D№",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "170meta-1-модель-низа",
+            "target": "ЌmH~2",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "170meta-1-модель-низа",
+            "target": "ѕ™'Cr",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "170meta-1-модель-низа",
+            "target": "п™с™ъ",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "170meta-1-модель-низа",
+            "target": "X<'Z&",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "170meta-1-модель-низа",
+            "target": "dЉ§”R",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "170meta-1-модель-низа",
+            "target": "l„0„QљSљKoIљKљ(",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "170meta-1-модель-низа",
+            "target": "o]бJ0",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "170meta-1-модель-низа",
+            "target": "w64‰’#/",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "170meta-1-модель-низа",
+            "target": "ъ7.>l",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "170meta-1-модель-низа",
+            "target": "V1s“~OHш>f",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "170meta-1-модель-низа",
+            "target": "Pwwљyљy",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "170meta-1-модель-низа",
+            "target": "љ0т{Ш—+rБ8%rґ",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "170meta-1-модель-низа",
+            "target": "Њ>Щ—Б8цnя",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "170meta-1-модель-низа",
+            "target": "/bBcП",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "170meta-1-модель-низа",
+            "target": "«}ь?j",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "170meta-1-модель-низа",
+            "target": "-”9lЪ9л",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "170meta-1-модель-низа",
+            "target": "vEOtу",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "170meta-1-модель-низа",
+            "target": "–:Њ>Otч",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "170meta-1-модель-низа",
+            "target": "юG}9g",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "170meta-1-модель-низа",
+            "target": "%aе•nK>",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "170meta-1-модель-низа",
+            "target": "№–»–±>V",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "170meta-1-модель-низа",
+            "target": "…?џf9sІ•<™Ґ–·",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "170meta-1-модель-низа",
+            "target": "лDujј",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "170meta-1-модель-низа",
+            "target": ")€±–В",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "170meta-1-модель-низа",
+            "target": "‚–љЌ¶gq@лS/<п",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "170meta-1-модель-низа",
+            "target": "F„ь?·Ѓh",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "170meta-1-модель-низа",
+            "target": "а›в›5",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "170meta-1-модель-низа",
+            "target": "w|ўFЧ",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "170meta-1-модель-низа",
+            "target": "м“5”ы",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "170meta-1-модель-низа",
+            "target": ".{Yiзyb",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "170meta-1-модель-низа",
+            "target": "[Љ#9U",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "170meta-1-модель-низа",
+            "target": "KJ`њ_",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "170meta-1-модель-низа",
+            "target": "с|¶&Ж",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "170meta-1-модель-низа",
+            "target": "Ґ…}ђМ",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "170meta-1-модель-низа",
+            "target": "2N,B8",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "170meta-1-модель-низа",
+            "target": "і2*8f>Ж",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "170meta-1-модель-низа",
+            "target": "RЃOtK„џ",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "170meta-1-модель-низа",
+            "target": ":N}ђM",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "170meta-1-модель-низа",
+            "target": "йiЛ7o",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "170meta-1-модель-низа",
+            "target": "эGњrf>Д–Ж–Ц",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "170meta-1-модель-низа",
+            "target": "йЌ§”џ",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "170meta-1-модель-низа",
+            "target": "·T–:>",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "170meta-1-модель-низа",
+            "target": "ґVШrU",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "170meta-1-модель-низа",
+            "target": "h4,B4",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "170meta-1-модель-низа",
+            "target": "vXf>ґ‘#",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "170meta-1-модель-низа",
+            "target": "t‡!Qи",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "170meta-1-модель-низа",
+            "target": "ьќqsv",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "170meta-1-модель-низа",
+            "target": "(MRA§›Ћ‘U™д‡а”Њ™дY@•P",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "170meta-1-модель-низа",
+            "target": "¬Љ'E6",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "170meta-1-модель-низа",
+            "target": "sЃЎ7Џoп",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "170meta-1-модель-низа",
+            "target": "q–М п",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "170meta-1-модель-низа",
+            "target": "! Зy\"@ѓЌV",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "170meta-1-модель-низа",
+            "target": "°–‹EkfфЊµ",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "170meta-1-модель-низа",
+            "target": "Bћ‹E›",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "170meta-1-модель-низа",
+            "target": "м^7‰Л7p",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "170meta-1-модель-низа",
+            "target": "фVtF985",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "170meta-1-модель-низа",
+            "target": ")?dќyћ)ћW™г",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "170meta-1-модель-низа",
+            "target": "ЋЉOt°",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "170meta-1-модель-низа",
+            "target": "Џ\\ТЉ2",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "170meta-1-модель-низа",
+            "target": "ћц9Э=o",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "170meta-1-модель-низа",
+            "target": "W–Y–гЉ@;µ“Ы",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "170meta-1-модель-низа",
+            "target": "ыIwN/",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "170meta-1-модель-низа",
+            "target": "µђcn`p",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "170meta-1-модель-низа",
+            "target": "№O=qНЉU",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "170meta-1-модель-низа",
+            "target": "ЉDXPл",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "170meta-1-модель-низа",
+            "target": "4WЕw‚I)",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "170meta-1-модель-низа",
+            "target": "d>Hџ~ћWSЃћ4",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "170meta-1-модель-низа",
+            "target": "ъѓЭrr",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "170meta-1-модель-низа",
+            "target": "‚of>%",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "170meta-1-модель-низа",
+            "target": "l>V|k",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "170meta-1-модель-низа",
+            "target": "Ђ•г9cE",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "170meta-1-модель-низа",
+            "target": "ПЊ[ћЫ>Жћ№џҐЊ—ќѓ",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "170meta-1-модель-низа",
+            "target": "ўfx—ј’y",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "170meta-1-модель-низа",
+            "target": "[J.>Я",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "170meta-1-модель-низа",
+            "target": "cђЪ;&",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "170meta-1-модель-низа",
+            "target": "6G±>T",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "170meta-1-модель-низа",
+            "target": ";‡x—|€",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "170meta-1-модель-низа",
+            "target": "т{Хu2Nм",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "170meta-1-модель-низа",
+            "target": "у™ur#9W",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "170meta-1-модель-низа",
+            "target": "6Ў8Ў:Ў&",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "170meta-1-модель-низа",
+            "target": "^<ХSOtW",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "170meta-1-модель-низа",
+            "target": "bћ|џц",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "170meta-1-модель-низа",
+            "target": "\"u@]C=Б",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "170meta-1-модель-низа",
+            "target": "м“§”3k·",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "170meta-1-модель-низа",
+            "target": "7•L–±hb",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "170meta-1-модель-низа",
+            "target": "ћ&ц‰Ыў8њ~ўиџЪ",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "170meta-1-модель-низа",
+            "target": "ЖXHџ—",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "170meta-1-модель-низа",
+            "target": "Аќ'Јw",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "170meta-1-модель-низа",
+            "target": "®n`њмџа",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "170meta-1-модель-низа",
+            "target": "µV@oЌ",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "170meta-1-модель-низа",
+            "target": "ZFкV0љ\\D‡",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "170meta-1-модель-низа",
+            "target": "тњ\\DЋ",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "170meta-1-модель-низа",
+            "target": "D6ш‚і",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "170meta-1-модель-низа",
+            "target": "Пў‹EО",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "170meta-1-модель-низа",
+            "target": "М<‘aг",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "170meta-1-модель-низа",
+            "target": "®™‹EЧ”Щ”х",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "170meta-1-модель-низа",
+            "target": "И–:Dg",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "170meta-1-модель-низа",
+            "target": "B”‘њ“њ•њїN‹њМ",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "170meta-1-модель-низа",
+            "target": "Ц¤Њў0",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "170meta-1-модель-низа",
+            "target": "K_‡:h",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "170meta-1-модель-низа",
+            "target": "kЊ©gІ.°:Ь",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "170meta-1-модель-низа",
+            "target": "|Љц¤К¤*ћX™r",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "170meta-1-модель-низа",
+            "target": "ш;_†Р",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "170meta-1-модель-низа",
+            "target": "A(Йi\\tЦ",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "170meta-1-модель-низа",
+            "target": "T‚Ёr‹EЬ",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "170meta-1-модель-низа",
+            "target": "°Ў“љ)ҐЄ›ш¤б”ЁЊ1џ+",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "170meta-1-модель-низа",
+            "target": "|fџfW",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "170meta-1-модель-низа",
+            "target": "LlБђHџL",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "170meta-1-модель-низа",
+            "target": "Ч`”QQ",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "170meta-1-модель-низа",
+            "target": "ѕt~wщ",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "170meta-1-модель-низа",
+            "target": "YS':Э",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "170meta-1-модель-низа",
+            "target": "98ѕџАџВџЩ",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "170meta-1-модель-низа",
+            "target": "еs1s©",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "170meta-1-модель-низа",
+            "target": "“¤ЮBU",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "170meta-1-модель-низа",
+            "target": "Ћ¤f<е•єc?",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "170meta-1-модель-низа",
+            "target": "U›g:Ї",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "170meta-1-модель-низа",
+            "target": "ЁT–g‘oі",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "170meta-1-модель-низа",
+            "target": "ЊOtШJ1",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "170meta-1-модель-низа",
+            "target": "5Ґ7ҐN–[¦Ђ†yЊм¤Е",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "170meta-1-модель-низа",
+            "target": "йЂg:“Љe9",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "170meta-1-модель-низа",
+            "target": "=њКwД",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "170meta-1-модель-низа",
+            "target": "uBu’‚",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "170meta-1-модель-низа",
+            "target": "aњ„n№L",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "170meta-1-модель-низа",
+            "target": "жdB”g*с",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "170meta-1-модель-низа",
+            "target": "vP8iІ%F„I",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "170meta-1-модель-низа",
+            "target": "{ўKn&",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "170meta-1-модель-низа",
+            "target": "0¤жEN_¤O…",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "170meta-1-модель-низа",
+            "target": "мJnBcnМ=э",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "170meta-1-модель-низа",
+            "target": "™Ў;‡€ћ",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "170meta-1-модель-низа",
+            "target": "KҐF›^",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "170meta-1-модель-низа",
+            "target": "ЁXg:Я¤џ",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "170meta-1-модель-низа",
+            "target": "ОЃ·ty\\Ё",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "170meta-1-модель-низа",
+            "target": "1Ё3Ёш™ы",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "170meta-1-модель-низа",
+            "target": "WЇJH\"»ЏїN%",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "170meta-1-модель-низа",
+            "target": "‘8XЁG",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "170meta-1-модель-низа",
+            "target": "‡ћЃ•Е",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "170meta-1-модель-низа",
+            "target": "‰oї%|,",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "170meta-1-модель-низа",
+            "target": "л^5C°Ёx",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "170meta-1-модель-низа",
+            "target": "…GЈ7ќ",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "170meta-1-модель-низа",
+            "target": "\\†ШrЃMU",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "170meta-1-модель-низа",
+            "target": "ЩaD•Hљь",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "170meta-1-модель-низа",
+            "target": "{8NљН",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "170meta-1-модель-низа",
+            "target": "пgжЎp—®",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "170meta-1-модель-низа",
+            "target": "v—ШrR",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "170meta-1-модель-низа",
+            "target": "=[s>T",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "170meta-1-модель-низа",
+            "target": "tcEwRGn",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "170meta-1-модель-низа",
+            "target": "M?O?ћ",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "170meta-1-модель-низа",
+            "target": "ЉfБPQ",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "170meta-1-модель-низа",
+            "target": "_”п†g:Вw«",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "170meta-1-модель-низа",
+            "target": "к©м©ЈUq?в©д©ж©T\\О",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "170meta-1-модель-низа",
+            "target": "w@€<Ј7џ",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "170meta-1-модель-низа",
+            "target": "®pИ8,",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "170meta-1-модель-низа",
+            "target": "_|4Y3™х",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "170meta-1-модель-низа",
+            "target": "љ?}ђЫ",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "170meta-1-модель-низа",
+            "target": "`U.)ќЉ3MЏ",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "170meta-1-модель-низа",
+            "target": "L›N›sЎрOв",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "170meta-1-модель-низа",
+            "target": "!ѓHџ]Ґ_ҐИ’bҐdҐfҐј–ДЄН§p ^џ:њЬ",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "170meta-1-модель-низа",
+            "target": "_ћ’>0ѓ$",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "170meta-1-модель-низа",
+            "target": "ю¦EwН",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "170meta-1-модель-низа",
+            "target": "4ў[wO?vqe",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "170meta-1-модель-низа",
+            "target": "ќ=Msё",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "170meta-1-модель-низа",
+            "target": "tфњцњшњ„nыњЫ",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "170meta-1-модель-низа",
+            "target": ">?s>=Ј?ЈAЈ„n7Ј9ЈЎ",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "170meta-1-модель-низа",
+            "target": "9rHsO?Ћљ",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "170meta-1-модель-низа",
+            "target": "ёxЧўW]CLP",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "170meta-1-модель-низа",
+            "target": "я¦4ЁNҐТ—Ф—Ц—Ъ9О",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "170meta-1-модель-низа",
+            "target": "Ј‰(}‡>кYW",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "170meta-1-модель-низа",
+            "target": "uwg‘‹",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "170meta-1-модель-низа",
+            "target": "‹GЊ@KnЏўC[l",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "170meta-1-модель-низа",
+            "target": "2™}ђг",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "170meta-1-модель-низа",
+            "target": "6љw~“9e",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "170meta-1-модель-низа",
+            "target": "ш;f>`",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "170meta-1-модель-низа",
+            "target": "оѓs>b",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "170meta-1-модель-низа",
+            "target": "IWб9§”¬",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "170meta-1-модель-низа",
+            "target": "cџ¶Nт",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "170meta-1-модель-низа",
+            "target": "6m.>ѕJщ",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "170meta-1-модель-низа",
+            "target": "№Ў98И",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "170meta-1-модель-низа",
+            "target": "уP§”x",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "170meta-1-модель-низа",
+            "target": "µђ7¤s",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "170meta-1-модель-низа",
+            "target": "Ko\"®$®¬€ЋTF",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "170meta-1-модель-низа",
+            "target": "°ЈА_т G",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "170meta-1-модель-низа",
+            "target": "P4а@·@,€t",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "170meta-1-модель-низа",
+            "target": "ЋYҐDж",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "170meta-1-модель-низа",
+            "target": "h‘98f",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "170meta-1-модель-низа",
+            "target": "цЈv«К”ь†”ҐaF6",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "170meta-1-модель-низа",
+            "target": "ЎЋяPХ~G",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "170meta-1-модель-низа",
+            "target": "Jqч>8Ј>",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "170meta-1-модель-низа",
+            "target": "I®ч>Є",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "170meta-1-модель-низа",
+            "target": "ЁGSџр—т—ф—=",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "170meta-1-модель-низа",
+            "target": "№hЛЋи©W",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "170meta-1-модель-низа",
+            "target": "B?в©sЇuЇч©s",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "170meta-1-модель-низа",
+            "target": "т:N?Ћ",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "170meta-1-модель-низа",
+            "target": "лЇнЇЎ¦Х",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "170meta-1-модель-низа",
+            "target": "—Јg:А",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "170meta-1-модель-низа",
+            "target": "N?d1О",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "170meta-1-модель-низа",
+            "target": "sќР[¶!Dxe",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "170meta-1-модель-низа",
+            "target": "Ч_їNж",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "170meta-1-модель-низа",
+            "target": "к–]ѓ(",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "170meta-1-модель-низа",
+            "target": "kJы~Б",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "170meta-1-модель-низа",
+            "target": "a–уH»Cд",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "170meta-1-модель-низа",
+            "target": "m«пof«Й;фgf°R±8nЏџ-ћ«",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "170meta-1-модель-низа",
+            "target": "иkcnЂ",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "170meta-1-модель-низа",
+            "target": "8ћ§”ю—",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "170meta-1-модель-низа",
+            "target": "цЈ*ІК”}",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "170meta-1-модель-низа",
+            "target": "HІJІМ",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "170meta-1-модель-низа",
+            "target": "n`Жђэ",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "170meta-1-модель-низа",
+            "target": "Дll>™",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "170meta-1-модель-низа",
+            "target": "€Ґх«.?ЙЈV",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "170meta-1-модель-низа",
+            "target": "µЉKnн",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "170meta-1-модель-низа",
+            "target": "}a™”Ь",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "170meta-1-модель-низа",
+            "target": "Pіk”K",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "170meta-1-модель-низа",
+            "target": "p)l><",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "170meta-1-модель-низа",
+            "target": "ѕ§XPj",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "170meta-1-модель-низа",
+            "target": "=%L]s“SџжІиІо`ЯІЎ",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "170meta-1-модель-низа",
+            "target": "П°С°У°Х°Ч°sЎя",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "170meta-1-модель-низа",
+            "target": "г™Q™H%B”¬",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "170meta-1-модель-низа",
+            "target": "em!;S",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "170meta-1-модель-низа",
+            "target": "џЏ`¤©—вC±",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "170meta-1-модель-низа",
+            "target": "ъђ§”вўдўжўиўкўnXќі›«P>‹",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "170meta-1-модель-низа",
+            "target": "v¬x¬ј‡?SЅ",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "170meta-1-модель-низа",
+            "target": "Њ‹Ё©JDЉ",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "170meta-1-модель-низа",
+            "target": "t“Њўт",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "170meta-1-модель-низа",
+            "target": "¬©‹Eк",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "170meta-1-модель-низа",
+            "target": "ѕt§”)™+™-™/™1™t‡ґ",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "170meta-1-модель-низа",
+            "target": "K%EwZ@Ъ",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "170meta-1-модель-низа",
+            "target": "I•L@Йi,‹C",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "170meta-1-модель-низа",
+            "target": "ћ}dyhO_]~",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "170meta-1-модель-низа",
+            "target": "(wҐ–±",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "170meta-1-модель-низа",
+            "target": "гq±–®",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "170meta-1-модель-низа",
+            "target": "Н\\;AЛЁ„",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "170meta-1-модель-низа",
+            "target": "_&R<l",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "170meta-1-модель-низа",
+            "target": "#‘cn5",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "170meta-1-модель-низа",
+            "target": "s°98д",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "170meta-1-модель-низа",
+            "target": "ѕ)‚II“I",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "170meta-1-модель-низа",
+            "target": "Pќ‹Eё",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "170meta-1-модель-низа",
+            "target": "vЇ’>±",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "170meta-1-модель-низа",
+            "target": "И·К·мЁВ·Д·¬Yb",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "170meta-1-модель-низа",
+            "target": "‘8\"Il",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "170meta-1-модель-низа",
+            "target": "€‰х¤о·{X.",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "170meta-1-модель-низа",
+            "target": "§Dcn)",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "170meta-1-модель-низа",
+            "target": "S?jЄҐЁ3",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "170meta-1-модель-низа",
+            "target": "ФќЪ9>Hгzъ",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "170meta-1-модель-низа",
+            "target": "Å¦Ç¦Y·¢µ¬\"uH¶J¶L¶ÁE=",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "170meta-1-модель-низа",
+            "target": "©u•§G",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "170meta-1-модель-низа",
+            "target": "ьR„nъ",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "170meta-1-модель-низа",
+            "target": "ЭЎB”Ь",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "170meta-1-модель-низа",
+            "target": "\"Dч>Е",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "170meta-1-модель-низа",
+            "target": "¬:™–?Ep",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "170meta-1-модель-низа",
+            "target": "©P3pU",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "170meta-1-модель-низа",
+            "target": "TD9Jт’Ѕ",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "170meta-1-модель-низа",
+            "target": "эvSJ98",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "170meta-1-модель-низа",
+            "target": "eњgњiњЫњ1uU",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "170meta-1-модель-низа",
+            "target": "щGкґ\\DH",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "170meta-1-модель-низа",
+            "target": "3џ5џ7џ",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "170meta-1-модель-низа",
+            "target": "эќ’>D@ЦEщ",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "170meta-1-модель-низа",
+            "target": "с>-Jь©KF",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "170meta-1-модель-низа",
+            "target": "ђGф^є",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "170meta-1-модель-низа",
+            "target": "чsp»aєcє<",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "170meta-1-модель-низа",
+            "target": "‹»pnї",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "170meta-1-модель-низа",
+            "target": "dNы¶‹EВњ!",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "170meta-1-модель-низа",
+            "target": "µі‡:Ѕ",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "170meta-1-модель-низа",
+            "target": "o\\(CMs%",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "170meta-1-модель-низа",
+            "target": "ЗV@G6§Ј",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "170meta-1-модель-низа",
+            "target": "Ц>ь?]",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "170meta-1-модель-низа",
+            "target": "@Gk•m•@Eр—g•i•§@ф",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "170meta-1-модель-низа",
+            "target": "curveHeader_groups",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "170meta-1-модель-низа",
+            "target": "curveHeader_group",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "170meta-1-модель-низа",
+            "target": "p_gpu",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "170meta-1-модель-низа",
+            "target": "pp_curveHeaders",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "170meta-1-модель-низа",
+            "target": "pgl_appdata_table",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "170meta-1-модель-низа",
+            "target": "‡Ѕв7Яъn89ґГGҐ$¦8",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "170meta-1-модель-низа",
+            "target": "л°янЩ",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "170meta-1-модель-низа",
+            "target": "8[{Ё8J№`=.xфв",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "170meta-1-модель-низа",
+            "target": "В—пI,ёГ8рУШв",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "170meta-1-модель-низа",
+            "target": "<KОAЧ8",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "170meta-1-модель-низа",
+            "target": "/5вF»»vKNЧ7л).Vq:",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "170meta-1-модель-низа",
+            "target": "&ЋвFєIЕKNШ†8CdЯ:",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "170meta-1-модель-низа",
+            "target": "#ґвEэ#ДKNв“7€•x:",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "170meta-1-модель-низа",
+            "target": "ч4љЗ‚",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "170meta-1-модель-низа",
+            "target": "ч4Ѓ{‚",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "170meta-1-модель-низа",
+            "target": "-/ЩхYіР†ббцббцбч+бгHd",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "170meta-1-модель-низа",
+            "target": "-/ЩхYіР†Hd",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "170meta-1-модель-низа",
+            "target": "group_info_ptr",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "170meta-1-модель-низа",
+            "target": "place_rec_ptr",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "170meta-1-модель-низа",
+            "target": "place_instruction_ptrs",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "170meta-1-модель-низа",
+            "target": "data(plin_info_sub_feat)",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "170meta-1-модель-низа",
+            "target": "data(plin_info_pntsrf_1stpnt)",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "170meta-1-модель-низа",
+            "target": "data(plin_info_ui_step)",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "170meta-1-модель-низа",
+            "target": "dat_ptr(comp_data)",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "170meta-1-модель-низа",
+            "target": "simpl_rep",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "170meta-1-модель-низа",
+            "target": "inherit_rep",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "170meta-1-модель-низа",
+            "target": "p_foreign_source",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "170meta-1-модель-низа",
+            "target": "minor_vers",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "170meta-1-модель-низа",
+            "target": "interchange_info",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "170meta-1-модель-низа",
+            "target": "user_data",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "170meta-1-модель-низа",
+            "target": "mp_report_data",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "170meta-1-модель-низа",
+            "target": "mass_prop",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "170meta-1-модель-низа",
+            "target": "-Ё”Е~Яуx§юјҐх",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "170meta-1-модель-низа",
+            "target": "alt_vals_info",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "170meta-1-модель-низа",
+            "target": "item_info",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "170meta-1-модель-низа",
+            "target": "feat_list_rev_info",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "170meta-1-модель-низа",
+            "target": "mdl_geom_rev",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "170meta-1-модель-низа",
+            "target": "tstamp",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "170meta-1-модель-низа",
+            "target": "comp_list_rev_info",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "170meta-1-модель-низа",
+            "target": "info(tuples_list_rev_info)",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "170meta-1-модель-низа",
+            "target": "appl_data",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "170meta-1-модель-низа",
+            "target": "CHUGUN_VCH50",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "170meta-1-модель-низа",
+            "target": "alumni_info",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "170meta-1-модель-низа",
+            "target": "moved_comp",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "170meta-1-модель-низа",
+            "target": "restr_comp",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "170meta-1-модель-низа",
+            "target": "rpl_conncts",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "170meta-1-модель-низа",
+            "target": "sub_feat_arr",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "170meta-1-модель-низа",
+            "target": "expl_state_ref",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "170meta-1-модель-низа",
+            "target": "feat_outl_info",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "170meta-1-модель-низа",
+            "target": "-9мъ¬ЩиC",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "170meta-1-модель-низа",
+            "target": "comp_pnt_data",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "170meta-1-модель-низа",
+            "target": "AUDIT_LOG",
+            "type": "has_history",
+            "metadata": {
+                "rev": "122",
+                "author": "USER",
+                "date": "15.08.25 11:58"
+            }
+        },
+        {
+            "source": "170meta-1-модель-низа",
+            "target": "CNC_PROCESS",
+            "type": "mfg_operation_of",
+            "metadata": {
+                "operations": [
+                    "CHERN\u0000",
+                    "CHERN-\u0000",
+                    "CHIST\u0000",
+                    "CHIST-\u0000",
+                    "DOR-CHIST\u0000",
+                    "FR3R-1\u0000",
+                    "NC_ASM_FRONT\u0000",
+                    "POLUCHIST\u0000",
+                    "POLUCHIST-\u0000",
+                    "SV4\u0000",
+                    "SV8_5\u0000",
+                    "цгSTEP_OVER\u0000"
+                ],
+                "method": "semantic_large_text"
+            }
+        }
+    ],
+    "parameters": {}
+}

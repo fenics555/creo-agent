@@ -1,0 +1,516 @@
+{
+    "model_name": "23-170gr1-meta",
+    "plm_type": "Технологический техпроцесс механообработки (CAM)",
+    "edges": [
+        {
+            "source": "23-170gr1-meta",
+            "target": "а0mЁСd$",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "23-170gr1-meta",
+            "target": "}ЉW°к&ЭЄ",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "23-170gr1-meta",
+            "target": "а·®У®ЪG)",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "23-170gr1-meta",
+            "target": "ЖWцvЂдk{3",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "23-170gr1-meta",
+            "target": "$@ЛЩrЁ",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "23-170gr1-meta",
+            "target": "УЙt4ќM‡УщЌ/",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "23-170gr1-meta",
+            "target": "V^`7Ш!",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "23-170gr1-meta",
+            "target": ".@9ђW.",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "23-170gr1-meta",
+            "target": "feat_defs_979",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "23-170gr1-meta",
+            "target": "feat_defs_926",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "23-170gr1-meta",
+            "target": "Sld_FeatDefsCmp",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "23-170gr1-meta",
+            "target": "feat_defs_1000",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "23-170gr1-meta",
+            "target": "place_instruction_ptrs",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "23-170gr1-meta",
+            "target": "plin_info_arr",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "23-170gr1-meta",
+            "target": "data(plin_info_ref)",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "23-170gr1-meta",
+            "target": "data(plin_info_user_data)",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "23-170gr1-meta",
+            "target": "data(plin_info_pntsrf_1stpnt)",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "23-170gr1-meta",
+            "target": "data(plin_info_pntsrf_sel_pnt_data)",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "23-170gr1-meta",
+            "target": "asm_pnt_data",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "23-170gr1-meta",
+            "target": "comp_pnt_data",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "23-170gr1-meta",
+            "target": "data(plin_info_dist_rel_value)",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "23-170gr1-meta",
+            "target": "dat_ptr(comp_data)",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "23-170gr1-meta",
+            "target": "23-170GR1-META-01",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "23-170gr1-meta",
+            "target": "simpl_rep",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "23-170gr1-meta",
+            "target": "inherit_rep",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "23-170gr1-meta",
+            "target": "p_foreign_source",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "23-170gr1-meta",
+            "target": "minor_vers",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "23-170gr1-meta",
+            "target": "interchange_info",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "23-170gr1-meta",
+            "target": "user_data",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "23-170gr1-meta",
+            "target": "mp_report_data",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "23-170gr1-meta",
+            "target": "mass_prop",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "23-170gr1-meta",
+            "target": "alt_vals_info",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "23-170gr1-meta",
+            "target": "item_info",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "23-170gr1-meta",
+            "target": "feat_list_rev_info",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "23-170gr1-meta",
+            "target": "mdl_geom_rev",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "23-170gr1-meta",
+            "target": "tstamp",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "23-170gr1-meta",
+            "target": "comp_list_rev_info",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "23-170gr1-meta",
+            "target": "info(tuples_list_rev_info)",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "23-170gr1-meta",
+            "target": "appl_data",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "23-170gr1-meta",
+            "target": "CHUGUN_VCH50",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "23-170gr1-meta",
+            "target": "alumni_info",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "23-170gr1-meta",
+            "target": "sub_feat_arr",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "23-170gr1-meta",
+            "target": "Connection_31",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "23-170gr1-meta",
+            "target": "expl_state_ref",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "23-170gr1-meta",
+            "target": "feat_outl_info",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "23-170gr1-meta",
+            "target": "data(plin_info_cache_ref_int_dtm)",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "23-170gr1-meta",
+            "target": "tag_info",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "23-170gr1-meta",
+            "target": "version",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "23-170gr1-meta",
+            "target": "info(No_value)",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "23-170gr1-meta",
+            "target": "rpl_opmdl_arr",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "23-170gr1-meta",
+            "target": "orig_model",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "23-170gr1-meta",
+            "target": "new_models",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "23-170gr1-meta",
+            "target": "new_name",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "23-170gr1-meta",
+            "target": "flex_comp_data",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "23-170gr1-meta",
+            "target": "var_items",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "23-170gr1-meta",
+            "target": "xp_diffs",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "23-170gr1-meta",
+            "target": "diff_id",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "23-170gr1-meta",
+            "target": "value",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "23-170gr1-meta",
+            "target": "sym_val",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "23-170gr1-meta",
+            "target": "objname",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "23-170gr1-meta",
+            "target": "ббббба",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "23-170gr1-meta",
+            "target": "твчЂъ2",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "23-170gr1-meta",
+            "target": "бббббба",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "23-170gr1-meta",
+            "target": "feat_geom_backup",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "23-170gr1-meta",
+            "target": "old_var_items",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "23-170gr1-meta",
+            "target": "x_diff_states",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "23-170gr1-meta",
+            "target": "idtab_id_map",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "23-170gr1-meta",
+            "target": "feat_db",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "23-170gr1-meta",
+            "target": "intrch_name",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "23-170gr1-meta",
+            "target": "бббббчЂН",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "23-170gr1-meta",
+            "target": "гЂ§ч0гг",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "23-170gr1-meta",
+            "target": "бббббчЂН",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "23-170gr1-meta",
+            "target": "/X@-h™]ЁLТ¬FSЊММММП",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "23-170gr1-meta",
+            "target": "data(checksum_info)",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "23-170gr1-meta",
+            "target": "alt_csys_data",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "23-170gr1-meta",
+            "target": "value",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "23-170gr1-meta",
+            "target": "цгчЂѕбга",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "23-170gr1-meta",
+            "target": "бббббчЂН",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "23-170gr1-meta",
+            "target": "бббббчЂН",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "23-170gr1-meta",
+            "target": "бббббчЂН",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "23-170gr1-meta",
+            "target": "бббббчЂН",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "23-170gr1-meta",
+            "target": "AUDIT_LOG",
+            "type": "has_history",
+            "metadata": {
+                "rev": "3527",
+                "author": "USER",
+                "date": "20.08.26 06:40"
+            }
+        },
+        {
+            "source": "23-170gr1-meta",
+            "target": "CNC_PROCESS",
+            "type": "mfg_operation_of",
+            "metadata": {
+                "operations": [
+                    "ASM_FRONT\u0000",
+                    "NFRФєbЃ1Nц\u0000",
+                    "dma_sld_freeze\u0000"
+                ],
+                "method": "semantic_large_text"
+            }
+        }
+    ],
+    "parameters": {}
+}

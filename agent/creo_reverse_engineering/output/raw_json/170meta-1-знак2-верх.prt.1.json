@@ -1,0 +1,371 @@
+{
+    "model_name": "170meta-1-знак2-верх",
+    "plm_type": "Технологический техпроцесс механообработки (CAM)",
+    "edges": [
+        {
+            "source": "170meta-1-знак2-верх",
+            "target": "РgDeђбж†M",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "170meta-1-знак2-верх",
+            "target": "vЂЂFHў0u",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "170meta-1-знак2-верх",
+            "target": ",Ђ’Ќђ",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "170meta-1-знак2-верх",
+            "target": "I-ж\"э",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "170meta-1-знак2-верх",
+            "target": "Sld_BasBasData",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "170meta-1-знак2-верх",
+            "target": "tab_key_struct",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "170meta-1-знак2-верх",
+            "target": "revnum_ptr",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "170meta-1-знак2-верх",
+            "target": "(S©]»",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "170meta-1-знак2-верх",
+            "target": "ref_part_tabs",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "170meta-1-знак2-верх",
+            "target": "ref_part_tab",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "170meta-1-знак2-верх",
+            "target": "objname",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "170meta-1-знак2-верх",
+            "target": "simpl_rep",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "170meta-1-знак2-верх",
+            "target": "inherit_rep",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "170meta-1-знак2-верх",
+            "target": "p_foreign_source",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "170meta-1-знак2-верх",
+            "target": "ref_id_user",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "170meta-1-знак2-верх",
+            "target": "ббббб",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "170meta-1-знак2-верх",
+            "target": "Sld_BasicData",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "170meta-1-знак2-верх",
+            "target": "tol_default_ptr",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "170meta-1-знак2-верх",
+            "target": "iso_tol_tbls_ptr",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "170meta-1-знак2-верх",
+            "target": "Medium",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "170meta-1-знак2-верх",
+            "target": "Very Coarse",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "170meta-1-знак2-верх",
+            "target": "p_general",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "170meta-1-знак2-верх",
+            "target": "Defaults",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "170meta-1-знак2-верх",
+            "target": "[] S 92;",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "170meta-1-знак2-верх",
+            "target": "[A] W 11;",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "170meta-1-знак2-верх",
+            "target": "в)й™Bй™в)у3Bу3в/",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "170meta-1-знак2-верх",
+            "target": "p_brk_edg",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "170meta-1-знак2-верх",
+            "target": "[] S 92;",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "170meta-1-знак2-верх",
+            "target": "[A] W 11;",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "170meta-1-знак2-верх",
+            "target": "p_angular",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "170meta-1-знак2-верх",
+            "target": "holes_arr",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "170meta-1-знак2-верх",
+            "target": "# Pro/TABLE",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "170meta-1-знак2-верх",
+            "target": "[] S 92;",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "170meta-1-знак2-верх",
+            "target": "[A] W 11;",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "170meta-1-знак2-верх",
+            "target": "в/NЂ/I",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "170meta-1-знак2-верх",
+            "target": "в/UА/R",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "170meta-1-знак2-верх",
+            "target": "в/JЂ/D",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "170meta-1-знак2-верх",
+            "target": "в/SА/N",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "170meta-1-знак2-верх",
+            "target": "в/[Ђ/U@в/` /Y",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "170meta-1-знак2-верх",
+            "target": "в/l@/e@в/pP/h`в/r /kЂв/tА/n",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "170meta-1-знак2-верх",
+            "target": "в/RА/I",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "170meta-1-знак2-верх",
+            "target": "в/ZА/R",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "170meta-1-знак2-верх",
+            "target": "в/d@/[Ђв/fА/_@в/hА/`ав/jа/b в/n",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "170meta-1-знак2-верх",
+            "target": "в/p@/e@в/rА/h`в/uђ/kЂв/x`/n",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "170meta-1-знак2-верх",
+            "target": "в/MЂ/@",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "170meta-1-знак2-верх",
+            "target": "в/V@/I",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "170meta-1-знак2-верх",
+            "target": "в/_@/R",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "170meta-1-знак2-верх",
+            "target": "в/gа/[Ђв/jА/_@в/m",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "170meta-1-знак2-верх",
+            "target": "в/s`/e@в/vЂ/h`в/yр/kЂв/}`/n",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "170meta-1-знак2-верх",
+            "target": "в/NЂ/9",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "170meta-1-знак2-верх",
+            "target": "в/`А/N",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "170meta-1-знак2-верх",
+            "target": "в/g /U@в/jа/Y",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "170meta-1-знак2-верх",
+            "target": "/[Ђв/pђ/_@в/r /`ав/t",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "170meta-1-знак2-верх",
+            "target": "в/TА/9",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "170meta-1-знак2-верх",
+            "target": "в/bА/I",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "170meta-1-знак2-верх",
+            "target": "в/jЂ/R",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "170meta-1-знак2-верх",
+            "target": "# Pro/TABLE",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "170meta-1-знак2-верх",
+            "target": "AUDIT_LOG",
+            "type": "has_history",
+            "metadata": {
+                "rev": "1310",
+                "author": "USER",
+                "date": "13.08.25 11:24"
+            }
+        },
+        {
+            "source": "170meta-1-знак2-верх",
+            "target": "CNC_PROCESS",
+            "type": "mfg_operation_of",
+            "metadata": {
+                "operations": [
+                    "FRONT\u0000",
+                    "dma_sld_freeze\u0000"
+                ],
+                "method": "semantic_large_text"
+            }
+        }
+    ],
+    "parameters": {}
+}

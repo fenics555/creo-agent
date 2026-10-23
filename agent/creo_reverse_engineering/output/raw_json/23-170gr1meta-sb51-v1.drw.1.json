@@ -1,0 +1,260 @@
+{
+    "model_name": "23-170gr1meta-sb51-v1",
+    "plm_type": "Технологический техпроцесс механообработки (CAM)",
+    "edges": [
+        {
+            "source": "23-170gr1meta-sb51-v1",
+            "target": "Sld_FeatDefsCmp",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "23-170gr1meta-sb51-v1",
+            "target": "feat_defs_1000",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "23-170gr1meta-sb51-v1",
+            "target": "place_instruction_ptrs",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "23-170gr1meta-sb51-v1",
+            "target": "data(plin_info_ui_step)",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "23-170gr1meta-sb51-v1",
+            "target": "dat_ptr(comp_data)",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "23-170gr1meta-sb51-v1",
+            "target": "09ED04ECAF3253FE859FF3E0EEDBCDA",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "23-170gr1meta-sb51-v1",
+            "target": "simpl_rep",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "23-170gr1meta-sb51-v1",
+            "target": "inherit_rep",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "23-170gr1meta-sb51-v1",
+            "target": "parent",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "23-170gr1meta-sb51-v1",
+            "target": "app_data(p_embed_mdl_data)",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "23-170gr1meta-sb51-v1",
+            "target": "вч#Ѓ?23-170GR1META-SB51-V1",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "23-170gr1meta-sb51-v1",
+            "target": "stamp",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "23-170gr1meta-sb51-v1",
+            "target": "major_vers",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "23-170gr1meta-sb51-v1",
+            "target": "minor_vers",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "23-170gr1meta-sb51-v1",
+            "target": "interchange_info",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "23-170gr1meta-sb51-v1",
+            "target": "alumni_info",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "23-170gr1meta-sb51-v1",
+            "target": "цццгASM_MBR_GENERIC_NAME\u0000",
+            "type": "inherit_from_master",
+            "metadata": {
+                "method": "LargeText_Marker"
+            }
+        },
+        {
+            "source": "23-170gr1meta-sb51-v1",
+            "target": "цццгASM_MBR_GENERIC_NAME\u0000",
+            "type": "inherit_from_master",
+            "metadata": {
+                "method": "LargeText_Marker"
+            }
+        },
+        {
+            "source": "23-170gr1meta-sb51-v1",
+            "target": "цццгMDL_GENERIC_Р¤РћР РњРђРў\u0000",
+            "type": "inherit_from_master",
+            "metadata": {
+                "method": "LargeText_Marker"
+            }
+        },
+        {
+            "source": "23-170gr1meta-sb51-v1",
+            "target": "цццгMDL_GENERIC_РћР‘РћР—РќРђР§Р•РќРР•\u0000",
+            "type": "inherit_from_master",
+            "metadata": {
+                "method": "LargeText_Marker"
+            }
+        },
+        {
+            "source": "23-170gr1meta-sb51-v1",
+            "target": "цццгMDL_GENERIC_РЎР‘\u0000",
+            "type": "inherit_from_master",
+            "metadata": {
+                "method": "LargeText_Marker"
+            }
+        },
+        {
+            "source": "23-170gr1meta-sb51-v1",
+            "target": "цццгMDL_GENERIC_PARAM_VALUE\u0000",
+            "type": "inherit_from_master",
+            "metadata": {
+                "method": "LargeText_Marker"
+            }
+        },
+        {
+            "source": "23-170gr1meta-sb51-v1",
+            "target": "цццгMDL_GENERIC_PARAM_NAME\u0000",
+            "type": "inherit_from_master",
+            "metadata": {
+                "method": "LargeText_Marker"
+            }
+        },
+        {
+            "source": "23-170gr1meta-sb51-v1",
+            "target": "цгMDL_GENERIC_PRO_MP_MASS\u0000",
+            "type": "inherit_from_master",
+            "metadata": {
+                "method": "LargeText_Marker"
+            }
+        },
+        {
+            "source": "23-170gr1meta-sb51-v1",
+            "target": "г@MDL_GENERIC_PRO_MP_MASS\u0000",
+            "type": "inherit_from_master",
+            "metadata": {
+                "method": "LargeText_Marker"
+            }
+        },
+        {
+            "source": "23-170gr1meta-sb51-v1",
+            "target": "г@MDL_GENERIC_PRO_MP_MASS\u0000",
+            "type": "inherit_from_master",
+            "metadata": {
+                "method": "LargeText_Marker"
+            }
+        },
+        {
+            "source": "23-170gr1meta-sb51-v1",
+            "target": "г@MDL_GENERIC_PRO_MP_MASS\u0000",
+            "type": "inherit_from_master",
+            "metadata": {
+                "method": "LargeText_Marker"
+            }
+        },
+        {
+            "source": "23-170gr1meta-sb51-v1",
+            "target": "чGг@ч^MDL_GENERIC_PRO_MP_MASS\u0000",
+            "type": "inherit_from_master",
+            "metadata": {
+                "method": "LargeText_Marker"
+            }
+        },
+        {
+            "source": "23-170gr1meta-sb51-v1",
+            "target": "г@ч^MDL_GENERIC_PRO_MP_MASS\u0000",
+            "type": "inherit_from_master",
+            "metadata": {
+                "method": "LargeText_Marker"
+            }
+        },
+        {
+            "source": "23-170gr1meta-sb51-v1",
+            "target": "г@MDL_GENERIC_PRO_MP_MASS\u0000",
+            "type": "inherit_from_master",
+            "metadata": {
+                "method": "LargeText_Marker"
+            }
+        },
+        {
+            "source": "23-170gr1meta-sb51-v1",
+            "target": "г@MDL_GENERIC_PRO_MP_MASS\u0000",
+            "type": "inherit_from_master",
+            "metadata": {
+                "method": "LargeText_Marker"
+            }
+        },
+        {
+            "source": "23-170gr1meta-sb51-v1",
+            "target": "цццгASM_MBR_GENERIC_NAME\u0000",
+            "type": "family_instance",
+            "metadata": {
+                "method": "Generic_Token"
+            }
+        },
+        {
+            "source": "23-170gr1meta-sb51-v1",
+            "target": "цццгASM_MBR_GENERIC_NAME\u0000",
+            "type": "family_instance",
+            "metadata": {
+                "method": "Generic_Token"
+            }
+        },
+        {
+            "source": "23-170gr1meta-sb51-v1",
+            "target": "AUDIT_LOG",
+            "type": "has_history",
+            "metadata": {
+                "rev": "1026",
+                "author": "USER",
+                "date": "04.09.26 09:22"
+            }
+        },
+        {
+            "source": "23-170gr1meta-sb51-v1",
+            "target": "CNC_PROCESS",
+            "type": "mfg_operation_of",
+            "metadata": {
+                "operations": [
+                    "prs_step_id\u0000"
+                ],
+                "method": "semantic_large_text"
+            }
+        }
+    ],
+    "parameters": {}
+}

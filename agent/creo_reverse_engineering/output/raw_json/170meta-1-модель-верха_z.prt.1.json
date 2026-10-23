@@ -1,0 +1,64 @@
+{
+    "model_name": "170meta-1-модель-верха_z",
+    "plm_type": "Технологический техпроцесс механообработки (CAM)",
+    "edges": [
+        {
+            "source": "170meta-1-модель-верха_z",
+            "target": "LФСFYoМБ_",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "170meta-1-модель-верха_z",
+            "target": "іyS·%xъб",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "170meta-1-модель-верха_z",
+            "target": "HЂ‰a-",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "170meta-1-модель-верха_z",
+            "target": "Sld_BasBasData",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "170meta-1-модель-верха_z",
+            "target": "tab_key_struct",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "170meta-1-модель-верха_z",
+            "target": "revnum_ptr",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "170meta-1-модель-верха_z",
+            "target": "AUDIT_LOG",
+            "type": "has_history",
+            "metadata": {
+                "rev": "147",
+                "author": "USER",
+                "date": "15.08.25 07:06"
+            }
+        },
+        {
+            "source": "170meta-1-модель-верха_z",
+            "target": "CNC_PROCESS",
+            "type": "mfg_operation_of",
+            "metadata": {
+                "operations": [
+                    "dma_sld_freeze\u0000"
+                ],
+                "method": "semantic_large_text"
+            }
+        }
+    ],
+    "parameters": {}
+}

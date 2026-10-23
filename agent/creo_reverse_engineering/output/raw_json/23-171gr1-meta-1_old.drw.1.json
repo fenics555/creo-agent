@@ -1,0 +1,212 @@
+{
+    "model_name": "23-171gr1-meta-1_old",
+    "plm_type": "Технологический техпроцесс механообработки (CAM)",
+    "edges": [
+        {
+            "source": "23-171gr1-meta-1_old",
+            "target": "last_name_nums",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "23-171gr1-meta-1_old",
+            "target": "Sld_IdsGenInfoDb",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "23-171gr1-meta-1_old",
+            "target": "mdl_ids_info_db",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "23-171gr1-meta-1_old",
+            "target": "Sld_Hatching",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "23-171gr1-meta-1_old",
+            "target": "hatch_data_save_xar",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "23-171gr1-meta-1_old",
+            "target": "Sld_ActDatums",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "23-171gr1-meta-1_old",
+            "target": "act_datum_geoms",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "23-171gr1-meta-1_old",
+            "target": "Sld_IdsGenAllRepsDb",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "23-171gr1-meta-1_old",
+            "target": "mdl_ids_all_reps_db",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "23-171gr1-meta-1_old",
+            "target": "all_reps_items",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "23-171gr1-meta-1_old",
+            "target": "owner_item",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "23-171gr1-meta-1_old",
+            "target": "revnum_item",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "23-171gr1-meta-1_old",
+            "target": "group_info_ptr",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "23-171gr1-meta-1_old",
+            "target": "place_rec_ptr",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "23-171gr1-meta-1_old",
+            "target": "place_instruction_ptrs",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "23-171gr1-meta-1_old",
+            "target": "dat_ptr(comp_data)",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "23-171gr1-meta-1_old",
+            "target": "1B2770DEC4B2516D8321DAF7E7FFFA8",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "23-171gr1-meta-1_old",
+            "target": "simpl_rep",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "23-171gr1-meta-1_old",
+            "target": "inherit_rep",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "23-171gr1-meta-1_old",
+            "target": "parent",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "23-171gr1-meta-1_old",
+            "target": "цгMDL_GENERIC_PRO_MP_MASS\u0000",
+            "type": "inherit_from_master",
+            "metadata": {
+                "method": "LargeText_Marker"
+            }
+        },
+        {
+            "source": "23-171gr1-meta-1_old",
+            "target": "г@MDL_GENERIC_PRO_MP_MASS\u0000",
+            "type": "inherit_from_master",
+            "metadata": {
+                "method": "LargeText_Marker"
+            }
+        },
+        {
+            "source": "23-171gr1-meta-1_old",
+            "target": "г@MDL_GENERIC_PRO_MP_MASS\u0000",
+            "type": "inherit_from_master",
+            "metadata": {
+                "method": "LargeText_Marker"
+            }
+        },
+        {
+            "source": "23-171gr1-meta-1_old",
+            "target": "г@MDL_GENERIC_PRO_MP_MASS\u0000",
+            "type": "inherit_from_master",
+            "metadata": {
+                "method": "LargeText_Marker"
+            }
+        },
+        {
+            "source": "23-171gr1-meta-1_old",
+            "target": "ч@г@чTMDL_GENERIC_PRO_MP_MASS\u0000",
+            "type": "inherit_from_master",
+            "metadata": {
+                "method": "LargeText_Marker"
+            }
+        },
+        {
+            "source": "23-171gr1-meta-1_old",
+            "target": "г@чTMDL_GENERIC_PRO_MP_MASS\u0000",
+            "type": "inherit_from_master",
+            "metadata": {
+                "method": "LargeText_Marker"
+            }
+        },
+        {
+            "source": "23-171gr1-meta-1_old",
+            "target": "г@MDL_GENERIC_PRO_MP_MASS\u0000",
+            "type": "inherit_from_master",
+            "metadata": {
+                "method": "LargeText_Marker"
+            }
+        },
+        {
+            "source": "23-171gr1-meta-1_old",
+            "target": "г@MDL_GENERIC_PRO_MP_MASS\u0000",
+            "type": "inherit_from_master",
+            "metadata": {
+                "method": "LargeText_Marker"
+            }
+        },
+        {
+            "source": "23-171gr1-meta-1_old",
+            "target": "AUDIT_LOG",
+            "type": "has_history",
+            "metadata": {
+                "rev": "1990",
+                "author": "USER",
+                "date": "02.06.25 06:54"
+            }
+        },
+        {
+            "source": "23-171gr1-meta-1_old",
+            "target": "CNC_PROCESS",
+            "type": "mfg_operation_of",
+            "metadata": {
+                "operations": [
+                    "prs_step_id\u0000"
+                ],
+                "method": "semantic_large_text"
+            }
+        }
+    ],
+    "parameters": {}
+}

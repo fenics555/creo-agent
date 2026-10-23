@@ -1,0 +1,689 @@
+{
+    "model_name": "23-171gr1meta-sb25g4-14-v1",
+    "plm_type": "Технологический техпроцесс механообработки (CAM)",
+    "edges": [
+        {
+            "source": "23-171gr1meta-sb25g4-14-v1",
+            "target": "ИйЃrR",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "23-171gr1meta-sb25g4-14-v1",
+            "target": "жЃxе¬!",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "23-171gr1meta-sb25g4-14-v1",
+            "target": "%+Т29",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "23-171gr1meta-sb25g4-14-v1",
+            "target": "™€№ЋВ@,‰Їр$n",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "23-171gr1meta-sb25g4-14-v1",
+            "target": "¶¤—”2\\к",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "23-171gr1meta-sb25g4-14-v1",
+            "target": "ЃrЂ2“@[ф",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "23-171gr1meta-sb25g4-14-v1",
+            "target": "tЂљkи*",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "23-171gr1meta-sb25g4-14-v1",
+            "target": "KАkFQ?Ф*Бf–T",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "23-171gr1meta-sb25g4-14-v1",
+            "target": "њИ'F„$!",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "23-171gr1meta-sb25g4-14-v1",
+            "target": "ЯВ#@<Dџ",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "23-171gr1meta-sb25g4-14-v1",
+            "target": "Іh.Љ{є",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "23-171gr1meta-sb25g4-14-v1",
+            "target": "ЃЂQЩSТ",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "23-171gr1meta-sb25g4-14-v1",
+            "target": "ЃЂ»(—",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "23-171gr1meta-sb25g4-14-v1",
+            "target": "ђ?о§Ч",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "23-171gr1meta-sb25g4-14-v1",
+            "target": "ЇИKтrGT@\"",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "23-171gr1meta-sb25g4-14-v1",
+            "target": "3»Ооѓ[нNёМ",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "23-171gr1meta-sb25g4-14-v1",
+            "target": "Ѓ¶џэjGВ",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "23-171gr1meta-sb25g4-14-v1",
+            "target": "еЊђKЙMnvќbї",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "23-171gr1meta-sb25g4-14-v1",
+            "target": "Tыр,ї‡мДх­^xGгG9 Џ%3еЩш,N·?",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "23-171gr1meta-sb25g4-14-v1",
+            "target": "¤мЉyqU–Еv",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "23-171gr1meta-sb25g4-14-v1",
+            "target": "vЊЉЧ—5",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "23-171gr1meta-sb25g4-14-v1",
+            "target": "pіжБm†‘‡nЋИнy",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "23-171gr1meta-sb25g4-14-v1",
+            "target": "nЪ=0Ї",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "23-171gr1meta-sb25g4-14-v1",
+            "target": "@‰6CХШћ]Ќ",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "23-171gr1meta-sb25g4-14-v1",
+            "target": "«gЂђюЎЌ",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "23-171gr1meta-sb25g4-14-v1",
+            "target": "+2е^¶ь®Ѕыдj·'",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "23-171gr1meta-sb25g4-14-v1",
+            "target": "€Ґy¤ЉрS]…IА:йa|оRХV0(xUcФ",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "23-171gr1meta-sb25g4-14-v1",
+            "target": "Чx6юcЈ§КёJ„",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "23-171gr1meta-sb25g4-14-v1",
+            "target": "FЛc›ЬЄuд:Т^жчm~Л’¶ґњ@/",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "23-171gr1meta-sb25g4-14-v1",
+            "target": "kaeАшZЋ",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "23-171gr1meta-sb25g4-14-v1",
+            "target": "UЁВwD€†н",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "23-171gr1meta-sb25g4-14-v1",
+            "target": "ы^M0ї‡",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "23-171gr1meta-sb25g4-14-v1",
+            "target": "p!Мv&",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "23-171gr1meta-sb25g4-14-v1",
+            "target": ">‘VЕ\"M-`^Г",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "23-171gr1meta-sb25g4-14-v1",
+            "target": "МM\\™нT}Qh#-в",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "23-171gr1meta-sb25g4-14-v1",
+            "target": "ё&™ЂJ",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "23-171gr1meta-sb25g4-14-v1",
+            "target": "(ЂЦe%",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "23-171gr1meta-sb25g4-14-v1",
+            "target": "Анyд4b<",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "23-171gr1meta-sb25g4-14-v1",
+            "target": "yx*Ї$ћ9",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "23-171gr1meta-sb25g4-14-v1",
+            "target": "ўЃRА‚",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "23-171gr1meta-sb25g4-14-v1",
+            "target": "feat_defs_979",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "23-171gr1meta-sb25g4-14-v1",
+            "target": "feat_defs_926",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "23-171gr1meta-sb25g4-14-v1",
+            "target": "Sld_FeatDefsCmp",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "23-171gr1meta-sb25g4-14-v1",
+            "target": "feat_defs_1000",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "23-171gr1meta-sb25g4-14-v1",
+            "target": "place_instruction_ptrs",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "23-171gr1meta-sb25g4-14-v1",
+            "target": "data(plin_info_sub_feat)",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "23-171gr1meta-sb25g4-14-v1",
+            "target": "data(plin_info_pntsrf_1stpnt)",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "23-171gr1meta-sb25g4-14-v1",
+            "target": "data(plin_info_ui_step)",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "23-171gr1meta-sb25g4-14-v1",
+            "target": "dat_ptr(comp_data)",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "23-171gr1meta-sb25g4-14-v1",
+            "target": "23-171GR1-META",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "23-171gr1meta-sb25g4-14-v1",
+            "target": "simpl_rep",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "23-171gr1meta-sb25g4-14-v1",
+            "target": "inherit_rep",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "23-171gr1meta-sb25g4-14-v1",
+            "target": "p_foreign_source",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "23-171gr1meta-sb25g4-14-v1",
+            "target": "minor_vers",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "23-171gr1meta-sb25g4-14-v1",
+            "target": "interchange_info",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "23-171gr1meta-sb25g4-14-v1",
+            "target": "user_data",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "23-171gr1meta-sb25g4-14-v1",
+            "target": "mp_report_data",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "23-171gr1meta-sb25g4-14-v1",
+            "target": "mass_prop",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "23-171gr1meta-sb25g4-14-v1",
+            "target": "checksum",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "23-171gr1meta-sb25g4-14-v1",
+            "target": "mp_checksum",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "23-171gr1meta-sb25g4-14-v1",
+            "target": "alt_vals_info",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "23-171gr1meta-sb25g4-14-v1",
+            "target": "item_info",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "23-171gr1meta-sb25g4-14-v1",
+            "target": "feat_list_rev_info",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "23-171gr1meta-sb25g4-14-v1",
+            "target": "revision(mdl_g_rev_dtl_t_ft_regen)",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "23-171gr1meta-sb25g4-14-v1",
+            "target": "version",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "23-171gr1meta-sb25g4-14-v1",
+            "target": "appl_data",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "23-171gr1meta-sb25g4-14-v1",
+            "target": "tag_info",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "23-171gr1meta-sb25g4-14-v1",
+            "target": "version",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "23-171gr1meta-sb25g4-14-v1",
+            "target": "info(No_value)",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "23-171gr1meta-sb25g4-14-v1",
+            "target": "sub_feat_arr",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "23-171gr1meta-sb25g4-14-v1",
+            "target": "expl_state_ref",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "23-171gr1meta-sb25g4-14-v1",
+            "target": "feat_outl_info",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "23-171gr1meta-sb25g4-14-v1",
+            "target": "comp_pnt_data",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "23-171gr1meta-sb25g4-14-v1",
+            "target": "data(plin_info_user_data)",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "23-171gr1meta-sb25g4-14-v1",
+            "target": "q’8ЧW”бCа",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "23-171gr1meta-sb25g4-14-v1",
+            "target": "base_model_uid",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "23-171gr1meta-sb25g4-14-v1",
+            "target": "var_items",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "23-171gr1meta-sb25g4-14-v1",
+            "target": "xp_diffs",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "23-171gr1meta-sb25g4-14-v1",
+            "target": "diff_id",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "23-171gr1meta-sb25g4-14-v1",
+            "target": "value",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "23-171gr1meta-sb25g4-14-v1",
+            "target": "sym_val",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "23-171gr1meta-sb25g4-14-v1",
+            "target": "objname",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "23-171gr1meta-sb25g4-14-v1",
+            "target": "ббббба",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "23-171gr1meta-sb25g4-14-v1",
+            "target": "твчЂЧ2",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "23-171gr1meta-sb25g4-14-v1",
+            "target": "бббббба",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "23-171gr1meta-sb25g4-14-v1",
+            "target": "feat_geom_backup",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "23-171gr1meta-sb25g4-14-v1",
+            "target": "old_var_items",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "23-171gr1meta-sb25g4-14-v1",
+            "target": "x_diff_states",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "23-171gr1meta-sb25g4-14-v1",
+            "target": "idtab_id_map",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "23-171gr1meta-sb25g4-14-v1",
+            "target": "feat_db",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "23-171gr1meta-sb25g4-14-v1",
+            "target": "ref_model_info",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "23-171gr1meta-sb25g4-14-v1",
+            "target": "objname",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "23-171gr1meta-sb25g4-14-v1",
+            "target": "бббббчЂЮбчЂЯв2",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "23-171gr1meta-sb25g4-14-v1",
+            "target": "ббббббчЂЯв2",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "23-171gr1meta-sb25g4-14-v1",
+            "target": "тчЂфвц",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "23-171gr1meta-sb25g4-14-v1",
+            "target": "data(plin_info_cache_ref_int_dtm)",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "23-171gr1meta-sb25g4-14-v1",
+            "target": "мє*ж:®°",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "23-171gr1meta-sb25g4-14-v1",
+            "target": "мє*ж:®°",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "23-171gr1meta-sb25g4-14-v1",
+            "target": "Gj3-BњМММММ-X?яяяяы",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "23-171gr1meta-sb25g4-14-v1",
+            "target": "Gj3-BњМММММ-X?яяяяы",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "23-171gr1meta-sb25g4-14-v1",
+            "target": "Gj3-BњМММММHX@",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "23-171gr1meta-sb25g4-14-v1",
+            "target": "Hd@/\\ .^я",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "23-171gr1meta-sb25g4-14-v1",
+            "target": "data(plin_info_dist_rel_value)",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "23-171gr1meta-sb25g4-14-v1",
+            "target": "Hd@/fР.^я",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "23-171gr1meta-sb25g4-14-v1",
+            "target": "бббббчЂЮбчЂЯв2",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "23-171gr1meta-sb25g4-14-v1",
+            "target": "ббббббчЂЯв2",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "23-171gr1meta-sb25g4-14-v1",
+            "target": "тчЂфвц",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "23-171gr1meta-sb25g4-14-v1",
+            "target": "(їЧ–ШѓLѕ4ђ",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "23-171gr1meta-sb25g4-14-v1",
+            "target": "Hd@/fРH_",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "23-171gr1meta-sb25g4-14-v1",
+            "target": "бббббчЂЮбчЂЯв2",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "23-171gr1meta-sb25g4-14-v1",
+            "target": "AUDIT_LOG",
+            "type": "has_history",
+            "metadata": {
+                "rev": "6794",
+                "author": "USER",
+                "date": "02.06.25 12:03"
+            }
+        },
+        {
+            "source": "23-171gr1meta-sb25g4-14-v1",
+            "target": "CNC_PROCESS",
+            "type": "mfg_operation_of",
+            "metadata": {
+                "operations": [
+                    "ASM_FRONT\u0000",
+                    "dma_sld_freeze\u0000"
+                ],
+                "method": "semantic_large_text"
+            }
+        }
+    ],
+    "parameters": {}
+}

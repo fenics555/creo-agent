@@ -1,0 +1,34 @@
+{
+    "model_name": "170meta-2-02-ящик-низ-литник_z",
+    "plm_type": "Технологический техпроцесс механообработки (CAM)",
+    "edges": [
+        {
+            "source": "170meta-2-02-ящик-низ-литник_z",
+            "target": "4у&тN",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "170meta-2-02-ящик-низ-литник_z",
+            "target": "AUDIT_LOG",
+            "type": "has_history",
+            "metadata": {
+                "rev": "77",
+                "author": "USER",
+                "date": "20.07.25 06:43"
+            }
+        },
+        {
+            "source": "170meta-2-02-ящик-низ-литник_z",
+            "target": "CNC_PROCESS",
+            "type": "mfg_operation_of",
+            "metadata": {
+                "operations": [
+                    "dma_sld_freeze\u0000"
+                ],
+                "method": "semantic_large_text"
+            }
+        }
+    ],
+    "parameters": {}
+}

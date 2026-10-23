@@ -1,0 +1,181 @@
+{
+    "model_name": "171meta-1-02-ящик-низ-литник",
+    "plm_type": "Технологический техпроцесс механообработки (CAM)",
+    "edges": [
+        {
+            "source": "171meta-1-02-ящик-низ-литник",
+            "target": "Sld_IdsGenInfoDb",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "171meta-1-02-ящик-низ-литник",
+            "target": "mdl_ids_info_db",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "171meta-1-02-ящик-низ-литник",
+            "target": "Sld_Hatching",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "171meta-1-02-ящик-низ-литник",
+            "target": "hatch_data_save_xar",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "171meta-1-02-ящик-низ-литник",
+            "target": "Sld_ActDatums",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "171meta-1-02-ящик-низ-литник",
+            "target": "act_datum_geoms",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "171meta-1-02-ящик-низ-литник",
+            "target": "Sld_IdsGenAllRepsDb",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "171meta-1-02-ящик-низ-литник",
+            "target": "mdl_ids_all_reps_db",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "171meta-1-02-ящик-низ-литник",
+            "target": "all_reps_items",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "171meta-1-02-ящик-низ-литник",
+            "target": "owner_item",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "171meta-1-02-ящик-низ-литник",
+            "target": "revnum_item",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "171meta-1-02-ящик-низ-литник",
+            "target": "group_info_ptr",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "171meta-1-02-ящик-низ-литник",
+            "target": "place_rec_ptr",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "171meta-1-02-ящик-низ-литник",
+            "target": "place_instruction_ptrs",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "171meta-1-02-ящик-низ-литник",
+            "target": "dat_ptr(comp_data)",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "171meta-1-02-ящик-низ-литник",
+            "target": "9321C6EFACF35F5680102868D074F19",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "171meta-1-02-ящик-низ-литник",
+            "target": "simpl_rep",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "171meta-1-02-ящик-низ-литник",
+            "target": "inherit_rep",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "171meta-1-02-ящик-низ-литник",
+            "target": "parent",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "171meta-1-02-ящик-низ-литник",
+            "target": "app_data(p_embed_mdl_data)",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "171meta-1-02-ящик-низ-литник",
+            "target": "цгMDL_GENERIC_PRO_MP_MASS\u0000",
+            "type": "inherit_from_master",
+            "metadata": {
+                "method": "LargeText_Marker"
+            }
+        },
+        {
+            "source": "171meta-1-02-ящик-низ-литник",
+            "target": "г@MDL_GENERIC_PRO_MP_MASS\u0000",
+            "type": "inherit_from_master",
+            "metadata": {
+                "method": "LargeText_Marker"
+            }
+        },
+        {
+            "source": "171meta-1-02-ящик-низ-литник",
+            "target": "г@MDL_GENERIC_PRO_MP_MASS\u0000",
+            "type": "inherit_from_master",
+            "metadata": {
+                "method": "LargeText_Marker"
+            }
+        },
+        {
+            "source": "171meta-1-02-ящик-низ-литник",
+            "target": "г@MDL_GENERIC_PRO_MP_MASS\u0000",
+            "type": "inherit_from_master",
+            "metadata": {
+                "method": "LargeText_Marker"
+            }
+        },
+        {
+            "source": "171meta-1-02-ящик-низ-литник",
+            "target": "AUDIT_LOG",
+            "type": "has_history",
+            "metadata": {
+                "rev": "293",
+                "author": "USER",
+                "date": "16.06.25 11:56"
+            }
+        },
+        {
+            "source": "171meta-1-02-ящик-низ-литник",
+            "target": "CNC_PROCESS",
+            "type": "mfg_operation_of",
+            "metadata": {
+                "operations": [
+                    "dma_sld_freeze\u0000",
+                    "prs_step_id\u0000"
+                ],
+                "method": "semantic_large_text"
+            }
+        }
+    ],
+    "parameters": {}
+}

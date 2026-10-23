@@ -1,0 +1,253 @@
+{
+    "model_name": "170meta-2-знак1-верх-ящик",
+    "plm_type": "Технологический техпроцесс механообработки (CAM)",
+    "edges": [
+        {
+            "source": "170meta-2-знак1-верх-ящик",
+            "target": "ч4Џд‚",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "170meta-2-знак1-верх-ящик",
+            "target": "ч4Џд‚",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "170meta-2-знак1-верх-ящик",
+            "target": "/VЂHH",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "170meta-2-знак1-верх-ящик",
+            "target": "group_info_ptr",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "170meta-2-знак1-верх-ящик",
+            "target": "place_rec_ptr",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "170meta-2-знак1-верх-ящик",
+            "target": "place_instruction_ptrs",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "170meta-2-знак1-верх-ящик",
+            "target": "data(plin_info_sub_feat)",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "170meta-2-знак1-верх-ящик",
+            "target": "data(plin_info_pntsrf_1stpnt)",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "170meta-2-знак1-верх-ящик",
+            "target": "data(plin_info_ui_step)",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "170meta-2-знак1-верх-ящик",
+            "target": "dat_ptr(comp_data)",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "170meta-2-знак1-верх-ящик",
+            "target": "simpl_rep",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "170meta-2-знак1-верх-ящик",
+            "target": "inherit_rep",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "170meta-2-знак1-верх-ящик",
+            "target": "p_foreign_source",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "170meta-2-знак1-верх-ящик",
+            "target": "minor_vers",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "170meta-2-знак1-верх-ящик",
+            "target": "interchange_info",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "170meta-2-знак1-верх-ящик",
+            "target": "user_data",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "170meta-2-знак1-верх-ящик",
+            "target": "mp_report_data",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "170meta-2-знак1-верх-ящик",
+            "target": "mass_prop",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "170meta-2-знак1-верх-ящик",
+            "target": "checksum",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "170meta-2-знак1-верх-ящик",
+            "target": "mp_checksum",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "170meta-2-знак1-верх-ящик",
+            "target": "alt_vals_info",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "170meta-2-знак1-верх-ящик",
+            "target": "item_info",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "170meta-2-знак1-верх-ящик",
+            "target": "feat_list_rev_info",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "170meta-2-знак1-верх-ящик",
+            "target": "mdl_geom_rev",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "170meta-2-знак1-верх-ящик",
+            "target": "tstamp",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "170meta-2-знак1-верх-ящик",
+            "target": "comp_list_rev_info",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "170meta-2-знак1-верх-ящик",
+            "target": "info(tuples_list_rev_info)",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "170meta-2-знак1-верх-ящик",
+            "target": "appl_data",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "170meta-2-знак1-верх-ящик",
+            "target": "CHUGUN_VCH50",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "170meta-2-знак1-верх-ящик",
+            "target": "alumni_info",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "170meta-2-знак1-верх-ящик",
+            "target": "moved_comp",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "170meta-2-знак1-верх-ящик",
+            "target": "restr_comp",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "170meta-2-знак1-верх-ящик",
+            "target": "rpl_conncts",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "170meta-2-знак1-верх-ящик",
+            "target": "sub_feat_arr",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "170meta-2-знак1-верх-ящик",
+            "target": "AUDIT_LOG",
+            "type": "has_history",
+            "metadata": {
+                "rev": "122",
+                "author": "USER",
+                "date": "21.07.25 12:00"
+            }
+        },
+        {
+            "source": "170meta-2-знак1-верх-ящик",
+            "target": "CNC_PROCESS",
+            "type": "mfg_tool_for",
+            "metadata": {
+                "tools": [
+                    "GRAVER1\u0000",
+                    "GRAVER2\u0000"
+                ],
+                "method": "semantic_large_text"
+            }
+        },
+        {
+            "source": "170meta-2-знак1-верх-ящик",
+            "target": "CNC_PROCESS",
+            "type": "mfg_operation_of",
+            "metadata": {
+                "operations": [
+                    "CHERN\u0000",
+                    "CHIST\u0000",
+                    "FR10\u0000",
+                    "FR12-POLUCHIST\u0000",
+                    "FR50\u0000",
+                    "FR6-CHIST\u0000",
+                    "FR6-VERH\u0000",
+                    "NC_ASM_FRONT\u0000",
+                    "SV13\u0000",
+                    "цгSTEP_OVER\u0000"
+                ],
+                "method": "semantic_large_text"
+            }
+        }
+    ],
+    "parameters": {}
+}

@@ -1,0 +1,213 @@
+{
+    "model_name": "1525-2т-03-модель-верх",
+    "plm_type": "Технологический техпроцесс механообработки (CAM)",
+    "edges": [
+        {
+            "source": "1525-2т-03-модель-верх",
+            "target": "Sld_IdsGenInfoDb",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "1525-2т-03-модель-верх",
+            "target": "mdl_ids_info_db",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "1525-2т-03-модель-верх",
+            "target": "Sld_Hatching",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "1525-2т-03-модель-верх",
+            "target": "hatch_data_save_xar",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "1525-2т-03-модель-верх",
+            "target": "Sld_ActDatums",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "1525-2т-03-модель-верх",
+            "target": "act_datum_geoms",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "1525-2т-03-модель-верх",
+            "target": "Sld_IdsGenAllRepsDb",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "1525-2т-03-модель-верх",
+            "target": "mdl_ids_all_reps_db",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "1525-2т-03-модель-верх",
+            "target": "all_reps_items",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "1525-2т-03-модель-верх",
+            "target": "owner_item",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "1525-2т-03-модель-верх",
+            "target": "revnum_item",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "1525-2т-03-модель-верх",
+            "target": "group_info_ptr",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "1525-2т-03-модель-верх",
+            "target": "place_rec_ptr",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "1525-2т-03-модель-верх",
+            "target": "place_instruction_ptrs",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "1525-2т-03-модель-верх",
+            "target": "dat_ptr(comp_data)",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "1525-2т-03-модель-верх",
+            "target": "E8158F98EFFA5918B177741ABCCDAB3",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "1525-2т-03-модель-верх",
+            "target": "simpl_rep",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "1525-2т-03-модель-верх",
+            "target": "inherit_rep",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "1525-2т-03-модель-верх",
+            "target": "parent",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "1525-2т-03-модель-верх",
+            "target": "app_data(p_embed_mdl_data)",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "1525-2т-03-модель-верх",
+            "target": "цгMDL_GENERIC_PRO_MP_MASS\u0000",
+            "type": "inherit_from_master",
+            "metadata": {
+                "method": "LargeText_Marker"
+            }
+        },
+        {
+            "source": "1525-2т-03-модель-верх",
+            "target": "г@MDL_GENERIC_PRO_MP_MASS\u0000",
+            "type": "inherit_from_master",
+            "metadata": {
+                "method": "LargeText_Marker"
+            }
+        },
+        {
+            "source": "1525-2т-03-модель-верх",
+            "target": "г@MDL_GENERIC_PRO_MP_MASS\u0000",
+            "type": "inherit_from_master",
+            "metadata": {
+                "method": "LargeText_Marker"
+            }
+        },
+        {
+            "source": "1525-2т-03-модель-верх",
+            "target": "г@MDL_GENERIC_PRO_MP_MASS\u0000",
+            "type": "inherit_from_master",
+            "metadata": {
+                "method": "LargeText_Marker"
+            }
+        },
+        {
+            "source": "1525-2т-03-модель-верх",
+            "target": "чCг@чWMDL_GENERIC_PRO_MP_MASS\u0000",
+            "type": "inherit_from_master",
+            "metadata": {
+                "method": "LargeText_Marker"
+            }
+        },
+        {
+            "source": "1525-2т-03-модель-верх",
+            "target": "г@чWMDL_GENERIC_PRO_MP_MASS\u0000",
+            "type": "inherit_from_master",
+            "metadata": {
+                "method": "LargeText_Marker"
+            }
+        },
+        {
+            "source": "1525-2т-03-модель-верх",
+            "target": "г@MDL_GENERIC_PRO_MP_MASS\u0000",
+            "type": "inherit_from_master",
+            "metadata": {
+                "method": "LargeText_Marker"
+            }
+        },
+        {
+            "source": "1525-2т-03-модель-верх",
+            "target": "г@MDL_GENERIC_PRO_MP_MASS\u0000",
+            "type": "inherit_from_master",
+            "metadata": {
+                "method": "LargeText_Marker"
+            }
+        },
+        {
+            "source": "1525-2т-03-модель-верх",
+            "target": "AUDIT_LOG",
+            "type": "has_history",
+            "metadata": {
+                "rev": "438",
+                "author": "USER",
+                "date": "03.06.25 13:38"
+            }
+        },
+        {
+            "source": "1525-2т-03-модель-верх",
+            "target": "CNC_PROCESS",
+            "type": "mfg_operation_of",
+            "metadata": {
+                "operations": [
+                    "dma_sld_freeze\u0000",
+                    "prs_step_id\u0000"
+                ],
+                "method": "semantic_large_text"
+            }
+        }
+    ],
+    "parameters": {}
+}

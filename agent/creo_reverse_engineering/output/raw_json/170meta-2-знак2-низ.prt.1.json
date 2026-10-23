@@ -1,0 +1,353 @@
+{
+    "model_name": "170meta-2-знак2-низ",
+    "plm_type": "Технологический техпроцесс механообработки (CAM)",
+    "edges": [
+        {
+            "source": "170meta-2-знак2-низ",
+            "target": "LФСFYoМБ_",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "170meta-2-знак2-низ",
+            "target": "љAЖqџYЙчТ 9",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "170meta-2-знак2-низ",
+            "target": "A`j:А",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "170meta-2-знак2-низ",
+            "target": "ър‰lаiґ",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "170meta-2-знак2-низ",
+            "target": "{ж°5®)_)gјЙk¤!",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "170meta-2-знак2-низ",
+            "target": "Sld_BasBasData",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "170meta-2-знак2-низ",
+            "target": "tab_key_struct",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "170meta-2-знак2-низ",
+            "target": "revnum_ptr",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "170meta-2-знак2-низ",
+            "target": "(S©]»",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "170meta-2-знак2-низ",
+            "target": "ref_part_tabs",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "170meta-2-знак2-низ",
+            "target": "ref_part_tab",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "170meta-2-знак2-низ",
+            "target": "objname",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "170meta-2-знак2-низ",
+            "target": "simpl_rep",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "170meta-2-знак2-низ",
+            "target": "inherit_rep",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "170meta-2-знак2-низ",
+            "target": "p_foreign_source",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "170meta-2-знак2-низ",
+            "target": "ref_id_user",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "170meta-2-знак2-низ",
+            "target": "ббббб",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "170meta-2-знак2-низ",
+            "target": "Medium",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "170meta-2-знак2-низ",
+            "target": "Very Coarse",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "170meta-2-знак2-низ",
+            "target": "p_general",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "170meta-2-знак2-низ",
+            "target": "Defaults",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "170meta-2-знак2-низ",
+            "target": "[] S 92;",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "170meta-2-знак2-низ",
+            "target": "[A] W 11;",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "170meta-2-знак2-низ",
+            "target": "в)й™Bй™в)у3Bу3в/",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "170meta-2-знак2-низ",
+            "target": "p_brk_edg",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "170meta-2-знак2-низ",
+            "target": "[] S 92;",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "170meta-2-знак2-низ",
+            "target": "[A] W 11;",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "170meta-2-знак2-низ",
+            "target": "p_angular",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "170meta-2-знак2-низ",
+            "target": "holes_arr",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "170meta-2-знак2-низ",
+            "target": "# Pro/TABLE",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "170meta-2-знак2-низ",
+            "target": "[] S 92;",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "170meta-2-знак2-низ",
+            "target": "[A] W 11;",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "170meta-2-знак2-низ",
+            "target": "в/NЂ/I",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "170meta-2-знак2-низ",
+            "target": "в/UА/R",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "170meta-2-знак2-низ",
+            "target": "в/JЂ/D",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "170meta-2-знак2-низ",
+            "target": "в/SА/N",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "170meta-2-знак2-низ",
+            "target": "в/[Ђ/U@в/` /Y",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "170meta-2-знак2-низ",
+            "target": "в/l@/e@в/pP/h`в/r /kЂв/tА/n",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "170meta-2-знак2-низ",
+            "target": "в/RА/I",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "170meta-2-знак2-низ",
+            "target": "в/ZА/R",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "170meta-2-знак2-низ",
+            "target": "в/d@/[Ђв/fА/_@в/hА/`ав/jа/b в/n",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "170meta-2-знак2-низ",
+            "target": "в/p@/e@в/rА/h`в/uђ/kЂв/x`/n",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "170meta-2-знак2-низ",
+            "target": "в/MЂ/@",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "170meta-2-знак2-низ",
+            "target": "в/V@/I",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "170meta-2-знак2-низ",
+            "target": "в/_@/R",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "170meta-2-знак2-низ",
+            "target": "в/gа/[Ђв/jА/_@в/m",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "170meta-2-знак2-низ",
+            "target": "в/s`/e@в/vЂ/h`в/yр/kЂв/}`/n",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "170meta-2-знак2-низ",
+            "target": "в/NЂ/9",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "170meta-2-знак2-низ",
+            "target": "в/`А/N",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "170meta-2-знак2-низ",
+            "target": "в/g /U@в/jа/Y",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "170meta-2-знак2-низ",
+            "target": "/[Ђв/pђ/_@в/r /`ав/t",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "170meta-2-знак2-низ",
+            "target": "в/TА/9",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "170meta-2-знак2-низ",
+            "target": "в/bА/I",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "170meta-2-знак2-низ",
+            "target": "в/jЂ/R",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "170meta-2-знак2-низ",
+            "target": "AUDIT_LOG",
+            "type": "has_history",
+            "metadata": {
+                "rev": "1205",
+                "author": "USER",
+                "date": "18.06.25 08:21"
+            }
+        },
+        {
+            "source": "170meta-2-знак2-низ",
+            "target": "CNC_PROCESS",
+            "type": "mfg_operation_of",
+            "metadata": {
+                "operations": [
+                    "FRONT\u0000",
+                    "dma_sld_freeze\u0000"
+                ],
+                "method": "semantic_large_text"
+            }
+        }
+    ],
+    "parameters": {}
+}

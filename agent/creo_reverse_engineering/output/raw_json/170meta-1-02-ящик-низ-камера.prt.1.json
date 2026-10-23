@@ -1,0 +1,443 @@
+{
+    "model_name": "170meta-1-02-ящик-низ-камера",
+    "plm_type": "Технологический техпроцесс механообработки (CAM)",
+    "edges": [
+        {
+            "source": "170meta-1-02-ящик-низ-камера",
+            "target": "аzI1>¶ѓ;ЕГ;",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "170meta-1-02-ящик-низ-камера",
+            "target": "ђАwО„ЏА·ПсЉА·Р„‡ђ",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "170meta-1-02-ящик-низ-камера",
+            "target": "Sld_BasBasData",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "170meta-1-02-ящик-низ-камера",
+            "target": "tab_key_struct",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "170meta-1-02-ящик-низ-камера",
+            "target": "revnum_ptr",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "170meta-1-02-ящик-низ-камера",
+            "target": "(S©]»",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "170meta-1-02-ящик-низ-камера",
+            "target": "ref_part_tabs",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "170meta-1-02-ящик-низ-камера",
+            "target": "ref_part_tab",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "170meta-1-02-ящик-низ-камера",
+            "target": "objname",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "170meta-1-02-ящик-низ-камера",
+            "target": "simpl_rep",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "170meta-1-02-ящик-низ-камера",
+            "target": "inherit_rep",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "170meta-1-02-ящик-низ-камера",
+            "target": "p_foreign_source",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "170meta-1-02-ящик-низ-камера",
+            "target": "ref_id_user",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "170meta-1-02-ящик-низ-камера",
+            "target": "Medium",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "170meta-1-02-ящик-низ-камера",
+            "target": "Very Coarse",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "170meta-1-02-ящик-низ-камера",
+            "target": "p_general",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "170meta-1-02-ящик-низ-камера",
+            "target": "Defaults",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "170meta-1-02-ящик-низ-камера",
+            "target": "[] S 92;",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "170meta-1-02-ящик-низ-камера",
+            "target": "[A] W 11;",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "170meta-1-02-ящик-низ-камера",
+            "target": "в)й™Bй™в)у3Bу3в/",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "170meta-1-02-ящик-низ-камера",
+            "target": "p_brk_edg",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "170meta-1-02-ящик-низ-камера",
+            "target": "[] S 92;",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "170meta-1-02-ящик-низ-камера",
+            "target": "[A] W 11;",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "170meta-1-02-ящик-низ-камера",
+            "target": "p_angular",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "170meta-1-02-ящик-низ-камера",
+            "target": "holes_arr",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "170meta-1-02-ящик-низ-камера",
+            "target": "# Pro/TABLE",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "170meta-1-02-ящик-низ-камера",
+            "target": "[] S 92;",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "170meta-1-02-ящик-низ-камера",
+            "target": "[A] W 11;",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "170meta-1-02-ящик-низ-камера",
+            "target": "в/NЂ/I",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "170meta-1-02-ящик-низ-камера",
+            "target": "в/UА/R",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "170meta-1-02-ящик-низ-камера",
+            "target": "в/JЂ/D",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "170meta-1-02-ящик-низ-камера",
+            "target": "в/SА/N",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "170meta-1-02-ящик-низ-камера",
+            "target": "в/[Ђ/U@в/` /Y",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "170meta-1-02-ящик-низ-камера",
+            "target": "в/l@/e@в/pP/h`в/r /kЂв/tА/n",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "170meta-1-02-ящик-низ-камера",
+            "target": "в/RА/I",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "170meta-1-02-ящик-низ-камера",
+            "target": "в/ZА/R",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "170meta-1-02-ящик-низ-камера",
+            "target": "в/d@/[Ђв/fА/_@в/hА/`ав/jа/b в/n",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "170meta-1-02-ящик-низ-камера",
+            "target": "в/p@/e@в/rА/h`в/uђ/kЂв/x`/n",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "170meta-1-02-ящик-низ-камера",
+            "target": "в/MЂ/@",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "170meta-1-02-ящик-низ-камера",
+            "target": "в/V@/I",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "170meta-1-02-ящик-низ-камера",
+            "target": "в/_@/R",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "170meta-1-02-ящик-низ-камера",
+            "target": "в/gа/[Ђв/jА/_@в/m",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "170meta-1-02-ящик-низ-камера",
+            "target": "в/s`/e@в/vЂ/h`в/yр/kЂв/}`/n",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "170meta-1-02-ящик-низ-камера",
+            "target": "в/NЂ/9",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "170meta-1-02-ящик-низ-камера",
+            "target": "в/`А/N",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "170meta-1-02-ящик-низ-камера",
+            "target": "в/g /U@в/jа/Y",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "170meta-1-02-ящик-низ-камера",
+            "target": "/[Ђв/pђ/_@в/r /`ав/t",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "170meta-1-02-ящик-низ-камера",
+            "target": "в/TА/9",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "170meta-1-02-ящик-низ-камера",
+            "target": "в/bА/I",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "170meta-1-02-ящик-низ-камера",
+            "target": "в/jЂ/R",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "170meta-1-02-ящик-низ-камера",
+            "target": "# Pro/TABLE",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "170meta-1-02-ящик-низ-камера",
+            "target": "[] S 92;",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "170meta-1-02-ящик-низ-камера",
+            "target": "[A] W 11;",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "170meta-1-02-ящик-низ-камера",
+            "target": "в/IЂ/B",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "170meta-1-02-ящик-низ-камера",
+            "target": "в/SА/L",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "170meta-1-02-ящик-низ-камера",
+            "target": "в/WА/Q",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "170meta-1-02-ящик-низ-камера",
+            "target": "в/DЂ/9",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "170meta-1-02-ящик-низ-камера",
+            "target": "в/XЂ/O",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "170meta-1-02-ящик-низ-камера",
+            "target": "в/aА/UЂв/dЂ/XЂв/gЂ/[Ђв/jЂ/^",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "170meta-1-02-ящик-низ-камера",
+            "target": "в/DЂ/4",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "170meta-1-02-ящик-низ-камера",
+            "target": "в/TА/EЂв/X",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "170meta-1-02-ящик-низ-камера",
+            "target": "в/]А/O",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "170meta-1-02-ящик-низ-камера",
+            "target": "в/b@/S",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "170meta-1-02-ящик-низ-камера",
+            "target": "/UЂв/i`/XЂв/m`/[Ђв/pа/^",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "170meta-1-02-ящик-низ-камера",
+            "target": "в/EЂ/0",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "170meta-1-02-ящик-низ-камера",
+            "target": "в/VЂ/B",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "170meta-1-02-ящик-низ-камера",
+            "target": "в/a /L",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "170meta-1-02-ящик-низ-камера",
+            "target": "в/HЂ/*",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "170meta-1-02-ящик-низ-камера",
+            "target": "в/UА/9",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "170meta-1-02-ящик-низ-камера",
+            "target": "AUDIT_LOG",
+            "type": "has_history",
+            "metadata": {
+                "rev": "28392",
+                "author": "USER",
+                "date": "14.07.25 10:12"
+            }
+        },
+        {
+            "source": "170meta-1-02-ящик-низ-камера",
+            "target": "CNC_PROCESS",
+            "type": "mfg_operation_of",
+            "metadata": {
+                "operations": [
+                    "FRONT\u0000",
+                    "dma_sld_freeze\u0000"
+                ],
+                "method": "semantic_large_text"
+            }
+        }
+    ],
+    "parameters": {}
+}

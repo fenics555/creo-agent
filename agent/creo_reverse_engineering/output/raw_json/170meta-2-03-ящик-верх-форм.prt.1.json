@@ -1,0 +1,1603 @@
+{
+    "model_name": "170meta-2-03-ящик-верх-форм",
+    "plm_type": "Технологический техпроцесс механообработки (CAM)",
+    "edges": [
+        {
+            "source": "170meta-2-03-ящик-верх-форм",
+            "target": "hжMдќ",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "170meta-2-03-ящик-верх-форм",
+            "target": "gћЃ&Яh",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "170meta-2-03-ящик-верх-форм",
+            "target": ",Рк},–bо",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "170meta-2-03-ящик-верх-форм",
+            "target": "Ча¬X=V'|",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "170meta-2-03-ящик-верх-форм",
+            "target": "А!РiТh",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "170meta-2-03-ящик-верх-форм",
+            "target": "pgj¤А",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "170meta-2-03-ящик-верх-форм",
+            "target": "Phj¤Й",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "170meta-2-03-ящик-верх-форм",
+            "target": "рhj¤И",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "170meta-2-03-ящик-верх-форм",
+            "target": "0^j¤д",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "170meta-2-03-ящик-верх-форм",
+            "target": "д–ЙҐ3",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "170meta-2-03-ящик-верх-форм",
+            "target": "Ѓ@OJo¦",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "170meta-2-03-ящик-верх-форм",
+            "target": "Pgj¤ј",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "170meta-2-03-ящик-верх-форм",
+            "target": "°_j¤Ь",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "170meta-2-03-ящик-верх-форм",
+            "target": "0hj¤Д",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "170meta-2-03-ящик-верх-форм",
+            "target": "KлF)?Ѓ¦8@µєQЖ",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "170meta-2-03-ящик-верх-форм",
+            "target": "0ej¤ґ",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "170meta-2-03-ящик-верх-форм",
+            "target": "ђej¤·",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "170meta-2-03-ящик-верх-форм",
+            "target": "р_V¤s",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "170meta-2-03-ящик-верх-форм",
+            "target": "°^j¤ьА¶єQF",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "170meta-2-03-ящик-верх-форм",
+            "target": "«8qга",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "170meta-2-03-ящик-верх-форм",
+            "target": "Sld_BasBasData",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "170meta-2-03-ящик-верх-форм",
+            "target": "tab_key_struct",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "170meta-2-03-ящик-верх-форм",
+            "target": "revnum_ptr",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "170meta-2-03-ящик-верх-форм",
+            "target": "(S©]»",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "170meta-2-03-ящик-верх-форм",
+            "target": "ref_part_tabs",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "170meta-2-03-ящик-верх-форм",
+            "target": "ref_part_tab",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "170meta-2-03-ящик-верх-форм",
+            "target": "objname",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "170meta-2-03-ящик-верх-форм",
+            "target": "simpl_rep",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "170meta-2-03-ящик-верх-форм",
+            "target": "inherit_rep",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "170meta-2-03-ящик-верх-форм",
+            "target": "p_foreign_source",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "170meta-2-03-ящик-верх-форм",
+            "target": "ref_id_user",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "170meta-2-03-ящик-верх-форм",
+            "target": "Medium",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "170meta-2-03-ящик-верх-форм",
+            "target": "Very Coarse",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "170meta-2-03-ящик-верх-форм",
+            "target": "p_general",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "170meta-2-03-ящик-верх-форм",
+            "target": "Defaults",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "170meta-2-03-ящик-верх-форм",
+            "target": "[] S 92;",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "170meta-2-03-ящик-верх-форм",
+            "target": "[A] W 11;",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "170meta-2-03-ящик-верх-форм",
+            "target": "в)й™Bй™в)у3Bу3в/",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "170meta-2-03-ящик-верх-форм",
+            "target": "p_brk_edg",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "170meta-2-03-ящик-верх-форм",
+            "target": "[] S 92;",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "170meta-2-03-ящик-верх-форм",
+            "target": "[A] W 11;",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "170meta-2-03-ящик-верх-форм",
+            "target": "p_angular",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "170meta-2-03-ящик-верх-форм",
+            "target": "holes_arr",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "170meta-2-03-ящик-верх-форм",
+            "target": "# Pro/TABLE",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "170meta-2-03-ящик-верх-форм",
+            "target": "[] S 92;",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "170meta-2-03-ящик-верх-форм",
+            "target": "[A] W 11;",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "170meta-2-03-ящик-верх-форм",
+            "target": "в/NЂ/I",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "170meta-2-03-ящик-верх-форм",
+            "target": "в/UА/R",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "170meta-2-03-ящик-верх-форм",
+            "target": "в/JЂ/D",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "170meta-2-03-ящик-верх-форм",
+            "target": "в/SА/N",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "170meta-2-03-ящик-верх-форм",
+            "target": "в/[Ђ/U@в/` /Y",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "170meta-2-03-ящик-верх-форм",
+            "target": "в/l@/e@в/pP/h`в/r /kЂв/tА/n",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "170meta-2-03-ящик-верх-форм",
+            "target": "в/RА/I",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "170meta-2-03-ящик-верх-форм",
+            "target": "в/ZА/R",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "170meta-2-03-ящик-верх-форм",
+            "target": "в/d@/[Ђв/fА/_@в/hА/`ав/jа/b в/n",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "170meta-2-03-ящик-верх-форм",
+            "target": "в/p@/e@в/rА/h`в/uђ/kЂв/x`/n",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "170meta-2-03-ящик-верх-форм",
+            "target": "в/MЂ/@",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "170meta-2-03-ящик-верх-форм",
+            "target": "в/V@/I",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "170meta-2-03-ящик-верх-форм",
+            "target": "в/_@/R",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "170meta-2-03-ящик-верх-форм",
+            "target": "в/gа/[Ђв/jА/_@в/m",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "170meta-2-03-ящик-верх-форм",
+            "target": "в/s`/e@в/vЂ/h`в/yр/kЂв/}`/n",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "170meta-2-03-ящик-верх-форм",
+            "target": "в/NЂ/9",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "170meta-2-03-ящик-верх-форм",
+            "target": "в/`А/N",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "170meta-2-03-ящик-верх-форм",
+            "target": "в/g /U@в/jа/Y",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "170meta-2-03-ящик-верх-форм",
+            "target": "/[Ђв/pђ/_@в/r /`ав/t",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "170meta-2-03-ящик-верх-форм",
+            "target": "в/TА/9",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "170meta-2-03-ящик-верх-форм",
+            "target": "в/bА/I",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "170meta-2-03-ящик-верх-форм",
+            "target": "в/jЂ/R",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "170meta-2-03-ящик-верх-форм",
+            "target": "# Pro/TABLE",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "170meta-2-03-ящик-верх-форм",
+            "target": "[] S 92;",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "170meta-2-03-ящик-верх-форм",
+            "target": "[A] W 11;",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "170meta-2-03-ящик-верх-форм",
+            "target": "в/IЂ/B",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "170meta-2-03-ящик-верх-форм",
+            "target": "в/SА/L",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "170meta-2-03-ящик-верх-форм",
+            "target": "в/WА/Q",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "170meta-2-03-ящик-верх-форм",
+            "target": "в/DЂ/9",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "170meta-2-03-ящик-верх-форм",
+            "target": "в/XЂ/O",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "170meta-2-03-ящик-верх-форм",
+            "target": "в/aА/UЂв/dЂ/XЂв/gЂ/[Ђв/jЂ/^",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "170meta-2-03-ящик-верх-форм",
+            "target": "в/DЂ/4",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "170meta-2-03-ящик-верх-форм",
+            "target": "в/TА/EЂв/X",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "170meta-2-03-ящик-верх-форм",
+            "target": "в/]А/O",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "170meta-2-03-ящик-верх-форм",
+            "target": "в/b@/S",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "170meta-2-03-ящик-верх-форм",
+            "target": "/UЂв/i`/XЂв/m`/[Ђв/pа/^",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "170meta-2-03-ящик-верх-форм",
+            "target": "в/EЂ/0",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "170meta-2-03-ящик-верх-форм",
+            "target": "в/VЂ/B",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "170meta-2-03-ящик-верх-форм",
+            "target": "в/a /L",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "170meta-2-03-ящик-верх-форм",
+            "target": "в/HЂ/*",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "170meta-2-03-ящик-верх-форм",
+            "target": "в/UА/9",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "170meta-2-03-ящик-верх-форм",
+            "target": "в/i@/O",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "170meta-2-03-ящик-верх-форм",
+            "target": "в/o`/S",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "170meta-2-03-ящик-верх-форм",
+            "target": "в/sА/UЂв/v`/XЂв/z@/[Ђв/~ /^",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "170meta-2-03-ящик-верх-форм",
+            "target": "в/UЂ/0",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "170meta-2-03-ящик-верх-форм",
+            "target": "# Pro/TABLE",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "170meta-2-03-ящик-верх-форм",
+            "target": "[] S 92;",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "170meta-2-03-ящик-верх-форм",
+            "target": "[A] W 11;",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "170meta-2-03-ящик-верх-форм",
+            "target": "в/AЂ/.",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "170meta-2-03-ящик-верх-форм",
+            "target": "в/GЂ/4",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "170meta-2-03-ящик-верх-форм",
+            "target": "в/CЂ/,",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "170meta-2-03-ящик-верх-форм",
+            "target": "в/PЂ/6",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "170meta-2-03-ящик-верх-форм",
+            "target": "в/TЂ/:",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "170meta-2-03-ящик-верх-форм",
+            "target": "в/GЂ/(",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "170meta-2-03-ящик-верх-форм",
+            "target": "в/Q@/1",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "170meta-2-03-ящик-верх-форм",
+            "target": "в/TА/4",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "170meta-2-03-ящик-верх-форм",
+            "target": "в/c`/>",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "170meta-2-03-ящик-верх-форм",
+            "target": "в/j /A",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "170meta-2-03-ящик-верх-форм",
+            "target": "в/S@/,",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "170meta-2-03-ящик-верх-форм",
+            "target": "в/XЂ/1",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "170meta-2-03-ящик-верх-форм",
+            "target": "в/]@/4",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "170meta-2-03-ящик-верх-форм",
+            "target": "в/h /<",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "170meta-2-03-ящик-верх-форм",
+            "target": "в/p`/@",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "170meta-2-03-ящик-верх-форм",
+            "target": "в/MЂ/",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "170meta-2-03-ящик-верх-форм",
+            "target": "в/[@/\"",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "170meta-2-03-ящик-верх-форм",
+            "target": "# Pro/TABLE",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "170meta-2-03-ящик-верх-форм",
+            "target": "[] S 92;",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "170meta-2-03-ящик-верх-форм",
+            "target": "[A] W 11;",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "170meta-2-03-ящик-верх-форм",
+            "target": "[] S 92;",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "170meta-2-03-ящик-верх-форм",
+            "target": "[A] W 11;",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "170meta-2-03-ящик-верх-форм",
+            "target": "/fЂв/fЂ/o@в/o@/s°в/s°/y",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "170meta-2-03-ящик-верх-форм",
+            "target": "/Џ@в/Џ@/“€в/“€/™",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "170meta-2-03-ящик-верх-форм",
+            "target": "в)г3Bг3в*и",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "170meta-2-03-ящик-верх-форм",
+            "target": "в/1ЂH1Ђв/4ЂH4Ђв/9",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "170meta-2-03-ящик-верх-форм",
+            "target": "в/0ЂH0Ђв/3ЂH3Ђв/7",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "170meta-2-03-ящик-верх-форм",
+            "target": "в/;ЂH;Ђв/A",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "170meta-2-03-ящик-верх-форм",
+            "target": "в/7ЂH7Ђв/;ЂH;Ђв/@@H@@в/CЂHCЂв/H",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "170meta-2-03-ящик-верх-форм",
+            "target": "в/@ЂH@Ђв/CЂHCЂв/G",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "170meta-2-03-ящик-верх-форм",
+            "target": "в/1ЂH1Ђв/4",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "170meta-2-03-ящик-верх-форм",
+            "target": "в/<ЂH<Ђв/?ЂH?Ђв/AЂHAЂв/D",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "170meta-2-03-ящик-верх-форм",
+            "target": "[] S 92;",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "170meta-2-03-ящик-верх-форм",
+            "target": "[A] W 11;",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "170meta-2-03-ящик-верх-форм",
+            "target": "HNЂв/=",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "170meta-2-03-ящик-верх-форм",
+            "target": "[] S 92;",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "170meta-2-03-ящик-верх-форм",
+            "target": "[A] W 11;",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "170meta-2-03-ящик-верх-форм",
+            "target": "[C] W 12;",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "170meta-2-03-ящик-верх-форм",
+            "target": "/fЂв/fЂ/o@в/o@/s°в/s°/y",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "170meta-2-03-ящик-верх-форм",
+            "target": "/Џ@в/Џ@/“€в/“€/™",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "170meta-2-03-ящик-верх-форм",
+            "target": "H@ЂвH5",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "170meta-2-03-ящик-верх-форм",
+            "target": "HFЂвH;",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "170meta-2-03-ящик-верх-форм",
+            "target": "HFЂвH6",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "170meta-2-03-ящик-верх-форм",
+            "target": "HLЂвH:",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "170meta-2-03-ящик-верх-форм",
+            "target": "H@ЂвH\"",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "170meta-2-03-ящик-верх-форм",
+            "target": "HFЂвH(",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "170meta-2-03-ящик-верх-форм",
+            "target": "HR@вH1",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "170meta-2-03-ящик-верх-форм",
+            "target": "H`@вHL",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "170meta-2-03-ящик-верх-форм",
+            "target": "HYАвHF",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "170meta-2-03-ящик-верх-форм",
+            "target": "HeавHL",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "170meta-2-03-ящик-верх-форм",
+            "target": "Hk`вHI",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "170meta-2-03-ящик-верх-форм",
+            "target": "HqавHPЂHt`вHSЂHx@вHW",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "170meta-2-03-ящик-верх-форм",
+            "target": "[] S 92;",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "170meta-2-03-ящик-верх-форм",
+            "target": "[A] W 11;",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "170meta-2-03-ящик-верх-форм",
+            "target": "[C] W 12;",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "170meta-2-03-ящик-верх-форм",
+            "target": "/fЂв/fЂ/o@в/o@/s°в/s°/y",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "170meta-2-03-ящик-верх-форм",
+            "target": "/Џ@в/Џ@/“€в/“€/™",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "170meta-2-03-ящик-верх-форм",
+            "target": "H1ЂвH0",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "170meta-2-03-ящик-верх-форм",
+            "target": "H@ЂвH;",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "170meta-2-03-ящик-верх-форм",
+            "target": "вHKЂHT",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "170meta-2-03-ящик-верх-форм",
+            "target": "HFЂвH>",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "170meta-2-03-ящик-верх-форм",
+            "target": "Ha@вHY",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "170meta-2-03-ящик-верх-форм",
+            "target": "HAЂвH1",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "170meta-2-03-ящик-верх-форм",
+            "target": "HMЂвH<",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "170meta-2-03-ящик-верх-форм",
+            "target": "вH@ЂHSАвHB",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "170meta-2-03-ящик-верх-форм",
+            "target": "вHDЂHXЂвHFЂH[",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "170meta-2-03-ящик-верх-форм",
+            "target": "HgАвH^",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "170meta-2-03-ящик-верх-форм",
+            "target": "вHh`Hw вHn",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "170meta-2-03-ящик-верх-форм",
+            "target": "HBЂвH2",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "170meta-2-03-ящик-верх-форм",
+            "target": "HKЂвH:",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "170meta-2-03-ящик-верх-форм",
+            "target": "HSЂвHBЂHVАвHEЂHZЂвHI",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "170meta-2-03-ящик-верх-форм",
+            "target": "Ha вHO",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "170meta-2-03-ящик-верх-форм",
+            "target": "HqРвHaЂHtрвHe@Hy",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "170meta-2-03-ящик-верх-форм",
+            "target": "HNЂвH6",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "170meta-2-03-ящик-верх-форм",
+            "target": "HZЂвHBЂH_",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "170meta-2-03-ящик-верх-форм",
+            "target": "Hi@вHQ",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "170meta-2-03-ящик-верх-форм",
+            "target": "HZЂвH:",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "170meta-2-03-ящик-верх-форм",
+            "target": "[] S 92;",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "170meta-2-03-ящик-верх-форм",
+            "target": "[A] W 11;",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "170meta-2-03-ящик-верх-форм",
+            "target": "в/j /e@в/k`/fЂв/mЂ/gАв/nА/i",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "170meta-2-03-ящик-верх-форм",
+            "target": "в/t0/p@в/up/qЂв/wP/s`в/yА/u@в/|@/wАв/~А/z@в/Ѓ€/~",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "170meta-2-03-ящик-верх-форм",
+            "target": "в/s0/kЂв/tp/n",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "170meta-2-03-ящик-верх-форм",
+            "target": "/bАв/kЂ/bАв/nЂ/d",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "170meta-2-03-ящик-верх-форм",
+            "target": "в/z@/p@в/{Ђ/qЂв/}`/s`в/Ђh/u@в/ЃЁ/wАв/‚и/z@в/…ђ/~",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "170meta-2-03-ящик-верх-форм",
+            "target": "в/t /e@в/u@/fЂв/wА/gАв/x`/i",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "170meta-2-03-ящик-верх-форм",
+            "target": "в/а/p@в/Ђђ/qЂв/ЃЂ/s`в/ѓ°/u@в/„р/wАв/†0/z@в/‰",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "170meta-2-03-ящик-верх-форм",
+            "target": "в/Ља/Ђав/Ћ",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "170meta-2-03-ящик-верх-форм",
+            "target": "в/ЃР/kЂв/‚p/n",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "170meta-2-03-ящик-верх-форм",
+            "target": "/u@в/Љ@/wАв/‹Ђ/z@в/Џ@/~",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "170meta-2-03-ящик-верх-форм",
+            "target": "/aЂв/w /bАв/z@/bАв/~ /d",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "170meta-2-03-ящик-верх-форм",
+            "target": "в/‡А/kЂв/€`/n",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "170meta-2-03-ящик-верх-форм",
+            "target": "[] S 92;",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "170meta-2-03-ящик-верх-форм",
+            "target": "[A] W 11;",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "170meta-2-03-ящик-верх-форм",
+            "target": "в/^Ђ/WАв/aа/[Ђв/cа/^",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "170meta-2-03-ящик-верх-форм",
+            "target": "/e@в/m@/fЂв/pp/i",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "170meta-2-03-ящик-верх-форм",
+            "target": "в/tА/p@в/v",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "170meta-2-03-ящик-верх-форм",
+            "target": "в/wp/p@в/x°/qЂв/zа/rАв/|А/t в/@/vЂв/Ђа/y",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "170meta-2-03-ящик-верх-форм",
+            "target": "в/lА/`@в/p@/aЂв/pа/bАв/s`/e@в/t",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "170meta-2-03-ящик-верх-форм",
+            "target": "в/w /j@в/x`/lАв/zђ/n",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "170meta-2-03-ящик-верх-форм",
+            "target": "в/…ђ/{Ђв/†Р/~",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "170meta-2-03-ящик-верх-форм",
+            "target": "в/r /`@в/t /aЂв/u@/bАв/x`/e@в/y",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "170meta-2-03-ящик-верх-форм",
+            "target": "в/|А/j@в/~",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "170meta-2-03-ящик-верх-форм",
+            "target": "в/Ѓ0/p@в/ЃР/qЂв/ѓ`/rАв/„P/t в/†Ђ/vЂв/‡А/y",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "170meta-2-03-ящик-верх-форм",
+            "target": "/[Ђв/w /^",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "170meta-2-03-ящик-верх-форм",
+            "target": "в/ђё/{Ђв/‘X/~",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "170meta-2-03-ящик-верх-форм",
+            "target": "в/Љ@/j@в/Ља/lАв/Ћ",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "170meta-2-03-ящик-верх-форм",
+            "target": "в/Ћ /p@в/Џ@/qЂв/‘X/rАв/‘Р/t в/“€/vЂв/”(/y",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "170meta-2-03-ящик-верх-форм",
+            "target": "[] S 92;",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "170meta-2-03-ящик-верх-форм",
+            "target": "[A] W 11;",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "170meta-2-03-ящик-верх-форм",
+            "target": "/fЂв/fЂ/o@в/o@/s°в/s°/y",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "170meta-2-03-ящик-верх-форм",
+            "target": "/Џ@в/Џ@/“€в/“€/™",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "170meta-2-03-ящик-верх-форм",
+            "target": "в/HЂ/D",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "170meta-2-03-ящик-верх-форм",
+            "target": "в/SЂ/P@в/X",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "170meta-2-03-ящик-верх-форм",
+            "target": "в/]А/Y",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "170meta-2-03-ящик-верх-форм",
+            "target": "в/e@/b в/hа/e@в/kА/gАв/nА/j@в/pа/lАв/s",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "170meta-2-03-ящик-верх-форм",
+            "target": "в/KЂ/D",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "170meta-2-03-ящик-верх-форм",
+            "target": "в/`@/Y",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "170meta-2-03-ящик-верх-форм",
+            "target": "в/g /b в/k",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "170meta-2-03-ящик-верх-форм",
+            "target": "в/XЂ/P@в/]А/T",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "170meta-2-03-ящик-верх-форм",
+            "target": "в/eА/^",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "170meta-2-03-ящик-верх-форм",
+            "target": "в/W@/I",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "170meta-2-03-ящик-верх-форм",
+            "target": "в/eА/Y",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "170meta-2-03-ящик-верх-форм",
+            "target": "в/p@/^",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "170meta-2-03-ящик-верх-форм",
+            "target": "/gАв/{Ђ/j@в/~",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "170meta-2-03-ящик-верх-форм",
+            "target": "в/`@/D",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "170meta-2-03-ящик-верх-форм",
+            "target": "в/u@/^",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "170meta-2-03-ящик-верх-форм",
+            "target": "в/gА/D",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "170meta-2-03-ящик-верх-форм",
+            "target": "в/•а/uав/™ /x`в/ћ(/zав/Ўl/~",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "170meta-2-03-ящик-верх-форм",
+            "target": "в/p@/D",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "170meta-2-03-ящик-верх-форм",
+            "target": "в/ЃЂ/Y",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "170meta-2-03-ящик-верх-форм",
+            "target": "в/џ@/uав/ўH/x`в/ҐT/zав/© /~",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "170meta-2-03-ящик-верх-форм",
+            "target": "# Pro/TABLE",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "170meta-2-03-ящик-верх-форм",
+            "target": "[] S 92;",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "170meta-2-03-ящик-верх-форм",
+            "target": "[A] W 11;",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "170meta-2-03-ящик-верх-форм",
+            "target": "/fЂв/fЂ/o@в/o@/s°в/s°/y",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "170meta-2-03-ящик-верх-форм",
+            "target": "в/CЂH2",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "170meta-2-03-ящик-верх-форм",
+            "target": "в/DЂH6",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "170meta-2-03-ящик-верх-форм",
+            "target": "в/KЂH:",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "170meta-2-03-ящик-верх-форм",
+            "target": "[] S 92;",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "170meta-2-03-ящик-верх-форм",
+            "target": "[A] W 11;",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "170meta-2-03-ящик-верх-форм",
+            "target": "/fЂв/fЂ/o@в/o@/s°в/s°/y",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "170meta-2-03-ящик-верх-форм",
+            "target": "/Џ@в/Џ@/“€в/“€/™",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "170meta-2-03-ящик-верх-форм",
+            "target": "HCЂвH0",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "170meta-2-03-ящик-верх-форм",
+            "target": "HBЂвH\"",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "170meta-2-03-ящик-верх-форм",
+            "target": "HQЂвH>",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "170meta-2-03-ящик-верх-форм",
+            "target": "HZЂвHH",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "170meta-2-03-ящик-верх-форм",
+            "target": "HbАвHQ",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "170meta-2-03-ящик-верх-форм",
+            "target": "Hb вHH",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "170meta-2-03-ящик-верх-форм",
+            "target": "Hn`вHS",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "170meta-2-03-ящик-верх-форм",
+            "target": "HOЂв/\"",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "170meta-2-03-ящик-верх-форм",
+            "target": "HUЂвH:",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "170meta-2-03-ящик-верх-форм",
+            "target": "HeАвHD",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "170meta-2-03-ящик-верх-форм",
+            "target": "Hn`вHM",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "170meta-2-03-ящик-верх-форм",
+            "target": "HS@вH",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "170meta-2-03-ящик-верх-форм",
+            "target": "[] S 92;",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "170meta-2-03-ящик-верх-форм",
+            "target": "[A] W 11;",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "170meta-2-03-ящик-верх-форм",
+            "target": "[C] W 12;",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "170meta-2-03-ящик-верх-форм",
+            "target": "H0ЂвH2",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "170meta-2-03-ящик-верх-форм",
+            "target": "H1ЂвH1ЂH5ЂвH5",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "170meta-2-03-ящик-верх-форм",
+            "target": "MERGE_BASE_PART\u0000",
+            "type": "inherit_from_master",
+            "metadata": {
+                "method": "LargeText_Marker"
+            }
+        },
+        {
+            "source": "170meta-2-03-ящик-верх-форм",
+            "target": "MERGE_BASE_PART\u0000",
+            "type": "inherit_from_master",
+            "metadata": {
+                "method": "LargeText_Marker"
+            }
+        },
+        {
+            "source": "170meta-2-03-ящик-верх-форм",
+            "target": "MERGE_BASE_PART\u0000",
+            "type": "inherit_from_master",
+            "metadata": {
+                "method": "LargeText_Marker"
+            }
+        },
+        {
+            "source": "170meta-2-03-ящик-верх-форм",
+            "target": "MERGE_BASE_PART\u0000",
+            "type": "inherit_from_master",
+            "metadata": {
+                "method": "LargeText_Marker"
+            }
+        },
+        {
+            "source": "170meta-2-03-ящик-верх-форм",
+            "target": "MERGE_BASE_PART\u0000",
+            "type": "inherit_from_master",
+            "metadata": {
+                "method": "LargeText_Marker"
+            }
+        },
+        {
+            "source": "170meta-2-03-ящик-верх-форм",
+            "target": "MERGE_BASE_PART\u0000",
+            "type": "inherit_from_master",
+            "metadata": {
+                "method": "LargeText_Marker"
+            }
+        },
+        {
+            "source": "170meta-2-03-ящик-верх-форм",
+            "target": "MERGE_BASE_PART\u0000",
+            "type": "inherit_from_master",
+            "metadata": {
+                "method": "LargeText_Marker"
+            }
+        },
+        {
+            "source": "170meta-2-03-ящик-верх-форм",
+            "target": "AUDIT_LOG",
+            "type": "has_history",
+            "metadata": {
+                "rev": "33568",
+                "author": "USER",
+                "date": "14.07.25 10:31"
+            }
+        },
+        {
+            "source": "170meta-2-03-ящик-верх-форм",
+            "target": "CNC_PROCESS",
+            "type": "mfg_operation_of",
+            "metadata": {
+                "operations": [
+                    "FRONT\u0000",
+                    "гАfRBPNT2473\u0000"
+                ],
+                "method": "semantic_large_text"
+            }
+        }
+    ],
+    "parameters": {}
+}

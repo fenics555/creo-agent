@@ -1,0 +1,383 @@
+{
+    "model_name": "170meta-2-03-ящик-верх-шлул",
+    "plm_type": "Технологический техпроцесс механообработки (CAM)",
+    "edges": [
+        {
+            "source": "170meta-2-03-ящик-верх-шлул",
+            "target": "LФСFYoМБ_",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "170meta-2-03-ящик-верх-шлул",
+            "target": "!·рD%h}‹?bф.‹щь«!KPЬЋм",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "170meta-2-03-ящик-верх-шлул",
+            "target": "ґ+…§т",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "170meta-2-03-ящик-верх-шлул",
+            "target": "В@ЅР+Ѕ",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "170meta-2-03-ящик-верх-шлул",
+            "target": "б°ЛїмКХмЙЬAЛ",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "170meta-2-03-ящик-верх-шлул",
+            "target": "iЌв0°Ъ(>",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "170meta-2-03-ящик-верх-шлул",
+            "target": "< hАШ?ч",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "170meta-2-03-ящик-верх-шлул",
+            "target": "Qјйа\"ay",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "170meta-2-03-ящик-верх-шлул",
+            "target": "Sld_FeatDefsIndex",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "170meta-2-03-ящик-верх-шлул",
+            "target": "tab_key_struct",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "170meta-2-03-ящик-верх-шлул",
+            "target": "revnum_ptr",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "170meta-2-03-ящик-верх-шлул",
+            "target": "(S©]»",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "170meta-2-03-ящик-верх-шлул",
+            "target": "ref_part_tabs",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "170meta-2-03-ящик-верх-шлул",
+            "target": "ref_part_tab",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "170meta-2-03-ящик-верх-шлул",
+            "target": "objname",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "170meta-2-03-ящик-верх-шлул",
+            "target": "simpl_rep",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "170meta-2-03-ящик-верх-шлул",
+            "target": "inherit_rep",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "170meta-2-03-ящик-верх-шлул",
+            "target": "p_foreign_source",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "170meta-2-03-ящик-верх-шлул",
+            "target": "ref_id_user",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "170meta-2-03-ящик-верх-шлул",
+            "target": "Medium",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "170meta-2-03-ящик-верх-шлул",
+            "target": "Very Coarse",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "170meta-2-03-ящик-верх-шлул",
+            "target": "p_general",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "170meta-2-03-ящик-верх-шлул",
+            "target": "Defaults",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "170meta-2-03-ящик-верх-шлул",
+            "target": "[] S 92;",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "170meta-2-03-ящик-верх-шлул",
+            "target": "[A] W 11;",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "170meta-2-03-ящик-верх-шлул",
+            "target": "в)й™Bй™в)у3Bу3в/",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "170meta-2-03-ящик-верх-шлул",
+            "target": "p_brk_edg",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "170meta-2-03-ящик-верх-шлул",
+            "target": "[] S 92;",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "170meta-2-03-ящик-верх-шлул",
+            "target": "[A] W 11;",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "170meta-2-03-ящик-верх-шлул",
+            "target": "p_angular",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "170meta-2-03-ящик-верх-шлул",
+            "target": "holes_arr",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "170meta-2-03-ящик-верх-шлул",
+            "target": "# Pro/TABLE",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "170meta-2-03-ящик-верх-шлул",
+            "target": "[] S 92;",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "170meta-2-03-ящик-верх-шлул",
+            "target": "[A] W 11;",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "170meta-2-03-ящик-верх-шлул",
+            "target": "в/NЂ/I",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "170meta-2-03-ящик-верх-шлул",
+            "target": "в/UА/R",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "170meta-2-03-ящик-верх-шлул",
+            "target": "в/JЂ/D",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "170meta-2-03-ящик-верх-шлул",
+            "target": "в/SА/N",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "170meta-2-03-ящик-верх-шлул",
+            "target": "в/[Ђ/U@в/` /Y",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "170meta-2-03-ящик-верх-шлул",
+            "target": "в/l@/e@в/pP/h`в/r /kЂв/tА/n",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "170meta-2-03-ящик-верх-шлул",
+            "target": "в/RА/I",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "170meta-2-03-ящик-верх-шлул",
+            "target": "в/ZА/R",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "170meta-2-03-ящик-верх-шлул",
+            "target": "в/d@/[Ђв/fА/_@в/hА/`ав/jа/b в/n",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "170meta-2-03-ящик-верх-шлул",
+            "target": "в/p@/e@в/rА/h`в/uђ/kЂв/x`/n",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "170meta-2-03-ящик-верх-шлул",
+            "target": "в/MЂ/@",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "170meta-2-03-ящик-верх-шлул",
+            "target": "в/V@/I",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "170meta-2-03-ящик-верх-шлул",
+            "target": "в/_@/R",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "170meta-2-03-ящик-верх-шлул",
+            "target": "в/gа/[Ђв/jА/_@в/m",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "170meta-2-03-ящик-верх-шлул",
+            "target": "в/s`/e@в/vЂ/h`в/yр/kЂв/}`/n",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "170meta-2-03-ящик-верх-шлул",
+            "target": "в/NЂ/9",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "170meta-2-03-ящик-верх-шлул",
+            "target": "в/`А/N",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "170meta-2-03-ящик-верх-шлул",
+            "target": "в/g /U@в/jа/Y",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "170meta-2-03-ящик-верх-шлул",
+            "target": "/[Ђв/pђ/_@в/r /`ав/t",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "170meta-2-03-ящик-верх-шлул",
+            "target": "в/TА/9",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "170meta-2-03-ящик-верх-шлул",
+            "target": "в/bА/I",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "170meta-2-03-ящик-верх-шлул",
+            "target": "в/jЂ/R",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "170meta-2-03-ящик-верх-шлул",
+            "target": "# Pro/TABLE",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "170meta-2-03-ящик-верх-шлул",
+            "target": "[] S 92;",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "170meta-2-03-ящик-верх-шлул",
+            "target": "[A] W 11;",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "170meta-2-03-ящик-верх-шлул",
+            "target": "AUDIT_LOG",
+            "type": "has_history",
+            "metadata": {
+                "rev": "16955",
+                "author": "USER",
+                "date": "23.07.25 05:11"
+            }
+        },
+        {
+            "source": "170meta-2-03-ящик-верх-шлул",
+            "target": "CNC_PROCESS",
+            "type": "mfg_operation_of",
+            "metadata": {
+                "operations": [
+                    "FRONT\u0000",
+                    "dma_sld_freeze\u0000"
+                ],
+                "method": "semantic_large_text"
+            }
+        }
+    ],
+    "parameters": {}
+}

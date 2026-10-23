@@ -1,0 +1,66 @@
+{
+    "model_name": "170meta-1-02-ящик-низ-плита_z",
+    "plm_type": "Технологический техпроцесс механообработки (CAM)",
+    "edges": [
+        {
+            "source": "170meta-1-02-ящик-низ-плита_z",
+            "target": "LФСFYoМБ_",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "170meta-1-02-ящик-низ-плита_z",
+            "target": "Records",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "170meta-1-02-ящик-низ-плита_z",
+            "target": "ApplicationId",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "170meta-1-02-ящик-низ-плита_z",
+            "target": "Action",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "170meta-1-02-ящик-низ-плита_z",
+            "target": "OwnerIdx",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "170meta-1-02-ящик-низ-плита_z",
+            "target": "іyS·%xъб",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "170meta-1-02-ящик-низ-плита_z",
+            "target": "!Оѕ|’WВ8QЂ™сћЛEБ@",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "170meta-1-02-ящик-низ-плита_z",
+            "target": "Ж:ц#SЉL[ГуVу",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "170meta-1-02-ящик-низ-плита_z",
+            "target": "CNC_PROCESS",
+            "type": "mfg_operation_of",
+            "metadata": {
+                "operations": [
+                    "dma_sld_freeze\u0000"
+                ],
+                "method": "semantic_large_text"
+            }
+        }
+    ],
+    "parameters": {}
+}

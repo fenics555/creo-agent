@@ -1,0 +1,82 @@
+{
+    "model_name": "170meta-1-модель-низа_z",
+    "plm_type": "Технологический техпроцесс механообработки (CAM)",
+    "edges": [
+        {
+            "source": "170meta-1-модель-низа_z",
+            "target": "LФСFYoМБ_",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "170meta-1-модель-низа_z",
+            "target": "іyS·%xъб",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "170meta-1-модель-низа_z",
+            "target": "18 Оѕ|’WВ8QЂ™сћЛE±@",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "170meta-1-модель-низа_z",
+            "target": "XЂ‰aтг",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "170meta-1-модель-низа_z",
+            "target": "цi‡_wЯэ6Ђ|р",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "170meta-1-модель-низа_z",
+            "target": "с\"z·%",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "170meta-1-модель-низа_z",
+            "target": "Sld_FeatDefsIndex",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "170meta-1-модель-низа_z",
+            "target": "tab_key_struct",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "170meta-1-модель-низа_z",
+            "target": "revnum_ptr",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "170meta-1-модель-низа_z",
+            "target": "AUDIT_LOG",
+            "type": "has_history",
+            "metadata": {
+                "rev": "204",
+                "author": "USER",
+                "date": "15.08.25 09:04"
+            }
+        },
+        {
+            "source": "170meta-1-модель-низа_z",
+            "target": "CNC_PROCESS",
+            "type": "mfg_operation_of",
+            "metadata": {
+                "operations": [
+                    "dma_sld_freeze\u0000"
+                ],
+                "method": "semantic_large_text"
+            }
+        }
+    ],
+    "parameters": {}
+}

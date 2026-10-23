@@ -1,0 +1,3358 @@
+{
+    "model_name": "171meta-1-02-ящик-низ-форма",
+    "plm_type": "Технологический техпроцесс механообработки (CAM)",
+    "edges": [
+        {
+            "source": "171meta-1-02-ящик-низ-форма",
+            "target": "Kр+г•“4i^\\ж",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "171meta-1-02-ящик-низ-форма",
+            "target": "jь[-/Cѕ?",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "171meta-1-02-ящик-низ-форма",
+            "target": "°G|y”ЂҐГк+5",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "171meta-1-02-ящик-низ-форма",
+            "target": "нбK&ђyz",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "171meta-1-02-ящик-низ-форма",
+            "target": "}4С3 Ип",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "171meta-1-02-ящик-низ-форма",
+            "target": "Ь7i¤Иґ",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "171meta-1-02-ящик-низ-форма",
+            "target": "\"ЂЋх:€џY",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "171meta-1-02-ящик-низ-форма",
+            "target": "ПЂ! {о",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "171meta-1-02-ящик-низ-форма",
+            "target": "ќЈd%Ы‡",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "171meta-1-02-ящик-низ-форма",
+            "target": "`b±№Ѕе”[ҐЉА= ¶MеЉ",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "171meta-1-02-ящик-низ-форма",
+            "target": "џо§·1",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "171meta-1-02-ящик-низ-форма",
+            "target": "”7ѓЂ8",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "171meta-1-02-ящик-низ-форма",
+            "target": "ј^MЂ&",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "171meta-1-02-ящик-низ-форма",
+            "target": "кЂіBwт;© IП€G(#‚‘тд{&",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "171meta-1-02-ящик-низ-форма",
+            "target": "SIZ(QО@’–я",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "171meta-1-02-ящик-низ-форма",
+            "target": "!а€)¤њ'L1…”",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "171meta-1-02-ящик-низ-форма",
+            "target": "BА\"SHЩ",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "171meta-1-02-ящик-низ-форма",
+            "target": "BА•SH™",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "171meta-1-02-ящик-низ-форма",
+            "target": "B@”SHi",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "171meta-1-02-ящик-низ-форма",
+            "target": "<KќҐ/",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "171meta-1-02-ящик-низ-форма",
+            "target": "І‡іRW@·КYJhe„Ъ-1",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "171meta-1-02-ящик-низ-форма",
+            "target": "р¬™•J",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "171meta-1-02-ящик-низ-форма",
+            "target": "qџщ8е|k¶L",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "171meta-1-02-ящик-низ-форма",
+            "target": "’?'”0",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "171meta-1-02-ящик-низ-форма",
+            "target": "ђx6Ёg™bBЙ",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "171meta-1-02-ящик-низ-форма",
+            "target": "Sld_BasBasData",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "171meta-1-02-ящик-низ-форма",
+            "target": "tab_key_struct",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "171meta-1-02-ящик-низ-форма",
+            "target": "revnum_ptr",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "171meta-1-02-ящик-низ-форма",
+            "target": "(S©]»",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "171meta-1-02-ящик-низ-форма",
+            "target": "ref_part_tabs",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "171meta-1-02-ящик-низ-форма",
+            "target": "ref_part_tab",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "171meta-1-02-ящик-низ-форма",
+            "target": "objname",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "171meta-1-02-ящик-низ-форма",
+            "target": "simpl_rep",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "171meta-1-02-ящик-низ-форма",
+            "target": "inherit_rep",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "171meta-1-02-ящик-низ-форма",
+            "target": "p_foreign_source",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "171meta-1-02-ящик-низ-форма",
+            "target": "ref_id_user",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "171meta-1-02-ящик-низ-форма",
+            "target": "Medium",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "171meta-1-02-ящик-низ-форма",
+            "target": "Very Coarse",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "171meta-1-02-ящик-низ-форма",
+            "target": "p_general",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "171meta-1-02-ящик-низ-форма",
+            "target": "Defaults",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "171meta-1-02-ящик-низ-форма",
+            "target": "[] S 92;",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "171meta-1-02-ящик-низ-форма",
+            "target": "[A] W 11;",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "171meta-1-02-ящик-низ-форма",
+            "target": "в)й™Bй™в)у3Bу3в/",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "171meta-1-02-ящик-низ-форма",
+            "target": "p_brk_edg",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "171meta-1-02-ящик-низ-форма",
+            "target": "[] S 92;",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "171meta-1-02-ящик-низ-форма",
+            "target": "[A] W 11;",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "171meta-1-02-ящик-низ-форма",
+            "target": "p_angular",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "171meta-1-02-ящик-низ-форма",
+            "target": "holes_arr",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "171meta-1-02-ящик-низ-форма",
+            "target": "# Pro/TABLE",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "171meta-1-02-ящик-низ-форма",
+            "target": "[] S 92;",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "171meta-1-02-ящик-низ-форма",
+            "target": "[A] W 11;",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "171meta-1-02-ящик-низ-форма",
+            "target": "в/NЂ/I",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "171meta-1-02-ящик-низ-форма",
+            "target": "в/UА/R",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "171meta-1-02-ящик-низ-форма",
+            "target": "в/JЂ/D",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "171meta-1-02-ящик-низ-форма",
+            "target": "в/SА/N",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "171meta-1-02-ящик-низ-форма",
+            "target": "в/[Ђ/U@в/` /Y",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "171meta-1-02-ящик-низ-форма",
+            "target": "в/l@/e@в/pP/h`в/r /kЂв/tА/n",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "171meta-1-02-ящик-низ-форма",
+            "target": "в/RА/I",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "171meta-1-02-ящик-низ-форма",
+            "target": "в/ZА/R",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "171meta-1-02-ящик-низ-форма",
+            "target": "в/d@/[Ђв/fА/_@в/hА/`ав/jа/b в/n",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "171meta-1-02-ящик-низ-форма",
+            "target": "в/p@/e@в/rА/h`в/uђ/kЂв/x`/n",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "171meta-1-02-ящик-низ-форма",
+            "target": "в/MЂ/@",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "171meta-1-02-ящик-низ-форма",
+            "target": "в/V@/I",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "171meta-1-02-ящик-низ-форма",
+            "target": "в/_@/R",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "171meta-1-02-ящик-низ-форма",
+            "target": "в/gа/[Ђв/jА/_@в/m",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "171meta-1-02-ящик-низ-форма",
+            "target": "в/s`/e@в/vЂ/h`в/yр/kЂв/}`/n",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "171meta-1-02-ящик-низ-форма",
+            "target": "в/NЂ/9",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "171meta-1-02-ящик-низ-форма",
+            "target": "в/`А/N",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "171meta-1-02-ящик-низ-форма",
+            "target": "в/g /U@в/jа/Y",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "171meta-1-02-ящик-низ-форма",
+            "target": "/[Ђв/pђ/_@в/r /`ав/t",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "171meta-1-02-ящик-низ-форма",
+            "target": "в/TА/9",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "171meta-1-02-ящик-низ-форма",
+            "target": "в/bА/I",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "171meta-1-02-ящик-низ-форма",
+            "target": "в/jЂ/R",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "171meta-1-02-ящик-низ-форма",
+            "target": "# Pro/TABLE",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "171meta-1-02-ящик-низ-форма",
+            "target": "[] S 92;",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "171meta-1-02-ящик-низ-форма",
+            "target": "[A] W 11;",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "171meta-1-02-ящик-низ-форма",
+            "target": "в/IЂ/B",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "171meta-1-02-ящик-низ-форма",
+            "target": "в/SА/L",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "171meta-1-02-ящик-низ-форма",
+            "target": "в/WА/Q",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "171meta-1-02-ящик-низ-форма",
+            "target": "в/DЂ/9",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "171meta-1-02-ящик-низ-форма",
+            "target": "в/XЂ/O",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "171meta-1-02-ящик-низ-форма",
+            "target": "в/aА/UЂв/dЂ/XЂв/gЂ/[Ђв/jЂ/^",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "171meta-1-02-ящик-низ-форма",
+            "target": "в/DЂ/4",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "171meta-1-02-ящик-низ-форма",
+            "target": "в/TА/EЂв/X",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "171meta-1-02-ящик-низ-форма",
+            "target": "в/]А/O",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "171meta-1-02-ящик-низ-форма",
+            "target": "в/b@/S",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "171meta-1-02-ящик-низ-форма",
+            "target": "/UЂв/i`/XЂв/m`/[Ђв/pа/^",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "171meta-1-02-ящик-низ-форма",
+            "target": "в/EЂ/0",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "171meta-1-02-ящик-низ-форма",
+            "target": "в/VЂ/B",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "171meta-1-02-ящик-низ-форма",
+            "target": "в/a /L",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "171meta-1-02-ящик-низ-форма",
+            "target": "в/HЂ/*",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "171meta-1-02-ящик-низ-форма",
+            "target": "в/UА/9",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "171meta-1-02-ящик-низ-форма",
+            "target": "в/i@/O",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "171meta-1-02-ящик-низ-форма",
+            "target": "в/o`/S",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "171meta-1-02-ящик-низ-форма",
+            "target": "в/sА/UЂв/v`/XЂв/z@/[Ђв/~ /^",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "171meta-1-02-ящик-низ-форма",
+            "target": "в/UЂ/0",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "171meta-1-02-ящик-низ-форма",
+            "target": "# Pro/TABLE",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "171meta-1-02-ящик-низ-форма",
+            "target": "[] S 92;",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "171meta-1-02-ящик-низ-форма",
+            "target": "[A] W 11;",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "171meta-1-02-ящик-низ-форма",
+            "target": "в/AЂ/.",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "171meta-1-02-ящик-низ-форма",
+            "target": "в/GЂ/4",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "171meta-1-02-ящик-низ-форма",
+            "target": "в/CЂ/,",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "171meta-1-02-ящик-низ-форма",
+            "target": "в/PЂ/6",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "171meta-1-02-ящик-низ-форма",
+            "target": "в/TЂ/:",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "171meta-1-02-ящик-низ-форма",
+            "target": "в/GЂ/(",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "171meta-1-02-ящик-низ-форма",
+            "target": "в/Q@/1",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "171meta-1-02-ящик-низ-форма",
+            "target": "в/TА/4",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "171meta-1-02-ящик-низ-форма",
+            "target": "в/c`/>",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "171meta-1-02-ящик-низ-форма",
+            "target": "в/j /A",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "171meta-1-02-ящик-низ-форма",
+            "target": "в/S@/,",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "171meta-1-02-ящик-низ-форма",
+            "target": "в/XЂ/1",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "171meta-1-02-ящик-низ-форма",
+            "target": "в/]@/4",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "171meta-1-02-ящик-низ-форма",
+            "target": "в/h /<",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "171meta-1-02-ящик-низ-форма",
+            "target": "в/p`/@",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "171meta-1-02-ящик-низ-форма",
+            "target": "в/MЂ/",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "171meta-1-02-ящик-низ-форма",
+            "target": "в/[@/\"",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "171meta-1-02-ящик-низ-форма",
+            "target": "# Pro/TABLE",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "171meta-1-02-ящик-низ-форма",
+            "target": "[] S 92;",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "171meta-1-02-ящик-низ-форма",
+            "target": "[A] W 11;",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "171meta-1-02-ящик-низ-форма",
+            "target": "[] S 92;",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "171meta-1-02-ящик-низ-форма",
+            "target": "[A] W 11;",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "171meta-1-02-ящик-низ-форма",
+            "target": "/fЂв/fЂ/o@в/o@/s°в/s°/y",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "171meta-1-02-ящик-низ-форма",
+            "target": "/Џ@в/Џ@/“€в/“€/™",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "171meta-1-02-ящик-низ-форма",
+            "target": "в)г3Bг3в*и",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "171meta-1-02-ящик-низ-форма",
+            "target": "в/1ЂH1Ђв/4ЂH4Ђв/9",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "171meta-1-02-ящик-низ-форма",
+            "target": "в/0ЂH0Ђв/3ЂH3Ђв/7",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "171meta-1-02-ящик-низ-форма",
+            "target": "в/;ЂH;Ђв/A",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "171meta-1-02-ящик-низ-форма",
+            "target": "в/7ЂH7Ђв/;ЂH;Ђв/@@H@@в/CЂHCЂв/H",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "171meta-1-02-ящик-низ-форма",
+            "target": "в/@ЂH@Ђв/CЂHCЂв/G",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "171meta-1-02-ящик-низ-форма",
+            "target": "в/1ЂH1Ђв/4",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "171meta-1-02-ящик-низ-форма",
+            "target": "в/<ЂH<Ђв/?ЂH?Ђв/AЂHAЂв/D",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "171meta-1-02-ящик-низ-форма",
+            "target": "[] S 92;",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "171meta-1-02-ящик-низ-форма",
+            "target": "[A] W 11;",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "171meta-1-02-ящик-низ-форма",
+            "target": "HNЂв/=",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "171meta-1-02-ящик-низ-форма",
+            "target": "[] S 92;",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "171meta-1-02-ящик-низ-форма",
+            "target": "[A] W 11;",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "171meta-1-02-ящик-низ-форма",
+            "target": "[C] W 12;",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "171meta-1-02-ящик-низ-форма",
+            "target": "/fЂв/fЂ/o@в/o@/s°в/s°/y",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "171meta-1-02-ящик-низ-форма",
+            "target": "/Џ@в/Џ@/“€в/“€/™",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "171meta-1-02-ящик-низ-форма",
+            "target": "H@ЂвH5",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "171meta-1-02-ящик-низ-форма",
+            "target": "HFЂвH;",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "171meta-1-02-ящик-низ-форма",
+            "target": "HFЂвH6",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "171meta-1-02-ящик-низ-форма",
+            "target": "HLЂвH:",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "171meta-1-02-ящик-низ-форма",
+            "target": "H@ЂвH\"",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "171meta-1-02-ящик-низ-форма",
+            "target": "HFЂвH(",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "171meta-1-02-ящик-низ-форма",
+            "target": "HR@вH1",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "171meta-1-02-ящик-низ-форма",
+            "target": "H`@вHL",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "171meta-1-02-ящик-низ-форма",
+            "target": "HYАвHF",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "171meta-1-02-ящик-низ-форма",
+            "target": "HeавHL",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "171meta-1-02-ящик-низ-форма",
+            "target": "Hk`вHI",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "171meta-1-02-ящик-низ-форма",
+            "target": "HqавHPЂHt`вHSЂHx@вHW",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "171meta-1-02-ящик-низ-форма",
+            "target": "[] S 92;",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "171meta-1-02-ящик-низ-форма",
+            "target": "[A] W 11;",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "171meta-1-02-ящик-низ-форма",
+            "target": "[C] W 12;",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "171meta-1-02-ящик-низ-форма",
+            "target": "/fЂв/fЂ/o@в/o@/s°в/s°/y",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "171meta-1-02-ящик-низ-форма",
+            "target": "/Џ@в/Џ@/“€в/“€/™",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "171meta-1-02-ящик-низ-форма",
+            "target": "H1ЂвH0",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "171meta-1-02-ящик-низ-форма",
+            "target": "H@ЂвH;",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "171meta-1-02-ящик-низ-форма",
+            "target": "вHKЂHT",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "171meta-1-02-ящик-низ-форма",
+            "target": "HFЂвH>",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "171meta-1-02-ящик-низ-форма",
+            "target": "Ha@вHY",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "171meta-1-02-ящик-низ-форма",
+            "target": "HAЂвH1",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "171meta-1-02-ящик-низ-форма",
+            "target": "HMЂвH<",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "171meta-1-02-ящик-низ-форма",
+            "target": "вH@ЂHSАвHB",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "171meta-1-02-ящик-низ-форма",
+            "target": "вHDЂHXЂвHFЂH[",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "171meta-1-02-ящик-низ-форма",
+            "target": "HgАвH^",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "171meta-1-02-ящик-низ-форма",
+            "target": "вHh`Hw вHn",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "171meta-1-02-ящик-низ-форма",
+            "target": "HBЂвH2",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "171meta-1-02-ящик-низ-форма",
+            "target": "HKЂвH:",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "171meta-1-02-ящик-низ-форма",
+            "target": "HSЂвHBЂHVАвHEЂHZЂвHI",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "171meta-1-02-ящик-низ-форма",
+            "target": "Ha вHO",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "171meta-1-02-ящик-низ-форма",
+            "target": "HqРвHaЂHtрвHe@Hy",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "171meta-1-02-ящик-низ-форма",
+            "target": "HNЂвH6",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "171meta-1-02-ящик-низ-форма",
+            "target": "HZЂвHBЂH_",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "171meta-1-02-ящик-низ-форма",
+            "target": "Hi@вHQ",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "171meta-1-02-ящик-низ-форма",
+            "target": "HZЂвH:",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "171meta-1-02-ящик-низ-форма",
+            "target": "[] S 92;",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "171meta-1-02-ящик-низ-форма",
+            "target": "[A] W 11;",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "171meta-1-02-ящик-низ-форма",
+            "target": "в/j /e@в/k`/fЂв/mЂ/gАв/nА/i",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "171meta-1-02-ящик-низ-форма",
+            "target": "в/t0/p@в/up/qЂв/wP/s`в/yА/u@в/|@/wАв/~А/z@в/Ѓ€/~",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "171meta-1-02-ящик-низ-форма",
+            "target": "в/s0/kЂв/tp/n",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "171meta-1-02-ящик-низ-форма",
+            "target": "/bАв/kЂ/bАв/nЂ/d",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "171meta-1-02-ящик-низ-форма",
+            "target": "в/z@/p@в/{Ђ/qЂв/}`/s`в/Ђh/u@в/ЃЁ/wАв/‚и/z@в/…ђ/~",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "171meta-1-02-ящик-низ-форма",
+            "target": "в/t /e@в/u@/fЂв/wА/gАв/x`/i",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "171meta-1-02-ящик-низ-форма",
+            "target": "в/а/p@в/Ђђ/qЂв/ЃЂ/s`в/ѓ°/u@в/„р/wАв/†0/z@в/‰",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "171meta-1-02-ящик-низ-форма",
+            "target": "в/Ља/Ђав/Ћ",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "171meta-1-02-ящик-низ-форма",
+            "target": "в/ЃР/kЂв/‚p/n",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "171meta-1-02-ящик-низ-форма",
+            "target": "/u@в/Љ@/wАв/‹Ђ/z@в/Џ@/~",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "171meta-1-02-ящик-низ-форма",
+            "target": "/aЂв/w /bАв/z@/bАв/~ /d",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "171meta-1-02-ящик-низ-форма",
+            "target": "в/‡А/kЂв/€`/n",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "171meta-1-02-ящик-низ-форма",
+            "target": "[] S 92;",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "171meta-1-02-ящик-низ-форма",
+            "target": "[A] W 11;",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "171meta-1-02-ящик-низ-форма",
+            "target": "в/^Ђ/WАв/aа/[Ђв/cа/^",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "171meta-1-02-ящик-низ-форма",
+            "target": "/e@в/m@/fЂв/pp/i",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "171meta-1-02-ящик-низ-форма",
+            "target": "в/tА/p@в/v",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "171meta-1-02-ящик-низ-форма",
+            "target": "в/wp/p@в/x°/qЂв/zа/rАв/|А/t в/@/vЂв/Ђа/y",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "171meta-1-02-ящик-низ-форма",
+            "target": "в/lА/`@в/p@/aЂв/pа/bАв/s`/e@в/t",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "171meta-1-02-ящик-низ-форма",
+            "target": "в/w /j@в/x`/lАв/zђ/n",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "171meta-1-02-ящик-низ-форма",
+            "target": "в/…ђ/{Ђв/†Р/~",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "171meta-1-02-ящик-низ-форма",
+            "target": "в/r /`@в/t /aЂв/u@/bАв/x`/e@в/y",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "171meta-1-02-ящик-низ-форма",
+            "target": "в/|А/j@в/~",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "171meta-1-02-ящик-низ-форма",
+            "target": "в/Ѓ0/p@в/ЃР/qЂв/ѓ`/rАв/„P/t в/†Ђ/vЂв/‡А/y",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "171meta-1-02-ящик-низ-форма",
+            "target": "/[Ђв/w /^",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "171meta-1-02-ящик-низ-форма",
+            "target": "в/ђё/{Ђв/‘X/~",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "171meta-1-02-ящик-низ-форма",
+            "target": "в/Љ@/j@в/Ља/lАв/Ћ",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "171meta-1-02-ящик-низ-форма",
+            "target": "в/Ћ /p@в/Џ@/qЂв/‘X/rАв/‘Р/t в/“€/vЂв/”(/y",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "171meta-1-02-ящик-низ-форма",
+            "target": "[] S 92;",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "171meta-1-02-ящик-низ-форма",
+            "target": "[A] W 11;",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "171meta-1-02-ящик-низ-форма",
+            "target": "/fЂв/fЂ/o@в/o@/s°в/s°/y",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "171meta-1-02-ящик-низ-форма",
+            "target": "/Џ@в/Џ@/“€в/“€/™",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "171meta-1-02-ящик-низ-форма",
+            "target": "в/HЂ/D",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "171meta-1-02-ящик-низ-форма",
+            "target": "в/SЂ/P@в/X",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "171meta-1-02-ящик-низ-форма",
+            "target": "в/]А/Y",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "171meta-1-02-ящик-низ-форма",
+            "target": "в/e@/b в/hа/e@в/kА/gАв/nА/j@в/pа/lАв/s",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "171meta-1-02-ящик-низ-форма",
+            "target": "в/KЂ/D",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "171meta-1-02-ящик-низ-форма",
+            "target": "в/`@/Y",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "171meta-1-02-ящик-низ-форма",
+            "target": "в/g /b в/k",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "171meta-1-02-ящик-низ-форма",
+            "target": "в/XЂ/P@в/]А/T",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "171meta-1-02-ящик-низ-форма",
+            "target": "в/eА/^",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "171meta-1-02-ящик-низ-форма",
+            "target": "в/W@/I",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "171meta-1-02-ящик-низ-форма",
+            "target": "в/eА/Y",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "171meta-1-02-ящик-низ-форма",
+            "target": "в/p@/^",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "171meta-1-02-ящик-низ-форма",
+            "target": "/gАв/{Ђ/j@в/~",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "171meta-1-02-ящик-низ-форма",
+            "target": "в/`@/D",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "171meta-1-02-ящик-низ-форма",
+            "target": "в/u@/^",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "171meta-1-02-ящик-низ-форма",
+            "target": "в/gА/D",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "171meta-1-02-ящик-низ-форма",
+            "target": "в/•а/uав/™ /x`в/ћ(/zав/Ўl/~",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "171meta-1-02-ящик-низ-форма",
+            "target": "в/p@/D",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "171meta-1-02-ящик-низ-форма",
+            "target": "в/ЃЂ/Y",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "171meta-1-02-ящик-низ-форма",
+            "target": "в/џ@/uав/ўH/x`в/ҐT/zав/© /~",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "171meta-1-02-ящик-низ-форма",
+            "target": "# Pro/TABLE",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "171meta-1-02-ящик-низ-форма",
+            "target": "[] S 92;",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "171meta-1-02-ящик-низ-форма",
+            "target": "[A] W 11;",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "171meta-1-02-ящик-низ-форма",
+            "target": "/fЂв/fЂ/o@в/o@/s°в/s°/y",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "171meta-1-02-ящик-низ-форма",
+            "target": "в/CЂH2",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "171meta-1-02-ящик-низ-форма",
+            "target": "в/DЂH6",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "171meta-1-02-ящик-низ-форма",
+            "target": "в/KЂH:",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "171meta-1-02-ящик-низ-форма",
+            "target": "[] S 92;",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "171meta-1-02-ящик-низ-форма",
+            "target": "[A] W 11;",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "171meta-1-02-ящик-низ-форма",
+            "target": "/fЂв/fЂ/o@в/o@/s°в/s°/y",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "171meta-1-02-ящик-низ-форма",
+            "target": "/Џ@в/Џ@/“€в/“€/™",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "171meta-1-02-ящик-низ-форма",
+            "target": "HCЂвH0",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "171meta-1-02-ящик-низ-форма",
+            "target": "HBЂвH\"",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "171meta-1-02-ящик-низ-форма",
+            "target": "HQЂвH>",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "171meta-1-02-ящик-низ-форма",
+            "target": "HZЂвHH",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "171meta-1-02-ящик-низ-форма",
+            "target": "HbАвHQ",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "171meta-1-02-ящик-низ-форма",
+            "target": "Hb вHH",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "171meta-1-02-ящик-низ-форма",
+            "target": "Hn`вHS",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "171meta-1-02-ящик-низ-форма",
+            "target": "HOЂв/\"",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "171meta-1-02-ящик-низ-форма",
+            "target": "HUЂвH:",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "171meta-1-02-ящик-низ-форма",
+            "target": "HeАвHD",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "171meta-1-02-ящик-низ-форма",
+            "target": "Hn`вHM",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "171meta-1-02-ящик-низ-форма",
+            "target": "HS@вH",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "171meta-1-02-ящик-низ-форма",
+            "target": "[] S 92;",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "171meta-1-02-ящик-низ-форма",
+            "target": "[A] W 11;",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "171meta-1-02-ящик-низ-форма",
+            "target": "[C] W 12;",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "171meta-1-02-ящик-низ-форма",
+            "target": "H0ЂвH2",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "171meta-1-02-ящик-низ-форма",
+            "target": "H1ЂвH1ЂH5ЂвH5",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "171meta-1-02-ящик-низ-форма",
+            "target": "HDЂвHB",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "171meta-1-02-ящик-низ-форма",
+            "target": "HIЂвHG",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "171meta-1-02-ящик-низ-форма",
+            "target": "вHLЂHRАвHMЂHS@вHO",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "171meta-1-02-ящик-низ-форма",
+            "target": "HBЂвH=",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "171meta-1-02-ящик-низ-форма",
+            "target": "вHBЂHL",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "171meta-1-02-ящик-низ-форма",
+            "target": "HPЂвHGЂHQ@вHL",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "171meta-1-02-ящик-низ-форма",
+            "target": "HTАвHNЂHUЂвHQ",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "171meta-1-02-ящик-низ-форма",
+            "target": "вHRАHZ",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "171meta-1-02-ящик-низ-форма",
+            "target": "HR@вHDЂHS",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "171meta-1-02-ящик-низ-форма",
+            "target": "HVЂвHJЂHW@вHN",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "171meta-1-02-ящик-низ-форма",
+            "target": "HDЂвH7",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "171meta-1-02-ящик-низ-форма",
+            "target": "HR@вHDЂHUАвHEЂHV@вHIЂHZ@вHK",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "171meta-1-02-ящик-низ-форма",
+            "target": "вHOЂH_ЂвHP@H`",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "171meta-1-02-ящик-низ-форма",
+            "target": "HFЂвH3",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "171meta-1-02-ящик-низ-форма",
+            "target": "HPЂвH<",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "171meta-1-02-ящик-низ-форма",
+            "target": "HOЂвH3",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "171meta-1-02-ящик-низ-форма",
+            "target": "HW@вH$",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "171meta-1-02-ящик-низ-форма",
+            "target": "[] S 92;",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "171meta-1-02-ящик-низ-форма",
+            "target": "[A] W 11;",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "171meta-1-02-ящик-низ-форма",
+            "target": "[C] W 12;",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "171meta-1-02-ящик-низ-форма",
+            "target": "[E] W 12;",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "171meta-1-02-ящик-низ-форма",
+            "target": "[G] W 12;",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "171meta-1-02-ящик-низ-форма",
+            "target": "H4ЂвH6",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "171meta-1-02-ящик-низ-форма",
+            "target": "H@ЂвH@",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "171meta-1-02-ящик-низ-форма",
+            "target": "HPАвHPЂHT@вHRЂHV@вHUЂHZ",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "171meta-1-02-ящик-низ-форма",
+            "target": "вHYЂH^",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "171meta-1-02-ящик-низ-форма",
+            "target": "HWЂвHU@H[ЂвHW@H]ЂвHY@H_ЂвH\\@HaАвH^@HbАвH``Hd",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "171meta-1-02-ящик-низ-форма",
+            "target": "HCЂвH;",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "171meta-1-02-ящик-низ-форма",
+            "target": "HSЂвHM",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "171meta-1-02-ящик-низ-форма",
+            "target": "HBЂвH7",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "171meta-1-02-ящик-низ-форма",
+            "target": "HKЂвHAЂHQ",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "171meta-1-02-ящик-низ-форма",
+            "target": "Hc`вHY",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "171meta-1-02-ящик-низ-форма",
+            "target": "He`вH^ЂHh@вH`@Hi@вHaЂHjЂвHcАHmавHe@Ho`вHgАHqpвHj",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "171meta-1-02-ящик-низ-форма",
+            "target": "HMЂвH<",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "171meta-1-02-ящик-низ-форма",
+            "target": "HPАвH7",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "171meta-1-02-ящик-низ-форма",
+            "target": "[] S 92;",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "171meta-1-02-ящик-низ-форма",
+            "target": "[A] W 11;",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "171meta-1-02-ящик-низ-форма",
+            "target": "[C] W 12;",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "171meta-1-02-ящик-низ-форма",
+            "target": "[E] W 12;",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "171meta-1-02-ящик-низ-форма",
+            "target": "/P@в/P@/T",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "171meta-1-02-ящик-низ-форма",
+            "target": "/aЂв/aЂ/d",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "171meta-1-02-ящик-низ-форма",
+            "target": "/fЂв/fЂ/i",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "171meta-1-02-ящик-низ-форма",
+            "target": "/l в/l /o@в/o@/qЂв/qЂ/s°в/s°/v0в/v0/y",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "171meta-1-02-ящик-низ-форма",
+            "target": "/Њ в/Њ /Џ@в/Џ@/‘Ђв/‘Ђ/“€в/“€/•ав/•а/™",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "171meta-1-02-ящик-низ-форма",
+            "target": "вH€`HЉpвHЉ@HЊPвHЋ",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "171meta-1-02-ящик-низ-форма",
+            "target": "вHnаHs",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "171meta-1-02-ящик-низ-форма",
+            "target": "HUАвHK",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "171meta-1-02-ящик-низ-форма",
+            "target": "вHRАH^@вHVАHb вHZ",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "171meta-1-02-ящик-низ-форма",
+            "target": "# Pro/TABLE",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "171meta-1-02-ящик-низ-форма",
+            "target": "[] S 92;",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "171meta-1-02-ящик-низ-форма",
+            "target": "[A] W 11;",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "171meta-1-02-ящик-низ-форма",
+            "target": "[C] W 12;",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "171meta-1-02-ящик-низ-форма",
+            "target": "[E] W 12;",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "171meta-1-02-ящик-низ-форма",
+            "target": "HGЂвHFЂHK",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "171meta-1-02-ящик-низ-форма",
+            "target": "HDЂвHBЂHI",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "171meta-1-02-ящик-низ-форма",
+            "target": "HLЂвHKЂHQАвHP@HT@вHT@HY",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "171meta-1-02-ящик-низ-форма",
+            "target": "H\\АвH]@Ha`вHa HcавHd`HgЂвHfаHj",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "171meta-1-02-ящик-низ-форма",
+            "target": "вHo Hq`вHq0Hs",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "171meta-1-02-ящик-низ-форма",
+            "target": "вH‡ H€°вHЉ@H‹РвHЌ`HЏ вHђhH‘HвH‘шH“",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "171meta-1-02-ящик-низ-форма",
+            "target": "Hљ8вHњиHћXвHџ@H XвHЎшHўФвHЈ€H¤dвH¦ЁH§¶вH©",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "171meta-1-02-ящик-низ-форма",
+            "target": "HBЂвH:",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "171meta-1-02-ящик-низ-форма",
+            "target": "вH@ЂHK",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "171meta-1-02-ящик-низ-форма",
+            "target": "HNЂвHIЂHS",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "171meta-1-02-ящик-низ-форма",
+            "target": "HљфвHњиHџ@вHџ@H МвHЎшHЈVвHЈ€H¤жвH¦ЁHЁLвH©",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "171meta-1-02-ящик-низ-форма",
+            "target": "HDЂвH<",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "171meta-1-02-ящик-низ-форма",
+            "target": "вH@ЂHN",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "171meta-1-02-ящик-низ-форма",
+            "target": "HT@вHN",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "171meta-1-02-ящик-низ-форма",
+            "target": "Hf@вHb",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "171meta-1-02-ящик-низ-форма",
+            "target": "вHDЂHW@вHH",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "171meta-1-02-ящик-низ-форма",
+            "target": "HQАвH<",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "171meta-1-02-ящик-низ-форма",
+            "target": "H`ЂвHN",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "171meta-1-02-ящик-низ-форма",
+            "target": "вHQЂHe@вHUАHiавHYЂHkАвH_",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "171meta-1-02-ящик-низ-форма",
+            "target": "# Pro/TABLE",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "171meta-1-02-ящик-низ-форма",
+            "target": "[] S 92;",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "171meta-1-02-ящик-низ-форма",
+            "target": "[A] W 11;",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "171meta-1-02-ящик-низ-форма",
+            "target": "[C] W 12;",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "171meta-1-02-ящик-низ-форма",
+            "target": "[E] W 12;",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "171meta-1-02-ящик-низ-форма",
+            "target": "/P@в/P@/T",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "171meta-1-02-ящик-низ-форма",
+            "target": "/aЂв/aЂ/d",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "171meta-1-02-ящик-низ-форма",
+            "target": "/fЂв/fЂ/i",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "171meta-1-02-ящик-низ-форма",
+            "target": "/l в/l /o@в/o@/qЂв/qЂ/s°в/s°/v0в/v0/y",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "171meta-1-02-ящик-низ-форма",
+            "target": "HNЂвHP",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "171meta-1-02-ящик-низ-форма",
+            "target": "вHOЂHSАвHS",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "171meta-1-02-ящик-низ-форма",
+            "target": "вHrРHt вHt°HvЂвHwЂHyЂвHz",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "171meta-1-02-ящик-низ-форма",
+            "target": "вHGЂHQ",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "171meta-1-02-ящик-низ-форма",
+            "target": "вHKЂHV",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "171meta-1-02-ящик-низ-форма",
+            "target": "HZАвHT@H^",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "171meta-1-02-ящик-низ-форма",
+            "target": "HdАвHb@Hi",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "171meta-1-02-ящик-низ-форма",
+            "target": "[] S 92;",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "171meta-1-02-ящик-низ-форма",
+            "target": "[A] W 11;",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "171meta-1-02-ящик-низ-форма",
+            "target": "[C] W 12;",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "171meta-1-02-ящик-низ-форма",
+            "target": "[E] W 12;",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "171meta-1-02-ящик-низ-форма",
+            "target": "/P@в/P@/T",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "171meta-1-02-ящик-низ-форма",
+            "target": "/aЂв/aЂ/d",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "171meta-1-02-ящик-низ-форма",
+            "target": "/fЂв/fЂ/i",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "171meta-1-02-ящик-низ-форма",
+            "target": "/l в/l /o@в/o@/qЂв/qЂ/s°в/s°/v0в/v0/y",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "171meta-1-02-ящик-низ-форма",
+            "target": "вHBЂHFЂвHE",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "171meta-1-02-ящик-низ-форма",
+            "target": "вHIЂHN",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "171meta-1-02-ящик-низ-форма",
+            "target": "HUАвHW@HZ",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "171meta-1-02-ящик-низ-форма",
+            "target": "H@ЂвH?",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "171meta-1-02-ящик-низ-форма",
+            "target": "вHBЂHH",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "171meta-1-02-ящик-низ-форма",
+            "target": "HJЂвHI",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "171meta-1-02-ящик-низ-форма",
+            "target": "HR@вHRАHVАвHW",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "171meta-1-02-ящик-низ-форма",
+            "target": "HEЂвH@ЂHIЂвHC",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "171meta-1-02-ящик-низ-форма",
+            "target": "HS@вHQАHX",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "171meta-1-02-ящик-низ-форма",
+            "target": "HPАвHFЂHR",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "171meta-1-02-ящик-низ-форма",
+            "target": "HUАвHP",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "171meta-1-02-ящик-низ-форма",
+            "target": "H]АвHX@Ha",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "171meta-1-02-ящик-низ-форма",
+            "target": "вHb@Hh",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "171meta-1-02-ящик-низ-форма",
+            "target": "вHj@HpЂвHo",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "171meta-1-02-ящик-низ-форма",
+            "target": "HTАвHFЂHV",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "171meta-1-02-ящик-низ-форма",
+            "target": "HZЂвHP",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "171meta-1-02-ящик-низ-форма",
+            "target": "Ha@вHP",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "171meta-1-02-ящик-низ-форма",
+            "target": "# Pro/TABLE",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "171meta-1-02-ящик-низ-форма",
+            "target": "[] S 92;",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "171meta-1-02-ящик-низ-форма",
+            "target": "[A] W 11;",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "171meta-1-02-ящик-низ-форма",
+            "target": "[C] W 12;",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "171meta-1-02-ящик-низ-форма",
+            "target": "[E] W 12;",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "171meta-1-02-ящик-низ-форма",
+            "target": "Hg`вHiаHl вHnаHpРвHrPHsавHtРHv`вHwPHxавHz",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "171meta-1-02-ящик-низ-форма",
+            "target": "[] S 92;",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "171meta-1-02-ящик-низ-форма",
+            "target": "[A] W 11;",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "171meta-1-02-ящик-низ-форма",
+            "target": "[C] W 12;",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "171meta-1-02-ящик-низ-форма",
+            "target": "[E] W 12;",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "171meta-1-02-ящик-низ-форма",
+            "target": "[G] W 12;",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "171meta-1-02-ящик-низ-форма",
+            "target": "вHGЂHM",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "171meta-1-02-ящик-низ-форма",
+            "target": "вHQ@HTЂвHU",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "171meta-1-02-ящик-низ-форма",
+            "target": "HEЂвHB",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "171meta-1-02-ящик-низ-форма",
+            "target": "HY@вHYАH`",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "171meta-1-02-ящик-низ-форма",
+            "target": "HS@вHN",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "171meta-1-02-ящик-низ-форма",
+            "target": "H^@вH\\",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "171meta-1-02-ящик-низ-форма",
+            "target": "HeавHeЂHk@вHj@Hp",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "171meta-1-02-ящик-низ-форма",
+            "target": "HW@вHN",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "171meta-1-02-ящик-низ-форма",
+            "target": "HaЂвH\\",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "171meta-1-02-ящик-низ-форма",
+            "target": "HeЂвH\\",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "171meta-1-02-ящик-низ-форма",
+            "target": "He@вHR@Hi`вHV",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "171meta-1-02-ящик-низ-форма",
+            "target": "[] S 92;",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "171meta-1-02-ящик-низ-форма",
+            "target": "[A] W 11;",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "171meta-1-02-ящик-низ-форма",
+            "target": "/rАв/w@/s`в/wа/t",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "171meta-1-02-ящик-низ-форма",
+            "target": "/r в/zа/rАв/}`/s`в/~",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "171meta-1-02-ящик-низ-форма",
+            "target": "[] S 92;",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "171meta-1-02-ящик-низ-форма",
+            "target": "[A] W 11;",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "171meta-1-02-ящик-низ-форма",
+            "target": "в/QА/L",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "171meta-1-02-ящик-низ-форма",
+            "target": "[] S 92;",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "171meta-1-02-ящик-низ-форма",
+            "target": "[A] W 11;",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "171meta-1-02-ящик-низ-форма",
+            "target": "в/@Ђ/2",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "171meta-1-02-ящик-низ-форма",
+            "target": "[] S 92;",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "171meta-1-02-ящик-низ-форма",
+            "target": "[A] W 11;",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "171meta-1-02-ящик-низ-форма",
+            "target": "в/PЂ/",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "171meta-1-02-ящик-низ-форма",
+            "target": "[] S 92;",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "171meta-1-02-ящик-низ-форма",
+            "target": "[A] W 11;",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "171meta-1-02-ящик-низ-форма",
+            "target": "[C] W 13;",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "171meta-1-02-ящик-низ-форма",
+            "target": "[E] W 12;",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "171meta-1-02-ящик-низ-форма",
+            "target": "[G] W 12;",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "171meta-1-02-ящик-низ-форма",
+            "target": "вHNЂHR",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "171meta-1-02-ящик-низ-форма",
+            "target": "HNЂвHLЂHRАвHQЂHV",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "171meta-1-02-ящик-низ-форма",
+            "target": "HRЂвHP",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "171meta-1-02-ящик-низ-форма",
+            "target": "вHXЂH``вH]ЂHbавHbЂHg`вHfЂHk`вHl@Hq",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "171meta-1-02-ящик-низ-форма",
+            "target": "вHtрHxPвHy",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "171meta-1-02-ящик-низ-форма",
+            "target": "HZАвHS@H^",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "171meta-1-02-ящик-низ-форма",
+            "target": "H[ЂвHP",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "171meta-1-02-ящик-низ-форма",
+            "target": "HaАвHP",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "171meta-1-02-ящик-низ-форма",
+            "target": "вHbЂHs@вHfЂHu@вHl@Hz",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "171meta-1-02-ящик-низ-форма",
+            "target": "вHtрHЃXвHy",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "171meta-1-02-ящик-низ-форма",
+            "target": "[] S 92;",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "171meta-1-02-ящик-низ-форма",
+            "target": "[A] W 11;",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "171meta-1-02-ящик-низ-форма",
+            "target": "[C] W 12;",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "171meta-1-02-ящик-низ-форма",
+            "target": "[E] W 12;",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "171meta-1-02-ящик-низ-форма",
+            "target": "/P@в/P@/T",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "171meta-1-02-ящик-низ-форма",
+            "target": "/aЂв/aЂ/d",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "171meta-1-02-ящик-низ-форма",
+            "target": "/fЂв/fЂ/i",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "171meta-1-02-ящик-низ-форма",
+            "target": "/l в/l /o@в/o@/qЂв/qЂ/s°в/s°/v0в/v0/y",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "171meta-1-02-ящик-низ-форма",
+            "target": "вHNЂHS",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "171meta-1-02-ящик-низ-форма",
+            "target": "H`авHa",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "171meta-1-02-ящик-низ-форма",
+            "target": "Hh вHi",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "171meta-1-02-ящик-низ-форма",
+            "target": "HgЂвHd",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "171meta-1-02-ящик-низ-форма",
+            "target": "Hp`вHn@Hs",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "171meta-1-02-ящик-низ-форма",
+            "target": "HXЂвHPАH_@вHVЂHd",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "171meta-1-02-ящик-низ-форма",
+            "target": "Hf@вHa",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "171meta-1-02-ящик-низ-форма",
+            "target": "HnЂвHi",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "171meta-1-02-ящик-низ-форма",
+            "target": "вH{РH‚HвHЂhH„ИвHѓ`H€`вH…аHЉавH€`HЌ`вH‹ЂHђ¤вHЋ",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "171meta-1-02-ящик-низ-форма",
+            "target": "Hk@вHa",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "171meta-1-02-ящик-низ-форма",
+            "target": "Hr вHi",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "171meta-1-02-ящик-низ-форма",
+            "target": "# Pro/TABLE",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "171meta-1-02-ящик-низ-форма",
+            "target": "[] S 92;",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "171meta-1-02-ящик-низ-форма",
+            "target": "[A] W 11;",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "171meta-1-02-ящик-низ-форма",
+            "target": "[C] W 12;",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "171meta-1-02-ящик-низ-форма",
+            "target": "[E] W 12;",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "171meta-1-02-ящик-низ-форма",
+            "target": "/P@в/P@/T",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "171meta-1-02-ящик-низ-форма",
+            "target": "/aЂв/aЂ/d",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "171meta-1-02-ящик-низ-форма",
+            "target": "/fЂв/fЂ/i",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "171meta-1-02-ящик-низ-форма",
+            "target": "/l в/l /o@в/o@/qЂв/qЂ/s°в/s°/v0в/v0/y",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "171meta-1-02-ящик-низ-форма",
+            "target": "HЂpвH‚HHѓшвH…ђH‡@вH‰",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "171meta-1-02-ящик-низ-форма",
+            "target": "вHk@HpавHq Hu",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "171meta-1-02-ящик-низ-форма",
+            "target": "HЃPвH‚HH…",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "171meta-1-02-ящик-низ-форма",
+            "target": "вHbАHkЂвHgЂHq",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "171meta-1-02-ящик-низ-форма",
+            "target": "H‚АвH‚HH†ЁвH…ђH‰рвH‰",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "171meta-1-02-ящик-низ-форма",
+            "target": "Hc`вHX@Hg`вH`@Hn",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "171meta-1-02-ящик-низ-форма",
+            "target": "H„рвH‚HH‰(вH…ђHЊpвH‰",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "171meta-1-02-ящик-низ-форма",
+            "target": "shafts_arr",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "171meta-1-02-ящик-низ-форма",
+            "target": "[] S 92;",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "171meta-1-02-ящик-низ-форма",
+            "target": "[A] W 11;",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "171meta-1-02-ящик-низ-форма",
+            "target": "[C] W 12;",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "171meta-1-02-ящик-низ-форма",
+            "target": "[E] W 12;",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "171meta-1-02-ящик-низ-форма",
+            "target": "[G] W 12;",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "171meta-1-02-ящик-низ-форма",
+            "target": "[J] W 12;",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "171meta-1-02-ящик-низ-форма",
+            "target": "HAЂвHD",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "171meta-1-02-ящик-низ-форма",
+            "target": "вHP@HRЂвHT",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "171meta-1-02-ящик-низ-форма",
+            "target": "H\\@вH^",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "171meta-1-02-ящик-низ-форма",
+            "target": "HHЂвHI",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "171meta-1-02-ящик-низ-форма",
+            "target": "H]АвH^",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "171meta-1-02-ящик-низ-форма",
+            "target": "HKЂвHI",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "171meta-1-02-ящик-низ-форма",
+            "target": "вHP@HUЂвHT",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "171meta-1-02-ящик-низ-форма",
+            "target": "H`@вH^",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "171meta-1-02-ящик-низ-форма",
+            "target": "вHgАHn@вHj@Hp°вHlАHrPвHp@Ht вHr Hw вHt",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "171meta-1-02-ящик-низ-форма",
+            "target": "H]АвHY",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "171meta-1-02-ящик-низ-форма",
+            "target": "HeАвHb Hj",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "171meta-1-02-ящик-низ-форма",
+            "target": "HaАвHY",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "171meta-1-02-ящик-низ-форма",
+            "target": "HiавHb Hn вHe@HqРвHgАHt",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "171meta-1-02-ящик-низ-форма",
+            "target": "HXЂвHI",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "171meta-1-02-ящик-низ-форма",
+            "target": "HkЂвH^",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "171meta-1-02-ящик-низ-форма",
+            "target": "вHj@H{ЂвHlАH~",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "171meta-1-02-ящик-низ-форма",
+            "target": "HZ@вHD",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "171meta-1-02-ящик-низ-форма",
+            "target": "Hr вH^",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "171meta-1-02-ящик-низ-форма",
+            "target": "HbАвHD",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "171meta-1-02-ящик-низ-форма",
+            "target": "HlАвHP@Hq0вHT",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "171meta-1-02-ящик-низ-форма",
+            "target": "Hj@вHD",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "171meta-1-02-ящик-низ-форма",
+            "target": "H}`вHY",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "171meta-1-02-ящик-низ-форма",
+            "target": "[] S 92;",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "171meta-1-02-ящик-низ-форма",
+            "target": "[A] W 11;",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "171meta-1-02-ящик-низ-форма",
+            "target": "[C] W 12;",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "171meta-1-02-ящик-низ-форма",
+            "target": "[E] W 12;",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "171meta-1-02-ящик-низ-форма",
+            "target": "[G] W 12;",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "171meta-1-02-ящик-низ-форма",
+            "target": "HHЂвHI",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "171meta-1-02-ящик-низ-форма",
+            "target": "HR@вHR",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "171meta-1-02-ящик-низ-форма",
+            "target": "HEЂвHD",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "171meta-1-02-ящик-низ-форма",
+            "target": "HPЂвHN",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "171meta-1-02-ящик-низ-форма",
+            "target": "HWЂвHU@H[ЂвHY",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "171meta-1-02-ящик-низ-форма",
+            "target": "Hj@вHe@Hl@вHh`HpPвHkЂHr вHn",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "171meta-1-02-ящик-низ-форма",
+            "target": "HNЂвHI",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "171meta-1-02-ящик-низ-форма",
+            "target": "HVЂвHR",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "171meta-1-02-ящик-низ-форма",
+            "target": "Hb@вH[ЂHd@вH_@HfАвH`аHhАвHb HjавHd",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "171meta-1-02-ящик-низ-форма",
+            "target": "вHe@Hp@вHh`HrАвHkЂHuђвHn",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "171meta-1-02-ящик-низ-форма",
+            "target": "HGЂвH@",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "171meta-1-02-ящик-низ-форма",
+            "target": "HR@вHI",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "171meta-1-02-ящик-низ-форма",
+            "target": "HZЂвHR",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "171meta-1-02-ящик-низ-форма",
+            "target": "HeЂвH[ЂHgавH_@HjАвH`аHm",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "171meta-1-02-ящик-низ-форма",
+            "target": "HqРвHe@Hs`вHh`HvЂвHkЂHyрвHn",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "171meta-1-02-ящик-низ-форма",
+            "target": "HRАвHD",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "171meta-1-02-ящик-низ-форма",
+            "target": "HcавHU@Hg вHY",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "171meta-1-02-ящик-низ-форма",
+            "target": "вH_@HpђвH`аHr вHb Ht",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "171meta-1-02-ящик-низ-форма",
+            "target": "HvЂвHe@Hy",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "171meta-1-02-ящик-низ-форма",
+            "target": "HYЂвHD",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "171meta-1-02-ящик-низ-форма",
+            "target": "HfЂвHR",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "171meta-1-02-ящик-низ-форма",
+            "target": "HqРвH[ЂHt",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "171meta-1-02-ящик-низ-форма",
+            "target": "HЉ@вHp@HЋ",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "171meta-1-02-ящик-низ-форма",
+            "target": "[] S 92;",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "171meta-1-02-ящик-низ-форма",
+            "target": "[A] W 11;",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "171meta-1-02-ящик-низ-форма",
+            "target": "[C] W 12;",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "171meta-1-02-ящик-низ-форма",
+            "target": "[E] W 12;",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "171meta-1-02-ящик-низ-форма",
+            "target": "[G] W 12;",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "171meta-1-02-ящик-низ-форма",
+            "target": "/fЂв/fЂ/o@в/o@/s°в/s°/y",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "171meta-1-02-ящик-низ-форма",
+            "target": "/Џ@в/Џ@/“€в/“€/™",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "171meta-1-02-ящик-низ-форма",
+            "target": "HEЂвHB",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "171meta-1-02-ящик-низ-форма",
+            "target": "HQЂвHL",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "171meta-1-02-ящик-низ-форма",
+            "target": "HUАвHQ",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "171meta-1-02-ящик-низ-форма",
+            "target": "H@ЂвH9",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "171meta-1-02-ящик-низ-форма",
+            "target": "HHЂвHB",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "171meta-1-02-ящик-низ-форма",
+            "target": "вHEЂHQ",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "171meta-1-02-ящик-низ-форма",
+            "target": "HSАвHL",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "171meta-1-02-ящик-низ-форма",
+            "target": "H`@вHUЂHaАвHXЂHdЂвH[ЂHgЂвH^",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "171meta-1-02-ящик-низ-форма",
+            "target": "HQАвHEЂHTАвHI",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "171meta-1-02-ящик-низ-форма",
+            "target": "H``вHS",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "171meta-1-02-ящик-низ-форма",
+            "target": "вHXЂHi`вH[ЂHm`вH^",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "171meta-1-02-ящик-низ-форма",
+            "target": "HAЂвH0",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "171meta-1-02-ящик-низ-форма",
+            "target": "HJЂвH9",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "171meta-1-02-ящик-низ-форма",
+            "target": "H^ЂвHL",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "171meta-1-02-ящик-низ-форма",
+            "target": "HbавHQ",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "171meta-1-02-ящик-низ-форма",
+            "target": "Hg@вHT",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "171meta-1-02-ящик-низ-форма",
+            "target": "HMЂвH4",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "171meta-1-02-ящик-низ-форма",
+            "target": "H^АвHEЂHaавHI",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "171meta-1-02-ящик-низ-форма",
+            "target": "Hg вHO",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "171meta-1-02-ящик-низ-форма",
+            "target": "HkавHS",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "171meta-1-02-ящик-низ-форма",
+            "target": "HqЂвHUЂHsАвHXЂHv`вH[ЂHz@вH^",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "171meta-1-02-ящик-низ-форма",
+            "target": "HQАвH0",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "171meta-1-02-ящик-низ-форма",
+            "target": "[] S 92;",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "171meta-1-02-ящик-низ-форма",
+            "target": "[A] W 11;",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "171meta-1-02-ящик-низ-форма",
+            "target": "[C] W 12;",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "171meta-1-02-ящик-низ-форма",
+            "target": "[E] W 12;",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "171meta-1-02-ящик-низ-форма",
+            "target": "[G] W 12;",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "171meta-1-02-ящик-низ-форма",
+            "target": "MERGE_BASE_PART\u0000",
+            "type": "inherit_from_master",
+            "metadata": {
+                "method": "LargeText_Marker"
+            }
+        },
+        {
+            "source": "171meta-1-02-ящик-низ-форма",
+            "target": "MERGE_BASE_PART\u0000",
+            "type": "inherit_from_master",
+            "metadata": {
+                "method": "LargeText_Marker"
+            }
+        },
+        {
+            "source": "171meta-1-02-ящик-низ-форма",
+            "target": "MERGE_BASE_PART\u0000",
+            "type": "inherit_from_master",
+            "metadata": {
+                "method": "LargeText_Marker"
+            }
+        },
+        {
+            "source": "171meta-1-02-ящик-низ-форма",
+            "target": "MERGE_BASE_PART\u0000",
+            "type": "inherit_from_master",
+            "metadata": {
+                "method": "LargeText_Marker"
+            }
+        },
+        {
+            "source": "171meta-1-02-ящик-низ-форма",
+            "target": "MERGE_BASE_PART\u0000",
+            "type": "inherit_from_master",
+            "metadata": {
+                "method": "LargeText_Marker"
+            }
+        },
+        {
+            "source": "171meta-1-02-ящик-низ-форма",
+            "target": "MERGE_BASE_PART\u0000",
+            "type": "inherit_from_master",
+            "metadata": {
+                "method": "LargeText_Marker"
+            }
+        },
+        {
+            "source": "171meta-1-02-ящик-низ-форма",
+            "target": "AUDIT_LOG",
+            "type": "has_history",
+            "metadata": {
+                "rev": "40540",
+                "author": "USER",
+                "date": "20.06.25 13:55"
+            }
+        },
+        {
+            "source": "171meta-1-02-ящик-низ-форма",
+            "target": "CNC_PROCESS",
+            "type": "mfg_operation_of",
+            "metadata": {
+                "operations": [
+                    "FRONT\u0000"
+                ],
+                "method": "semantic_large_text"
+            }
+        }
+    ],
+    "parameters": {}
+}

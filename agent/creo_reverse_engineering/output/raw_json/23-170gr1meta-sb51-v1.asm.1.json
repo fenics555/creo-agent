@@ -1,0 +1,557 @@
+{
+    "model_name": "23-170gr1meta-sb51-v1",
+    "plm_type": "Технологический техпроцесс механообработки (CAM)",
+    "edges": [
+        {
+            "source": "23-170gr1meta-sb51-v1",
+            "target": "gћЃfЫh",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "23-170gr1meta-sb51-v1",
+            "target": "дYЧ¤<",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "23-170gr1meta-sb51-v1",
+            "target": "›_y“э",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "23-170gr1meta-sb51-v1",
+            "target": "ќш‰mzЌ§шўx)§SJ‹¶иЂ№€",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "23-170gr1meta-sb51-v1",
+            "target": "°іETЋёА}±fСбљas6›Нµ9ґ6",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "23-170gr1meta-sb51-v1",
+            "target": "'OеT`«WЃV.К.Л+ѓez4–у¶YFЛФX№ж!B",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "23-170gr1meta-sb51-v1",
+            "target": "n‡:Р†",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "23-170gr1meta-sb51-v1",
+            "target": "Jт\"ЫC№",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "23-170gr1meta-sb51-v1",
+            "target": "А†pDB",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "23-170gr1meta-sb51-v1",
+            "target": "™If”™€B",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "23-170gr1meta-sb51-v1",
+            "target": "ЂА°IЪћ",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "23-170gr1meta-sb51-v1",
+            "target": "Р–’¶+@~•ЫЄ",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "23-170gr1meta-sb51-v1",
+            "target": "°lr¶й",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "23-170gr1meta-sb51-v1",
+            "target": "kr›L%3Йr2Ы",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "23-170gr1meta-sb51-v1",
+            "target": "†+Ьхґ¬]†ЧЎPё.@1[МЇ",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "23-170gr1meta-sb51-v1",
+            "target": "hц‘=dЈЩx‡>юЏc",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "23-170gr1meta-sb51-v1",
+            "target": "О]WиЩq",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "23-170gr1meta-sb51-v1",
+            "target": "pк”ѓІј\\",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "23-170gr1meta-sb51-v1",
+            "target": "ЬXЭI?u¬6",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "23-170gr1meta-sb51-v1",
+            "target": "&¶mhл",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "23-170gr1meta-sb51-v1",
+            "target": "ЇњЋ‹µUьа8",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "23-170gr1meta-sb51-v1",
+            "target": "™?еQ940•џ",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "23-170gr1meta-sb51-v1",
+            "target": "9№kО“Я‰нщ)р“K",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "23-170gr1meta-sb51-v1",
+            "target": "@@“ж>Y",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "23-170gr1meta-sb51-v1",
+            "target": "@Ђ%@PC3Ђ",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "23-170gr1meta-sb51-v1",
+            "target": "NЉ’K(",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "23-170gr1meta-sb51-v1",
+            "target": "XЂwА-*њUj‚O…q]Q‡",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "23-170gr1meta-sb51-v1",
+            "target": "щЄ•ZѕвEњЇ¤Вt",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "23-170gr1meta-sb51-v1",
+            "target": "А«Нсч2бба",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "23-170gr1meta-sb51-v1",
+            "target": "Sld_FeatDefsCmp",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "23-170gr1meta-sb51-v1",
+            "target": "feat_defs_1000",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "23-170gr1meta-sb51-v1",
+            "target": "place_instruction_ptrs",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "23-170gr1meta-sb51-v1",
+            "target": "data(plin_info_sub_feat)",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "23-170gr1meta-sb51-v1",
+            "target": "data(plin_info_pntsrf_1stpnt)",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "23-170gr1meta-sb51-v1",
+            "target": "data(plin_info_ui_step)",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "23-170gr1meta-sb51-v1",
+            "target": "dat_ptr(comp_data)",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "23-170gr1meta-sb51-v1",
+            "target": "23-170GR1-META",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "23-170gr1meta-sb51-v1",
+            "target": "simpl_rep",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "23-170gr1meta-sb51-v1",
+            "target": "inherit_rep",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "23-170gr1meta-sb51-v1",
+            "target": "p_foreign_source",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "23-170gr1meta-sb51-v1",
+            "target": "minor_vers",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "23-170gr1meta-sb51-v1",
+            "target": "interchange_info",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "23-170gr1meta-sb51-v1",
+            "target": "user_data",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "23-170gr1meta-sb51-v1",
+            "target": "mp_report_data",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "23-170gr1meta-sb51-v1",
+            "target": "mass_prop",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "23-170gr1meta-sb51-v1",
+            "target": "checksum",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "23-170gr1meta-sb51-v1",
+            "target": "mp_checksum",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "23-170gr1meta-sb51-v1",
+            "target": "alt_vals_info",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "23-170gr1meta-sb51-v1",
+            "target": "item_info",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "23-170gr1meta-sb51-v1",
+            "target": "feat_list_rev_info",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "23-170gr1meta-sb51-v1",
+            "target": "revision(mdl_g_rev_dtl_t_ft_regen)",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "23-170gr1meta-sb51-v1",
+            "target": "version",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "23-170gr1meta-sb51-v1",
+            "target": "appl_data",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "23-170gr1meta-sb51-v1",
+            "target": "tag_info",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "23-170gr1meta-sb51-v1",
+            "target": "version",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "23-170gr1meta-sb51-v1",
+            "target": "info(No_value)",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "23-170gr1meta-sb51-v1",
+            "target": "sub_feat_arr",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "23-170gr1meta-sb51-v1",
+            "target": "expl_state_ref",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "23-170gr1meta-sb51-v1",
+            "target": "feat_outl_info",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "23-170gr1meta-sb51-v1",
+            "target": "comp_pnt_data",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "23-170gr1meta-sb51-v1",
+            "target": "data(plin_info_user_data)",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "23-170gr1meta-sb51-v1",
+            "target": "base_model_uid",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "23-170gr1meta-sb51-v1",
+            "target": "var_items",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "23-170gr1meta-sb51-v1",
+            "target": "xp_diffs",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "23-170gr1meta-sb51-v1",
+            "target": "diff_id",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "23-170gr1meta-sb51-v1",
+            "target": "value",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "23-170gr1meta-sb51-v1",
+            "target": "sym_val",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "23-170gr1meta-sb51-v1",
+            "target": "objname",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "23-170gr1meta-sb51-v1",
+            "target": "ббббба",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "23-170gr1meta-sb51-v1",
+            "target": "твчЂЩ2",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "23-170gr1meta-sb51-v1",
+            "target": "бббббба",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "23-170gr1meta-sb51-v1",
+            "target": "feat_geom_backup",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "23-170gr1meta-sb51-v1",
+            "target": "old_var_items",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "23-170gr1meta-sb51-v1",
+            "target": "x_diff_states",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "23-170gr1meta-sb51-v1",
+            "target": "idtab_id_map",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "23-170gr1meta-sb51-v1",
+            "target": "feat_db",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "23-170gr1meta-sb51-v1",
+            "target": "ref_model_info",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "23-170gr1meta-sb51-v1",
+            "target": "objname",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "23-170gr1meta-sb51-v1",
+            "target": "бббббчЂабчЂбв2",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "23-170gr1meta-sb51-v1",
+            "target": "ббббббчЂбв2",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "23-170gr1meta-sb51-v1",
+            "target": "тчЂцвц",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "23-170gr1meta-sb51-v1",
+            "target": "data(plin_info_dist_rel_value)",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "23-170gr1meta-sb51-v1",
+            "target": "бббббчЂабчЂбв2",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "23-170gr1meta-sb51-v1",
+            "target": "ббббббчЂбв2",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "23-170gr1meta-sb51-v1",
+            "target": "тчЂцвц",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "23-170gr1meta-sb51-v1",
+            "target": "бббббчЂабчЂбв2",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "23-170gr1meta-sb51-v1",
+            "target": "ббббббчЂбв2",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "23-170gr1meta-sb51-v1",
+            "target": "тчЂцвц",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "23-170gr1meta-sb51-v1",
+            "target": "AUDIT_LOG",
+            "type": "has_history",
+            "metadata": {
+                "rev": "6993",
+                "author": "USER",
+                "date": "04.09.26 09:19"
+            }
+        },
+        {
+            "source": "23-170gr1meta-sb51-v1",
+            "target": "CNC_PROCESS",
+            "type": "mfg_operation_of",
+            "metadata": {
+                "operations": [
+                    "ASM_FRONT\u0000",
+                    "dma_sld_freeze\u0000"
+                ],
+                "method": "semantic_large_text"
+            }
+        }
+    ],
+    "parameters": {}
+}

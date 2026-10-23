@@ -1,0 +1,213 @@
+{
+    "model_name": "171meta-1-02-ящик-низ-камера",
+    "plm_type": "Технологический техпроцесс механообработки (CAM)",
+    "edges": [
+        {
+            "source": "171meta-1-02-ящик-низ-камера",
+            "target": "Sld_IdsGenInfoDb",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "171meta-1-02-ящик-низ-камера",
+            "target": "mdl_ids_info_db",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "171meta-1-02-ящик-низ-камера",
+            "target": "Sld_Hatching",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "171meta-1-02-ящик-низ-камера",
+            "target": "hatch_data_save_xar",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "171meta-1-02-ящик-низ-камера",
+            "target": "Sld_ActDatums",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "171meta-1-02-ящик-низ-камера",
+            "target": "act_datum_geoms",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "171meta-1-02-ящик-низ-камера",
+            "target": "Sld_IdsGenAllRepsDb",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "171meta-1-02-ящик-низ-камера",
+            "target": "mdl_ids_all_reps_db",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "171meta-1-02-ящик-низ-камера",
+            "target": "all_reps_items",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "171meta-1-02-ящик-низ-камера",
+            "target": "owner_item",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "171meta-1-02-ящик-низ-камера",
+            "target": "revnum_item",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "171meta-1-02-ящик-низ-камера",
+            "target": "Sld_FeatDefsCmp",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "171meta-1-02-ящик-низ-камера",
+            "target": "feat_defs_1000",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "171meta-1-02-ящик-низ-камера",
+            "target": "place_instruction_ptrs",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "171meta-1-02-ящик-низ-камера",
+            "target": "dat_ptr(comp_data)",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "171meta-1-02-ящик-низ-камера",
+            "target": "FF3A1CFB2BAE5028BBA912C4E76D7F0",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "171meta-1-02-ящик-низ-камера",
+            "target": "simpl_rep",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "171meta-1-02-ящик-низ-камера",
+            "target": "inherit_rep",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "171meta-1-02-ящик-низ-камера",
+            "target": "parent",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "171meta-1-02-ящик-низ-камера",
+            "target": "app_data(p_embed_mdl_data)",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "171meta-1-02-ящик-низ-камера",
+            "target": "цгMDL_GENERIC_PRO_MP_MASS\u0000",
+            "type": "inherit_from_master",
+            "metadata": {
+                "method": "LargeText_Marker"
+            }
+        },
+        {
+            "source": "171meta-1-02-ящик-низ-камера",
+            "target": "г@MDL_GENERIC_PRO_MP_MASS\u0000",
+            "type": "inherit_from_master",
+            "metadata": {
+                "method": "LargeText_Marker"
+            }
+        },
+        {
+            "source": "171meta-1-02-ящик-низ-камера",
+            "target": "г@MDL_GENERIC_PRO_MP_MASS\u0000",
+            "type": "inherit_from_master",
+            "metadata": {
+                "method": "LargeText_Marker"
+            }
+        },
+        {
+            "source": "171meta-1-02-ящик-низ-камера",
+            "target": "г@MDL_GENERIC_PRO_MP_MASS\u0000",
+            "type": "inherit_from_master",
+            "metadata": {
+                "method": "LargeText_Marker"
+            }
+        },
+        {
+            "source": "171meta-1-02-ящик-низ-камера",
+            "target": "чCг@чWMDL_GENERIC_PRO_MP_MASS\u0000",
+            "type": "inherit_from_master",
+            "metadata": {
+                "method": "LargeText_Marker"
+            }
+        },
+        {
+            "source": "171meta-1-02-ящик-низ-камера",
+            "target": "г@чWMDL_GENERIC_PRO_MP_MASS\u0000",
+            "type": "inherit_from_master",
+            "metadata": {
+                "method": "LargeText_Marker"
+            }
+        },
+        {
+            "source": "171meta-1-02-ящик-низ-камера",
+            "target": "г@MDL_GENERIC_PRO_MP_MASS\u0000",
+            "type": "inherit_from_master",
+            "metadata": {
+                "method": "LargeText_Marker"
+            }
+        },
+        {
+            "source": "171meta-1-02-ящик-низ-камера",
+            "target": "г@MDL_GENERIC_PRO_MP_MASS\u0000",
+            "type": "inherit_from_master",
+            "metadata": {
+                "method": "LargeText_Marker"
+            }
+        },
+        {
+            "source": "171meta-1-02-ящик-низ-камера",
+            "target": "AUDIT_LOG",
+            "type": "has_history",
+            "metadata": {
+                "rev": "377",
+                "author": "USER",
+                "date": "20.06.25 13:44"
+            }
+        },
+        {
+            "source": "171meta-1-02-ящик-низ-камера",
+            "target": "CNC_PROCESS",
+            "type": "mfg_operation_of",
+            "metadata": {
+                "operations": [
+                    "dma_sld_freeze\u0000",
+                    "prs_step_id\u0000"
+                ],
+                "method": "semantic_large_text"
+            }
+        }
+    ],
+    "parameters": {}
+}

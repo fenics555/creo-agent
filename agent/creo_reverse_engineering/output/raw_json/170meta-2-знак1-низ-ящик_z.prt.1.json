@@ -1,0 +1,40 @@
+{
+    "model_name": "170meta-2-знак1-низ-ящик_z",
+    "plm_type": "Технологический техпроцесс механообработки (CAM)",
+    "edges": [
+        {
+            "source": "170meta-2-знак1-низ-ящик_z",
+            "target": "іyS·%xъб",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "170meta-2-знак1-низ-ящик_z",
+            "target": "8к8‚:Ђ -Чќ`=.",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "170meta-2-знак1-низ-ящик_z",
+            "target": "AUDIT_LOG",
+            "type": "has_history",
+            "metadata": {
+                "rev": "61",
+                "author": "USER",
+                "date": "20.07.25 06:24"
+            }
+        },
+        {
+            "source": "170meta-2-знак1-низ-ящик_z",
+            "target": "CNC_PROCESS",
+            "type": "mfg_operation_of",
+            "metadata": {
+                "operations": [
+                    "dma_sld_freeze\u0000"
+                ],
+                "method": "semantic_large_text"
+            }
+        }
+    ],
+    "parameters": {}
+}

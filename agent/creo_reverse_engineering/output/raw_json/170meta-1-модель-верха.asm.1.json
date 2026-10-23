@@ -1,0 +1,747 @@
+{
+    "model_name": "170meta-1-модель-верха",
+    "plm_type": "Технологический техпроцесс механообработки (CAM)",
+    "edges": [
+        {
+            "source": "170meta-1-модель-верха",
+            "target": "srf_prim_data_refs",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "170meta-1-модель-верха",
+            "target": "appdatakeysH",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "170meta-1-модель-верха",
+            "target": "p_host_obj",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "170meta-1-модель-верха",
+            "target": "pp_objrefs",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "170meta-1-модель-верха",
+            "target": "pp_objrefs",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "170meta-1-модель-верха",
+            "target": "pgl_appdata_key_arr",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "170meta-1-модель-верха",
+            "target": "pgl_appdata_key",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "170meta-1-модель-верха",
+            "target": "pgl_appdata_table",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "170meta-1-модель-верха",
+            "target": "с__pgl_segment_id__",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "170meta-1-модель-верха",
+            "target": "вCOLOR_INDEX",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "170meta-1-модель-верха",
+            "target": "вRef_color_name_info",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "170meta-1-модель-верха",
+            "target": "ляяяя",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "170meta-1-модель-верха",
+            "target": "вRef_color_index",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "170meta-1-модель-верха",
+            "target": "ляяяя",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "170meta-1-модель-верха",
+            "target": "linestylesH",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "170meta-1-модель-верха",
+            "target": "proespgcolor8",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "170meta-1-модель-верха",
+            "target": "texturesH",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "170meta-1-модель-верха",
+            "target": "appearancesH",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "170meta-1-модель-верха",
+            "target": "pgl_appearance_arr",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "170meta-1-модель-верха",
+            "target": "pgl_appearance",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "170meta-1-модель-верха",
+            "target": "pgl_appdata_table",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "170meta-1-модель-верха",
+            "target": "ref_color1",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "170meta-1-модель-верха",
+            "target": "lw_shaders",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "170meta-1-модель-верха",
+            "target": "mr_shaders",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "170meta-1-модель-верха",
+            "target": "surfpropsH",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "170meta-1-модель-верха",
+            "target": "pgl_surfprop_arr",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "170meta-1-модель-верха",
+            "target": "pgl_surfprop",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "170meta-1-модель-верха",
+            "target": "pgl_appdata_table",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "170meta-1-модель-верха",
+            "target": "p_appearance",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "170meta-1-модель-верха",
+            "target": "symbolsH",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "170meta-1-модель-верха",
+            "target": "p_host_object",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "170meta-1-модель-верха",
+            "target": "outline",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "170meta-1-модель-верха",
+            "target": "в;5?};ъ",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "170meta-1-модель-верха",
+            "target": "в;S$%;ъ",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "170meta-1-модель-верха",
+            "target": "в<.ГK<",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "170meta-1-модель-верха",
+            "target": "счmгpk",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "170meta-1-модель-верха",
+            "target": "в;5?};ъ",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "170meta-1-модель-верха",
+            "target": "в;5?};ъ",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "170meta-1-модель-верха",
+            "target": "в;PЬµ;ъ",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "170meta-1-модель-верха",
+            "target": "в;hБ/;",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "170meta-1-модель-верха",
+            "target": "в;5?}<",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "170meta-1-модель-верха",
+            "target": "в;5?};ъ",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "170meta-1-модель-верха",
+            "target": "счmгpk",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "170meta-1-модель-верха",
+            "target": "в<4OЯ<",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "170meta-1-модель-верха",
+            "target": "p_xform",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "170meta-1-модель-верха",
+            "target": "outline",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "170meta-1-модель-верха",
+            "target": "всчЂ‡",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "170meta-1-модель-верха",
+            "target": "всчЂ‡",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "170meta-1-модель-верха",
+            "target": "gpurefsH",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "170meta-1-модель-верха",
+            "target": "pgl_gpuref_arr",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "170meta-1-модель-верха",
+            "target": "pgl_gpuref",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "170meta-1-модель-верха",
+            "target": "p_gpu",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "170meta-1-модель-верха",
+            "target": "segmentrefsH",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "170meta-1-модель-верха",
+            "target": "pgl_segmentref_arr",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "170meta-1-модель-верха",
+            "target": "pgl_segmentref",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "170meta-1-модель-верха",
+            "target": "p_segment",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "170meta-1-модель-верха",
+            "target": "pgl_appdata_table",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "170meta-1-модель-верха",
+            "target": "ляяяя",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "170meta-1-модель-верха",
+            "target": "geom_srf_prim_ptr(fillet_srf)",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "170meta-1-модель-верха",
+            "target": "pnt_spline",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "170meta-1-модель-верха",
+            "target": "gen_info",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "170meta-1-модель-верха",
+            "target": "ctr_spline",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "170meta-1-модель-верха",
+            "target": "tan_spline",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "170meta-1-модель-верха",
+            "target": "учЂњвгЂќ",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "170meta-1-модель-верха",
+            "target": "ляяяя",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "170meta-1-модель-верха",
+            "target": "geom_srf_prim_ptr(torus)",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "170meta-1-модель-верха",
+            "target": "учЂњвгЂќ",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "170meta-1-модель-верха",
+            "target": "ляяяя",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "170meta-1-модель-верха",
+            "target": "ляяяя",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "170meta-1-модель-верха",
+            "target": "-/ЩхYіР†вгЂќ",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "170meta-1-модель-верха",
+            "target": "ляяяя",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "170meta-1-модель-верха",
+            "target": "ляяяя",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "170meta-1-модель-верха",
+            "target": "ляяяя",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "170meta-1-модель-верха",
+            "target": "ляяяя",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "170meta-1-модель-верха",
+            "target": "geom_srf_prim_ptr(cone)",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "170meta-1-модель-верха",
+            "target": "ляяяя",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "170meta-1-модель-верха",
+            "target": "geom_srf_prim_ptr(cylinder)",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "170meta-1-модель-верха",
+            "target": "ляяяя",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "170meta-1-модель-верха",
+            "target": "ч4†Б‚",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "170meta-1-модель-верха",
+            "target": "-/ЩхYіР†",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "170meta-1-модель-верха",
+            "target": "ч4Ѓ{‚",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "170meta-1-модель-верха",
+            "target": "-/ЩхYіР†/wАHN",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "170meta-1-модель-верха",
+            "target": "Sld_FeatDefsCmp",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "170meta-1-модель-верха",
+            "target": "feat_defs_1000",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "170meta-1-модель-верха",
+            "target": "place_instruction_ptrs",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "170meta-1-модель-верха",
+            "target": "data(plin_info_sub_feat)",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "170meta-1-модель-верха",
+            "target": "data(plin_info_pntsrf_1stpnt)",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "170meta-1-модель-верха",
+            "target": "data(plin_info_ui_step)",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "170meta-1-модель-верха",
+            "target": "dat_ptr(comp_data)",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "170meta-1-модель-верха",
+            "target": "170META-1-РњРћР”Р•Р›Р¬-Р’Р•Р РҐРђ",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "170meta-1-модель-верха",
+            "target": "simpl_rep",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "170meta-1-модель-верха",
+            "target": "inherit_rep",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "170meta-1-модель-верха",
+            "target": "p_foreign_source",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "170meta-1-модель-верха",
+            "target": "minor_vers",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "170meta-1-модель-верха",
+            "target": "interchange_info",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "170meta-1-модель-верха",
+            "target": "user_data",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "170meta-1-модель-верха",
+            "target": "mp_report_data",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "170meta-1-модель-верха",
+            "target": "mass_prop",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "170meta-1-модель-верха",
+            "target": "checksum",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "170meta-1-модель-верха",
+            "target": "mp_checksum",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "170meta-1-модель-верха",
+            "target": "alt_vals_info",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "170meta-1-модель-верха",
+            "target": "item_info",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "170meta-1-модель-верха",
+            "target": "feat_list_rev_info",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "170meta-1-модель-верха",
+            "target": "mdl_geom_rev",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "170meta-1-модель-верха",
+            "target": "tstamp",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "170meta-1-модель-верха",
+            "target": "comp_list_rev_info",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "170meta-1-модель-верха",
+            "target": "info(tuples_list_rev_info)",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "170meta-1-модель-верха",
+            "target": "appl_data",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "170meta-1-модель-верха",
+            "target": "CHUGUN_VCH50",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "170meta-1-модель-верха",
+            "target": "alumni_info",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "170meta-1-модель-верха",
+            "target": "moved_comp",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "170meta-1-модель-верха",
+            "target": "restr_comp",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "170meta-1-модель-верха",
+            "target": "rpl_conncts",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "170meta-1-модель-верха",
+            "target": "sub_feat_arr",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "170meta-1-модель-верха",
+            "target": "expl_state_ref",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "170meta-1-модель-верха",
+            "target": "feat_outl_info",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "170meta-1-модель-верха",
+            "target": "ўікіgЎ",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "170meta-1-модель-верха",
+            "target": "comp_pnt_data",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "170meta-1-модель-верха",
+            "target": "AUDIT_LOG",
+            "type": "has_history",
+            "metadata": {
+                "rev": "122",
+                "author": "USER",
+                "date": "15.08.25 07:06"
+            }
+        },
+        {
+            "source": "170meta-1-модель-верха",
+            "target": "CNC_PROCESS",
+            "type": "mfg_operation_of",
+            "metadata": {
+                "operations": [
+                    "CHERN\u0000",
+                    "CHERN-\u0000",
+                    "CHIST\u0000",
+                    "CHIST-\u0000",
+                    "DOR-CHIST\u0000",
+                    "FR3\u0000",
+                    "FR6-DOR\u0000",
+                    "NC_ASM_FRONT\u0000",
+                    "POLUCHIST\u0000",
+                    "SV4\u0000",
+                    "SV8_5\u0000",
+                    "цгSTEP_OVER\u0000"
+                ],
+                "method": "semantic_large_text"
+            }
+        }
+    ],
+    "parameters": {}
+}

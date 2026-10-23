@@ -1,0 +1,210 @@
+{
+    "model_name": "170meta-1-03-ящик-верх-плита",
+    "plm_type": "Технологический техпроцесс механообработки (CAM)",
+    "edges": [
+        {
+            "source": "170meta-1-03-ящик-верх-плита",
+            "target": "-qЏяяяяя",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "170meta-1-03-ящик-верх-плита",
+            "target": "sub_feat_arr",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "170meta-1-03-ящик-верх-плита",
+            "target": "-qЏяяяяяFlЯяяяяэ/6",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "170meta-1-03-ящик-верх-плита",
+            "target": "Sld_FeatDefsCmp",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "170meta-1-03-ящик-верх-плита",
+            "target": "feat_defs_1000",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "170meta-1-03-ящик-верх-плита",
+            "target": "place_instruction_ptrs",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "170meta-1-03-ящик-верх-плита",
+            "target": "data(plin_info_sub_feat)",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "170meta-1-03-ящик-верх-плита",
+            "target": "data(plin_info_pntsrf_1stpnt)",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "170meta-1-03-ящик-верх-плита",
+            "target": "data(plin_info_ui_step)",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "170meta-1-03-ящик-верх-плита",
+            "target": "dat_ptr(comp_data)",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "170meta-1-03-ящик-верх-плита",
+            "target": "simpl_rep",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "170meta-1-03-ящик-верх-плита",
+            "target": "inherit_rep",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "170meta-1-03-ящик-верх-плита",
+            "target": "p_foreign_source",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "170meta-1-03-ящик-верх-плита",
+            "target": "minor_vers",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "170meta-1-03-ящик-верх-плита",
+            "target": "interchange_info",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "170meta-1-03-ящик-верх-плита",
+            "target": "user_data",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "170meta-1-03-ящик-верх-плита",
+            "target": "mp_report_data",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "170meta-1-03-ящик-верх-плита",
+            "target": "mass_prop",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "170meta-1-03-ящик-верх-плита",
+            "target": "checksum",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "170meta-1-03-ящик-верх-плита",
+            "target": "mp_checksum",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "170meta-1-03-ящик-верх-плита",
+            "target": "alt_vals_info",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "170meta-1-03-ящик-верх-плита",
+            "target": "item_info",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "170meta-1-03-ящик-верх-плита",
+            "target": "feat_list_rev_info",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "170meta-1-03-ящик-верх-плита",
+            "target": "mdl_geom_rev",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "170meta-1-03-ящик-верх-плита",
+            "target": "tstamp",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "170meta-1-03-ящик-верх-плита",
+            "target": "comp_list_rev_info",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "170meta-1-03-ящик-верх-плита",
+            "target": "info(tuples_list_rev_info)",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "170meta-1-03-ящик-верх-плита",
+            "target": "appl_data",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "170meta-1-03-ящик-верх-плита",
+            "target": "FSF_FANERA_BEREZA",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "170meta-1-03-ящик-верх-плита",
+            "target": "AUDIT_LOG",
+            "type": "has_history",
+            "metadata": {
+                "rev": "122",
+                "author": "USER",
+                "date": "30.07.25 21:21"
+            }
+        },
+        {
+            "source": "170meta-1-03-ящик-верх-плита",
+            "target": "CNC_PROCESS",
+            "type": "mfg_operation_of",
+            "metadata": {
+                "operations": [
+                    "/*STEP_OVER = CUTTER_DIAM*0.7\u0000",
+                    "FR20-CHERN\u0000",
+                    "FR20-CHIST\u0000",
+                    "FR20-VERH\u0000",
+                    "NC_ASM_FRONT\u0000",
+                    "SV10_5\u0000",
+                    "SV4\u0000",
+                    "цгSTEP_OVER\u0000",
+                    "чЂЋ/*STEP_OVER = CUTTER_DIAM*0.7\u0000"
+                ],
+                "method": "semantic_large_text"
+            }
+        }
+    ],
+    "parameters": {}
+}

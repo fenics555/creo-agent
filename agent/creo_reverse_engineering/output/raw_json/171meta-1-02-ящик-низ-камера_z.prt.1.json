@@ -1,0 +1,34 @@
+{
+    "model_name": "171meta-1-02-ящик-низ-камера_z",
+    "plm_type": "Технологический техпроцесс механообработки (CAM)",
+    "edges": [
+        {
+            "source": "171meta-1-02-ящик-низ-камера_z",
+            "target": "4у&тN",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "171meta-1-02-ящик-низ-камера_z",
+            "target": "AUDIT_LOG",
+            "type": "has_history",
+            "metadata": {
+                "rev": "57",
+                "author": "USER",
+                "date": "11.07.25 08:41"
+            }
+        },
+        {
+            "source": "171meta-1-02-ящик-низ-камера_z",
+            "target": "CNC_PROCESS",
+            "type": "mfg_operation_of",
+            "metadata": {
+                "operations": [
+                    "dma_sld_freeze\u0000"
+                ],
+                "method": "semantic_large_text"
+            }
+        }
+    ],
+    "parameters": {}
+}

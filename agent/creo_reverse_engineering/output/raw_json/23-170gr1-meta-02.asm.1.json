@@ -1,0 +1,244 @@
+{
+    "model_name": "23-170gr1-meta-02",
+    "plm_type": "Технологический техпроцесс механообработки (CAM)",
+    "edges": [
+        {
+            "source": "23-170gr1-meta-02",
+            "target": "Sld_FeatDefsCmp",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "23-170gr1-meta-02",
+            "target": "feat_defs_1000",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "23-170gr1-meta-02",
+            "target": "place_instruction_ptrs",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "23-170gr1-meta-02",
+            "target": "data(plin_info_sub_feat)",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "23-170gr1-meta-02",
+            "target": "data(plin_info_pntsrf_1stpnt)",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "23-170gr1-meta-02",
+            "target": "data(plin_info_ui_step)",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "23-170gr1-meta-02",
+            "target": "dat_ptr(comp_data)",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "23-170gr1-meta-02",
+            "target": "23-170GR1-META-02",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "23-170gr1-meta-02",
+            "target": "simpl_rep",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "23-170gr1-meta-02",
+            "target": "inherit_rep",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "23-170gr1-meta-02",
+            "target": "p_foreign_source",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "23-170gr1-meta-02",
+            "target": "minor_vers",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "23-170gr1-meta-02",
+            "target": "interchange_info",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "23-170gr1-meta-02",
+            "target": "user_data",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "23-170gr1-meta-02",
+            "target": "mp_report_data",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "23-170gr1-meta-02",
+            "target": "mass_prop",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "23-170gr1-meta-02",
+            "target": "checksum",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "23-170gr1-meta-02",
+            "target": "mp_checksum",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "23-170gr1-meta-02",
+            "target": "alt_vals_info",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "23-170gr1-meta-02",
+            "target": "item_info",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "23-170gr1-meta-02",
+            "target": "feat_list_rev_info",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "23-170gr1-meta-02",
+            "target": "mdl_geom_rev",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "23-170gr1-meta-02",
+            "target": "tstamp",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "23-170gr1-meta-02",
+            "target": "comp_list_rev_info",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "23-170gr1-meta-02",
+            "target": "info(tuples_list_rev_info)",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "23-170gr1-meta-02",
+            "target": "appl_data",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "23-170gr1-meta-02",
+            "target": "CHUGUN_VCH50",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "23-170gr1-meta-02",
+            "target": "alumni_info",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "23-170gr1-meta-02",
+            "target": "sub_feat_arr",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "23-170gr1-meta-02",
+            "target": "AUDIT_LOG",
+            "type": "has_history",
+            "metadata": {
+                "rev": "291843",
+                "author": "USER",
+                "date": "17.09.25 08:44"
+            }
+        },
+        {
+            "source": "23-170gr1-meta-02",
+            "target": "CNC_PROCESS",
+            "type": "mfg_operation_of",
+            "metadata": {
+                "operations": [
+                    "1DISKOVAYA-D135-PREDV\u0000",
+                    "1DISKOVAYA-D135-PREDV-\u0000",
+                    "1FR50\u0000",
+                    "1FR8\u0000",
+                    "2DISKOVAYA-D135\u0000",
+                    "2DISKOVAYA-D135-\u0000",
+                    "2FR8-SURF\u0000",
+                    "CENTROVKA\u0000",
+                    "CENTROVKA2\u0000",
+                    "DISKOVAYA-D63\u0000",
+                    "DISKOVAYA_D59-CHERN\u0000",
+                    "DISKOVAYA_D59-CHIST\u0000",
+                    "FASKA-M0\u0000",
+                    "FASKA2\u0000",
+                    "FR-50-PROFIL\u0000",
+                    "FR20-OTV22_2\u0000",
+                    "FR22-VERH-3\u0000",
+                    "FR22-VERH1\u0000",
+                    "FR22-VERH1-\u0000",
+                    "FR22-VERH2\u0000",
+                    "FR22-VERH2-\u0000",
+                    "FR25-OTV28\u0000",
+                    "FR50-KONTUR\u0000",
+                    "FR50-OTV\u0000",
+                    "FR50-POLKA\u0000",
+                    "FR50-VERH\u0000",
+                    "FR50-VERH-KOLCO\u0000",
+                    "FR50-VERH-POLKA\u0000",
+                    "FR6\u0000",
+                    "FR8-SURF-\u0000",
+                    "NC_ASM_FRONT\u0000",
+                    "RASTOCHKA-62\u0000",
+                    "RASTOCHKA-72\u0000",
+                    "SV-9_5\u0000",
+                    "SV21_5\u0000",
+                    "SV27_5\u0000",
+                    "SV5\u0000",
+                    "SV9_5\u0000",
+                    "SV_5\u0000",
+                    "цгMAX_STEP_DEPTH\u0000",
+                    "цгSTEP_DEPTH\u0000",
+                    "цгSTEP_OVER\u0000",
+                    "цгTANGENT_LEAD_STEP\u0000"
+                ],
+                "method": "semantic_large_text"
+            }
+        }
+    ],
+    "parameters": {}
+}

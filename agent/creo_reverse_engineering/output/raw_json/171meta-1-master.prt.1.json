@@ -1,0 +1,884 @@
+{
+    "model_name": "171meta-1-master",
+    "plm_type": "Технологический техпроцесс механообработки (CAM)",
+    "edges": [
+        {
+            "source": "171meta-1-master",
+            "target": "T`HЪЈ7",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "171meta-1-master",
+            "target": "#0ЂNA",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "171meta-1-master",
+            "target": "њ@2рѕђ[rs",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "171meta-1-master",
+            "target": "”Џв#ьё",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "171meta-1-master",
+            "target": "ђ!єђF",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "171meta-1-master",
+            "target": "р ЪђР",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "171meta-1-master",
+            "target": "°.Ъђ„",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "171meta-1-master",
+            "target": "`&z€Ф",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "171meta-1-master",
+            "target": "p+Ъђ‡",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "171meta-1-master",
+            "target": "Р+єђ&",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "171meta-1-master",
+            "target": "0!Ъђљ",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "171meta-1-master",
+            "target": "Sld_FeatDefsIndex",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "171meta-1-master",
+            "target": "tab_key_struct",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "171meta-1-master",
+            "target": "шБx6а",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "171meta-1-master",
+            "target": "revnum_ptr",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "171meta-1-master",
+            "target": "(S©]»",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "171meta-1-master",
+            "target": "ref_part_tabs",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "171meta-1-master",
+            "target": "ref_part_tab",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "171meta-1-master",
+            "target": "objname",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "171meta-1-master",
+            "target": "simpl_rep",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "171meta-1-master",
+            "target": "inherit_rep",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "171meta-1-master",
+            "target": "p_foreign_source",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "171meta-1-master",
+            "target": "ref_id_user",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "171meta-1-master",
+            "target": "Sld_BasicData",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "171meta-1-master",
+            "target": "tol_default_ptr",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "171meta-1-master",
+            "target": "iso_tol_tbls_ptr",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "171meta-1-master",
+            "target": "Medium",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "171meta-1-master",
+            "target": "Very Coarse",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "171meta-1-master",
+            "target": "p_general",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "171meta-1-master",
+            "target": "Defaults",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "171meta-1-master",
+            "target": "[] S 92;",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "171meta-1-master",
+            "target": "[A] W 11;",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "171meta-1-master",
+            "target": "в)й™Bй™в)у3Bу3в/",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "171meta-1-master",
+            "target": "p_brk_edg",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "171meta-1-master",
+            "target": "[] S 92;",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "171meta-1-master",
+            "target": "[A] W 11;",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "171meta-1-master",
+            "target": "p_angular",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "171meta-1-master",
+            "target": "holes_arr",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "171meta-1-master",
+            "target": "# Pro/TABLE",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "171meta-1-master",
+            "target": "[] S 92;",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "171meta-1-master",
+            "target": "[A] W 11;",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "171meta-1-master",
+            "target": "в/NЂ/I",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "171meta-1-master",
+            "target": "в/UА/R",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "171meta-1-master",
+            "target": "в/JЂ/D",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "171meta-1-master",
+            "target": "в/SА/N",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "171meta-1-master",
+            "target": "в/[Ђ/U@в/` /Y",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "171meta-1-master",
+            "target": "в/l@/e@в/pP/h`в/r /kЂв/tА/n",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "171meta-1-master",
+            "target": "в/RА/I",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "171meta-1-master",
+            "target": "в/ZА/R",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "171meta-1-master",
+            "target": "в/d@/[Ђв/fА/_@в/hА/`ав/jа/b в/n",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "171meta-1-master",
+            "target": "в/p@/e@в/rА/h`в/uђ/kЂв/x`/n",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "171meta-1-master",
+            "target": "в/MЂ/@",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "171meta-1-master",
+            "target": "в/V@/I",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "171meta-1-master",
+            "target": "в/_@/R",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "171meta-1-master",
+            "target": "в/gа/[Ђв/jА/_@в/m",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "171meta-1-master",
+            "target": "в/s`/e@в/vЂ/h`в/yр/kЂв/}`/n",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "171meta-1-master",
+            "target": "в/NЂ/9",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "171meta-1-master",
+            "target": "в/`А/N",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "171meta-1-master",
+            "target": "в/g /U@в/jа/Y",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "171meta-1-master",
+            "target": "/[Ђв/pђ/_@в/r /`ав/t",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "171meta-1-master",
+            "target": "в/TА/9",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "171meta-1-master",
+            "target": "в/bА/I",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "171meta-1-master",
+            "target": "в/jЂ/R",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "171meta-1-master",
+            "target": "# Pro/TABLE",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "171meta-1-master",
+            "target": "[] S 92;",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "171meta-1-master",
+            "target": "[A] W 11;",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "171meta-1-master",
+            "target": "в/IЂ/B",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "171meta-1-master",
+            "target": "в/SА/L",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "171meta-1-master",
+            "target": "в/WА/Q",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "171meta-1-master",
+            "target": "в/DЂ/9",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "171meta-1-master",
+            "target": "в/XЂ/O",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "171meta-1-master",
+            "target": "в/aА/UЂв/dЂ/XЂв/gЂ/[Ђв/jЂ/^",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "171meta-1-master",
+            "target": "в/DЂ/4",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "171meta-1-master",
+            "target": "в/TА/EЂв/X",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "171meta-1-master",
+            "target": "в/]А/O",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "171meta-1-master",
+            "target": "в/b@/S",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "171meta-1-master",
+            "target": "/UЂв/i`/XЂв/m`/[Ђв/pа/^",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "171meta-1-master",
+            "target": "в/EЂ/0",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "171meta-1-master",
+            "target": "в/VЂ/B",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "171meta-1-master",
+            "target": "в/a /L",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "171meta-1-master",
+            "target": "в/HЂ/*",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "171meta-1-master",
+            "target": "в/UА/9",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "171meta-1-master",
+            "target": "в/i@/O",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "171meta-1-master",
+            "target": "в/o`/S",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "171meta-1-master",
+            "target": "в/sА/UЂв/v`/XЂв/z@/[Ђв/~ /^",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "171meta-1-master",
+            "target": "в/UЂ/0",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "171meta-1-master",
+            "target": "# Pro/TABLE",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "171meta-1-master",
+            "target": "[] S 92;",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "171meta-1-master",
+            "target": "[A] W 11;",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "171meta-1-master",
+            "target": "в/AЂ/.",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "171meta-1-master",
+            "target": "в/GЂ/4",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "171meta-1-master",
+            "target": "в/CЂ/,",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "171meta-1-master",
+            "target": "в/PЂ/6",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "171meta-1-master",
+            "target": "в/TЂ/:",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "171meta-1-master",
+            "target": "в/GЂ/(",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "171meta-1-master",
+            "target": "в/Q@/1",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "171meta-1-master",
+            "target": "в/TА/4",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "171meta-1-master",
+            "target": "в/c`/>",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "171meta-1-master",
+            "target": "в/j /A",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "171meta-1-master",
+            "target": "в/S@/,",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "171meta-1-master",
+            "target": "в/XЂ/1",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "171meta-1-master",
+            "target": "в/]@/4",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "171meta-1-master",
+            "target": "в/h /<",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "171meta-1-master",
+            "target": "в/p`/@",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "171meta-1-master",
+            "target": "в/MЂ/",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "171meta-1-master",
+            "target": "в/[@/\"",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "171meta-1-master",
+            "target": "# Pro/TABLE",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "171meta-1-master",
+            "target": "[] S 92;",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "171meta-1-master",
+            "target": "[A] W 11;",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "171meta-1-master",
+            "target": "[] S 92;",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "171meta-1-master",
+            "target": "[A] W 11;",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "171meta-1-master",
+            "target": "/fЂв/fЂ/o@в/o@/s°в/s°/y",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "171meta-1-master",
+            "target": "/Џ@в/Џ@/“€в/“€/™",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "171meta-1-master",
+            "target": "в)г3Bг3в*и",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "171meta-1-master",
+            "target": "в/1ЂH1Ђв/4ЂH4Ђв/9",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "171meta-1-master",
+            "target": "в/0ЂH0Ђв/3ЂH3Ђв/7",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "171meta-1-master",
+            "target": "в/;ЂH;Ђв/A",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "171meta-1-master",
+            "target": "в/7ЂH7Ђв/;ЂH;Ђв/@@H@@в/CЂHCЂв/H",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "171meta-1-master",
+            "target": "в/@ЂH@Ђв/CЂHCЂв/G",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "171meta-1-master",
+            "target": "в/1ЂH1Ђв/4",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "171meta-1-master",
+            "target": "в/<ЂH<Ђв/?ЂH?Ђв/AЂHAЂв/D",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "171meta-1-master",
+            "target": "[] S 92;",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "171meta-1-master",
+            "target": "[A] W 11;",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "171meta-1-master",
+            "target": "HNЂв/=",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "171meta-1-master",
+            "target": "[] S 92;",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "171meta-1-master",
+            "target": "[A] W 11;",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "171meta-1-master",
+            "target": "[C] W 12;",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "171meta-1-master",
+            "target": "/fЂв/fЂ/o@в/o@/s°в/s°/y",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "171meta-1-master",
+            "target": "/Џ@в/Џ@/“€в/“€/™",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "171meta-1-master",
+            "target": "H@ЂвH5",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "171meta-1-master",
+            "target": "HFЂвH;",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "171meta-1-master",
+            "target": "HFЂвH6",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "171meta-1-master",
+            "target": "HLЂвH:",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "171meta-1-master",
+            "target": "H@ЂвH\"",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "171meta-1-master",
+            "target": "HFЂвH(",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "171meta-1-master",
+            "target": "HR@вH1",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "171meta-1-master",
+            "target": "H`@вHL",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "171meta-1-master",
+            "target": "HYАвHF",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "171meta-1-master",
+            "target": "HeавHL",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "171meta-1-master",
+            "target": "Hk`вHI",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "171meta-1-master",
+            "target": "HqавHPЂHt`вHSЂHx@вHW",
+            "type": "bom_component",
+            "metadata": {}
+        },
+        {
+            "source": "171meta-1-master",
+            "target": "MERGE_BASE_PART\u0000",
+            "type": "inherit_from_master",
+            "metadata": {
+                "method": "LargeText_Marker"
+            }
+        },
+        {
+            "source": "171meta-1-master",
+            "target": "AUDIT_LOG",
+            "type": "has_history",
+            "metadata": {
+                "rev": "20013",
+                "author": "USER",
+                "date": "06.06.25 07:07"
+            }
+        },
+        {
+            "source": "171meta-1-master",
+            "target": "CNC_PROCESS",
+            "type": "mfg_operation_of",
+            "metadata": {
+                "operations": [
+                    "FRONT\u0000",
+                    "FRONT_1\u0000",
+                    "FRONT_2\u0000"
+                ],
+                "method": "semantic_large_text"
+            }
+        }
+    ],
+    "parameters": {}
+}
