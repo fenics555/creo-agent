@@ -1,11 +1,11 @@
 {
- "version": "V101",
- "version_num": 101,
+ "version": "V102",
+ "version_num": 102,
  "date": "23.10.2026",
- "notes": "V101 ENGINE READS .ASM STRUCTURE: new engine.asm_components() - 3-channel cascade by Creo version (component-id / d N (name) / @comp_ids; 937 files need cascade), UTF-8 names, binary roles (tool T00xx / blank _Z / casting / part / FIXTURE) -> links source asm_comp; PARSER_TAG p22->p23 forces full rescan; verified live 170meta-2-03: MO-PSB-02 fixture x28, FR50 tool x9; SMOKE OK",
+ "notes": "V102 GRAPH FIXED (html was drawing 2-4 nodes): rows was filled INVERTED (Object.entries gave [level, nodes] so levels became keys) -> now Object.keys(N).forEach; edgeKind compared NUMBER index with STRING key -> legend was EMPTY, now String(t[0]); start node picked FIRST match -> now the MOST connected; graph limits raised in settings.json (depth 3->4, nodes 120->400, children 25->60). Live Chrome probe: 100 nodes / 105 edges (was 2), legend shows colors, 0 JS errors. Also V101: engine reads .asm structure (links source asm_comp)",
  "files": {
   "engine.py": "ee70c019f8ab7ddb5c0fda3ab244f08bbc13866391a1549455b2f10bd48909c9",
-  "plm_reader.py": "8948f0d4194c2e33ec9e02e80abfea30cc1f6a62817907c9e84f665460b3ea20",
+  "plm_reader.py": "c8e0de5b6d5281828a12eb05c2ba34f7ab034661ca0525e01c6a61d7a405ce65",
   "plm_toolwin.py": "a4e279666019c45a03af3649282d22022a39cdeaa36d99f75b678f0039a8534a",
   "plm_history.py": "0e8a1b414f3ad7c67175251fb4192e26431b0e9760bcce6ba6d9faf03ada8c77",
   "plm_parse.py": "c6bb33a412b6b606ad402e3eb78cd49246b77738b69d82be1b6218a1358c0312",
@@ -21,7 +21,7 @@
   "make_version_json.py": "4603968533bec13a05defb4a164246728b9649d50d524479f639493eeed7c92f",
   ".gitignore": "2f08b9c39e8e196c234d241901bd0555a5702635731aff829fde96c4349efa5f",
   "AGENTS.md": "3b08e6e81731ace78deac46df3b802de337c3924acb87c54fe1562a2573650ef",
-  "plm_graph.py": "207682938eb3055e3b81ebfafcdf209e23980d4b8d04179e6d2157db694e4b32",
-  "plm_graph_page.html": "4a3d4a3de73f61497110575aa28f1e6753db8ccf6146a6dbcdebb4ce0fb31e30"
+  "plm_graph.py": "0701ef7ba64b3946f0a404f14970a4eca8d21d59070812f1675ad469ea2c078f",
+  "plm_graph_page.html": "65c0db3e1f6ed4c645b730100ea4b45cb3adc3d65d2c58b381354eb3cf42966c"
  }
 }

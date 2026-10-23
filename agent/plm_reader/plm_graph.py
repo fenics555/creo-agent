@@ -511,7 +511,10 @@ def load_settings():
     graph_links_max, graph_card_h, graph_thumb, graph_media, graph_open_browser.
     Недостающие берутся из plm_settings.DEFAULT_SETTINGS.
     """
-    cfg = {"graph_depth": 3, "graph_nodes_max": 120, "graph_children_max": 25,
+    # Умолчания графа. 23.10.2026: лимиты ПОДНЯТЫ по слову владельца («графа нет») —
+    # при depth 3 / children 25 / nodes 120 на экран попадало 55 узлов из ветки на 344 связи,
+    # и граф выглядел «пустым». Настройки читаются из settings.json, если ключи там есть.
+    cfg = {"graph_depth": 4, "graph_nodes_max": 400, "graph_children_max": 60,
            "graph_list_max": 800, "graph_links_max": 120, "graph_card_h": 230,
            "graph_thumb": 40, "graph_media": True, "graph_image_mode": "auto",
            "graph_media_limit": 25000, "graph_scan_budget": 120, "graph_page_nodes": 12000,
