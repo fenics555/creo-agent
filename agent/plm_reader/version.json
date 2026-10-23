@@ -1,25 +1,27 @@
 {
- "version": "V99",
- "version_num": 99,
- "date": "19.10.2026",
- "notes": "V99: purge backup dir configurable (purge_backup_dir setting, Paths window PURGE section); engine excludes own backup dir from walk",
+ "version": "V100",
+ "version_num": 100,
+ "date": "23.10.2026",
+ "notes": "V100: PDM-Console - autonomous HTML graph (0 CDN) from DB: 26071 nodes, 34926 edges; 6 semantic edge colors; draggable splitters; previews JPEG/BMP by signature with SHA-256 dedup; JS selfcheck before release",
  "files": {
   "engine.py": "460e52e5d7480e78a89d661f7f46ad07a29771595ac270783fda60c4b1ddae11",
-  "plm_reader.py": "f9a243f6c538075bbb80516f9df78784aeb903cd059b96779810f583e8f06199",
-  "plm_toolwin.py": "ae23613a37e49780bf6c20b0c5da1de31a0718a5de7cd30931bbad3c54a34b1b",
+  "plm_reader.py": "acc5217025595ee3f2f005c4e756cacf5d56ce233c9f8a1bdaf0926be565c015",
+  "plm_toolwin.py": "a4e279666019c45a03af3649282d22022a39cdeaa36d99f75b678f0039a8534a",
   "plm_history.py": "0e8a1b414f3ad7c67175251fb4192e26431b0e9760bcce6ba6d9faf03ada8c77",
   "plm_parse.py": "c6bb33a412b6b606ad402e3eb78cd49246b77738b69d82be1b6218a1358c0312",
   "plm_dbview.py": "ca213c77054efaa4d7b180b39999a38117ad3938ece256c2bc79b6310e8b09df",
   "plm_settings.py": "11b6eed7d44b65ca86dd8669e3595bf7cc44cd16e659b34890c6824f0ef4d37b",
   "plm_scan.py": "e32d610e33932afaee4c952cb0b4564801508f0568d4360d7d039ffacb856f48",
-  "plm_paths_window.py": "2e5bd34787a8bc5541530873d15ced7624e5c616229d059923a3f6d7cdd7c810",
-  "creo_read.py": "5e027a85d6297c90f98c5435a3451bc94ed40dfc26fbe856aaf9d1b9c3f21d8d",
-  "README.md": "f463e32b52c056d046dcf907453cac16cdd5a4d2788ed817fb69e0d1348d5072",
+  "plm_paths_window.py": "bf1a2bc91ec4ec2398b8c1bb1b5997c4a295e2f8f76dde5353e3ead97b14eb21",
+  "creo_read.py": "9175d7a8ffc3007faf098c4077919c4a3a7bea79cd253cfd4054231347cc64e0",
+  "README.md": "d48168a6ee7a7161b90030c33992abbb2054450156148820dc467194db3dbf02",
   "SHARE_copy.bat": "4eccb549a17251392337aeabbc3ef76233dfa3072beadff9d158cd6e932622ee",
   "plm_reader.bat": "bdd125397db3ac7e7432dbdb078a6a811ed4913fca02b062edb27907032fca3d",
   "plm_reader_gui.bat": "9f695898d5db6431e840784b9587c75304ca9e526b06f79d4b44ab026663bd20",
-  "make_version_json.py": "2aeb6a87f1b9d75d9a4a349ca29bb6b5637dbe2705e00cb1e52e66a39f65ebb0",
+  "make_version_json.py": "4603968533bec13a05defb4a164246728b9649d50d524479f639493eeed7c92f",
   ".gitignore": "a2cff3ee327770b2ef59e88b5f27474af13395dc2b1afc3d1a9d6ad91c45753e",
-  "AGENTS.md": "3b08e6e81731ace78deac46df3b802de337c3924acb87c54fe1562a2573650ef"
+  "AGENTS.md": "3b08e6e81731ace78deac46df3b802de337c3924acb87c54fe1562a2573650ef",
+  "plm_graph.py": "9fdd191fcb4f37e7d78a026202e5989a97d2cf72789462e376cd52c69612894c",
+  "plm_graph_page.html": "736194745f2150e8db87bd4c9b7663815c62698a4ebaec2370b56f126e8990f2"
  }
 }

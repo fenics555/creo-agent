@@ -1743,6 +1743,8 @@ def run_gui():
     e_goto.bind("<Return>", lambda ev: _goto_entry())
     ttk.Button(ltopbar, text="Родословная", width=11,           # V87: отдельное окно родословной
                command=lambda: _genealogy_open()).pack(side="left", padx=(8, 0))
+    ttk.Button(ltopbar, text="PDM-Консоль", width=12,          # V100: HTML-граф в браузере
+               command=lambda: _pdm_console()).pack(side="left", padx=(4, 0))
     lsubj = ttk.Label(ltopbar, text="", foreground="#555")
     lsubj.pack(side="left", padx=8)
     lnb = ttk.Notebook(lpane)                  # НИЖНЕЕ окно — ноутбук со своими режимами-вкладками
@@ -3532,6 +3534,28 @@ def run_gui():
             return
         GenealogyWindow.open(root, m, settings=settings,
                              status=lambda s: lsubj.config(text=s))
+
+    def _pdm_console():
+        """V100: «PDM-Консоль» — собрать HTML-граф из базы и открыть в браузере.
+
+        Работает автономно (0 CDN). Собирает `plm_graph.py`; готовый файл —
+        `CREO_GRAPH.html` рядом с инструментом.
+        """
+        try:
+            import plm_graph
+        except Exception as e:                       # noqa: BLE001
+            lsubj.config(text="PDM-Консоль: модуль plm_graph недоступен (%s)" % e)
+            return
+        lsubj.config(text="PDM-Консоль: собираю граф из базы…")
+        try:
+            rc = plm_graph.main()
+        except Exception as e:                       # noqa: BLE001
+            lsubj.config(text="PDM-Консоль: ошибка — %s" % e)
+            return
+        if rc:
+            lsubj.config(text="PDM-Консоль: нет данных — сначала просканируйте базу")
+            return
+        lsubj.config(text="PDM-Консоль: открылась в браузере (%s)" % plm_graph.DST)
 
     def _nav_record(model):
         """V83: запись истории переходов низа (кнопки ← →). Пустые/повторы не пишем, lock пропускаем."""
