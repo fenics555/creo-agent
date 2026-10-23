@@ -222,7 +222,10 @@ def _app_version():
 
 
 VERSION = _app_version()
-PARSER_TAG = "p22"      # меняй при ЛЮБОМ изменении правил разбора — форсирует полный пересчёт
+PARSER_TAG = "p23"      # меняй при ЛЮБОМ изменении правил разбора — форсирует полный пересчёт
+# p23 (23.10.2026): + связи из СТРУКТУРЫ файла (`asm_components`, каскад трёх каналов по версии
+# Creo, источник в базе `asm_comp`): состав сборки, .asm-обработки → деталь/заготовка/отливка/
+# инструмент/ОСНАСТКА. До этого состав брался по вхождению имени в байты, оснастки в базе не было.
 
 
 def parser_tag_changed():
@@ -546,13 +549,18 @@ def scan_item(s, path, stems, fstems=frozenset(), pdes=None, pname=None, pmat=No
     cf = copy_from_of(raw)      # 07.10.2026: «МОДЕЛЬ СКОПИРОВАНА ОТ …» — ОТДЕЛЬНАЯ связь (Creo пишет
                                 # её в самом файле: `from_mdl_name` → `to_mdl_name`). Она ДОПОЛНЯЕТ
                                 # заготовку/отливку, а не заменяет. Есть и у деталей, и у сборок.
+    # СВЯЗИ ИЗ СТРУКТУРЫ (эта сессия): состав сборки и модели .asm-обработки (деталь/заготовка/
+    # отливка/инструмент/ОСНАСТКА). Берутся только имена, которые есть на складе (`stems`),
+    # иначе в состав лезли бы посторонние записи Creo. Отсюда в базу идёт «связь → оснастка»,
+    # которой раньше в базе не было вовсе (ЭТАП 1.7 / 2.6).
+    parts = asm_components(raw, s, stems) if ".asm" in path.lower() else []
     return {"model": s, "path": path, "size": len(raw), "mtime": os.path.getmtime(path),
             "volume": vol or 0.0, "material": mat,
             "name": nmv,
             "designation": des,
             "rev": h[0], "author": h[1], "revdate": h[2], "role": role(raw, fstems, s), "refs": refs,
             "hist": len(hm), "creo": (hm[-1][3].decode("latin-1") if hm else ""),
-            "base": base, "dkind": dkind, "copy_from": cf}
+            "base": base, "dkind": dkind, "copy_from": cf, "parts": parts}
 
 
 # --- ЕДИНЫЙ ЧИТАТЕЛЬ: своя вложенная копия creo_read (папка самодостаточна) ---
@@ -1005,6 +1013,14 @@ def do_scan(roots, max_mb, limit, depth=None, progress_cb=None, stop_cb=None, fu
                 continue
             seen.add((s, child))
             con.execute("INSERT INTO links VALUES (?,?,?,?)", (s, child, qty, "plm_tree"))
+        # СВЯЗИ ИЗ СТРУКТУРЫ ФАЙЛА (эта сессия): состав .asm и модели .asm-обработки. Идут своим
+        # источником `asm_comp`, а «имя по вхождению» остаётся как было (`plm_tree`) — их видно
+        # отдельно в SQL, поэтому связь можно ПРОВЕРИТЬ, а не верить ей (грабля «приёмка по строкам»).
+        parts = it.get("parts") or []
+        if parts:
+            con.execute("DELETE FROM links WHERE parent=? AND source='asm_comp'", (s,))
+            for child, _role, qty in parts:
+                con.execute("INSERT INTO links VALUES (?,?,?,?)", (s, child, qty or 1, "asm_comp"))
         done += 1
         if progress_cb and n % 25 == 0:
             progress_cb(n, total)
@@ -1560,6 +1576,76 @@ def mfg_models(model, limit=60):
 def _hash_like(n):
     """Внутренний идентификатор Creo (длинная hex-строка) — не имя модели."""
     return bool(n) and len(n) >= 28 and all(c in "0123456789ABCDEFabcdef" for c in n)
+
+
+# --- СВЯЗИ ИЗ СТРУКТУРЫ ФАЙЛА (состав сборки / .asm-обработка) -------------------------------
+# ГРАБЛЯ (эта сессия): раньше состав брался из `names(raw)` — regex по ВСЕМУ файлу, без привязки
+# к сборке: имя компонента засчитывалось по простому ВХОЖДЕНИЮ байтов, поэтому «инструмент» и
+# «оснастка» попадали в состав изделия, а `_Z`-заготовки терялись. Здесь — структурные каналы.
+# 🔴 Главное: формула зависит от ВЕРСИИ Creo (замер STRATEGY §2.7 на 5 700 файлах):
+#   Creo 4–13  → «компонент id N (ИМЯ.PRT)»   (2 641 ребро)
+#   Creo 3.0 и старше → «d <длина> (имя.PRT)» (182 ребра)
+#   ProE/Wildfire, unknown → «@comp_ids» + имена
+#   НЕ работает на 937 файлах, если брать только первый канал → обязателен КАСКАД из трёх.
+# Кодировка имён — UTF-8 (НЕ cp1251): кириллицу `ЦТКД_…` в latin-1 читает как `Ð¦Ð¢Ð\…`.
+P_ASM_COMP = re.compile(rb"(?:\xd0\xba\xd0\xbe\xd0\xbc\xd0\xbf\xd0\xbe\xd0\xbd\xd0\xb5\xd0\xbd\xd1\x82"
+                        rb"|\xd0\xba\xd0\xbe\xd0\xbc\xd0\xbf\xd0\xbe\xd0\xbd\xd0\xb5\xd0\xbd\xd1\x8b)"
+                        rb" id (\d+) \(([^)]{1,64}\.(?:PRT|ASM|prt|asm))\)")
+P_ASM_D = re.compile(rb"(?:^|[\r\n])\s*d (\d+) \(([A-Za-z0-9_\-\.]{2,64}\.(?:PRT|ASM|prt|asm))\)")
+P_ASM_IDS = re.compile(rb"@comp_ids(.{0,4096}?)@", re.S)
+
+# Служебные имена (шаблоны и внутренние сборки) — в состав изделия НЕ входят.
+ASM_SERVICE = {"SBORKA_MFG", "SBORKA_MM", "MFG_NC", "MFG_NC_ASM", "INLBS_MFG_NC", "MM_PART",
+               "MM_ASSY", "MM_ASM", "MOLD_ASM", "MFG_ASM", "MASTER_MFG_ASM"}
+
+
+def asm_components(raw, own="", stems=None):
+    """Состав сборки/обработки ИЗ СТРУКТУРЫ ФАЙЛА: [(имя, роль, сколько раз)] — НЕ по вхождению байтов.
+
+    Каскад каналов (по версии Creo, см. комментарий выше): фраза «компонент id» → «d N (имя)» →
+    `@comp_ids`. Имя приводится к стему; роль определяется БИНАРНЫМИ признаками («ИМЯ — ЭТО ЛОЖЬ»):
+      инструмент — `T00xx`;  заготовка — `_Z`;  отливка — `_OTLIVKA`/`_LIT`;  своя деталь — совпала
+      со стемом файла;  ОСНАСТКА — всё остальное (приспособление/оправка/центровка; проверено на
+      44 деталях ЦТКД живой пробой, STRATEGY §2.6).
+    `stems` — если задано, посторонние имена берём ТОЛЬКО из этого множества (имена склада),
+    иначе в состав попадал бы мусор из служебных записей Creo.
+    """
+    m = P_ASM_COMP.search(raw[:400])
+    inter = (m.group(1) == b"/" or b"ASSEM_MFG" in raw[:400] or b"ASSEMBLY/CAST" in raw[:400]) \
+        if m else (b"ASSEM_MFG" in raw[:400])
+    seen, out = {}, []
+    for rx in (P_ASM_COMP, P_ASM_D):
+        for g in rx.findall(raw):
+            nm = g[1].decode("utf-8", "replace") if isinstance(g[1], bytes) else g[1]
+            nm = _clean_model_name(nm.encode("utf-8", "replace")) if not nm.isascii() else nm
+            s = stem(nm)
+            if not s or len(s) < 2 or s.upper() in ASM_SERVICE:
+                continue
+            seen[s] = seen.get(s, 0) + 1
+    if not seen:                                     # запасной канал: ProE/Wildfire и «unknown»
+        blk = P_ASM_IDS.search(raw)
+        if blk:
+            for b in NAME_B.finditer(blk.group(1)):
+                s = stem(b.group(1).decode("latin-1"))
+                if len(s) >= 3 and s.upper() not in ASM_SERVICE:
+                    seen[s] = seen.get(s, 0) + 1
+    up_own = (own or "").upper()
+    for s in sorted(seen):
+        up = s.upper()
+        if re.match(r"^T\d{3,4}$", up):
+            role = "инструмент"
+        elif up.endswith("_Z") or up.endswith("-Z") or "_Z_" in up:
+            role = "заготовка"
+        elif "OTLIVKA" in up or "ОТЛИВКА" in up or up.endswith("_O"):
+            role = "отливка"
+        elif up_own and up_own in up:
+            role = "деталь"
+        elif inter:
+            role = "оснастка"
+        else:
+            role = "деталь"
+        out.append((s, role, seen[s]))
+    return out
 
 
 def _internal_id(n):

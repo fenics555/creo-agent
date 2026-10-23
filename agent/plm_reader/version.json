@@ -1,11 +1,11 @@
 {
- "version": "V100",
- "version_num": 100,
+ "version": "V101",
+ "version_num": 101,
  "date": "23.10.2026",
- "notes": "V100 PDM-Console: autonomous HTML graph from DB (12000 page nodes / 55814 edges, 46756 in base), keyed by PATH (80% ambiguous names), 6 edge colors, two-way walk, previews by signature (25000 cached), JS selfcheck; _check_page.py acceptance fixed (was looking in _diag)",
+ "notes": "V101 ENGINE READS .ASM STRUCTURE: new engine.asm_components() - 3-channel cascade by Creo version (component-id / d N (name) / @comp_ids; 937 files need cascade), UTF-8 names, binary roles (tool T00xx / blank _Z / casting / part / FIXTURE) -> links source asm_comp; PARSER_TAG p22->p23 forces full rescan; verified live 170meta-2-03: MO-PSB-02 fixture x28, FR50 tool x9; SMOKE OK",
  "files": {
-  "engine.py": "460e52e5d7480e78a89d661f7f46ad07a29771595ac270783fda60c4b1ddae11",
-  "plm_reader.py": "acc5217025595ee3f2f005c4e756cacf5d56ce233c9f8a1bdaf0926be565c015",
+  "engine.py": "ee70c019f8ab7ddb5c0fda3ab244f08bbc13866391a1549455b2f10bd48909c9",
+  "plm_reader.py": "8948f0d4194c2e33ec9e02e80abfea30cc1f6a62817907c9e84f665460b3ea20",
   "plm_toolwin.py": "a4e279666019c45a03af3649282d22022a39cdeaa36d99f75b678f0039a8534a",
   "plm_history.py": "0e8a1b414f3ad7c67175251fb4192e26431b0e9760bcce6ba6d9faf03ada8c77",
   "plm_parse.py": "c6bb33a412b6b606ad402e3eb78cd49246b77738b69d82be1b6218a1358c0312",
@@ -22,6 +22,6 @@
   ".gitignore": "2f08b9c39e8e196c234d241901bd0555a5702635731aff829fde96c4349efa5f",
   "AGENTS.md": "3b08e6e81731ace78deac46df3b802de337c3924acb87c54fe1562a2573650ef",
   "plm_graph.py": "207682938eb3055e3b81ebfafcdf209e23980d4b8d04179e6d2157db694e4b32",
-  "plm_graph_page.html": "89d07b145d82d19fa2c11e4194698d72fa57e077f58fed2d3fac4c128d3a0b03"
+  "plm_graph_page.html": "4a3d4a3de73f61497110575aa28f1e6753db8ccf6146a6dbcdebb4ce0fb31e30"
  }
 }
