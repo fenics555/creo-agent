@@ -551,6 +551,28 @@ def selfcheck(html):
     # убеждаемся, что страница знает про два превью (i и i2).
     if '"i2"' not in js and "n.i2" not in js:
         errs.append("граф: страница не показывает второй вид (чертёж)")
+    # 🔴 ГРАБЛЯ 24.10.2026: страница падала с `SyntaxError: Unexpected number` — в шаблоне
+    # использовали ИМЯ вида `__LISTMAX__`, а генератор подставляет туда ЧИСЛО → `window.800`.
+    # Проверяем, что после подстановки не осталось обращений `X.<число>` и `__ИМЯ__` в коде.
+    js_nc = re.sub(r"//[^\n]*", "", js)                 # без комментариев (там бывают примеры)
+    js_nc = re.sub(r"/\*.*?\*/", "", js_nc, flags=re.S)  # и без блочных
+    bad_num = re.findall(r"(?:window|document|this|root)\s*\.\s*\d", js_nc)
+    if bad_num:
+        errs.append("битая подстановка: обращение к свойству числом (%d шт.) — "
+                    "не используйте имена __XXX__ в JS" % len(bad_num))
+    left = re.findall(r"__[A-Z_]{3,}__", js_nc)
+    # допускаем ТОЛЬКО известные подставляемые литералы (они уже заменены генератором)
+    left = [x for x in left if x not in ("__DATA__", "__STATS__", "__MEDIA__")]
+    if left:
+        errs.append("в JS остались неподставленные литералы: %s" % ", ".join(sorted(set(left))[:5]))
+    # баланс круглых/квадратных скобок (частая причина «страница пустая»)
+    for op, cl, name in (("(", ")", "круглых"), ("[", "]", "квадратных")):
+        code2 = re.sub(r'"(?:\\.|[^"\\])*"', '""', js)
+        code2 = re.sub(r"'(?:\\.|[^'\\])*'", "''", code2)
+        code2 = re.sub(r"//[^\n]*", "", code2)
+        if code2.count(op) != code2.count(cl):
+            errs.append("дисбаланс %s скобок в JS: %d vs %d"
+                        % (name, code2.count(op), code2.count(cl)))
     return errs
 
 

@@ -201,15 +201,17 @@ try {
   }
 
   // Мгновенное применение того, что можно менять на лету (без пересборки данных).
+  // ⚠️ ВНИМАНИЕ: нельзя обращаться к свойству с именем-литералом из генератора (он подставляет
+  // туда ЧИСЛА: 800/120/4/400/60) — получается обращение к свойству числом → SyntaxError:
+  // Unexpected number → страница падала целиком. Поэтому лимиты держим в РАНТАЙМ-объекте.
   function applyLive(){
     try {
-      if (typeof __LISTMAX__ !== "undefined"){ /* константы вшиты — меняются при пересборке */ }
-      // фильтры/лимиты графа применяем через глобальные значения, если они есть
-      if (local.graph_list_max) window.__LISTMAX__ = local.graph_list_max;
-      if (local.graph_links_max) window.__LINKSMAX__ = local.graph_links_max;
-      if (local.graph_depth) window.__DEPTH__ = local.graph_depth;
-      if (local.graph_nodes_max) window.__NODESMAX__ = local.graph_nodes_max;
-      if (local.graph_children_max) window.__CHILDMAX__ = local.graph_children_max;
+      const R = window.PLM_LIMITS || (window.PLM_LIMITS = {});
+      if (local.graph_list_max) R.list_max = local.graph_list_max;
+      if (local.graph_links_max) R.links_max = local.graph_links_max;
+      if (local.graph_depth) R.depth = local.graph_depth;
+      if (local.graph_nodes_max) R.nodes_max = local.graph_nodes_max;
+      if (local.graph_children_max) R.children_max = local.graph_children_max;
       if (local.graph_card_h){
         const c = document.getElementById("card");
         if (c) c.style.height = local.graph_card_h + "px";
@@ -300,6 +302,17 @@ applyChunk({nodes: __DATA__, stats: __STATS__});
     setTimeout(step, 40);                  // маленькая пауза — видно «прибытие» связей
   })();
 })();
+// V107: РАНТАЙМ-ЛИМИТЫ. Значения по умолчанию вшиты генератором (__LISTMAX__ и т.п. → числа),
+// но панель «НАСТРОЙКИ» может переопределить их на лету — читаем через эти функции.
+// (Так избегаем подстановки: имя `__LISTMAX__` в JS превращалось в число и роняло страницу.)
+function LIM(name, baked){
+  try {
+    const R = window.PLM_LIMITS;
+    if (R && R[name] !== undefined && R[name] !== null && R[name] !== "") return R[name];
+  } catch (e) {}
+  return baked;
+}
+
 // V107: ТИП УЗЛА — одна функция для всего (граф, карточка «СВЯЗИ», список).
 // Возвращает [буква, цвет]: Д деталь · С сборка · М мануфактуринг · Ч чертёж · ? неизвестно.
 function typeMark(n){
@@ -382,7 +395,7 @@ function render(){
                    + Math.min(ND[m].o.length, 5000) + Math.min(ND[m].n.length, 5000);
   const keys = Object.keys(ND).filter(matches).sort((a,b) =>
     score(b) - score(a) || (ND[a].nm || "").localeCompare(ND[b].nm || ""));
-  shown = keys.slice(0, __LISTMAX__);
+  shown = keys.slice(0, LIM("list_max", __LISTMAX__));
   list.innerHTML = shown.map(m => {
     const n = ND[m], linked = n.o.length + n.n.length;
     // если превью нет — показываем заглушку с типом, а не пустой квадрат
@@ -424,7 +437,7 @@ function show(m){
   const nmOf = k => (ND[k] && (ND[k].nm || k)) || k;
   // V104: в списке связей — имя + КОЛИЧЕСТВО (xN), если больше 1. Одна строка на связь (без дублей).
   // V107: перед именем — БЕЙДЖ ТИПА (Д/С/М/Ч), иначе «не понять, что за файл» (владелец).
-  const li = arr => arr.length ? arr.slice(0, __LINKSMAX__).map(x => {
+  const li = arr => arr.length ? arr.slice(0, LIM("links_max", __LINKSMAX__)).map(x => {
       const nn = ND[x[0]] || {};
       const [mk, mc] = typeMark(nn);
       return '<li data-m="' + x[0] + '">' +
@@ -489,13 +502,13 @@ function draw(root){
     const seen = new Set([root]);
     let frontier = [start];
     let total = 1;
-    for (let depth = 1; depth <= __DEPTH__ && frontier.length; depth++){
+    for (let depth = 1; depth <= LIM("depth", __DEPTH__) && frontier.length; depth++){
       const next = [];
       for (const m of frontier){
-        if (total > __NODESMAX__) return;
+        if (total > LIM("nodes_max", __NODESMAX__)) return;
         const n = ND[m]; if (!n) continue;
         const use = (dir === "d" ? n.o : n.n) || [];
-        for (const t of use.slice(0, __CHILDMAX__)){
+        for (const t of use.slice(0, LIM("children_max", __CHILDMAX__))){
           const nm = String(t[0]);   // GRABLYA 23.10.2026: index in links is NUMBER, ND keys are STRINGS
           if (!ND[nm] || nm === root || seen.has(nm)) continue;
           seen.add(nm);
