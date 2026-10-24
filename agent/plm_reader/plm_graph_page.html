@@ -45,17 +45,19 @@
  #card .flex.vcol .hist ol{max-height:180px}
  /* V111: MFG (мануфактуринг) — ОТДЕЛЬНАЯ метка, не «сборка» */
  .t.drw{background:#3a2f4a;color:#d4b3ff}
- /* V109: ИСТОРИЯ ИЗМЕНЕНИЙ — теперь ТРЕТЬЯ КОЛОНКА рядом (Состав / Куда входит / История) */
- #card .hist{flex:1 1 0;min-width:0}
- #card .hist h3{margin:0 0 5px;font-size:12px;color:#9fb1c4;text-transform:uppercase;letter-spacing:.4px}
- #card .hist ol{list-style:none;margin:0;padding:0;font-size:11px;
+ /* V109/V112: ТРИ БЛОКА ОДИНАКОВО (Состав / Куда входит / История) — один заголовок, один
+    шрифт, точки-маркеры. История больше НЕ отличается по высоте и дизайну. */
+ #card .flex>div{flex:1 1 0;min-width:0;font-size:12px}
+ #card .flex>div>h3{margin:0 0 5px;font-size:12px;color:#9fb1c4;text-transform:uppercase;
+   letter-spacing:.4px}
+ #card .flex>div>ul,#card .flex>div>ol{margin:0;padding-left:15px;font-size:12px;
    max-height:var(--histh,220px);overflow:auto}
- #card .hist li{padding:2px 4px;border-bottom:1px solid #20262c;white-space:nowrap;
+ #card .flex>div>ul>li,#card .flex>div>ol>li{margin-bottom:2px;white-space:nowrap;
    overflow:hidden;text-overflow:ellipsis}
- #card .hist li:hover{background:#212831;white-space:normal}
+ #card .hist{flex:1 1 0;min-width:0}
  #card .hist .h1{color:#c8d4e0}      /* дата правки */
  #card .hist .h2{color:#e0b060}      /* компьютер/юзер */
- #card .hist .h3{color:#8ab0d8}      /* ревизия */
+ #card .hist .h3r{color:#8ab0d8}     /* ревизия */
  #card .hist .h4{color:#98a6b4}      /* что изменено */
  #card .hist .new{color:#6fcf7f}
  /* ПРЕВЬЮ В КАРТОЧКЕ: картинка, ниже — чертёж; своя прокрутка, если не влезают */
@@ -257,6 +259,8 @@ try {
       if (local.graph_children_max) R.children_max = local.graph_children_max;
       // V111: строй карточки меняется сразу (вариант 1 «в ряд» / вариант 2 «друг под другом»)
       if (typeof window.applyCardLayout === "function") window.applyCardLayout();
+      // V112: строй ГРАФА меняется сразу — перерисовать (row = слева-направо / col = сверху-вниз)
+      if (typeof render === "function"){ try { render(); } catch (e) {} }
       if (local.graph_card_h){
         const c = document.getElementById("card");
         if (c) c.style.height = local.graph_card_h + "px";
@@ -511,23 +515,23 @@ function show(m){
         ((x[2] && x[2] > 1) ? ' <b style="color:#8fa0b3">×' + x[2] + '</b>' : '') + '</li>';
     }).join("")
     : "<li style='color:#5a6773'>—</li>";
-  // V110: ИСТОРИЯ ИЗМЕНЕНИЙ — ТРЕТЬЯ КОЛОНКА рядом (Состав / Куда входит / История).
-  // Строка = «ДАТА ПРАВКИ — КОМП/ЮЗЕР — РЕВИЗИЯ — ЧТО» (одна строка, ellipsis).
+  // V112: ИСТОРИЯ — ТАКОЙ ЖЕ БЛОК, как «Состав» и «Куда входит»: список с точками, тот же
+  // шрифт и высота. Строка = «ДАТА ПРАВКИ · КОМП/ЮЗЕР · рев. N · ЧТО».
   const hist = n.h || [];
   let hcol = "";
   if (hist.length){
-    hcol = '<ol>' + hist.map(x => {
+    hcol = '<ul>' + hist.map(x => {
       const kind = (x[3] || "").toLowerCase();
       const what = (x[4] || "").trim() || (kind === "new" ? "первая запись паспорта" : "—");
       return '<li title="' + esc(x[0]) + ' — ' + esc(x[1] || "?") + ' — рев. ' +
         esc(x[2] || "—") + ' — ' + esc(what) + '">' +
         '<span class="h1">' + esc(x[0] || "—") + '</span> · ' +
         '<span class="h2">' + esc(x[1] || "?") + '</span> · ' +
-        '<span class="h3">рев. ' + esc(x[2] || "—") + '</span> · ' +
+        '<span class="h3r">рев. ' + esc(x[2] || "—") + '</span> · ' +
         '<span class="' + (kind === "new" ? "new" : "h4") + '">' + esc(what) + '</span></li>';
-    }).join("") + '</ol>';
+    }).join("") + '</ul>';
   } else {
-    hcol = '<div style="color:#5a6773;font-size:11px">записей нет</div>';
+    hcol = '<ul><li style="color:#5a6773">записей нет</li></ul>';
   }
   document.getElementById("card").innerHTML =
     '<h2>' + (n.nm || m) + '</h2>' +
@@ -625,16 +629,47 @@ function draw(root){
   // а `.map(Number)` превращал их в ЧИСЛА → rows[0] не находился (ключ "0") →
   // `rows[c].sort()` падал с TypeError → ГРАФ БЫЛ ПУСТ (ошибок в консоли не видно).
   // Лечение: ключи оставляем СТРОКАМИ, а числовую сортировку делаем по значению.
+  // V112: СТРОЙ ГРАФА (ОТОБРАЖЕНИЕ) — «row»: уровни слева-направо (как было);
+  // «col»: уровни СВЕРХУ ВНИЗ (вертикальный строй), узлы одного уровня — в ряд.
+  function graphLayout(){
+    let v = "row";
+    try {
+      const c = (ST && ST.cfg) || {};
+      v = c.graph_graph_layout || "row";
+      const loc = JSON.parse(localStorage.getItem("plm_graph_cfg") || "{}") || {};
+      if (loc.graph_graph_layout) v = loc.graph_graph_layout;
+    } catch (e) {}
+    return (v === "col") ? "col" : "row";
+  }
   const cols = Object.keys(rows).sort((a, b) => Number(a) - Number(b));
   const CW = 250, RH = 24, pos = {};
-  let x = 20;
-  for (const c of cols){
-    rows[c].sort(); let y = 20;
-    for (const m of rows[c]){ pos[m] = [x, y]; y += RH; }
-    x += CW;
+  const GL = graphLayout();
+  let maxLine = 0;
+  if (GL === "col"){
+    // ВЕРТИКАЛЬНО: каждый уровень — отдельная СТРОКА (y растёт), узлы уровня идут в ряд (x растёт).
+    let y = 20;
+    for (const c of cols){
+      rows[c].sort();
+      let x = 20;
+      for (const m of rows[c]){ pos[m] = [x, y]; x += CW; }
+      maxLine = Math.max(maxLine, rows[c].length);
+      y += RH + 4;
+    }
+  } else {
+    // ГОРИЗОНТАЛЬНО (было): каждый уровень — отдельная КОЛОНКА (x растёт), узлы — вниз (y растёт).
+    let x = 20;
+    for (const c of cols){
+      rows[c].sort();
+      let y = 20;
+      for (const m of rows[c]){ pos[m] = [x, y]; y += RH; }
+      maxLine = Math.max(maxLine, rows[c].length);
+      x += CW;
+    }
   }
-  const W = Math.max(500, cols.length * CW + 40);
-  const H = Math.max(200, Math.max(...cols.map(c => rows[c].length)) * RH + 50);
+  const W = (GL === "col") ? Math.max(500, maxLine * CW + 40)
+                           : Math.max(500, cols.length * CW + 40);
+  const H = (GL === "col") ? Math.max(200, cols.length * (RH + 4) + 50)
+                           : Math.max(200, maxLine * RH + 50);
   let svg = "<defs>";
   const used = {};
   for (const [a, b, k] of L){ used[k] = (used[k] || 0) + 1; }
