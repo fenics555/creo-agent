@@ -1,11 +1,11 @@
 {
- "version": "V114",
- "version_num": 114,
+ "version": "V115",
+ "version_num": 115,
  "date": "24.10.2026",
- "notes": "V114 — «Интересные факты» расширены: детали-одиночки (10 644), материал без нормы, топы материалов/авторов/версий Creo, годы + кнопка «Показать детали-одиночки»",
+ "notes": "V115 — вертикальный строй читаемый (перенос строк сеткой, не уходит за экран) + кнопка «Горизонтально (по умолчанию)» в один клик",
  "files": {
   "engine.py": "a4403b289925421c1dd418fe8cb0cb565a4d88eac9579eb0068f13a772ad04a6",
-  "plm_reader.py": "3d8838d222421288b19bc87f1bc984d96037426c3e8b52afab322a10566510b3",
+  "plm_reader.py": "6c3a48cb85ca329b1e5060d81130093837423e42c748b07deee8538c85939a6b",
   "plm_toolwin.py": "9ca29b13941c8a3cb2d1b54e36aa27485f4e05a5ef442ea6266ed48d54de7c47",
   "plm_history.py": "0e8a1b414f3ad7c67175251fb4192e26431b0e9760bcce6ba6d9faf03ada8c77",
   "plm_parse.py": "c6bb33a412b6b606ad402e3eb78cd49246b77738b69d82be1b6218a1358c0312",
@@ -14,7 +14,7 @@
   "plm_scan.py": "e32d610e33932afaee4c952cb0b4564801508f0568d4360d7d039ffacb856f48",
   "plm_paths_window.py": "8887ccacd53f475171c89a8948084420078ed4fc1fc8a914a40ea4af1968124d",
   "creo_read.py": "eb28ec862c1eb4a5519f5215d4ec11d060222348c54ebc407abbcd5f88ada170",
-  "README.md": "5502e007cc50120ecf2d0010cfcee21150f34ec886bc88c6858aabe66936b091",
+  "README.md": "1ba2c541a022f0ca40a43c31e4ce0cf3f0f7f768ec1fc02f54871fa9af52bbd1",
   "SHARE_copy.bat": "4eccb549a17251392337aeabbc3ef76233dfa3072beadff9d158cd6e932622ee",
   "plm_reader.bat": "bdd125397db3ac7e7432dbdb078a6a811ed4913fca02b062edb27907032fca3d",
   "plm_reader_gui.bat": "9f695898d5db6431e840784b9587c75304ca9e526b06f79d4b44ab026663bd20",
@@ -22,6 +22,6 @@
   ".gitignore": "911fbdb5acf889293fdc61c836b691014da748fa55bd6464ce35a67f30e636ee",
   "AGENTS.md": "3b08e6e81731ace78deac46df3b802de337c3924acb87c54fe1562a2573650ef",
   "plm_graph.py": "04e648b21ad63755b1514c292a0bff2846ebe02a9ed39c728a430e10afca5665",
-  "plm_graph_page.html": "56a77f67ea3667dd15e88da4d889f31b309d1ed46a57c35b4518deb08bbb2f82"
+  "plm_graph_page.html": "2d07446d115e6af45de4a4240898a4e78db59881f615b7f1299b2bd452cfd6eb"
  }
 }

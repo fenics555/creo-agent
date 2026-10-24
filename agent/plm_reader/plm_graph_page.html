@@ -94,9 +94,13 @@
            style="width:100%;margin-bottom:6px;padding:4px 8px;background:#11151a;color:#dfe6ee;
                   border:1px solid #2f373f;border-radius:4px;font-size:11px">
     <div id="cfgform"></div>
+    <!-- V115: быстрый возврат к ГОРИЗОНТАЛЬНОМУ строю (по умолчанию) — если вертикальный не понравился.
+         Владелец: «вертикальная связь очень не очень». Одна кнопка — и снова привычный вид. -->
     <div style="margin-top:8px;display:flex;gap:8px;flex-wrap:wrap">
+      <button id="cfghoriz" style="padding:3px 10px;cursor:pointer"
+              title="Вернуть горизонтальный строй графа и связей">↔ Горизонтально (по умолчанию)</button>
       <button id="cfgsave" style="padding:3px 10px;cursor:pointer">💾 Скачать settings.json</button>
-      <button id="cfgreset" style="padding:3px 10px;cursor:pointer">↺ Сбросить</button>
+      <button id="cfgreset" style="padding:3px 10px;cursor:pointer">↺ Сбросить всё</button>
       <button id="cfgclose" style="padding:3px 10px;cursor:pointer">Закрыть</button>
     </div>
     <div style="margin-top:6px;font-size:10px;color:#6f8090">
@@ -331,6 +335,18 @@ try {
   if (b4) b4.addEventListener("click", () => {
     local = {};
     try { localStorage.removeItem(LS); } catch (e) {}
+    box.dataset.built = "";
+    box.innerHTML = "";
+    build();
+    if (typeof render === "function") render();
+  });
+  // V115: ОДНА КНОПКА — ВЕРНУТЬ ГОРИЗОНТАЛЬНЫЙ СТРОЙ (по умолчанию). Владелец: вертикальный
+  // «очень не очень» — нужен быстрый возврат к привычному виду, без поиска нужной строки.
+  const b5 = document.getElementById("cfghoriz");
+  if (b5) b5.addEventListener("click", () => {
+    local.graph_graph_layout = "row";
+    local.graph_card_layout = "row";
+    try { localStorage.setItem(LS, JSON.stringify(local)); } catch (e) {}
     box.dataset.built = "";
     box.innerHTML = "";
     build();
@@ -671,19 +687,28 @@ function draw(root){
   const cols = Object.keys(rows).sort((a, b) => Number(a) - Number(b));
   const CW = 250, RH = 24, pos = {};
   const GL = graphLayout();
+  // V115: ВЕРТИКАЛЬНЫЙ СТРОЙ СДЕЛАН ЧИТАЕМЫМ. Владелец: «вертикальная связь очень не очень» —
+  // причина: узлы уровня шли ОДНОЙ ДЛИННОЙ строкой (x += CW без переноса), и граф уходил
+  // вправо за экран, а уровни уползали вниз «простынёй». Теперь внутри уровня — ПЕРЕНОС строк:
+  // узлы раскладываются СЕТКОЙ (не более PER_ROW в ряд), уровень занимает несколько рядов.
+  // Плюс: горизонтальный строй остаётся по умолчанию и возвращается кнопкой «↺ Сбросить».
+  const PER_ROW = Math.max(1, Math.floor((Math.max(window.innerWidth - 320, 700)) / CW));
   let maxLine = 0;
   if (GL === "col"){
-    // ВЕРТИКАЛЬНО: каждый уровень — отдельная СТРОКА (y растёт), узлы уровня идут в ряд (x растёт).
+    // ВЕРТИКАЛЬНО: уровни СВЕРХУ ВНИЗ (y), внутри уровня узлы СЕТКОЙ (перенос каждые PER_ROW).
     let y = 20;
     for (const c of cols){
       rows[c].sort();
-      let x = 20;
-      for (const m of rows[c]){ pos[m] = [x, y]; x += CW; }
-      maxLine = Math.max(maxLine, rows[c].length);
-      y += RH + 4;
+      const n = rows[c].length;
+      rows[c].forEach((m, i) => {
+        const r = Math.floor(i / PER_ROW), cc = i % PER_ROW;
+        pos[m] = [20 + cc * CW, y + r * RH];
+      });
+      maxLine = Math.max(maxLine, Math.min(n, PER_ROW));
+      y += Math.max(1, Math.ceil(n / PER_ROW)) * RH + 4;
     }
   } else {
-    // ГОРИЗОНТАЛЬНО (было): каждый уровень — отдельная КОЛОНКА (x растёт), узлы — вниз (y растёт).
+    // ГОРИЗОНТАЛЬНО (по умолчанию): каждый уровень — КОЛОНКА (x растёт), узлы — вниз (y растёт).
     let x = 20;
     for (const c of cols){
       rows[c].sort();
