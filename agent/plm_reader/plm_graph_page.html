@@ -37,6 +37,14 @@
  #card h2{margin:0 0 8px;font-size:16px}
  #card .meta{font-size:11px;color:#8fa0b3;margin-bottom:10px;word-break:break-all}
  #card .flex{display:flex;gap:18px}
+ /* V109: ИСТОРИЯ ИЗМЕНЕНИЙ в карточке (кто/когда/что) */
+ #card .hist{margin-top:10px;border-top:1px solid #2a3138;padding-top:8px}
+ #card .hist h3{margin:0 0 5px;font-size:12px;color:#9fb1c4;text-transform:uppercase;letter-spacing:.4px}
+ #card .hist table{width:100%;border-collapse:collapse;font-size:11px}
+ #card .hist th{text-align:left;color:#7f8fa2;font-weight:600;padding:2px 6px;
+   border-bottom:1px solid #2a3138;position:sticky;top:0;background:#1a1f25}
+ #card .hist td{padding:2px 6px;border-bottom:1px solid #20262c;vertical-align:top}
+ #card .hist tr:hover td{background:#212831}
  /* ПРЕВЬЮ В КАРТОЧКЕ: картинка, ниже — чертёж; своя прокрутка, если не влезают */
  #card .prev{width:200px;flex:0 0 200px;background:#0d1115;border-radius:6px;
    display:flex;flex-direction:column;align-items:center;gap:6px;overflow:auto;padding:6px}
@@ -428,7 +436,14 @@ function show(m){
     r.classList.toggle("on", r.dataset.m === m));
   // КАРТИНКА и ЧЕРТЁЖ — оба (требование владельца). Верх — главный вид, ниже — второй.
   let prev = '';
-  if (n.i) prev += '<figure><img src="' + IMG + n.i + '" alt="картинка">' +
+  if (n.i) prev += '<figure><img src="' + IMG + n.i + '" alt="картинка"' +
+    // V109: если файла картинки нет — страница СТАРАЯ (собрана до докачки превью).
+    // Раньше было просто пусто («нет картинки» без причины) — теперь честная подсказка.
+    ' onerror="this.replaceWith(Object.assign(document.createElement(\'div\'),' +
+    '{className:\'noimg\',style:\'width:186px;height:120px;display:flex;align-items:center;' +
+    'justify-content:center;color:#8a94a0;font-size:10px;text-align:center;' +
+    'border:1px dashed #3a444f;border-radius:4px\',textContent:' +
+    '\'картинки нет — соберите страницу заново (PDM-Консоль)\'}))">' +
                    '<figcaption>картинка модели</figcaption></figure>';
   if (n.i2) prev += '<figure><img src="' + IMG + n.i2 + '" alt="чертёж">' +
                     '<figcaption>чертёж</figcaption></figure>';
@@ -448,6 +463,19 @@ function show(m){
         ((x[2] && x[2] > 1) ? ' <b style="color:#8fa0b3">×' + x[2] + '</b>' : '') + '</li>';
     }).join("")
     : "<li style='color:#5a6773'>—</li>";
+  // V109: ИСТОРИЯ ИЗМЕНЕНИЙ файла (кто/когда/что) — из журнала `changes` базы.
+  const hist = n.h || [];
+  let hrow = "";
+  if (hist.length){
+    hrow = '<div class="hist"><h3>История изменений (' + hist.length + ')</h3><table>' +
+      '<tr><th>Когда</th><th>Кто</th><th>Ревизия</th><th>Что</th></tr>' +
+      hist.map(x => '<tr><td>' + (x[0] || '—') + '</td><td>' + (x[1] || '—') + '</td>' +
+                    '<td>' + (x[2] || '—') + '</td><td>' + (x[4] || x[3] || '—') + '</td></tr>').join("") +
+      '</table></div>';
+  } else {
+    hrow = '<div class="hist"><h3>История изменений</h3>' +
+           '<div style="color:#5a6773;font-size:11px">записей нет — правок в журнале базы не найдено</div></div>';
+  }
   document.getElementById("card").innerHTML =
     '<h2>' + (n.nm || m) + '</h2>' +
     '<div class="meta">' + kindTag(n) + ' тип ' + n.k + ' · Creo ' + n.v +
@@ -456,7 +484,8 @@ function show(m){
     '<div class="flex"><div class="prev">' + prev + '</div>' +
     '<div class="cols"><div><h3>Состав — что использует (' + n.o.length +
       ')</h3><ul>' + li(n.o) + '</ul></div>' +
-    '<div><h3>Куда входит (' + n.n.length + ')</h3><ul>' + li(n.n) + '</ul></div></div></div>';
+    '<div><h3>Куда входит (' + n.n.length + ')</h3><ul>' + li(n.n) + '</ul></div></div></div>' +
+    hrow;
   document.querySelectorAll("#card li").forEach(el =>
     el.addEventListener("click", () => show(el.dataset.m)));
   draw(m);

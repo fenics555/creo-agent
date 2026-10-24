@@ -137,6 +137,26 @@ def collect_by_path(media_dir=None):
         # V107 ДОКАЧКА: если бюджет ограничен — сначала читаем те файлы, которых НЕТ в кэше,
         # иначе первые 25 000 по порядку пути съедали лимит каждый раз, а «хвост» базы
         # никогда не получал превью (владелец: «вместо картинки 0»).
+        # ИСТОРИЯ ИЗМЕНЕНИЙ (V109): журнал `changes` по путям файлов — кто/когда/что правил.
+        # Владелец: «история файла нигде в HTML не выводится». Собираем ДО цикла узлов,
+        # потому что каждый узел берёт свою историю по своему пути.
+        hist = defaultdict(list)
+
+        def _clean(x):
+            """Убрать управляющие символы (в базе есть `\\x01`/`\\x02` из Creo-строк) —
+            иначе они попадают в JSON как `\\u0001` и ломают проверку JS."""
+            return "".join(ch for ch in str(x or "") if ch >= " " or ch == "\t")
+
+        try:
+            for item, rev, kind, descr, who, ts in con.execute(
+                    "SELECT item,rev,kind,descr,who,ts FROM changes ORDER BY ts DESC LIMIT 200000"):
+                if item:
+                    hist[item].append([_clean(ts), _clean(who), _clean(rev),
+                                       _clean(kind), _clean(descr)])
+        except Exception:
+            pass
+        print("история: путей с записями %d" % len(hist), flush=True)
+
         _rows = list(con.execute("SELECT model, path, volume, material, creo, role, size, "
                                  "name, designation FROM snapshots"))
         if media_dir and int(_media_max) > 0:
@@ -204,10 +224,12 @@ def collect_by_path(media_dir=None):
                     pass
             nodes[key] = {"k": kind, "v": v, "m": mfg, "i": img, "i2": img2,
                           "s": int(row[6] or 0), "p": path, "role": (row[5] or "").upper(),
-                          "n": name, "d": (row[8] or "")}
+                          "n": name, "d": (row[8] or ""),
+                          "h": hist.get(path, [])[:40]}      # V109: история файла (до 40 записей)
             if img or img2:
                 cache[path] = (img, img2)
                 cnt_media += 1
+
         # СВЯЗИ: V104 — СКЛЕЙКА ПО МОДЕЛИ, затем раскладка на пути.
         #
         # ГЛАВНАЯ ГРАБЛЯ (жалоба владельца «HB72501-401 подряд десятки раз»):
@@ -541,9 +563,11 @@ def selfcheck(html):
                 "__CHILDMAX__", "__LISTMAX__", "__LINKSMAX__", "__CARDH__", "__THUMB__"):
         if lit in html:
             errs.append("не подставлен литерал %s" % lit)
-    esc = re.findall(r"\\u00[0-9a-fA-F]{2}", js)
+    # `\u00XX` опасен ТОЛЬКО в КОДЕ JS. В данных (JSON-строках) это штатный эскейп
+    # управляющих символов из базы Creo — он допустим. Поэтому сначала убираем строки.
+    esc = re.findall(r"\\u00[0-9a-fA-F]{2}", code)
     if esc:
-        errs.append("экранированные \\uXXXX в JS: %d" % len(esc))
+        errs.append("экранированные \\uXXXX в коде JS: %d" % len(esc))
     # ГРАБЛЯ 23.10.2026: граф пуст, если уровень считать как строку (depth * "d" = NaN).
     if re.search(r"\*\s*dir\b", js) and 'var dir' not in js and 'const sign' not in js:
         errs.append("граф: уровень считается как depth * dir (строка) → NaN → пустой граф")
@@ -661,11 +685,18 @@ def build_html(nodes, edges, media_dir, stats_extra=None):
     # У имени бывает десятки путей (HB72501-401 — 98). Раньше каждый путь = отдельный узел, и
     # модель показывалась в списке десятки раз, а превью (лежит на ОДНОМ из путей) могло не
     # попасть в страницу вовсе. Теперь: один узел на ИМЯ, превью берём с того пути, где оно есть.
+    #
+    # V109 ГРАБЛЯ (жалоба владельца «ASM ... не выводит картинку»): у имени есть .asm И .drw,
+    # и при равных связях побеждал ЧЕРТЁЖ — владелец видел «нет картинки сборки». Поэтому в
+    # приоритете выбора представителя — ТИП: сборка > деталь > чертёж (чертёж лишь дополняет).
+    _KPRI = {"ASSEMBLY": 0, "PART": 1, "MFG": 1, "DRAWING": 2}
     live = [k for k, v in nodes.items()
             if (out_.get(k) or in_.get(k) or v.get("i")) and not _svc(k)]
     live.sort(key=lambda k: (-(len(out_.get(k, ())) + len(in_.get(k, ()))),
                              # приоритет пути: сначала с превью (чтобы превью попало в узел)
                              0 if nodes[k].get("i") or nodes[k].get("i2") else 1,
+                             # V109: при равенстве — тип (сборка важнее чертежа)
+                             _KPRI.get((nodes[k].get("k") or "").upper(), 1),
                              k))
     # имя → лучший ключ-путь
     rep, rep_of = {}, {}
@@ -700,6 +731,7 @@ def build_html(nodes, edges, media_dir, stats_extra=None):
         folder = full.rsplit("\\", 2)[-2] if "\\" in full else ""
         nd[idx[m]] = {"k": v.get("k", "?"), "v": v.get("v", ""), "m": bool(v.get("m")),
                       "i": v.get("i", ""), "i2": v.get("i2", ""),
+                      "h": (v.get("h") or [])[:40],          # V109: история изменений файла
                       "s": v.get("s", 0), "nm": nm, "dir": folder,
                       # o — состав (что использует модель), n — входимость (кто использует её).
                       # V104: [номер, тип, количество] — ОДНА строка на соседа (без дублей).

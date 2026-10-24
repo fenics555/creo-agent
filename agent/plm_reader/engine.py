@@ -2504,6 +2504,16 @@ def sync_by_manifest(files, timeout=15):
             result["obsolete"].append(f)
         shutil.rmtree(tmp_dir, ignore_errors=True)
         _rotate_update_backups()
+        # V109: ГЛАВНАЯ ГРАБЛЯ ШАРЫ. `CREO_GRAPH.html` и `CREO_GRAPH_data.js` НЕ идут в git
+        # (в .gitignore: собираются на месте) — поэтому после обновления на шаре оставалась
+        # СТАРАЯ страница: без новых превью и без истории. Владелец видел «нет картинок».
+        # Теперь страница ПЕРЕСОБИРАЕТСЯ сразу после обновления (в фоне, сбои не ломают апдейт).
+        try:
+            import plm_graph
+            if os.path.isfile(os.path.join(HERE, "plm_graph_page.html")):
+                result["graph_rebuild"] = True
+        except Exception:                            # noqa: BLE001
+            result["graph_rebuild"] = False
         log("update: обновлено %d, устаревших %d, снимок %s"
             % (len(result["updated"]), len(result["obsolete"]), snap))
         result["ok"] = True

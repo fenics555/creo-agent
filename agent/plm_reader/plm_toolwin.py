@@ -669,6 +669,24 @@ def run_gui():
                 note = ("\n\nПримечание: у части файлов SHA не совпал с манифестом (манифест "
                         "отстал от кода) — они всё равно установлены: %s. Это не ошибка."
                         % ", ".join(warns)) if warns else ""
+                # V109: страница PDM-Консоли НЕ хранится в git (собирается на месте) — после
+                # обновления пересобираем её САМИ, иначе остаётся старая (без превью и истории),
+                # и владелец видит «нет картинок». Сбои пересборки НЕ ломают обновление.
+                if res.get("graph_rebuild"):
+                    try:
+                        _upd_status("обновление: пересобираю страницу PDM-Консоли…")
+                        import plm_graph
+                        # main() читает ключ `--no-open` из sys.argv (страницу только пересобрать)
+                        argv0 = list(sys.argv)
+                        if "--no-open" not in sys.argv:
+                            sys.argv.append("--no-open")
+                        try:
+                            plm_graph.main()
+                        finally:
+                            sys.argv[:] = argv0
+                        eng.log("update: страница PDM-Консоли пересобрана после обновления")
+                    except Exception as e:               # noqa: BLE001
+                        eng.log("update: страницу пересобрать не удалось: %s" % e)
                 _upd_status("обновлено до %s — перезапустите программу" % remote)
                 root.after(0, lambda: _upd_done_dialog(
                     remote, len(res.get("updated", [])), len(res.get("obsolete", [])), note))
