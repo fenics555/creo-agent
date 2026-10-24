@@ -66,6 +66,7 @@ from plm_reader import (
     copy_source_of,
     db_conn,
     db_facts,
+    orphan_models,
     db_rows,
     db_search_rows,
     db_summary,
@@ -756,7 +757,45 @@ def run_gui():
         threading.Thread(target=work, daemon=True).start()
         ttk.Button(win, text="Пересчитать",
                    command=lambda: threading.Thread(target=work, daemon=True).start()).pack(pady=6)
+        # V114: ИНТЕРЕСНОЕ → ДЕЙСТВИЕ. «Детали-одиночки» из фактов открываются отдельным списком:
+        # видно КОНКРЕТНЫЕ модели (файл есть, но ни в одной сборке не используется) — кандидаты
+        # на архив/чистку склада. Раньше было только число.
+        ttk.Button(win, text="🔍 Показать детали-одиночки (кандидаты на архив)",
+                   command=_show_orphans).pack(pady=(0, 6))
         ttk.Button(win, text="Закрыть", command=win.destroy).pack(pady=(0, 8))
+
+    def _show_orphans():
+        """Окно со списком моделей, которые нигде не используются (V114)."""
+        w2 = tk.Toplevel(root)
+        w2.title("PLM Reader — детали-одиночки (нигде не используются)")
+        w2.geometry("900x480")
+        w2.transient(root)
+        head2 = ttk.Label(w2, text="считаю…", padding=8)
+        head2.pack(anchor="w")
+        cols2 = ("Модель", "Объём, мм³", "Ревизия", "Путь")
+        tv2 = ttk.Treeview(w2, columns=cols2, show="headings", height=18)
+        for cc, wd in (("Модель", 220), ("Объём, мм³", 110), ("Ревизия", 70), ("Путь", 460)):
+            tv2.heading(cc, text=cc)
+            tv2.column(cc, width=wd, anchor="w")
+        tv2.pack(fill="both", expand=True, padx=8)
+
+        def work2():
+            rows = orphan_models(5000)
+
+            def done2():
+                try:
+                    tv2.delete(*tv2.get_children())
+                    for m, p, v, rv in rows:
+                        tv2.insert("", "end", values=(m or "", _vol_str(v), rv or "", p or ""))
+                    head2.config(text="Детали-одиночки: %d моделей (показаны первые %d). "
+                                      "Это кандидаты на архив — файл есть, но ни в одну сборку не входит."
+                                 % (len(rows), min(len(rows), 5000)))
+                except Exception:
+                    pass
+            root.after(0, done2)
+
+        threading.Thread(target=work2, daemon=True).start()
+        ttk.Button(w2, text="Закрыть", command=w2.destroy).pack(pady=(0, 8))
 
 
 

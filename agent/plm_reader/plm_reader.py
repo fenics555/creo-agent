@@ -41,7 +41,7 @@ if __name__ == "__main__":
     import sys as _sys
     _sys.modules.setdefault("plm_reader", _sys.modules["__main__"])
 
-APP_VERSION = "V113"      # V113: настройки СТРОЯ — первыми в панели, русские подписи, поиск по настройкам
+APP_VERSION = "V114"      # V114: «Интересные факты» расширены (детали-одиночки, материал без нормы, годы, авторы, версии Creo) + кнопка «Показать детали-одиночки»
 APP_TITLE = "PLM Reader " + APP_VERSION          # версия ОДНА: заголовок берёт её из константы
 DATA_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "db")          # данные — в подпапке db\
 SETTINGS_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "settings")  # настройки — в подпапке settings\
@@ -426,6 +426,7 @@ from plm_dbview import (
     db_total,
     load_cache,
     log_line,
+    orphan_models,
     save_cache,
 )
 

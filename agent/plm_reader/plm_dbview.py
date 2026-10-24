@@ -93,16 +93,45 @@ def db_total(folder=None):
     except Exception:
         return 0
 def _vol_str(v):
-    """Объём в мм³ по-человечески: мелкий — мм³, крупный — ещё и м³."""
+    """Объём в мм³ по-человечески: мелкий — мм³, крупный — ещё и м³.
+
+    V114: ОТСЕВ МУСОРА (как в V106 для таблицы): битый double (`1e+100`) — это случайные
+    8 байт, попавшие на шаблон. Правдоподобный объём детали — 0…1e9 мм³ (1 м³).
+    """
     try:
         v = float(v)
     except Exception:
         return "?"
+    if not (v == v) or v <= 0 or v > 1e9:          # NaN / <=0 / больше 1 м³ — мусор
+        return "—"
     if v >= 1e9:
         return "%.2f м³ (%.0f мм³)" % (v / 1e9, v)
     return "%.0f мм³" % v
+def orphan_models(limit=5000):
+    """V114: ДЕТАЛИ-ОДИНОЧКИ — модели, которые НИГДЕ не используются.
+
+    Файл в базе есть, но модель не входит ни в одну сборку (ни как родитель, ни как ребёнок).
+    Это готовый список кандидатов на архив/чистку склада. Возвращает [(модель, путь, объём, ревизия)].
+    """
+    try:
+        c = db_conn()
+        rows = c.execute("""SELECT s.model, s.path, s.volume, s.rev
+                            FROM snapshots s
+                            WHERE NOT EXISTS (SELECT 1 FROM links l WHERE l.child=s.model)
+                              AND NOT EXISTS (SELECT 1 FROM links l WHERE l.parent=s.model)
+                            ORDER BY s.model LIMIT ?""", (int(limit),)).fetchall()
+        c.close()
+        return [tuple(r) for r in rows]
+    except Exception:
+        return []
+
+
 def db_facts():
     """«Интересные факты» по активной базе: размер, крайние связи, что ест место.
+
+    V114: добавлены факты, которые ПОДСКАЗЫВАЮТ ДЕЙСТВИЕ — детали-одиночки (кандидаты на архив),
+    материал без нормы, распределение по годам/авторам/версиям Creo. Список одиночек открывается
+    кнопкой в окне «Дополнительно» (см. `orphan_models`).
 
     Возвращает (lines, warn): lines — [(подпись, значение)], warn — предупреждение о росте."""
     lines, warn = [], ""
@@ -117,6 +146,13 @@ def db_facts():
                 return c.execute(q).fetchone()
             except Exception:
                 return None
+
+        def qrows(q):
+            """V114: несколько строк (для «интересных фактов»: топы, распределения)."""
+            try:
+                return c.execute(q).fetchall()
+            except Exception:
+                return []
 
         r = one("SELECT COUNT(*), COUNT(DISTINCT model) FROM snapshots")
         lines.append(("Паспортов (строк)", "%s  ·  изделий: %s" % (r[0], r[1]) if r else "—"))
@@ -137,7 +173,8 @@ def db_facts():
         f = one("SELECT child, COUNT(*) FROM links GROUP BY child ORDER BY COUNT(*) DESC LIMIT 1")
         if f:
             lines.append(("Самая ходовая деталь", "%s — входит в %d сборок" % (f[0], f[1])))
-        f = one("SELECT model, volume FROM snapshots WHERE volume IS NOT NULL ORDER BY volume DESC LIMIT 1")
+        f = one("SELECT model, volume FROM snapshots WHERE volume>0 AND volume<=1e9 "
+                "ORDER BY volume DESC LIMIT 1")
         if f:
             lines.append(("Самый большой объём", "%s — %s" % (f[0], _vol_str(f[1]))))
         f = one("SELECT model, size FROM snapshots ORDER BY size DESC LIMIT 1")
@@ -160,6 +197,52 @@ def db_facts():
             heavy.append((rr[0] if rr else 0, t))
         heavy.sort(reverse=True)
         lines.append(("Что ест место (строк)", ", ".join("%s: %s" % (t, n) for n, t in heavy[:6])))
+
+        # ═══════════════ V114: ИНТЕРЕСНЫЕ ФАКТЫ, КОТОРЫЕ ПОМОГАЮТ В РАБОТЕ ═══════════════
+        # Владелец: «нужно каждый раз что-то интересное добавить». Здесь не «цифры ради цифр»,
+        # а то, что реально подсказывает действие: что можно убрать, что надо привести в порядок.
+        try:
+            # 1. ДЕТАЛИ-ОДИНОЧКИ: файл есть, но НИ в одной сборке не участвует (ни как родитель,
+            #    ни как ребёнок). Это готовый список «кандидатов на архив/чистку склада».
+            orph = one("""SELECT COUNT(*) FROM snapshots s
+                          WHERE NOT EXISTS (SELECT 1 FROM links l WHERE l.child=s.model)
+                            AND NOT EXISTS (SELECT 1 FROM links l WHERE l.parent=s.model)""")
+            if orph:
+                lines.append(("🔍 Детали-одиночки (нигде не используются)",
+                              "%d моделей — кандидаты на архив (кнопка «Проверить» → фильтр)" % orph[0]))
+            # 2. МАТЕРИАЛ без нормы: пусто или системное значение PTC_* — паспорт не заполнен.
+            mbad = one("""SELECT COUNT(*) FROM snapshots
+                          WHERE COALESCE(material,'')='' OR material LIKE 'PTC_%'""")
+            if mbad:
+                lines.append(("⚠ Материал без нормы (пусто/PTC_*)",
+                              "%d моделей — паспорт не заполнен" % mbad[0]))
+            # 3. ДУБЛИ МАТЕРИАЛОВ по смыслу: одно и то же записано по-разному
+            #    (STEEL_40X / «Сталь 45 ГОСТ…» / STEEL_45) — повод договориться о едином виде.
+            mat = qrows("""SELECT COALESCE(NULLIF(material,''),'(пусто)') m, COUNT(*) n
+                       FROM snapshots GROUP BY m ORDER BY n DESC LIMIT 12""")
+            if mat:
+                lines.append(("📋 Материалы (топ-6)",
+                              ", ".join("%s: %s" % (m, n) for m, n in mat[:6])))
+            # 4. ГОДЫ СОЗДАНИЯ — сразу видно «свежесть» склада.
+            yr = qrows("""SELECT strftime('%Y', datetime(created,'unixepoch','localtime')) y, COUNT(*) n
+                      FROM snapshots WHERE created>0 GROUP BY y ORDER BY y DESC LIMIT 4""")
+            if yr:
+                lines.append(("🗓 По годам создания",
+                              ", ".join("%s: %s" % (y, n) for y, n in yr)))
+            # 5. ТОП АВТОРОВ (кто наполнял склад).
+            au2 = qrows("""SELECT COALESCE(NULLIF(author,''),'(пусто)') a, COUNT(*) n
+                       FROM snapshots GROUP BY a ORDER BY n DESC LIMIT 5""")
+            if au2:
+                lines.append(("👤 Авторы (топ-5)",
+                              ", ".join("%s: %s" % (a, n) for a, n in au2)))
+            # 6. ВЕРСИИ CREO — видно, на чём работают (и где «зоопарк» версий).
+            cr = qrows("""SELECT COALESCE(NULLIF(creo,''),'(нет)') c, COUNT(*) n
+                      FROM snapshots GROUP BY c ORDER BY n DESC LIMIT 6""")
+            if cr:
+                lines.append(("🧩 Версии Creo (топ-6)",
+                              ", ".join("%s: %s" % (c, n) for c, n in cr)))
+        except Exception:
+            pass
         c.close()
         # след на диске: ВСЕ версии базы + бэкапы — это и есть «рост» (главный вопрос владельца)
         tot, cnt = 0, 0
