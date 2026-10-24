@@ -1457,14 +1457,15 @@ def folder_files_count(folder):
 FILE_COLS = ("path", "designation", "name", "material", "rev", "role", "model",
              "author", "creo", "folder", "revdate")
 # Числовые/временные поля — ищем по CAST(... AS TEXT), чтобы слово находило и объём, и записей.
+# V106: ЧИСЛА В ПОИСК НЕ БЕРЁМ. Грабля владельца: запрос «170» находил записи по цифрам
+# внутри объёма (`CAST(volume AS TEXT) LIKE '%170%'` — «выводит совсем не по фильтру»).
+# Числа (объём/записей/даты) ищутся только точным сравнением/диапазоном — см. FILE_NUM_COLS.
 FILE_NUM_COLS = ("volume", "hist", "mtime", "created")
 
 
 def file_search_cols():
-    """Колонки поиска: текстовые LIKE + числовые CAST. Возвращает список SQL-выражений."""
-    cols = ["%s LIKE ?" % c for c in FILE_COLS]
-    cols += ["CAST(%s AS TEXT) LIKE ?" % c for c in FILE_NUM_COLS]
-    return cols
+    """Колонки поиска: ТОЛЬКО текстовые поля (LIKE). Числа/даты в подстрочный поиск не входят."""
+    return ["%s LIKE ?" % c for c in FILE_COLS]
 
 
 def _like_cond(words, cols=None):

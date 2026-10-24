@@ -1,20 +1,20 @@
 {
- "version": "V105",
- "version_num": 105,
+ "version": "V106",
+ "version_num": 106,
  "date": "24.10.2026",
- "notes": "V105 FILTER TREE FIXED + ALL MODELS IN HTML + GRAPH SETTINGS IN UI: (1) the 'Derevo' (tree) tab filter was silently returning nothing - _like_cond received bare column names instead of SQL expressions producing broken SQL (model OR designation...); now it accepts both names and expressions and searches ALL visible fields like the table. (2) same-name paths are now COLLAPSED INTO ONE NODE (one node per model name, preview taken from whichever path has it) - before, DF-STP2-VDF and 170META-2-MODEL-VERHA were missing from the page with no picture/drawing; also first inline chunk and chunk file now use ONE ordering (_ordered_keys) so models no longer vanish. (3) graph_page_nodes 12000 -> 60000 (base has 21868 linked models, so 10000 were invisible). (4) NEW section GRAPH AND HTML-CONSOLE in the 'Paths, exceptions...' window: 12 graph settings + preview + browser + image mode edited in UI, not in code; the HTML page prints where its values come from (settings.json). SMOKE OK + compile 12 modules + _check_page 0 CDN",
+ "notes": "V106 GARBAGE VOLUME CUT, FILTER WITHOUT NUMBERS AND IN BACKGROUND, TYPE MARKERS IN GRAPH: (1) the table showed a 'volume' of HUNDREDS OF DIGITS (broken double 1.37e+290, 3570 records) - real() now validates plausibility (0..1e9 mm3) so garbage is neither stored nor displayed (creo_read._sane_number + _vol_text guards in plm_dbview and the window). (2) the filter no longer searches NUMBERS - previously '170' matched records by digits inside the volume (3959 hits vs 663 now); search covers text fields only (path/designation/name/material/rev/role/model/author/creo/folder/revdate) and runs IN A BACKGROUND THREAD with an 'ischu po baze...' status so the window never freezes. (3) TYPE MARKERS in the HTML graph: a coloured letter badge on every node - D detail / S assembly / M manufacturing (ASSEM_MFG) / Ch drawing - plus a type legend next to the link legend. (4) the main window now opens HIGHER and sized to the screen (taskbar no longer covers the bottom status line, no more dragging on every start). SMOKE OK + compile 12 modules + _check_page 0 CDN.",
  "files": {
-  "engine.py": "298b8de55a2d31a36f5d657de16eb5060908ed55fbc3faa6f735c2f0f50d2020",
-  "plm_reader.py": "4d6215d7f8fe1100c9a719cb64c5623e404982796466a4fbb7a73ac1b84102a7",
-  "plm_toolwin.py": "95939db959672436ec3c0398632f8f8b35d9028408e5bdb205a4f99396695ab5",
+  "engine.py": "5e0914740d4f2c6df45336fab1413fc199cbc128678a53458f8b4a08cb5984a3",
+  "plm_reader.py": "54bf58273612968c225f5571c96eb51a8af554d972961a0e90e3b3f94ff26c55",
+  "plm_toolwin.py": "17bcef51a33b48d341bf8071aa15fe146f6544bedb938e6449948c0e22b7e231",
   "plm_history.py": "0e8a1b414f3ad7c67175251fb4192e26431b0e9760bcce6ba6d9faf03ada8c77",
   "plm_parse.py": "c6bb33a412b6b606ad402e3eb78cd49246b77738b69d82be1b6218a1358c0312",
-  "plm_dbview.py": "b5c55aea5a4ad2440e19f0699c6b21c04f8f01bc5a14b0511e04ed39357dcd83",
+  "plm_dbview.py": "7c652b6e767e88e46014a7a4fc3900ac8ac3275d0b488de21d4468650fdad374",
   "plm_settings.py": "af38f3242178d6259e9f08dd2c1a9de06e39e71ce2f6ea72b3106154073bcf00",
   "plm_scan.py": "e32d610e33932afaee4c952cb0b4564801508f0568d4360d7d039ffacb856f48",
   "plm_paths_window.py": "2aa94c50e9c6f7435e816cffd892f3e84af69cb3b7da493617f84813c814c7c0",
-  "creo_read.py": "9175d7a8ffc3007faf098c4077919c4a3a7bea79cd253cfd4054231347cc64e0",
-  "README.md": "b1b9972b8928b8837b75cea39080e54734d18261967e38e78d915b98c78315bc",
+  "creo_read.py": "eb28ec862c1eb4a5519f5215d4ec11d060222348c54ebc407abbcd5f88ada170",
+  "README.md": "a0b06470908bc86d10777f549e16d94033ac64537272890c3b47b5f1cc9f8775",
   "SHARE_copy.bat": "4eccb549a17251392337aeabbc3ef76233dfa3072beadff9d158cd6e932622ee",
   "plm_reader.bat": "bdd125397db3ac7e7432dbdb078a6a811ed4913fca02b062edb27907032fca3d",
   "plm_reader_gui.bat": "9f695898d5db6431e840784b9587c75304ca9e526b06f79d4b44ab026663bd20",
@@ -22,6 +22,6 @@
   ".gitignore": "911fbdb5acf889293fdc61c836b691014da748fa55bd6464ce35a67f30e636ee",
   "AGENTS.md": "3b08e6e81731ace78deac46df3b802de337c3924acb87c54fe1562a2573650ef",
   "plm_graph.py": "1b8dd06e7510e7e2cddb0f59a34b828b6b06e7c99d099fad2cafe1cd2d5fa026",
-  "plm_graph_page.html": "a54ee01229b7a55f20e62cd2050202f89ff5ad146728871e4efac0187a8909dd"
+  "plm_graph_page.html": "3b217285990e2a1f88c163ab2e5e3c534e3562a6b4a1d43542b4e26966d821e9"
  }
 }

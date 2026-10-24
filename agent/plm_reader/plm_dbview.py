@@ -265,7 +265,7 @@ def db_rows(folder=None, limit=2000, latest_only=False):
             rows.append({
                 "Файл": os.path.basename(p), "Тип": "", "Обозначение": desig or "",
                 "Наименование": name or "", "Материал": material or "",
-                "Объём, мм³": ("%.0f" % volume) if volume else "", "Габарит, мм": "",
+                "Объём, мм³": _vol_text(volume), "Габарит, мм": "",   # V106: отсев мусора
                 "Роль": role or "", "Родитель": "", "Ревизия": rev or "",
                 "Дата": revdate or "", "Пользователь": author or "",
                 "Создан": _fs_date(created), "_created_ts": float(created or 0),
@@ -294,16 +294,17 @@ def db_search_rows(words=None, limit=5000):
     try:
         c = db_conn()
         has = any(r[1] == "created" for r in c.execute("PRAGMA table_info(snapshots)"))
-        num = ("volume", "hist", "mtime") + (("created",) if has else ())
         sel = ("SELECT path,model,volume,material,name,designation,rev,author,revdate,role,hist,creo,"
                "mtime%s FROM snapshots" % (",created" if has else ""))
 
         def where_for(join, arr):
+            # V106: ищем ТОЛЬКО по текстовым полям. Числа (объём/записей/даты) в подстрочный
+            # поиск НЕ берём — иначе «170» находил записи по цифрам внутри объёма.
             conds, params = [], []
             for w in arr:
                 like = "%" + w + "%"
-                conds.append("(" + " OR ".join(cols + ["CAST(%s AS TEXT) LIKE ?" % n for n in num]) + ")")
-                params += [like] * (len(cols) + len(num))
+                conds.append("(" + " OR ".join(cols) + ")")
+                params += [like] * len(cols)
             return join.join(conds), params
 
         w_and, p_and = where_for(" AND ", ws)
@@ -329,6 +330,21 @@ def db_search_rows(words=None, limit=5000):
     return out, total, mode
 
 
+def _vol_text(v):
+    """Объём по-человечески, с отсевом МУСОРА (V106).
+
+    В старых базах есть «объёмы» из сотен цифр (битый double 1e+290) — их показывать нельзя
+    (владелец видел простыню цифр в столбце). Правдоподобно: 0 … 1e9 мм³ (1000 м³).
+    """
+    try:
+        f = float(v or 0)
+    except (TypeError, ValueError):
+        return ""
+    if f != f or f <= 0 or f > 1e9:
+        return ""
+    return "%.0f" % f
+
+
 def _row_from_db(t, vers=None):
     """Кортеж паспорта → словарь строки окна (единый вид с engine._row_dict)."""
     (p, model, volume, material, name, desig, rev, author, revdate, role, hist, creo,
@@ -336,7 +352,7 @@ def _row_from_db(t, vers=None):
     return {
         "Файл": os.path.basename(p or ""), "Тип": "", "Обозначение": desig or "",
         "Наименование": name or "", "Материал": material or "",
-        "Объём, мм³": ("%.0f" % volume) if volume else "", "Габарит, мм": "",
+        "Объём, мм³": _vol_text(volume), "Габарит, мм": "",
         "Роль": role or "", "Родитель": "", "Ревизия": rev or "",
         "Дата": revdate or "", "Пользователь": author or "",
         "Создан": _fs_date(created), "_created_ts": float(created or 0),

@@ -388,16 +388,32 @@ function draw(root){
            '" stroke="' + c + '" stroke-width="' + (k.startsWith("main") ? "2" : "1.2") +
            '" fill="none" marker-end="url(#ar-' + k + ')"/>';
   }
+  // V106: МАРКЕР ТИПА у каждого узла графа — деталь / сборка / мануфактуринг / чертёж.
+  // Владелец: «не понять в графе деталь/сборка/мануфактуринг». Буква + цвет типа + легенда.
+  function typeMark(n){
+    const k = (n.k || "").toUpperCase();
+    if (n.m) return ["М", "#c98a5a"];                    // М = мануфактуринг (ASSEM_MFG)
+    if (k.indexOf("ASSEMBLY") === 0 || k.indexOf("ASM") === 0) return ["С", "#4ea8e0"];
+    if (k.indexOf("PART") === 0 || k.indexOf("PRT") === 0) return ["Д", "#4ec97a"];
+    if (k.indexOf("DRAW") === 0) return ["Ч", "#a97cd8"];
+    return ["?", "#8fa0b3"];
+  }
   for (const m0 of Object.keys(pos)){
     const m = String(m0);                 // GRABLYA 23.10.2026: ключи могут быть числами
     const [px, py] = pos[m0], n = ND[m];
     if (!n) continue;                     // узла нет в данных — не рисуем (иначе TypeError)
+    const [mk, mc] = typeMark(n);
     const c = m === root ? "#56a6ff" : (n.m ? "#c98a5a" : "#59666f");
     svg += '<g class="nd" data-m="' + m + '" style="cursor:pointer">' +
       '<rect x="' + px + '" y="' + py + '" width="212" height="18" rx="4" fill="' +
       (m === root ? "#213042" : "#1b2128") + '" stroke="' + c + '"/>' +
-      '<text x="' + (px + 6) + '" y="' + (py + 13) + '">' +
-      (((n.nm || m).length > 32) ? (n.nm || m).slice(0, 31) + '…' : (n.nm || m)) + '</text></g>';
+      // бейдж типа: буква Д/С/М/Ч + цвет (клик по узлу — переход)
+      '<rect x="' + (px + 3) + '" y="' + (py + 3) + '" width="12" height="12" rx="3" fill="' +
+      mc + '"/>' +
+      '<text x="' + (px + 5.5) + '" y="' + (py + 12.5) + '" style="font-size:9px;font-weight:700" ' +
+      'fill="#14171a">' + mk + '</text>' +
+      '<text x="' + (px + 19) + '" y="' + (py + 13) + '">' +
+      (((n.nm || m).length > 30) ? (n.nm || m).slice(0, 29) + '…' : (n.nm || m)) + '</text></g>';
   }
   let leg = "";
   for (const k of Object.keys(CLR)){
@@ -407,10 +423,22 @@ function draw(root){
            CLR[k].s + '" stroke-width="' + (k.startsWith("main") ? "2.5" : "1.5") +
            '"/></svg>' + CLR[k].t + ' <b style="color:#8fa0b3">(' + used[k] + ')</b></span>';
   }
+  // V106: легенда ТИПОВ узлов (Д/С/М/Ч) — чтобы в графе было видно деталь/сборка/мануфактуринг
+  const TYPES = [["Д", "#4ec97a", "деталь"], ["С", "#4ea8e0", "сборка"],
+                 ["М", "#c98a5a", "мануфактуринг (ЧПУ)"], ["Ч", "#a97cd8", "чертёж"]];
+  let tleg = "";
+  for (const [mk, mc, mt] of TYPES){
+    tleg += '<span style="display:inline-flex;align-items:center;gap:5px;margin-right:12px">' +
+      '<span style="display:inline-block;width:12px;height:12px;border-radius:3px;background:' + mc +
+      ';color:#14171a;font-size:9px;font-weight:700;text-align:center;line-height:12px">' + mk +
+      '</span>' + mt + '</span>';
+  }
   document.getElementById("graph").innerHTML =
     '<div style="padding:8px 12px;color:#8fa0b3;font-size:11px;border-bottom:1px solid #20262c">' +
     'граф: ' + Object.keys(N).length + ' узлов · ' + L.length +
-    ' связей (клик по узлу — перейти)<div style="margin-top:5px">' + leg + '</div></div>' +
+    ' связей (клик по узлу — перейти)' +
+    '<div style="margin-top:5px">' + tleg + '</div>' +
+    '<div style="margin-top:5px">' + leg + '</div></div>' +
     '<svg width="' + W + '" height="' + H + '">' + svg + '</svg>';
   document.querySelectorAll("#graph .nd").forEach(el =>
     el.addEventListener("click", () => show(el.dataset.m)));

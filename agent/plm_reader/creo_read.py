@@ -69,14 +69,40 @@ def parse_toc(raw):
 def _endian(raw):
     return "big" if b"MACH SUN_SunOS" in raw[:512] else "little"
 
+# Правдоподобные пределы (V106): Creo-модель не бывает 1000 м³ и не бывает отрицательной.
+# Грабля владельца: в таблице появлялся «объём» из ~400 цифр (1.37e+290) — это БИТЫЙ double
+# (случайные 8 байт попали на шаблон `e0 02 volume 00 ed`). Такой мусор ломал и фильтр
+# (`CAST(volume AS TEXT) LIKE '%170%'` ловил цифры), и сортировку.
+VOL_MIN, VOL_MAX = 0.0, 1e9          # мм³: от 0 до 1000 м³
+
+
+def _sane_number(v):
+    """Отсеять мусорный double: NaN/inf/отрицательный/сверхбольшой → None."""
+    if v is None:
+        return None
+    try:
+        f = float(v)
+    except (TypeError, ValueError):
+        return None
+    if f != f or f in (float("inf"), float("-inf")):      # NaN / inf
+        return None
+    if f < VOL_MIN or f > VOL_MAX:
+        return None
+    return f
+
+
 def real(raw, key):
-    """Числовое поле `e0 02 <имя> 00 ed <8 байт BE double>` (объём, масса)."""
+    """Числовое поле `e0 02 <имя> 00 ed <8 байт BE double>` (объём, масса).
+
+    V106: значение проверяется `_sane_number` — битые double (1e+290 и т.п.) отбрасываются,
+    чтобы в базе и в таблице не появлялись «объёмы» из сотен цифр.
+    """
     m = re.search(rb"\xe0\x02" + key.encode() + rb"\x00\xed", raw)
     if not m or m.end() + 8 > len(raw):
         return None
     fmt = ">d" if _endian(raw) == "big" else "<d"
     try:
-        return struct.unpack(fmt, raw[m.end():m.end() + 8])[0]
+        return _sane_number(struct.unpack(fmt, raw[m.end():m.end() + 8])[0])
     except Exception:
         return None
 

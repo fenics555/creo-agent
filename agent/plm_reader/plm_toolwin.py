@@ -1163,10 +1163,18 @@ def run_gui():
     def _short(p):
         return p if len(p) <= 90 else "…" + p[-88:]
 
+    def _vol(v):
+        """Объём с отсевом мусора (V106): битые double (1e+290) не показываем."""
+        try:
+            f = float(v or 0)
+        except (TypeError, ValueError):
+            return ""
+        return ("%.0f" % f) if (f == f and 0 < f <= 1e9) else ""
+
     def _file_row(parent, p, desig, name, material, volume, rev, role):
         return tview.insert(parent, "end", values=(
             "файл", os.path.basename(p), desig or "", name or "", material or "",
-            ("%.0f" % volume) if volume else "", rev or "", role or "", _short(p)))
+            _vol(volume), rev or "", role or "", _short(p)))
 
     def node_add(node, folder):
         subs, files = eng.folder_children(folder)
@@ -1185,7 +1193,7 @@ def run_gui():
         role = (i[5] or "") if len(i) > 5 else ""
         kind = "оснастка" if role == "MFG" else ("изделие" if (i[6] or i[7]) else "деталь")
         return (kind, m, i[0] or "", i[1] or "", i[2] or "",
-                ("%.0f" % i[3]) if (len(i) > 3 and i[3]) else "", i[4] or "", role, qty)
+                _vol(i[3] if len(i) > 3 else 0), i[4] or "", role, qty)   # V106: объём без мусора
 
     def _fill_node(tree_widget, node, model, with_up=True):
         """ЕДИНЫЙ строитель ветки для обеих площадок.
@@ -3761,22 +3769,11 @@ def run_gui():
             sort_state["col"], sort_state["desc"] = col, False
         redraw()
 
-    def redraw():
-        pat = e_filter.get().strip()
-        prev = tree.selection()
-        keep = prev[0] if prev else ""
-        if pat:                       # ФИЛЬТР — по ВСЕЙ БАЗЕ, а не по загруженной странице
-            # V103: фильтр делает SQL (быстро). В горячем пути НЕТ db_total/path_under —
-            # они давали лишние проходы на КАЖДОЕ нажатие. Итог «в базе» берём из COUNT фильтра.
-            rows, hits, mode = db_search_rows(pat.split(), int(settings.get("show_limit") or 50000))
-            rts = [r for r in roots_of(e_folder.get(), e_folder2.get()) if os.path.isdir(r)]
-            in_r = sum(1 for r in rows if path_under(r["_path"], rts)) if rts else len(rows)
-            tail = (" · по фильтру %d (слова: %s) · в папках окна %d, вне папок %d%s"
-                    % (hits, mode, in_r, len(rows) - in_r,
-                       (" · показаны первые %d — уточните слова" % len(rows)) if hits > len(rows) else ""))
-        else:
-            rows = list(rows_all)
-            tail = " из %d загруженных" % len(rows_all)
+    # V106: фильтр по базе идёт В ФОНЕ — иначе на большой базе окно «вешало» на время запроса.
+    _flt = {"seq": 0}
+
+    def _fill_rows(rows, tail, keep):
+        """Вставка строк в таблицу (в главном потоке — Tk не любит чужие потоки)."""
         rows.sort(key=lambda r: sort_key(r, sort_state["col"]), reverse=sort_state["desc"])
         shown[:] = rows
         tree.delete(*tree.get_children())
@@ -3793,6 +3790,43 @@ def run_gui():
             live_tree()                       # низ всегда следует за выбором (иначе — общее дерево)
         except Exception:
             pass
+
+    def redraw():
+        pat = e_filter.get().strip()
+        prev = tree.selection()
+        keep = prev[0] if prev else ""
+        if not pat:
+            rows = list(rows_all)
+            _fill_rows(rows, " из %d загруженных" % len(rows_all), keep)
+            return
+        # ФИЛЬТР — по ВСЕЙ базе, но В ФОНЕ: окно остаётся живым, в статусе «ищу…».
+        _flt["seq"] += 1
+        my = _flt["seq"]
+        lbl.config(text="ищу по базе: %s …" % pat)
+
+        def work():
+            try:
+                rows, hits, mode = db_search_rows(pat.split(),
+                                                  int(settings.get("show_limit") or 50000))
+                rts = [r for r in roots_of(e_folder.get(), e_folder2.get()) if os.path.isdir(r)]
+                in_r = sum(1 for r in rows if path_under(r["_path"], rts)) if rts else len(rows)
+                tail = (" · по фильтру %d (слова: %s) · в папках окна %d, вне папок %d%s"
+                        % (hits, mode, in_r, len(rows) - in_r,
+                           (" · показаны первые %d — уточните слова" % len(rows))
+                           if hits > len(rows) else ""))
+            except Exception as ex:              # noqa: BLE001
+                rows, tail = [], " · ошибка поиска: %s" % ex
+
+            def apply():
+                if my != _flt["seq"]:            # пришёл более новый запрос — этот не рисуем
+                    return
+                _fill_rows(rows, tail, keep)
+            try:
+                root.after(0, apply)
+            except Exception:
+                pass
+
+        threading.Thread(target=work, daemon=True).start()
 
     def rebuild_tree():
         nonlocal tree
@@ -4591,7 +4625,14 @@ def run_gui():
 
     try:                                   # окно не «прыгает» при переключении вкладок
         root.update_idletasks()
-        root.geometry("1520x900")          # слева панель настроек, справа два окна пополам
+        # V106: окно ВЫШЕ и не шире экрана — иначе полоса задач («ПУСК») перекрывала низ,
+        # где строка состояния/лог, и окно приходилось каждый раз перетаскивать.
+        _sw, _sh = root.winfo_screenwidth(), root.winfo_screenheight()
+        _w = min(1520, max(1000, _sw - 40))
+        _h = min(900, max(600, _sh - 120))     # запас снизу под панель задач
+        _x = max(0, (_sw - _w) // 2)
+        _y = 0 if _sh - _h < 140 else max(0, (_sh - _h) // 2 - 40)   # чуть выше центра
+        root.geometry("%dx%d+%d+%d" % (_w, _h, _x, _y))
         _half_try()                        # разделитель — в половину (с повторами, пока не разложится)
     except Exception:
         pass
