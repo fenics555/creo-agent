@@ -7,6 +7,8 @@ settings.json
 
 # PDM-Консоль: страница собирается на месте (V100) — в репозиторий не идёт
 CREO_GRAPH.html
+# V103: порции данных для ленивой загрузки — тоже собираются на месте
+CREO_GRAPH_data.js
 media_cache.json
 _diag/
 pg.log

@@ -55,6 +55,22 @@ def _norm(name):
     return s.upper()
 
 
+def _kind_by_path(path):
+    """Тип модели ПО РАСШИРЕНИЮ файла (без чтения) — чтобы .asm не показывался как PRT.
+
+    V104: файл может быть недоступен (сеть/бюджет превью) — тип всё равно нужен.
+    Точное уточнение (ASSEMBLY/ASSEM_MFG) делает чтение файла, когда оно есть.
+    """
+    low = (path or "").lower()
+    if ".asm." in low or low.endswith(".asm"):
+        return "ASSEMBLY"
+    if ".prt." in low or low.endswith(".prt"):
+        return "PART"
+    if ".drw." in low or low.endswith(".drw"):
+        return "DRAWING"
+    return "?"
+
+
 def _media_cache_path():
     return os.path.join(HERE, "db", "media_cache.json")
 
@@ -131,7 +147,11 @@ def collect_by_path(media_dir=None):
             creo = (row[4] or "")
             v = creo if creo.upper().startswith("CREO") else (("Creo " + creo) if creo else "")
             img = img2 = ""
-            kind = "?"
+            # ТИП ПО РАСШИРЕНИЮ ИЗ БАЗЫ (без чтения файла!) — V104.
+            # Грабля: раньше kind брался ТОЛЬКО из прочитанного файла (при сборе превью), и если
+            # файл не читали (бюджет превью исчерпан / нет доступа), оставался "?" → страница
+            # показывала «PRT» даже для .asm-сборки (жалоба владельца: AX57K-V2 = PRT, а это сборка).
+            kind = _kind_by_path(path)
             mfg = False
             # КЭШ: если файл уже читали — берём готовые превью, к диску не идём
             if path in cache:
@@ -177,19 +197,33 @@ def collect_by_path(media_dir=None):
             if img or img2:
                 cache[path] = (img, img2)
                 cnt_media += 1
-        # связи: имена → пути (все варианты; если имя одно — одно ребро)
+        # СВЯЗИ: V104 — СКЛЕЙКА ПО МОДЕЛИ, затем раскладка на пути.
+        #
+        # ГЛАВНАЯ ГРАБЛЯ (жалоба владельца «HB72501-401 подряд десятки раз»):
+        # у имени бывает МНОГО путей (HB72501-401 — 98 файлов), и прежняя логика «на каждую
+        # комбинацию путей — своё ребро» давала ВЗРЫВ: 30 строк links × 98 путей = 948 рёбер.
+        # Поэтому: (1) сначала СКЛЕИВАЕМ связи на уровне ИМЁН (одна связь «имя→имя» = одно ребро,
+        # количество суммируется); (2) затем раскладываем по путям, но ТОЛЬКО для тех узлов,
+        # что реально попали в страницу — и один узел получает НЕ БОЛЕЕ ОДНОЙ строки на соседа.
+        agg = {}
+
+        def add_edge(fr_name, to_name, typ, q):
+            if not fr_name or not to_name or fr_name == to_name:
+                return
+            k = (fr_name, to_name, typ)
+            agg[k] = agg.get(k, 0) + int(q or 1)
+
         for row in con.execute("SELECT parent, child, qty FROM links"):
-            for pk in by_name.get(_norm(row[0]), []):
-                for ck in by_name.get(_norm(row[1]), []):
-                    if pk != ck:
-                        edges.append({"from": pk, "to": ck, "type": "деталь", "channel": "db"})
+            add_edge(_norm(row[0]), _norm(row[1]), "деталь", row[2])
         for row in con.execute("SELECT child, base, kind FROM derived"):
             k0 = (row[2] or "").lower()
-            kind2 = "копия" if "коп" in k0 else "заготовка"
-            for ck in by_name.get(_norm(row[0]), []):
-                for bk in by_name.get(_norm(row[1]), []):
-                    if ck != bk:
-                        edges.append({"from": ck, "to": bk, "type": kind2, "channel": "db"})
+            add_edge(_norm(row[0]), _norm(row[1]), "копия" if "коп" in k0 else "заготовка", 1)
+        for (fr, to, typ), q in agg.items():
+            for pk in by_name.get(fr, []):
+                for ck in by_name.get(to, []):
+                    if pk != ck:
+                        edges.append({"from": pk, "to": ck, "type": typ, "qty": q,
+                                      "channel": "db"})
     except Exception as e:             # noqa: BLE001
         # НЕ ГЛУШИМ: раньше исключение съедалось и откат шёл на неверную модель
         # (ключ = имя) — из-за этого граф строился «не тот». Теперь видно.
@@ -289,16 +323,22 @@ def collect_from_db(media_dir=None):
             nodes[model] = {"k": kind, "v": v, "m": mfg, "i": img, "i2": img2,
                             "s": int(row[6] or 0), "p": path.split("\\")[-1],
                             "role": role}
+        # V104: склейка одинаковых связей + суммирование qty (без дублей «одна связь = строка»)
+        agg = {}
+
+        def add_edge(fr, to, typ, q):
+            if fr and to and fr != to and fr in nodes and to in nodes:
+                k = (fr, to, typ)
+                agg[k] = agg.get(k, 0) + int(q or 1)
+
         for row in con.execute("SELECT parent, child, qty FROM links"):
-            p, c = _norm(row[0]), _norm(row[1])
-            if p and c and p != c and p in nodes and c in nodes:
-                edges.append({"from": p, "to": c, "type": "деталь", "channel": "db"})
+            add_edge(_norm(row[0]), _norm(row[1]), "деталь", row[2])
         for row in con.execute("SELECT child, base, kind FROM derived"):
-            c, b = _norm(row[0]), _norm(row[1])
             k = (row[2] or "").lower()
-            kind = "копия" if "коп" in k else "заготовка"
-            if b and c and b != c and c in nodes and b in nodes:
-                edges.append({"from": c, "to": b, "type": kind, "channel": "db"})
+            add_edge(_norm(row[0]), _norm(row[1]),
+                     "копия" if "коп" in k else "заготовка", 1)
+        for (fr, to, typ), q in agg.items():
+            edges.append({"from": fr, "to": to, "type": typ, "qty": q, "channel": "db"})
     except Exception:                  # noqa: BLE001
         pass
     finally:
@@ -539,6 +579,29 @@ def build_html(nodes, edges, media_dir, stats_extra=None):
     for e in edges:
         out_[e["from"]].append(e)
         in_[e["to"]].append(e)
+    # V104: ОДНА строка на МОДЕЛЬ-соседа (жалоба владельца «HB72501-401 подряд десятки раз»).
+    # У имени бывает много путей (HB72501-401 — 98), и в «связях» появлялись все пути одной
+    # модели подряд. Сворачиваем по ИМЕНИ соседа (+тип): количество суммируется, а путь-дубль
+    # не показывается. Ключ узла (индекс) берём — самый «богатый» путь, чтобы ссылка вела.
+    # Приоритет типа при склейке: «заготовка»/«копия» важнее «деталь» (их и показываем).
+    _TPRI = {"деталь": 0, "заготовка": 1, "база/заготовка": 1, "копия": 2}
+
+    def _merge(lst, side):
+        """Одна строка на МОДЕЛЬ-соседа. Типы одной пары склеиваем (берём «сильнейший»)."""
+        res = {}
+        for e in lst:
+            nm = (nodes.get(e[side], {}) or {}).get("n") or e[side]
+            cur = res.get(nm)
+            if cur is None:
+                res[nm] = {"idx": e[side], "type": e.get("type", ""),
+                           "qty": int(e.get("qty", 1) or 1)}
+            else:
+                cur["qty"] += int(e.get("qty", 1) or 1)
+                if _TPRI.get(e.get("type", ""), 0) > _TPRI.get(cur["type"], 0):
+                    cur["type"] = e.get("type", "")
+        return [{"key": v["idx"], "type": v["type"], "qty": v["qty"]} for v in res.values()]
+    out_m = {m: _merge(v, "to") for m, v in out_.items()}
+    in_m = {m: _merge(v, "from") for m, v in in_.items()}
     # КОМПАКТНО: в страницу идут только узлы, у которых ЕСТЬ связи или превью,
     # плюс ограничение объёма (иначе 46 МБ — браузер не отрисует).
     cfg0 = load_settings()
@@ -570,10 +633,12 @@ def build_html(nodes, edges, media_dir, stats_extra=None):
         nd[idx[m]] = {"k": v.get("k", "?"), "v": v.get("v", ""), "m": bool(v.get("m")),
                       "i": v.get("i", ""), "i2": v.get("i2", ""),
                       "s": v.get("s", 0), "nm": nm, "dir": folder,
-                      "o": [[idx[e["to"]], e["type"]] for e in out_.get(m, [])
-                            if e["to"] in idx],
-                      "n": [[idx[e["from"]], e["type"]] for e in in_.get(m, [])
-                            if e["from"] in idx]}
+                      # o — состав (что использует модель), n — входимость (кто использует её).
+                      # V104: [номер, тип, количество] — ОДНА строка на соседа (без дублей).
+                      "o": [[idx[e["key"]], e["type"], e["qty"]] for e in out_m.get(m, [])
+                            if e["key"] in idx],
+                      "n": [[idx[e["key"]], e["type"], e["qty"]] for e in in_m.get(m, [])
+                            if e["key"] in idx]}
     # статистика — ПО СТРАНИЦЕ (в неё попадает часть узлов), а не по всей базе
     n_img = sum(1 for v in nd.values() if v.get("i"))
     n_e = sum(len(v.get("o") or []) for v in nd.values())
@@ -593,9 +658,58 @@ def build_html(nodes, edges, media_dir, stats_extra=None):
                      ("__CARDH__", cfg["graph_card_h"]), ("__THUMB__", cfg["graph_thumb"])):
         page = page.replace(key, str(val))
     st["cfg"] = {k: v for k, v in cfg.items() if k != "graph_media"}
-    return (page.replace("__DATA__", json.dumps(nd, ensure_ascii=False))
-                .replace("__STATS__", json.dumps(st, ensure_ascii=False))
+    # V103 (24.10.2026) ЛЕНИВАЯ ЗАГРУЗКА: в HTML кладём ПЕРВУЮ ПОРЦИЮ (сразу рисуется),
+    # остальные узлы уезжают в `CREO_GRAPH_data.js` (window.PLM_CHUNKS) — страница открывается
+    # мгновенно, а список/граф наполняются по мере поступления порций.
+    _write_chunks(nd, st)
+    first_chunk, rest = _split_chunks(nd, st)
+    return (page.replace("__DATA__", json.dumps(first_chunk["nodes"], ensure_ascii=False))
+                .replace("__STATS__", json.dumps(first_chunk["stats"], ensure_ascii=False))
                 .replace("__MEDIA__", rel))
+
+
+DATA_JS = os.path.join(HERE, "CREO_GRAPH_data.js")
+
+
+def _chunk_size():
+    """Сколько узлов в одной порции (настройка `graph_chunk_nodes`, по умолчанию 1200)."""
+    try:
+        return max(200, int(load_settings().get("graph_chunk_nodes", 1200)))
+    except Exception:
+        return 1200
+
+
+def _split_chunks(nd, st):
+    """Первую порцию — в HTML (сразу), остальные — в файл `CREO_GRAPH_data.js`."""
+    keys = list(nd.keys())
+    size = _chunk_size()
+    first_keys = keys[:size]
+    first = {"nodes": {k: nd[k] for k in first_keys},
+             "stats": dict(st, nodes=len(first_keys))}
+    return first, [k for k in keys[size:]]
+
+
+def _write_chunks(nd, st):
+    """Записать ПОРЦИИ узлов в `CREO_GRAPH_data.js` (window.PLM_CHUNKS = [...]) — рядом с HTML.
+
+    Порядок порций: сначала узлы С НАИБОЛЬШИМ числом связей (чтобы «живой» граф наполнялся
+    осмысленно — первыми приходят самые связанные изделия).
+    """
+    size = _chunk_size()
+    keys = sorted(nd.keys(),
+                  key=lambda k: -(len(nd[k].get("o") or []) + len(nd[k].get("n") or [])))
+    chunks = []
+    for i in range(size, len(keys), size):
+        part = {k: nd[k] for k in keys[i:i + size]}
+        chunks.append({"nodes": part, "stats": dict(st, nodes=len(part))})
+    try:
+        with open(DATA_JS, "w", encoding="utf-8") as f:
+            f.write("window.PLM_CHUNKS = ")
+            json.dump(chunks, f, ensure_ascii=False, separators=(",", ":"))
+            f.write(";\n")
+    except Exception as e:                 # noqa: BLE001
+        print("данные-порции не записаны: %s" % e)
+    return len(chunks)
 
 
 def load_page_template():
@@ -643,9 +757,16 @@ def main():
         return 1
     with open(DST, "w", encoding="utf-8") as f:
         f.write(html)
+    n_chunks = 0
+    try:
+        if os.path.isfile(DATA_JS):
+            n_chunks = os.path.getsize(DATA_JS)
+    except Exception:
+        pass
     print("источник: %s | узлов %d | рёбер %d | с превью %d"
           % (src, len(nodes), len(edges), sum(1 for v in nodes.values() if v.get("i"))))
-    print("->", DST)
+    print("-> %s  (+ порции: %s, %d КБ — догружаются страницей)"
+          % (DST, os.path.basename(DATA_JS), n_chunks // 1024))
     if not no_open and cfg.get("graph_open_browser", True):
         try:
             import webbrowser

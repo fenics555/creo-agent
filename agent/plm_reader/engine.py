@@ -1452,27 +1452,65 @@ def folder_files_count(folder):
         return 0, 0
 
 
-FILE_COLS = ("path", "designation", "name", "material", "rev", "role", "model")
+# Поля поиска = ВСЕ столбцы, которые видно в окне по настройкам (требование владельца 24.10.2026).
+# Текст ищется LIKE-ом; числа/даты — приведением к строке (CAST), чтобы «2026» находило и дату.
+FILE_COLS = ("path", "designation", "name", "material", "rev", "role", "model",
+             "author", "creo", "folder", "revdate")
+# Числовые/временные поля — ищем по CAST(... AS TEXT), чтобы слово находило и объём, и записей.
+FILE_NUM_COLS = ("volume", "hist", "mtime", "created")
 
 
-def _like_cond(words, cols):
+def file_search_cols():
+    """Колонки поиска: текстовые LIKE + числовые CAST. Возвращает список SQL-выражений."""
+    cols = ["%s LIKE ?" % c for c in FILE_COLS]
+    cols += ["CAST(%s AS TEXT) LIKE ?" % c for c in FILE_NUM_COLS]
+    return cols
+
+
+def _like_cond(words, cols=None):
     """«каждое слово встречается в любой из колонок» — фильтр по ВСЕМ словам, что видно в окне."""
+    cols = cols or file_search_cols()
     conds, params = [], []
     for w in words:
         like = "%" + w + "%"
-        conds.append("(" + " OR ".join("%s LIKE ?" % c for c in cols) + ")")
+        conds.append("(" + " OR ".join(cols) + ")")
         params += [like] * len(cols)
     return " AND ".join(conds), params
 
 
+# Строки паспорта, которые отдаёт база (порядок = распаковка в _row_dict).
+ROW_SQL = ("path,model,volume,material,name,designation,rev,author,revdate,role,hist,creo,"
+           "mtime,created")
+
+
+def _row_dict(t):
+    """Кортеж из ROW_SQL → словарь строки окна (единый вид для окна и поиска)."""
+    (p, model, volume, material, name, desig, rev, author, revdate, role, hist, creo,
+     mtime, created) = (list(t) + [None] * 14)[:14]
+    return {
+        "Файл": os.path.basename(p or ""), "Тип": "", "Обозначение": desig or "",
+        "Наименование": name or "", "Материал": material or "",
+        "Объём, мм³": ("%.0f" % volume) if volume else "", "Габарит, мм": "",
+        "Роль": role or "", "Родитель": "", "Ревизия": rev or "",
+        "Дата": revdate or "", "Пользователь": author or "", "Версия Creo": creo or "",
+        "Записей": str(hist or ""), "Создан": _fs_date(created),
+        "_created_ts": float(created or 0), "Изменён": _fs_date(mtime),
+        "_mtime_ts": float(mtime or 0), "_path": p or "", "_model": model or "",
+    }
+
+
 def search_files(text, limit=3000):
-    """Фильтр по ВСЕЙ базе: каждое слово — в пути/обозначении/наименовании/материале/ревизии/роли/модели."""
+    """Фильтр по ВСЕЙ базе (SQL, не Python): каждое слово — в любом видимом поле паспорта.
+
+    V103: раньше читалась ВСЯ таблица в Python и фильтровалась там (медленно на 40k+ строк);
+    теперь фильтр и LIMIT делает SQLite — быстро и масштабируемо.
+    """
     words = [w for w in (text or "").split() if w]
     if not words:
         return []
-    where, params = _like_cond(words, FILE_COLS)
+    where, params = _like_cond(words)
     try:
-        con = connect()
+        con = connect(ro=True)
         rows = con.execute(
             "SELECT path,folder,designation,name,material,volume,rev,role FROM snapshots "
             "WHERE %s ORDER BY path LIMIT ?" % where, params + [limit]).fetchall()
@@ -1486,9 +1524,9 @@ def count_files(text):
     words = [w for w in (text or "").split() if w]
     if not words:
         return 0
-    where, params = _like_cond(words, FILE_COLS)
+    where, params = _like_cond(words)
     try:
-        con = connect()
+        con = connect(ro=True)
         n = con.execute("SELECT COUNT(*) FROM snapshots WHERE %s" % where, params).fetchone()[0]
         con.close()
         return n
@@ -1908,19 +1946,23 @@ def plm_parents(model):
 
 def plm_up_data(model, depth=8):
     """ВХОДИМОСТЬ ВВЕРХ одним заходом: {модель: [(родитель, кол-во)]} по всей цепочке сборок.
-    Служебные (шаблоны) не попадают в цепочку."""
+
+    V104: кол-во СУММИРУЕТСЯ в SQL (`GROUP BY child,parent`) — иначе одна и та же пара
+    повторялась столько раз, сколько путей у имени (жалоба владельца: «HB72501-401 подряд»).
+    Служебные (шаблоны) не попадают в цепочку.
+    """
     out = {}
     svc = service_stems()
     try:
-        con = connect()
+        con = connect(ro=True)
         frontier = [stem(model)]
         seen = set(frontier)
         for _ in range(depth):
             if not frontier:
                 break
             q = ",".join("?" * len(frontier))
-            rows = con.execute("SELECT child,parent,qty FROM links WHERE child IN (%s)" % q,
-                               frontier).fetchall()
+            rows = con.execute("SELECT child,parent,SUM(qty) FROM links WHERE child IN (%s) "
+                               "GROUP BY child,parent" % q, frontier).fetchall()
             nxt = []
             for ch, par, qty in rows:
                 if (par or "").upper() in svc:
@@ -1937,18 +1979,22 @@ def plm_up_data(model, depth=8):
 
 
 def plm_down_data(model, depth=2):
-    """СОСТАВ вниз на N уровней: {модель: [(ребёнок, кол-во)]}. Служебные (шаблоны) не попадают."""
+    """СОСТАВ вниз на N уровней: {модель: [(ребёнок, кол-во)]}. Служебные (шаблоны) не попадают.
+
+    V104: кол-во СУММИРУЕТСЯ в SQL (`GROUP BY parent,child`) — одна строка на компонент,
+    без повторов «по числу путей» (та же грабля, что в `plm_up_data`).
+    """
     out = {}
     svc = service_stems()
     try:
-        con = connect()
+        con = connect(ro=True)
         frontier = [stem(model)]
         for _ in range(depth):
             if not frontier:
                 break
             q = ",".join("?" * len(frontier))
-            rows = con.execute("SELECT parent,child,qty FROM links WHERE parent IN (%s)" % q,
-                               frontier).fetchall()
+            rows = con.execute("SELECT parent,child,SUM(qty) FROM links WHERE parent IN (%s) "
+                               "GROUP BY parent,child" % q, frontier).fetchall()
             nxt = []
             for par, ch, qty in rows:
                 if (ch or "").upper() in svc:

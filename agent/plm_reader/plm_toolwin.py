@@ -1103,8 +1103,11 @@ def run_gui():
 
     _deb = {"id": None}
 
-    def debounce(fn, ms=450):
-        """Простое решение от тормозов: запускать поиск через паузу после набора."""
+    def debounce(fn, ms=250):
+        """Простое решение от тормозов: запускать поиск через паузу после набора.
+
+        V103 (24.10.2026): 450 → 250 мс — фильтр теперь SQL (0.1 с), отзывчивее без нагрузки.
+        """
         if _deb["id"]:
             try:
                 root.after_cancel(_deb["id"])
@@ -3076,6 +3079,14 @@ def run_gui():
                 if b and b not in nodes:
                     nodes[b] = {"kind": "der", "level": 0}
                     edges.append((b, root, "der", ""))
+        # V104: СКЛЕЙКА рёбер — одна линия на пару (a,b,вид), количество суммируется.
+        # Грабля владельца: в базе одна пара встречается многократно (по числу путей имени),
+        # и в графе одна связь рисовалась десятками линий. Теперь линия одна, число — на ней.
+        agg = {}
+        for a, b, k, q in edges:
+            key = (a, b, k)
+            agg[key] = agg.get(key, 0) + (int(q) if str(q).isdigit() else 1)
+        edges = [(a, b, k, q) for (a, b, k), q in agg.items()]
         return nodes, edges
 
     def _graph_layout(nodes, edges):
@@ -3546,16 +3557,31 @@ def run_gui():
         except Exception as e:                       # noqa: BLE001
             lsubj.config(text="PDM-Консоль: модуль plm_graph недоступен (%s)" % e)
             return
-        lsubj.config(text="PDM-Консоль: собираю граф из базы…")
-        try:
-            rc = plm_graph.main()
-        except Exception as e:                       # noqa: BLE001
-            lsubj.config(text="PDM-Консоль: ошибка — %s" % e)
-            return
-        if rc:
-            lsubj.config(text="PDM-Консоль: нет данных — сначала просканируйте базу")
-            return
-        lsubj.config(text="PDM-Консоль: открылась в браузере (%s)" % plm_graph.DST)
+        # V103 (24.10.2026) ЛЕНИВО: сборку ведём В ФОНЕ — окно не замирает на время сбора
+        # (раньше plm_graph.main() блокировал главный поток: данные + превью до 120 с).
+        lsubj.config(text="PDM-Консоль: собираю граф из базы (в фоне, окно свободно)…")
+
+        def _work():
+            try:
+                rc = plm_graph.main()
+            except Exception as e:                   # noqa: BLE001
+                try:
+                    root.after(0, lambda: lsubj.config(text="PDM-Консоль: ошибка — %s" % e))
+                except Exception:
+                    pass
+                return
+
+            def _done():
+                if rc:
+                    lsubj.config(text="PDM-Консоль: нет данных — сначала просканируйте базу")
+                else:
+                    lsubj.config(text="PDM-Консоль: открылась в браузере (%s)" % plm_graph.DST)
+            try:
+                root.after(0, _done)
+            except Exception:
+                pass
+
+        threading.Thread(target=_work, daemon=True).start()
 
     def _nav_record(model):
         """V83: запись истории переходов низа (кнопки ← →). Пустые/повторы не пишем, lock пропускаем."""
@@ -3740,11 +3766,13 @@ def run_gui():
         prev = tree.selection()
         keep = prev[0] if prev else ""
         if pat:                       # ФИЛЬТР — по ВСЕЙ БАЗЕ, а не по загруженной странице
+            # V103: фильтр делает SQL (быстро). В горячем пути НЕТ db_total/path_under —
+            # они давали лишние проходы на КАЖДОЕ нажатие. Итог «в базе» берём из COUNT фильтра.
             rows, hits, mode = db_search_rows(pat.split(), int(settings.get("show_limit") or 50000))
             rts = [r for r in roots_of(e_folder.get(), e_folder2.get()) if os.path.isdir(r)]
             in_r = sum(1 for r in rows if path_under(r["_path"], rts)) if rts else len(rows)
-            tail = (" · по фильтру %d в базе %d (слова: %s) · в папках окна %d, вне папок %d%s"
-                    % (hits, db_total(None), mode, in_r, len(rows) - in_r,
+            tail = (" · по фильтру %d (слова: %s) · в папках окна %d, вне папок %d%s"
+                    % (hits, mode, in_r, len(rows) - in_r,
                        (" · показаны первые %d — уточните слова" % len(rows)) if hits > len(rows) else ""))
         else:
             rows = list(rows_all)
@@ -3835,19 +3863,56 @@ def run_gui():
                        % (r.get("models", r["total"]), r["total"], r["secs"], _tail))
         log_line("check: %s" % r.get("verdict", ""))
 
-    def load_base(limit=None):
-        """Показать базу БЕЗ чтения файлов: строки паспортов из plm_reader.db."""
+    def load_base(limit=None, first=False):
+        """Показать базу БЕЗ чтения файлов: строки паспортов из plm_reader.db.
+
+        V103 (24.10.2026) ЛЕНИВО: `first=True` — показать ПЕРВУЮ ПОРЦИЮ сразу и добрать
+        остаток в фоне (окно не ждёт). `first=False` — как раньше, всё за раз.
+        """
         if not limit:
             limit = int(settings.get("show_limit") or 50000)   # лимит показа — из настройки «ПОКАЗ строк»
         roots = [r for r in roots_of(e_folder.get(), e_folder2.get()) if os.path.isdir(r)]
+        where = " + ".join(roots) if roots else "вся база"
+        CHUNK = int(settings.get("lazy_first_chunk") or 1500)  # первая порция (настройка)
+        if not first or limit <= CHUNK:
+            rows_all.clear()
+            tree.delete(*tree.get_children())
+            rows_all.extend(db_rows(roots or None, limit))
+            redraw()
+            tot = db_total(roots or None)
+            lbl.config(text="из базы: показано %d из %d (%s)" % (len(rows_all), tot, where))
+            log_line("base: показано %d из %d (%s)" % (len(rows_all), tot, where))
+            return
+
+        # --- ЛЕНИВО: первая порция сразу, остаток — в фоне ---
         rows_all.clear()
         tree.delete(*tree.get_children())
-        rows_all.extend(db_rows(roots or None, limit))
+        rows_all.extend(db_rows(roots or None, CHUNK))
         redraw()
-        tot = db_total(roots or None)
-        where = " + ".join(roots) if roots else "вся база"
-        lbl.config(text="из базы: показано %d из %d (%s)" % (len(rows_all), tot, where))
-        log_line("base: показано %d из %d (%s)" % (len(rows_all), tot, where))
+        lbl.config(text="из базы: показано %d — догружаю остальное… (%s)" % (len(rows_all), where))
+
+        def _rest():
+            try:
+                more = db_rows(roots or None, limit)[CHUNK:]
+            except Exception:
+                more = []
+
+            def _apply():
+                if not more:
+                    return
+                known = {r.get("_path") for r in rows_all}
+                rows_all.extend(r for r in more if r.get("_path") not in known)
+                redraw()
+                tot = db_total(roots or None)
+                lbl.config(text="из базы: показано %d из %d (%s)"
+                           % (len(rows_all), tot, where))
+                log_line("base: показано %d из %d (%s)" % (len(rows_all), tot, where))
+            try:
+                root.after(0, _apply)
+            except Exception:
+                pass
+
+        threading.Thread(target=_rest, daemon=True).start()
 
     def _active_stamp():
         """Отпечаток активной базы (имя+время) — по нему замечаем публикацию другого ПК."""
@@ -4482,11 +4547,19 @@ def run_gui():
     root.after(1200, _offer_archive_cleanup)
 
     btn.config(command=go)
-    _bs = db_summary()
-    log_line("base: изделий %d, файлов с копиями версий %d, связей %d, папок %d, изменений %d"
-             % (_bs.get("models", 0), _bs.get("files", 0), _bs.get("links", 0),
-                _bs.get("folders", 0), _bs.get("changes", 0)))
-    if _bs.get("files"):
+
+    # V103 (24.10.2026) ЛЕНИВАЯ ЗАГРУЗКА: окно ПОКАЗЫВАЕТСЯ СРАЗУ, данные догружаются после.
+    # Раньше db_summary+load_base+check_base шли ДО mainloop — окно «не появлялось», пока
+    # не обойдётся весь диск Z: (1.5–2.3 с). Теперь: сперва пустое окно → сводка базы →
+    # первая порция списка → проверка актуальности в ФОНЕ → добор остатка.
+    def _startup_load():
+        _bs = db_summary()
+        log_line("base: изделий %d, файлов с копиями версий %d, связей %d, папок %d, изменений %d"
+                 % (_bs.get("models", 0), _bs.get("files", 0), _bs.get("links", 0),
+                    _bs.get("folders", 0), _bs.get("changes", 0)))
+        if not _bs.get("files"):
+            lbl.config(text="база пуста — нажмите «Сканировать»")
+            return
         # V35: цифры по-человечески — главная = ИЗДЕЛИЯ (без дублей .1/.2), рядом файлы с копиями версий
         # 07.10.2026: если правила разбора новее базы — ПРЯМО ГОВОРИМ, что нужен полный скан
         _tag_note = "   ⚠ ПРАВИЛА РАЗБОРА ИЗМЕНИЛИСЬ — нужен СКАН (перечитает все файлы)"
@@ -4496,10 +4569,12 @@ def run_gui():
             _tag_note = ""
         lbl.config(text="база: изделий %d (файлов с копиями версий %d) · изменений %d — читаю из базы…%s"
                    % (_bs.get("models", 0), _bs.get("files", 0), _bs.get("changes", 0), _tag_note))
-        load_base()
+        load_base(first=True)              # ПЕРВАЯ ПОРЦИЯ — сразу, остальное доберётся фоном
         root._plm_db_stamp = _active_stamp()
-        check_base()
-        root.after(500, live_auto)         # нижнее дерево ПЛМ строится само при открытии
+        root.after(50, check_base)         # проверка диска — в ФОНЕ (не держит окно)
+        root.after(400, live_auto)         # нижнее дерево ПЛМ строится само при открытии
+
+    root.after(0, _startup_load)           # окно уже на экране — данные придут следующим шагом
 
     root.after(15000, watch_db)            # автообновление: если базу обновил другой ПК
 

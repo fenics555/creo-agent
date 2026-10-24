@@ -277,49 +277,84 @@ def db_rows(folder=None, limit=2000, latest_only=False):
     except Exception:
         return []
 def db_search_rows(words=None, limit=5000):
-    """ПОИСК ПО ВСЕЙ БАЗЕ (а не по загруженной странице): наименование/обозначение/материал/путь/ревизия/роль.
-    Сначала «ВСЕ слова» (И); если так пусто — «ЛЮБОЕ слово» (ИЛИ) и это видно в строке состояния.
-    Возвращает (строки, найдено_всего, режим)."""
-    ws = [w.casefold() for w in (words or []) if w]
+    """ПОИСК ПО ВСЕЙ БАЗЕ (фильтр делает SQL, не Python): каждое слово — в ЛЮБОМ видимом поле.
+
+    V103 (24.10.2026): раньше читалась ВСЯ таблица `snapshots` в Python и фильтровалась там —
+    на 40k+ строк это заметно тормозило (владелец: «фильтр долго думает»). Теперь фильтр и
+    LIMIT делает SQLite; в Python попадает только результат.
+
+    Сначала «ВСЕ слова» (И); если так пусто — «ЛЮБОЕ слово» (ИЛИ), режим видно в строке состояния.
+    Возвращает (строки, найдено_всего, режим).
+    """
+    ws = [w for w in (words or []) if w]
+    if not ws:
+        rows = db_rows(None, limit)
+        return rows, len(rows), ""
+    cols = eng_file_search_cols()
     try:
         c = db_conn()
         has = any(r[1] == "created" for r in c.execute("PRAGMA table_info(snapshots)"))
-        sql = ("SELECT path,model,volume,material,name,designation,rev,author,revdate,role,hist,creo,"
+        num = ("volume", "hist", "mtime") + (("created",) if has else ())
+        sel = ("SELECT path,model,volume,material,name,designation,rev,author,revdate,role,hist,creo,"
                "mtime%s FROM snapshots" % (",created" if has else ""))
-        data = [tuple(r) + ((None,) if not has else ()) for r in c.execute(sql)]
+
+        def where_for(join, arr):
+            conds, params = [], []
+            for w in arr:
+                like = "%" + w + "%"
+                conds.append("(" + " OR ".join(cols + ["CAST(%s AS TEXT) LIKE ?" % n for n in num]) + ")")
+                params += [like] * (len(cols) + len(num))
+            return join.join(conds), params
+
+        w_and, p_and = where_for(" AND ", ws)
+        total = c.execute("SELECT COUNT(*) FROM snapshots WHERE " + w_and, p_and).fetchone()[0]
+        mode = "И"
+        params = p_and
+        if not total and len(ws) > 1:                 # «И» пусто → «ЛЮБОЕ слово» (ИЛИ)
+            w_or, p_or = where_for(" OR ", ws)
+            total = c.execute("SELECT COUNT(*) FROM snapshots WHERE " + w_or, p_or).fetchone()[0]
+            mode, params = "ИЛИ", p_or
+        if mode == "И":
+            sql_where = w_and
+        else:
+            sql_where = where_for(" OR ", ws)[0]
+        data = [tuple(r) + ((None,) if not has else ())
+                for r in c.execute(sel + " WHERE " + sql_where + " ORDER BY model, path LIMIT ?",
+                                   params + [limit])]
         vers = dict(c.execute("SELECT model, COUNT(*) FROM snapshots GROUP BY model"))
         c.close()
     except Exception:
         return [], 0, ""
-    cache = {}
+    out = [_row_from_db(t, vers) for t in data]
+    return out, total, mode
 
-    def blob(d):
-        b = cache.get(d[0])
-        if b is None:
-            b = " ".join(str(x or "") for x in (d[3], d[4], d[5], d[6], d[7], d[8], d[0])).casefold()
-            cache[d[0]] = b
-        return b
 
-    mode = "И"
-    hits = [d for d in data if all(w in blob(d) for w in ws)] if ws else list(data)
-    if ws and not hits:
-        hits = [d for d in data if any(w in blob(d) for w in ws)]
-        mode = "ИЛИ"
-    out = []
-    for (p, model, volume, material, name, desig, rev, author, revdate, role, hist, creo,
-         mtime, created) in hits[:limit]:
-        out.append({
-            "Файл": os.path.basename(p), "Тип": "", "Обозначение": desig or "",
-            "Наименование": name or "", "Материал": material or "",
-            "Объём, мм³": ("%.0f" % volume) if volume else "", "Габарит, мм": "",
-            "Роль": role or "", "Родитель": "", "Ревизия": rev or "",
-            "Дата": revdate or "", "Пользователь": author or "",
-            "Создан": _fs_date(created), "_created_ts": float(created or 0),
-            "Изменён": _fs_date(mtime), "_mtime_ts": float(mtime or 0),
-            "Записей": str(hist or ""), "Версий": vers.get(model, 0),
-            "Версия Creo": creo or "", "_path": p,
-        })
-    return out, len(hits), mode
+def _row_from_db(t, vers=None):
+    """Кортеж паспорта → словарь строки окна (единый вид с engine._row_dict)."""
+    (p, model, volume, material, name, desig, rev, author, revdate, role, hist, creo,
+     mtime, created) = (list(t) + [None] * 14)[:14]
+    return {
+        "Файл": os.path.basename(p or ""), "Тип": "", "Обозначение": desig or "",
+        "Наименование": name or "", "Материал": material or "",
+        "Объём, мм³": ("%.0f" % volume) if volume else "", "Габарит, мм": "",
+        "Роль": role or "", "Родитель": "", "Ревизия": rev or "",
+        "Дата": revdate or "", "Пользователь": author or "",
+        "Создан": _fs_date(created), "_created_ts": float(created or 0),
+        "Изменён": _fs_date(mtime), "_mtime_ts": float(mtime or 0),
+        "Записей": str(hist or ""), "Версий": (vers or {}).get(model, 0),
+        "Версия Creo": creo or "", "_path": p or "", "_model": model or "",
+    }
+
+
+def eng_file_search_cols():
+    """Колонки поиска из движка (единый источник: текстовые LIKE). Лениво — без цикла импортов."""
+    try:
+        import engine as _e
+        return ["%s LIKE ?" % c for c in _e.FILE_COLS]
+    except Exception:
+        return ["path LIKE ?", "designation LIKE ?", "name LIKE ?", "material LIKE ?",
+                "rev LIKE ?", "role LIKE ?", "model LIKE ?", "author LIKE ?", "creo LIKE ?",
+                "folder LIKE ?", "revdate LIKE ?"]
 def log_line(text):
     """Одна строка в общий лог инструмента: D:\\AI\\log\\plm_reader\\plm_reader.log."""
     try:

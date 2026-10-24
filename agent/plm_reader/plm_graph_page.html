@@ -83,21 +83,69 @@
   <div id="hgrip" title="Потяните, чтобы изменить высоту карточки"></div>
   <div id="graph"></div>
 </div>
+<!-- V103: ПОРЦИИ данных отдельным файлом — страница открывается сразу, контекст догружается -->
+<script src="CREO_GRAPH_data.js"></script>
 <script>
-const ND = __DATA__;
-const ST = __STATS__;
+// ───────────────────────────── V103: ЛЕНИВАЯ ЗАГРУЗКА + ЖИВЫЕ СВЯЗИ ─────────────────────────────
+// Страница рисуется СРАЗУ (пустой скелет), затем данные приходят ПОРЦИЯМИ (window.PLM_CHUNKS из
+// CREO_GRAPH_data.js). Каждая порция дорисовывает узлы и рёбра — видно, как «прибывают» входящие.
+// Совместимость: если чанков нет (старый файл) — берём встроенный __DATA__ как одну порцию.
+const ND = {};                       // узлы: ключ → {k,v,m,i,i2,s,nm,dir,o,n}
+let ST = __STATS__;                  // статистика (обновится по ходу)
 const IMG = "__MEDIA__/";
 let cur = null, shown = [];
 const list = document.getElementById("list");
 const q = document.getElementById("q"), fk = document.getElementById("fk"),
       fv = document.getElementById("fv"), fs = document.getElementById("fs");
-[...new Set(Object.values(ND).map(n => n.v))].sort().forEach(v => {
-  const o = document.createElement("option"); o.value = v; o.textContent = v; fv.appendChild(o);
-});
+
+// сколько порций применено — показываем в статусе («живой» прогресс)
+const LIVE = {chunks: 0, nodes: 0, edges: 0};
+function liveNote(){
+  const el = document.getElementById("stats");
+  if (!el) return;
+  el.dataset.live = "1";
+}
+
+// Применить порцию данных: слить узлы, обновить статистику, перерисовать список и граф.
+function applyChunk(chunk){
+  if (!chunk) return;
+  const nodes = chunk.nodes || {};
+  for (const k in nodes) ND[k] = nodes[k];
+  if (chunk.stats) ST = chunk.stats;
+  LIVE.chunks++;
+  LIVE.nodes = Object.keys(ND).length;
+  let e = 0; for (const k in ND) e += (ND[k].o || []).length;
+  LIVE.edges = e;
+  // фильтр версий Creo — пополняем динамически (новые версии приходят с порциями)
+  const have = new Set([...fv.options].map(o => o.value));
+  [...new Set(Object.values(ND).map(n => n.v))].sort().forEach(v => {
+    if (!have.has(v)){ const o = document.createElement("option"); o.value = v; o.textContent = v; fv.appendChild(o); }
+  });
+  render();
+  if (cur && ND[cur]) draw(cur);           // граф выбранного узла обновляется с новыми связями
+}
+
+// Первая порция пришла сразу (inline __DATA__), остальные — из CREO_GRAPH_data.js по мере загрузки.
+applyChunk({nodes: __DATA__, stats: __STATS__});
+(function pullChunks(){
+  const list_ = window.PLM_CHUNKS;
+  if (!list_ || !list_.length) return;     // старый вариант — всё уже нарисовано
+  let i = 0;
+  (function step(){
+    if (i >= list_.length) return;
+    applyChunk(list_[i++]);
+    setTimeout(step, 40);                  // маленькая пауза — видно «прибытие» связей
+  })();
+})();
 function kindTag(n){
+  // V104: .asm НИКОГДА не «PRT». MFG — обработка, ASM — сборка, PRT — деталь, DRW — чертёж.
+  // Раньше при неизвестном типе ("?") показывался PRT — владелец видел сборку как деталь.
+  const k = (n.k || "").toUpperCase();
   if (n.m) return '<span class="t mfg">MFG</span>';
-  if (n.k.startsWith("ASSEMBLY")) return '<span class="t as">ASM</span>';
-  return '<span class="t pr">PRT</span>';
+  if (k.indexOf("ASSEMBLY") === 0 || k.indexOf("ASM") === 0) return '<span class="t as">ASM</span>';
+  if (k.indexOf("PART") === 0 || k.indexOf("PRT") === 0) return '<span class="t pr">PRT</span>';
+  if (k.indexOf("DRAW") === 0) return '<span class="t as">DRW</span>';
+  return '<span class="t">' + (k || "?") + '</span>';      // честно: тип неизвестен
 }
 function matches(m){
   const n = ND[m];
@@ -171,11 +219,14 @@ function render(){
       ' · состав ' + n.o.length + ' · входит ' + n.n.length + ' · ' +
       (n.s/1048576).toFixed(2) + ' МБ</span></div></div>';
   }).join("");
+  // «ЖИВОЙ» статус: пока порции идут — показываем рост узлов/рёбер, потом — итог.
+  const live = (LIVE.chunks > 1) ? (" · порций " + LIVE.chunks + " · узлов " + LIVE.nodes +
+                                    " · рёбер " + LIVE.edges + " (растёт…)") : "";
   document.getElementById("stats").textContent =
     "показано " + shown.length + " из " + keys.length + " · в странице " +
     Object.keys(ND).length + " моделей · рёбер " + ST.edges +
     " · с превью " + (ST.media || 0) +
-    (ST.all_nodes ? " · в базе всего " + ST.all_nodes + " / " + ST.all_edges + " связей" : "");
+    (ST.all_nodes ? " · в базе всего " + ST.all_nodes + " / " + ST.all_edges + " связей" : "") + live;
 }
 list.addEventListener("click", e => {
   const r = e.target.closest(".row"); if (r) show(r.dataset.m);
@@ -195,8 +246,10 @@ function show(m){
   if (!prev) prev = '<span style="color:#5a6773;text-align:center;padding:10px">' +
                     'нет превью<br><small>в файле нет картинки/чертежа</small></span>';
   const nmOf = k => (ND[k] && (ND[k].nm || k)) || k;
+  // V104: в списке связей — имя + КОЛИЧЕСТВО (xN), если больше 1. Одна строка на связь (без дублей).
   const li = arr => arr.length ? arr.slice(0, __LINKSMAX__).map(x =>
-      '<li data-m="' + x[0] + '"><span class="t">' + x[1] + '</span>' + nmOf(x[0]) + '</li>').join("")
+      '<li data-m="' + x[0] + '"><span class="t">' + x[1] + '</span>' + nmOf(x[0]) +
+      ((x[2] && x[2] > 1) ? ' <b style="color:#8fa0b3">×' + x[2] + '</b>' : '') + '</li>').join("")
     : "<li style='color:#5a6773'>—</li>";
   document.getElementById("card").innerHTML =
     '<h2>' + (n.nm || m) + '</h2>' +
@@ -358,20 +411,34 @@ const any1 = m => ND[m].o.length || ND[m].n.length;
 // отсортирован и первым мог оказаться узел с 2 связями → граф на 4 узла («графа нет»).
 // Порядок поиска сохранён (MFG с двумя сторонами → любой с двумя сторонами → MFG с одной → …),
 // но ВНУТРИ группы выбирается САМЫЙ СВЯЗАННЫЙ узел: у него и граф, и легенда наполнены.
-const pick = (list, fn) => list.filter(fn)
+const pick = (arr, fn) => arr.filter(fn)
     .sort((a, b) => (ND[b].o.length + ND[b].n.length) - (ND[a].o.length + ND[a].n.length))[0];
-let first = pick(shown, m => ND[m].m && both(m)) ||
-            pick(shown, both) ||
-            pick(shown, m => ND[m].m && any1(m)) ||
-            pick(shown, any1) ||
-            shown[0];
-// если у выбранного нет связей — ищем по ВСЕМУ списку (не только видимым строкам)
-if (first && !any1(first)){
-  const alt = Object.keys(ND).find(m => ND[m].o.length && ND[m].n.length) ||
-              Object.keys(ND).find(any1);
-  if (alt) first = alt;
+function bestNode(){
+  let f = pick(shown, m => ND[m].m && both(m)) ||
+          pick(shown, both) ||
+          pick(shown, m => ND[m].m && any1(m)) ||
+          pick(shown, any1) ||
+          shown[0];
+  if (f && !any1(f)){                       // у выбранного нет связей — ищем по ВСЕМУ списку
+    f = Object.keys(ND).find(m => ND[m].o.length && ND[m].n.length) ||
+        Object.keys(ND).find(any1) || f;
+  }
+  return f;
 }
+// V103: страница «живая» — по мере прибытия порций граф может СТАТЬ БОГАЧЕ.
+// Держим стартовый узел, но если у него ещё мало связей, а в данных появился более связанный —
+// переключаемся на него (пользователь сразу видит наполненный граф, а не «4 узла»).
+let first = bestNode();
 if (first) show(first);
 else document.getElementById("card").innerHTML =
   '<h2>Пусто</h2><div class="meta">в базе нет моделей — просканируйте склад</div>';
+let _liveTick = setInterval(function(){
+  if (!window.PLM_CHUNKS || !window.PLM_CHUNKS.length){ clearInterval(_liveTick); return; }
+  if (LIVE.chunks >= window.PLM_CHUNKS.length + 1){ clearInterval(_liveTick); return; }
+  const cand = bestNode();
+  if (cand && cand !== first){
+    const score = m => m ? (ND[m].o.length + ND[m].n.length) : 0;
+    if (score(cand) > score(first) * 1.5 + 2){ first = cand; show(first); }
+  }
+}, 120);
 </script></body></html>
