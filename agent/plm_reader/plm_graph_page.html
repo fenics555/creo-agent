@@ -56,7 +56,27 @@
  text{fill:#c8d4e0;font:11px "Segoe UI",Arial}
 </style></head><body>
 <div id="side">
-  <h1>Creo PLM — граф изделий</h1>
+  <h1>Creo PLM — граф изделий
+    <button id="btncfg" title="Все настройки показа — здесь, не в коде"
+            style="float:right;font-size:11px;padding:2px 8px;cursor:pointer">⚙ НАСТРОЙКИ</button>
+  </h1>
+  <!-- V107: ПАНЕЛЬ НАСТРОЕК прямо в HTML. Строится из единого реестра SETTINGS_SPEC
+       (тот же список, что в окне PLM Reader) — «все настройки в одном месте». -->
+  <div id="cfgpanel" style="display:none;padding:8px 12px;border-bottom:1px solid #2a3138;
+       background:#151a1f;max-height:52vh;overflow:auto">
+    <div style="font-weight:600;margin-bottom:6px">НАСТРОЙКИ ПОКАЗА (применяются сразу)</div>
+    <div id="cfgform"></div>
+    <div style="margin-top:8px;display:flex;gap:8px;flex-wrap:wrap">
+      <button id="cfgsave" style="padding:3px 10px;cursor:pointer">💾 Скачать settings.json</button>
+      <button id="cfgreset" style="padding:3px 10px;cursor:pointer">↺ Сбросить</button>
+      <button id="cfgclose" style="padding:3px 10px;cursor:pointer">Закрыть</button>
+    </div>
+    <div style="margin-top:6px;font-size:10px;color:#6f8090">
+      Значения хранятся в браузере (мгновенно). Чтобы применить их НАВСЕГДА — «Скачать settings.json»
+      и положить файл в папку <code>settings\</code> рядом с программой. Полный набор настроек —
+      там же и в окне PLM Reader → «Пути, исключения…».
+    </div>
+  </div>
   <div id="filters">
     <input id="q" placeholder="Поиск по имени…">
     <select id="fk">
@@ -113,6 +133,134 @@ try {
     " (" + (c.graph_image_mode || "auto") + ") · бюджет " + c.graph_scan_budget + " с";
 } catch (e) {}
 
+// ───────────── V107: ПАНЕЛЬ «НАСТРОЙКИ» В HTML (строится из единого реестра ST.spec) ─────────────
+// Владелец: «нужно прям в ХТМЛ окне сделать кнопку НАСТРОЙКИ и там собирать/выводить разные
+// варианты показа, не в коде». Форма строится из того же реестра, что и окно PLM Reader.
+(function(){
+  const LS = "plm_graph_cfg";                 // настройки, изменённые в браузере
+  let local = {};
+  try { local = JSON.parse(localStorage.getItem(LS) || "{}") || {}; } catch (e) { local = {}; }
+  // применённые значения = значения из файла + локальные правки браузера
+  const eff = k => (k in local) ? local[k] : ((ST && ST.cfg) ? ST.cfg[k] : undefined);
+  const spec = (ST && ST.spec) || [];
+  const box = document.getElementById("cfgform");
+  const panel = document.getElementById("cfgpanel");
+
+  function build(){
+    if (!box || box.dataset.built) return;
+    box.dataset.built = "1";
+    let curGroup = "";
+    for (const s of spec){
+      if (s.group !== curGroup){
+        curGroup = s.group;
+        const h = document.createElement("div");
+        h.textContent = curGroup;
+        h.style.cssText = "margin:8px 0 3px;font-size:11px;color:#7fb0e0;font-weight:600";
+        box.appendChild(h);
+      }
+      const row = document.createElement("div");
+      row.style.cssText = "display:flex;align-items:center;gap:8px;margin:2px 0";
+      const lab = document.createElement("label");
+      lab.textContent = s.label;
+      lab.style.cssText = "flex:1 1 auto;font-size:11px;color:#b8c6d4";
+      row.appendChild(lab);
+      let inp;
+      const v = eff(s.key);
+      if (s.type === "bool"){
+        inp = document.createElement("input"); inp.type = "checkbox"; inp.checked = !!v;
+      } else if (s.type === "choice"){
+        inp = document.createElement("select");
+        for (const o of (s.lo || [])){
+          const op = document.createElement("option"); op.value = o; op.textContent = o;
+          if (String(v) === String(o)) op.selected = true;
+          inp.appendChild(op);
+        }
+      } else {
+        inp = document.createElement("input");
+        inp.type = "text"; inp.value = (v === undefined || v === null) ? "" : v;
+        inp.style.width = "90px";
+      }
+      inp.dataset.key = s.key; inp.dataset.type = s.type;
+      inp.style.cssText += ";background:#11151a;color:#dfe6ee;border:1px solid #2f373f;border-radius:4px;font-size:11px";
+      inp.addEventListener("change", onEdit);
+      row.appendChild(inp);
+      box.appendChild(row);
+    }
+  }
+
+  function onEdit(e){
+    const el = e.target, k = el.dataset.key, t = el.dataset.type;
+    let v;
+    if (t === "bool") v = el.checked;
+    else if (t === "int"){ const n = parseFloat(String(el.value).replace(",", ".")); v = isNaN(n) ? 0 : Math.round(n); }
+    else v = el.value;
+    local[k] = v;
+    try { localStorage.setItem(LS, JSON.stringify(local)); } catch (err) {}
+    applyLive();
+    if (typeof render === "function") render();
+  }
+
+  // Мгновенное применение того, что можно менять на лету (без пересборки данных).
+  function applyLive(){
+    try {
+      if (typeof __LISTMAX__ !== "undefined"){ /* константы вшиты — меняются при пересборке */ }
+      // фильтры/лимиты графа применяем через глобальные значения, если они есть
+      if (local.graph_list_max) window.__LISTMAX__ = local.graph_list_max;
+      if (local.graph_links_max) window.__LINKSMAX__ = local.graph_links_max;
+      if (local.graph_depth) window.__DEPTH__ = local.graph_depth;
+      if (local.graph_nodes_max) window.__NODESMAX__ = local.graph_nodes_max;
+      if (local.graph_children_max) window.__CHILDMAX__ = local.graph_children_max;
+      if (local.graph_card_h){
+        const c = document.getElementById("card");
+        if (c) c.style.height = local.graph_card_h + "px";
+      }
+      if (local.graph_thumb){
+        document.querySelectorAll(".row img, .row .noimg").forEach(el => {
+          el.style.width = local.graph_thumb + "px"; el.style.height = local.graph_thumb + "px";
+          el.style.minWidth = local.graph_thumb + "px"; el.style.flex = "0 0 " + local.graph_thumb + "px";
+        });
+      }
+      if (local.graph_image_mode === "none"){
+        document.querySelectorAll(".row img, #card .prev").forEach(el => { el.style.display = "none"; });
+      }
+      if (cur && typeof draw === "function") draw(cur);      // граф перерисовать с новыми лимитами
+    } catch (err) {}
+  }
+
+  function download(){
+    const out = {};
+    for (const s of spec){ const v = eff(s.key); if (v !== undefined) out[s.key] = v; }
+    // сохраняем и то, что есть в файле, но не попало в реестр (папки, колонки и пр.)
+    try { Object.assign(out, (ST && ST.cfg) || {}); } catch (e) {}
+    Object.assign(out, local);
+    const blob = new Blob([JSON.stringify(out, null, 1)], {type: "application/json"});
+    const a = document.createElement("a");
+    a.href = URL.createObjectURL(blob);
+    a.download = "settings.json";
+    a.click();
+    setTimeout(() => URL.revokeObjectURL(a.href), 4000);
+  }
+
+  function open_(){
+    build();
+    panel.style.display = (panel.style.display === "none") ? "block" : "none";
+  }
+  const b1 = document.getElementById("btncfg"); if (b1) b1.addEventListener("click", open_);
+  const b2 = document.getElementById("cfgsave"); if (b2) b2.addEventListener("click", download);
+  const b3 = document.getElementById("cfgclose");
+  if (b3) b3.addEventListener("click", () => { panel.style.display = "none"; });
+  const b4 = document.getElementById("cfgreset");
+  if (b4) b4.addEventListener("click", () => {
+    local = {};
+    try { localStorage.removeItem(LS); } catch (e) {}
+    box.dataset.built = "";
+    box.innerHTML = "";
+    build();
+    if (typeof render === "function") render();
+  });
+  window.__PLM_CFG = {get: eff, local: () => local};
+})();
+
 // сколько порций применено — показываем в статусе («живой» прогресс)
 const LIVE = {chunks: 0, nodes: 0, edges: 0};
 function liveNote(){
@@ -152,6 +300,19 @@ applyChunk({nodes: __DATA__, stats: __STATS__});
     setTimeout(step, 40);                  // маленькая пауза — видно «прибытие» связей
   })();
 })();
+// V107: ТИП УЗЛА — одна функция для всего (граф, карточка «СВЯЗИ», список).
+// Возвращает [буква, цвет]: Д деталь · С сборка · М мануфактуринг · Ч чертёж · ? неизвестно.
+function typeMark(n){
+  n = n || {};
+  const k = (n.k || "").toUpperCase();
+  if (n.m) return ["М", "#c98a5a"];                      // М = мануфактуринг (ASSEM_MFG)
+  if (k.indexOf("ASSEM_MFG") === 0) return ["М", "#c98a5a"];
+  if (k.indexOf("ASSEMBLY") === 0 || k.indexOf("ASM") === 0) return ["С", "#4ea8e0"];
+  if (k.indexOf("PART") === 0 || k.indexOf("PRT") === 0) return ["Д", "#4ec97a"];
+  if (k.indexOf("DRAW") === 0) return ["Ч", "#a97cd8"];
+  return ["?", "#8fa0b3"];
+}
+
 function kindTag(n){
   // V104: .asm НИКОГДА не «PRT». MFG — обработка, ASM — сборка, PRT — деталь, DRW — чертёж.
   // Раньше при неизвестном типе ("?") показывался PRT — владелец видел сборку как деталь.
@@ -262,9 +423,17 @@ function show(m){
                     'нет превью<br><small>в файле нет картинки/чертежа</small></span>';
   const nmOf = k => (ND[k] && (ND[k].nm || k)) || k;
   // V104: в списке связей — имя + КОЛИЧЕСТВО (xN), если больше 1. Одна строка на связь (без дублей).
-  const li = arr => arr.length ? arr.slice(0, __LINKSMAX__).map(x =>
-      '<li data-m="' + x[0] + '"><span class="t">' + x[1] + '</span>' + nmOf(x[0]) +
-      ((x[2] && x[2] > 1) ? ' <b style="color:#8fa0b3">×' + x[2] + '</b>' : '') + '</li>').join("")
+  // V107: перед именем — БЕЙДЖ ТИПА (Д/С/М/Ч), иначе «не понять, что за файл» (владелец).
+  const li = arr => arr.length ? arr.slice(0, __LINKSMAX__).map(x => {
+      const nn = ND[x[0]] || {};
+      const [mk, mc] = typeMark(nn);
+      return '<li data-m="' + x[0] + '">' +
+        '<span style="display:inline-block;width:12px;height:12px;border-radius:3px;background:' + mc +
+        ';color:#14171a;font-size:9px;font-weight:700;text-align:center;line-height:12px;' +
+        'margin-right:5px">' + mk + '</span>' +
+        '<span class="t">' + x[1] + '</span>' + nmOf(x[0]) +
+        ((x[2] && x[2] > 1) ? ' <b style="color:#8fa0b3">×' + x[2] + '</b>' : '') + '</li>';
+    }).join("")
     : "<li style='color:#5a6773'>—</li>";
   document.getElementById("card").innerHTML =
     '<h2>' + (n.nm || m) + '</h2>' +
@@ -387,16 +556,6 @@ function draw(root){
            ((x1+x2)/2) + ' ' + y2 + ' ' + x2 + ' ' + y2 +
            '" stroke="' + c + '" stroke-width="' + (k.startsWith("main") ? "2" : "1.2") +
            '" fill="none" marker-end="url(#ar-' + k + ')"/>';
-  }
-  // V106: МАРКЕР ТИПА у каждого узла графа — деталь / сборка / мануфактуринг / чертёж.
-  // Владелец: «не понять в графе деталь/сборка/мануфактуринг». Буква + цвет типа + легенда.
-  function typeMark(n){
-    const k = (n.k || "").toUpperCase();
-    if (n.m) return ["М", "#c98a5a"];                    // М = мануфактуринг (ASSEM_MFG)
-    if (k.indexOf("ASSEMBLY") === 0 || k.indexOf("ASM") === 0) return ["С", "#4ea8e0"];
-    if (k.indexOf("PART") === 0 || k.indexOf("PRT") === 0) return ["Д", "#4ec97a"];
-    if (k.indexOf("DRAW") === 0) return ["Ч", "#a97cd8"];
-    return ["?", "#8fa0b3"];
   }
   for (const m0 of Object.keys(pos)){
     const m = String(m0);                 // GRABLYA 23.10.2026: ключи могут быть числами

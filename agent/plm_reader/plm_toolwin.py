@@ -763,6 +763,76 @@ def run_gui():
     lbl = ttk.Label(data, text="готов", anchor="w", justify="left")
     lbl.pack(side="left", fill="x", expand=True)
 
+    # ═══════ V107: ИНДИКАТОР РАБОТЫ (владелец: «не хватает индикатора процесса») ═══════
+    # Крутилка + процентная полоса: показывают, что программа РАБОТАЕТ при
+    # сканировании / обновлении / построении графа / поиске по базе.
+    _busy = {"on": False, "i": 0, "id": None, "phase": "", "pct": None}
+    SPIN = ("⠋", "⠙", "⠹", "⠸", "⠼", "⠴", "⠦", "⠧", "⠇", "⠏")
+
+    pbar = ttk.Progressbar(data, mode="determinate", length=140)
+    spin = ttk.Label(data, text="", width=3, anchor="center", foreground="#2b6cb0")
+
+    def _tick():
+        if not _busy["on"]:
+            return
+        _busy["i"] = (_busy["i"] + 1) % len(SPIN)
+        try:
+            spin.config(text=SPIN[_busy["i"]])
+        except Exception:
+            return
+        _busy["id"] = root.after(120, _tick)
+
+    def work_start(text="работаю…", pct=None):
+        """Включить индикатор: text — что делаем; pct — 0..100 или None (крутилка)."""
+        _busy["on"], _busy["phase"], _busy["pct"] = True, text, pct
+        try:
+            if not spin.winfo_ismapped():
+                spin.pack(side="left", padx=(0, 4), before=lbl)
+            if pct is None:
+                if pbar.winfo_ismapped():
+                    pbar.pack_forget()
+            else:
+                if not pbar.winfo_ismapped():
+                    pbar.pack(side="right", padx=(0, 6))
+                pbar.config(value=pct)
+            if _busy["id"] is None:
+                _tick()
+        except Exception:
+            pass
+
+    def work_progress(done, total):
+        """Обновить процент (для скана/проверки)."""
+        try:
+            if not _busy["on"]:
+                return
+            pct = int(100.0 * done / total) if total else 0
+            _busy["pct"] = pct
+            if not pbar.winfo_ismapped():
+                pbar.pack(side="right", padx=(0, 6))
+            pbar.config(value=pct)
+        except Exception:
+            pass
+
+    def work_stop(text="готов"):
+        """Выключить индикатор и показать итог."""
+        _busy["on"] = False
+        if _busy["id"] is not None:
+            try:
+                root.after_cancel(_busy["id"])
+            except Exception:
+                pass
+            _busy["id"] = None
+        try:
+            spin.config(text="")
+            spin.pack_forget()
+            pbar.pack_forget()
+            if text:
+                lbl.config(text=text)
+        except Exception:
+            pass
+
+    root._plm_work = {"start": work_start, "progress": work_progress, "stop": work_stop}
+
     # НИЖНЯЯ ПОЛОСА (дерево производства) — прижата к низу окна, видна на ЛЮБОЙ вкладке
     lpane = ttk.Frame(vpan)
     # lpane добавляем в разделитель ПОСЛЕ nb (ниже) — иначе верх/низ поменяются местами
@@ -3231,15 +3301,51 @@ def run_gui():
                 if q and q != 1:
                     gr_canvas.create_text((x1 + x2) / 2 + 8, (y1 + y2) / 2, text="x%s" % q,
                                           fill="#666", font=("Consolas", 8))
+            # V107: ТИП модели у каждого узла графа (владелец: «не понять деталь/сборка/мануфактуринг»).
+            # Буква-бейдж Д/С/М/Ч + цвет типа + легенда под картой.
+            try:
+                _kinds = eng.models_kind([n for n in nodes])      # {модель: ASSEMBLY/PART/...}
+            except Exception:
+                _kinds = {}
+
+            def _tmark(n):
+                k = (_kinds.get(n) or "").upper()
+                if k.startswith("ASSEM_MFG") or k == "MFG":
+                    return "М", "#c98a5a"
+                if k.startswith("ASSEMBLY") or k.startswith("ASM"):
+                    return "С", "#4ea8e0"
+                if k.startswith("PART") or k.startswith("PRT"):
+                    return "Д", "#4ec97a"
+                if k.startswith("DRAW"):
+                    return "Ч", "#a97cd8"
+                return "?", "#9aa7b3"
+
             for n, (x, y) in pos.items():               # узлы
                 d = nodes[n]
                 gr_canvas.create_rectangle(x * unit - nw // 2, y * row - nh // 2,
                                            x * unit + nw // 2, y * row + nh // 2,
                                            fill=fills.get(d["kind"], "#eee"), outline="#555",
                                            tags=("node", "n:" + n))
-                label = n if len(n) <= 24 else n[:22] + "…"
-                gr_canvas.create_text(x * unit, y * row, text=label, font=("Consolas", 9),
+                mk, mc = _tmark(n)                       # бейдж типа слева от имени
+                gr_canvas.create_rectangle(x * unit - nw // 2 + 4, y * row - 8,
+                                           x * unit - nw // 2 + 16, y * row + 4,
+                                           fill=mc, outline="", tags=("node", "n:" + n))
+                gr_canvas.create_text(x * unit - nw // 2 + 10, y * row - 2, text=mk,
+                                      font=("Segoe UI", 8, "bold"), fill="#1a1a1a",
                                       tags=("node", "n:" + n))
+                label = n if len(n) <= 22 else n[:20] + "…"
+                gr_canvas.create_text(x * unit + 8, y * row, text=label, font=("Consolas", 9),
+                                      tags=("node", "n:" + n))
+            # легенда типов (под картой, слева)
+            _ly = 6
+            for _mk, _mc, _mt in (("Д", "#4ec97a", "деталь"), ("С", "#4ea8e0", "сборка"),
+                                  ("М", "#c98a5a", "мануфактуринг"), ("Ч", "#a97cd8", "чертёж")):
+                gr_canvas.create_rectangle(8, _ly, 20, _ly + 12, fill=_mc, outline="")
+                gr_canvas.create_text(14, _ly + 6, text=_mk, font=("Segoe UI", 8, "bold"),
+                                      fill="#1a1a1a")
+                gr_canvas.create_text(24, _ly + 6, anchor="w", text=_mt, font=("Segoe UI", 8),
+                                      fill="#555")
+                _ly += 15
             gr_canvas.config(scrollregion=gr_canvas.bbox("all"))
             grs.config(text="карта «%s»: узлов %d · рёбер %d · вниз %d / вверх %d · %.2f с"
                        % (root, len(nodes), len(edges), ddown, dup, time.time() - t0))
@@ -3567,23 +3673,32 @@ def run_gui():
             return
         # V103 (24.10.2026) ЛЕНИВО: сборку ведём В ФОНЕ — окно не замирает на время сбора
         # (раньше plm_graph.main() блокировал главный поток: данные + превью до 120 с).
+        # V107: на время сборки включён ИНДИКАТОР РАБОТЫ (крутилка + фаза).
         lsubj.config(text="PDM-Консоль: собираю граф из базы (в фоне, окно свободно)…")
+        try:
+            work_start("строю HTML-граф (превью могут читаться долго)…")
+        except Exception:
+            pass
 
         def _work():
             try:
                 rc = plm_graph.main()
             except Exception as e:                   # noqa: BLE001
                 try:
-                    root.after(0, lambda: lsubj.config(text="PDM-Консоль: ошибка — %s" % e))
+                    root.after(0, lambda: work_stop("PDM-Консоль: ошибка — %s" % e))
                 except Exception:
                     pass
                 return
 
             def _done():
                 if rc:
-                    lsubj.config(text="PDM-Консоль: нет данных — сначала просканируйте базу")
+                    work_stop("PDM-Консоль: нет данных — сначала просканируйте базу")
                 else:
-                    lsubj.config(text="PDM-Консоль: открылась в браузере (%s)" % plm_graph.DST)
+                    work_stop("PDM-Консоль: открылась в браузере (%s)" % plm_graph.DST)
+                try:
+                    lsubj.config(text=lbl.cget("text"))
+                except Exception:
+                    pass
             try:
                 root.after(0, _done)
             except Exception:
@@ -3800,8 +3915,10 @@ def run_gui():
             _fill_rows(rows, " из %d загруженных" % len(rows_all), keep)
             return
         # ФИЛЬТР — по ВСЕЙ базе, но В ФОНЕ: окно остаётся живым, в статусе «ищу…».
+        # V107: пока идёт поиск — крутится индикатор работы (владелец: «нет индикатора»).
         _flt["seq"] += 1
         my = _flt["seq"]
+        work_start("ищу по базе: %s" % pat)
         lbl.config(text="ищу по базе: %s …" % pat)
 
         def work():
@@ -3821,6 +3938,7 @@ def run_gui():
                 if my != _flt["seq"]:            # пришёл более новый запрос — этот не рисуем
                     return
                 _fill_rows(rows, tail, keep)
+                work_stop()                      # V107: поиск закончен — индикатор выключить
             try:
                 root.after(0, apply)
             except Exception:
@@ -3867,6 +3985,10 @@ def run_gui():
     def check_base():
         """Быстро: актуальна база или нужен скан (обход+stat, БЕЗ чтения файлов)."""
         lbl.config(text="проверяю актуальность базы…")
+        try:
+            work_start("проверяю базу (обход склада)…")     # V107: индикатор
+        except Exception:
+            pass
 
         def work():
             try:
@@ -3874,12 +3996,15 @@ def run_gui():
                 r = eng.do_check(exclude=exclude_list(settings.get("exclude")))
             except Exception as e:
                 try:
-                    root.after(0, lambda: lbl.config(text="проверка не удалась: %s" % e))
+                    root.after(0, lambda: work_stop("проверка не удалась: %s" % e))
                 except Exception:
                     pass
                 return
             try:
-                root.after(0, lambda: show_check(r))
+                def _done():
+                    work_stop()
+                    show_check(r)
+                root.after(0, _done)
             except Exception:
                 pass                    # окно уже закрыто — молча
 
@@ -4194,10 +4319,14 @@ def run_gui():
                         tree.insert("", "end", iid=row_uid(r), values=[r.get(c, "") for c in cols])
                 elif msg[0] == "walk":
                     _secs = time.time() - getattr(root, "_plm_t0", time.time())
+                    # V107: индикатор — обход склада (процент неизвестен → крутилка)
+                    work_start("ищу файлы на складе…")
                     lbl.config(text="ищу файлы: найдено %d%s (%.0f с)"
                                % (msg[1], " — обход готов, читаю изменённое…" if msg[2] else "", _secs))
                 elif msg[0] == "prog":
                     _secs = time.time() - getattr(root, "_plm_t0", time.time())
+                    # V107: индикатор с процентом чтения файлов
+                    work_progress(msg[1], msg[2])
                     lbl.config(text="%d / %d · прочитано %d, пропущено (уже в базе) %d · %.0f с · %s"
                                % (msg[1], msg[2], msg[4], msg[5], _secs, msg[3][:40]))
                 else:
@@ -4226,6 +4355,7 @@ def run_gui():
                         log_line("scan: %s -> новых %d, изменённых %d, пропущено %d за %.1f с"
                                  % (" + ".join(roots_now) or "вся база", st.get("new", 0),
                                     st.get("mod", 0), st.get("skipped", 0), _secs))
+                    work_stop()                    # V107: индикатор выключить, итог в lbl
                     root._plm_scan_active = False
                     try:
                         root._plm_db_stamp = _active_stamp()

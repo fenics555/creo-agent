@@ -25,8 +25,8 @@ DST = os.path.join(HERE, "CREO_GRAPH.html")
 # Режим изображений из настроек (auto/pict/draw/none) — ставится в main/collect.
 _media_mode = "auto"
 # Предел чтения файлов и бюджет времени (сек) — из настроек; защита от зависания на сети Z:.
-_media_max = 25000
-_scan_budget = 120.0
+_media_max = 0                      # V107: 0 = БЕЗ ПРЕДЕЛА (собрать превью у всех файлов)
+_scan_budget = 600.0                # V107: 120 → 600 с (полный сбор превью идёт фоном)
 count_media = 0                     # сколько превью уже в кэше (глобально)
 # Шаблон страницы: рядом с инструментом (переносимость), при отсутствии — из env.
 TEMPLATE = os.path.join(HERE, "plm_graph_page.html")
@@ -134,8 +134,14 @@ def collect_by_path(media_dir=None):
         except OSError:
             have_media = set()
     try:
-        for row in con.execute("SELECT model, path, volume, material, creo, role, size, "
-                               "name, designation FROM snapshots"):
+        # V107 ДОКАЧКА: если бюджет ограничен — сначала читаем те файлы, которых НЕТ в кэше,
+        # иначе первые 25 000 по порядку пути съедали лимит каждый раз, а «хвост» базы
+        # никогда не получал превью (владелец: «вместо картинки 0»).
+        _rows = list(con.execute("SELECT model, path, volume, material, creo, role, size, "
+                                 "name, designation FROM snapshots"))
+        if media_dir and int(_media_max) > 0:
+            _rows.sort(key=lambda r: 0 if (r[1] or "") in cache else 1)
+        for row in _rows:
             path = row[1] or ""
             if not path:
                 continue
@@ -153,10 +159,15 @@ def collect_by_path(media_dir=None):
             # показывала «PRT» даже для .asm-сборки (жалоба владельца: AX57K-V2 = PRT, а это сборка).
             kind = _kind_by_path(path)
             mfg = False
-            # КЭШ: если файл уже читали — берём готовые превью, к диску не идём
+            # КЭШ: если файл уже читали — берём готовые превью, к диску не идём.
+            # V107: `_media_max` = 0 → БЕЗ ПРЕДЕЛА (докачка). Раньше жёсткий потолок 25 000
+            # оставлял 22 000 файлов без превью, хотя картинка в файле ЕСТЬ (жалоба владельца:
+            # «вместо картинки 0» у .asm-сборок). Кэш инкрементальный — повторный прогон
+            # дочитывает то, чего в кэше ещё нет, и уже собранное не перечитывает.
+            _unlimited = int(_media_max) <= 0
             if path in cache:
                 img, img2 = cache[path]
-            elif media_dir and cnt_media < int(_media_max) \
+            elif media_dir and (_unlimited or cnt_media < int(_media_max)) \
                     and (time.time() - t0) < budget and os.path.isfile(path):
                 try:
                     read_files += 1
@@ -562,7 +573,9 @@ def load_settings():
            "graph_list_max": 800, "graph_links_max": 120, "graph_card_h": 230,
            "graph_thumb": 40, "graph_media": True, "graph_image_mode": "auto",
            "graph_chunk_nodes": 1200, "lazy_first_chunk": 1500,   # V104: показываем и их
-           "graph_media_limit": 25000, "graph_scan_budget": 120, "graph_page_nodes": 60000,
+           # V107: предел превью 25000 → 0 (без предела): потолок оставлял 22 000 файлов без
+           # картинок, хотя превью в файлах есть. Бюджет времени 120 → 600 с (сбор идёт фоном).
+           "graph_media_limit": 0, "graph_scan_budget": 600, "graph_page_nodes": 60000,
            "graph_open_browser": True}
     try:
         import plm_settings
@@ -689,6 +702,22 @@ def build_html(nodes, edges, media_dir, stats_extra=None):
                      ("__CARDH__", cfg["graph_card_h"]), ("__THUMB__", cfg["graph_thumb"])):
         page = page.replace(key, str(val))
     st["cfg"] = {k: v for k, v in cfg.items() if k != "graph_media"}
+    # V107: реестр настроек для панели «НАСТРОЙКИ» в HTML — ОДИН источник с окном PLM Reader.
+    # ВАЖНО: plm_settings импортируется ЛЕНИВО и с разрывом цикла (plm_reader ↔ plm_settings),
+    # иначе при запуске `plm_graph.py` как скрипта import падал и spec оставался пустым.
+    try:
+        if "plm_reader" not in sys.modules:
+            try:
+                import plm_reader  # noqa: F401  (разрыв цикла импортов)
+            except Exception:
+                pass
+        import plm_settings
+        st["spec"] = plm_settings.settings_spec_json()
+        st["cfg"] = {k: v for k, v in plm_settings.load_settings_file().items()}
+    except Exception as e:                 # noqa: BLE001
+        print("настройки для страницы не прочитаны: %s" % e)
+        st["spec"] = []
+        st["cfg"] = {k: v for k, v in cfg.items()}
     # V103 (24.10.2026) ЛЕНИВАЯ ЗАГРУЗКА: в HTML кладём ПЕРВУЮ ПОРЦИЮ (сразу рисуется),
     # остальные узлы уезжают в `CREO_GRAPH_data.js` (window.PLM_CHUNKS) — страница открывается
     # мгновенно, а список/граф наполняются по мере поступления порций.
@@ -773,8 +802,8 @@ def main():
     global _media_mode, _media_max, _scan_budget, count_media
     cfg = load_settings()
     _media_mode = (cfg.get("graph_image_mode") or "auto").lower()
-    _media_max = int(cfg.get("graph_media_limit", 25000))
-    _scan_budget = float(cfg.get("graph_scan_budget", 120))
+    _media_max = int(cfg.get("graph_media_limit", 0))       # V107: 0 = без предела
+    _scan_budget = float(cfg.get("graph_scan_budget", 600))
     count_media = 0
     media = None if _media_mode == "none" or not cfg.get("graph_media") \
         else os.path.join(HERE, "db", "media")

@@ -93,50 +93,51 @@ class PathsWindow:
                                   command=self.copy_now)
         self.mir_now.pack(anchor="w", pady=(6, 0))
 
-        # ─────────────── V104: ГРАФ И HTML-КОНСОЛЬ (настройки в окне, НЕ в коде) ───────────────
-        ttk.Label(box, text="ГРАФ И HTML-КОНСОЛЬ (все настройки графа — здесь; файл settings\\settings.json):",
+        # ═══════ V107: ВСЕ НАСТРОЙКИ — ИЗ ЕДИНОГО РЕЕСТРА (plm_settings.SETTINGS_SPEC) ═══════
+        # Владелец: «все настройки должны быть вместе в одном месте и настраиваться; в коде — ошибка».
+        # Этот раздел строится АВТОМАТИЧЕСКИ из реестра — тот же список, что и в панели «НАСТРОЙКИ»
+        # HTML-страницы. Добавил параметр в реестр → он появился и здесь, и в HTML.
+        import plm_settings as _ps
+        ttk.Label(box, text="ВСЕ НАСТРОЙКИ (единый список; тот же — в HTML-кнопке «⚙ НАСТРОЙКИ»):",
                   font=("", 10, "bold")).pack(anchor="w", pady=(16, 0))
-        ttk.Label(box, text="Окно графа: сколько уровней/узлов/детей тянуть и как показывать. "
-                            "HTML-консоль (кнопка «PDM-Консоль») читает ЭТИ ЖЕ значения.",
-                  foreground="#555").pack(anchor="w")
+        ttk.Label(box, text="Файл настроек: settings\\settings.json. Значения применяются к окну, "
+                            "сканированию и HTML-консоли.", foreground="#555").pack(anchor="w")
         self.gvars = {}
-        gdef = {
-            "graph_depth": ("глубина графа (уровней)", 1, 12),
-            "graph_nodes_max": ("узлов в графе окна", 20, 20000),
-            "graph_children_max": ("детей на узел (окно)", 1, 1000),
-            "graph_list_max": ("строк в списке HTML", 50, 100000),
-            "graph_links_max": ("связей в карточке HTML", 5, 10000),
-            "graph_card_h": ("высота карточки HTML, px", 80, 2000),
-            "graph_thumb": ("миниатюра в списке, px", 16, 200),
-            "graph_page_nodes": ("узлов в HTML-странице", 100, 200000),
-            "graph_media_limit": ("предел превью за прогон", 0, 500000),
-            "graph_scan_budget": ("бюджет чтения превью, сек", 1, 3600),
-            "graph_chunk_nodes": ("узлов в порции (лениво)", 100, 50000),
-            "lazy_first_chunk": ("строк сразу при старте", 100, 100000),
-        }
-        grid = ttk.Frame(box)
-        grid.pack(fill="x", pady=(4, 0))
-        for i, (key, (label, lo, hi)) in enumerate(gdef.items()):
-            ttk.Label(grid, text=label).grid(row=i, column=0, sticky="w", padx=(0, 8), pady=1)
-            sp = ttk.Spinbox(grid, from_=lo, to=hi, width=10)
-            sp.set(str(settings.get(key, "")))
-            sp.grid(row=i, column=1, sticky="w", pady=1)
-            self.gvars[key] = sp
-        self.var_gmedia = tk.BooleanVar(value=bool(settings.get("graph_media", True)))
-        ttk.Checkbutton(grid, text="собирать превью (картинка+чертёж) для HTML",
-                        variable=self.var_gmedia).grid(row=len(gdef), column=0, columnspan=2,
-                                                       sticky="w", pady=(4, 0))
-        self.var_gopen = tk.BooleanVar(value=bool(settings.get("graph_open_browser", True)))
-        ttk.Checkbutton(grid, text="открывать HTML в браузере после сборки",
-                        variable=self.var_gopen).grid(row=len(gdef) + 1, column=0, columnspan=2,
-                                                      sticky="w")
-        imrow = ttk.Frame(box)
-        imrow.pack(fill="x", pady=(4, 0))
-        ttk.Label(imrow, text="превью в HTML:").pack(side="left")
-        self.var_gmode = tk.StringVar(value=(settings.get("graph_image_mode") or "auto"))
-        for val, txt in (("auto", "оба"), ("pict", "только картинка"), ("draw", "только чертёж"),
-                         ("none", "без превью")):
-            ttk.Radiobutton(imrow, text=txt, value=val, variable=self.var_gmode).pack(side="left", padx=4)
+        self.gbools = {}
+        self.gchoice = {}
+        _gbox = ttk.Frame(box)
+        _gbox.pack(fill="x", pady=(4, 0))
+        _cur_group = None
+        _row = 0
+        for (grp, key, label, typ, lo, hi) in _ps.SETTINGS_SPEC:
+            if grp != _cur_group:
+                _cur_group = grp
+                ttk.Label(_gbox, text=grp, font=("", 9, "bold"),
+                          foreground="#2b6cb0").grid(row=_row, column=0, columnspan=2,
+                                                     sticky="w", pady=(6, 1))
+                _row += 1
+            ttk.Label(_gbox, text=label).grid(row=_row, column=0, sticky="w", padx=(10, 8), pady=1)
+            if typ == "bool":
+                var = tk.BooleanVar(value=bool(settings.get(key, False)))
+                ttk.Checkbutton(_gbox, variable=var).grid(row=_row, column=1, sticky="w", pady=1)
+                self.gbools[key] = var
+            elif typ == "choice":
+                var = tk.StringVar(value=str(settings.get(key, (lo or ["auto"])[0])))
+                cb = ttk.Combobox(_gbox, textvariable=var, values=list(lo or []),
+                                  width=12, state="readonly")
+                cb.grid(row=_row, column=1, sticky="w", pady=1)
+                self.gchoice[key] = var
+            elif typ == "text":
+                ent = ttk.Entry(_gbox, width=46)
+                ent.insert(0, str(settings.get(key, "") or ""))
+                ent.grid(row=_row, column=1, sticky="w", pady=1)
+                self.gvars[key] = ent
+            else:                                   # int
+                sp = ttk.Spinbox(_gbox, from_=(lo or 0), to=(hi or 10 ** 9), width=10)
+                sp.set(str(settings.get(key, "")))
+                sp.grid(row=_row, column=1, sticky="w", pady=1)
+                self.gvars[key] = sp
+            _row += 1
 
         foot = ttk.Frame(box)
         foot.pack(fill="x", pady=(12, 0))
@@ -255,20 +256,23 @@ class PathsWindow:
         except Exception:
             self.settings["mirror_keep"] = 3
         self.settings["mirror_full_only"] = bool(self.var_mfull.get())
-        # V104: настройки ГРАФА и HTML-консоли — из окна (а не «зашиты в код»)
+        # V107: ВСЕ настройки из ЕДИНОГО реестра — пишем ровно то, что видно в окне.
         saved_g = 0
-        for key, sp in getattr(self, "gvars", {}).items():
+        for key, var in getattr(self, "gbools", {}).items():
+            self.settings[key] = bool(var.get())
+            saved_g += 1
+        for key, var in getattr(self, "gchoice", {}).items():
+            self.settings[key] = var.get()
+            saved_g += 1
+        for key, wdg in getattr(self, "gvars", {}).items():
             try:
-                self.settings[key] = int(float(str(sp.get()).replace(",", ".") or 0))
+                if isinstance(wdg, self.ttk.Entry):        # текст (пути)
+                    self.settings[key] = norm_path(wdg.get()) if "dir" in key else wdg.get().strip()
+                else:                                      # число
+                    self.settings[key] = int(float(str(wdg.get()).replace(",", ".") or 0))
                 saved_g += 1
             except Exception:
                 pass
-        try:
-            self.settings["graph_media"] = bool(self.var_gmedia.get())
-            self.settings["graph_open_browser"] = bool(self.var_gopen.get())
-            self.settings["graph_image_mode"] = self.var_gmode.get() or "auto"
-        except Exception:
-            pass
         save_settings_file(self.settings)
         try:
             import engine as _e

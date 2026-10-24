@@ -1863,6 +1863,39 @@ def models_info(models):
     return out
 
 
+def models_kind(models):
+    """Тип модели для графа: {модель: 'ASSEMBLY'|'PART'|'DRAWING'|'ASSEM_MFG'|...} — по расширению.
+
+    V107: графу нужен ТИП узла (деталь/сборка/манифактуринг), чтобы рисовать маркеры Д/С/М/Ч.
+    Определяем по расширению пути из базы — БЕЗ чтения файлов (быстро, работает всегда).
+    Роль `MFG` (из базы) уточняет: это обработка → мануфактуринг.
+    """
+    out = {}
+    models = [m for m in (models or []) if m]
+    if not models:
+        return out
+    try:
+        con = connect(ro=True)
+        q = ",".join("?" * len(models))
+        for m, p, role in con.execute(
+                "SELECT model, path, role FROM snapshots WHERE model IN (%s)" % q, models):
+            low = (p or "").lower()
+            kind = ("ASSEMBLY" if (".asm." in low or low.endswith(".asm")) else
+                    "PART" if (".prt." in low or low.endswith(".prt")) else
+                    "DRAWING" if (".drw." in low or low.endswith(".drw")) else "")
+            if (role or "").upper() == "MFG" and kind == "ASSEMBLY":
+                kind = "ASSEM_MFG"
+            # приоритет: сборка/обработка важнее детали и чертежа (у модели бывает .prt и .asm)
+            prev = out.get(m, "")
+            rank = {"": 0, "DRAWING": 1, "PART": 2, "ASSEMBLY": 3, "ASSEM_MFG": 4}
+            if rank.get(kind, 0) > rank.get(prev, 0):
+                out[m] = kind
+        con.close()
+    except Exception:
+        return out
+    return out
+
+
 def plm_tops(limit=500):
     """Верхние СБОРКИ: модели с составом, которые сами ни в одну сборку не входят."""
     try:
