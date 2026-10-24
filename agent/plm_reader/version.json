@@ -1,20 +1,20 @@
 {
- "version": "V112",
- "version_num": 112,
+ "version": "V113",
+ "version_num": 113,
  "date": "24.10.2026",
- "notes": "V112 — строй ГРАФА row/col (слева-направо / сверху-вниз); история приведена к дизайну двух других блоков (ul с точками, тот же шрифт/высота)",
+ "notes": "V113 — настройки СТРОЯ первыми в панели (подсвечены), подписи по-русски 'горизонтально/вертикально', поиск по настройкам, панель выше",
  "files": {
   "engine.py": "a4403b289925421c1dd418fe8cb0cb565a4d88eac9579eb0068f13a772ad04a6",
-  "plm_reader.py": "5be38cdb2c3bfc1000c6558b80b6ec5e528a659b1d274549ecbeccb7ab93024c",
+  "plm_reader.py": "7b9feacf87ca906502f1c0e9725688a99e747a8869e561bc6e225c0ca8d53e40",
   "plm_toolwin.py": "d9be74674ae1c2dc2628b2aec21545d0ae09a57426fd15db0c9224e78dd6eaca",
   "plm_history.py": "0e8a1b414f3ad7c67175251fb4192e26431b0e9760bcce6ba6d9faf03ada8c77",
   "plm_parse.py": "c6bb33a412b6b606ad402e3eb78cd49246b77738b69d82be1b6218a1358c0312",
   "plm_dbview.py": "7c652b6e767e88e46014a7a4fc3900ac8ac3275d0b488de21d4468650fdad374",
-  "plm_settings.py": "bd2ea8d7e8d2d28bfafbca2ea04477d71f55ed65d2d78a1f0358a9f42bde0ba4",
+  "plm_settings.py": "aa79ec6f0379b7bc0c7f4fd4b83d314e0c62da32f2b23d8648bc043b452bd143",
   "plm_scan.py": "e32d610e33932afaee4c952cb0b4564801508f0568d4360d7d039ffacb856f48",
   "plm_paths_window.py": "8887ccacd53f475171c89a8948084420078ed4fc1fc8a914a40ea4af1968124d",
   "creo_read.py": "eb28ec862c1eb4a5519f5215d4ec11d060222348c54ebc407abbcd5f88ada170",
-  "README.md": "224cf81fc6447dc176625f519f342516a42bd52df55cdbe41f6bbdbb91248fa8",
+  "README.md": "7a9d7ee772264a9c9071c22b3530219abddbafa498fc144e1637f8510cbc1065",
   "SHARE_copy.bat": "4eccb549a17251392337aeabbc3ef76233dfa3072beadff9d158cd6e932622ee",
   "plm_reader.bat": "bdd125397db3ac7e7432dbdb078a6a811ed4913fca02b062edb27907032fca3d",
   "plm_reader_gui.bat": "9f695898d5db6431e840784b9587c75304ca9e526b06f79d4b44ab026663bd20",
@@ -22,6 +22,6 @@
   ".gitignore": "911fbdb5acf889293fdc61c836b691014da748fa55bd6464ce35a67f30e636ee",
   "AGENTS.md": "3b08e6e81731ace78deac46df3b802de337c3924acb87c54fe1562a2573650ef",
   "plm_graph.py": "04e648b21ad63755b1514c292a0bff2846ebe02a9ed39c728a430e10afca5665",
-  "plm_graph_page.html": "a4658c7b375457bd5d6ce87aff8c98342406510e030fbe5006045236fb13b026"
+  "plm_graph_page.html": "56a77f67ea3667dd15e88da4d889f31b309d1ed46a57c35b4518deb08bbb2f82"
  }
 }

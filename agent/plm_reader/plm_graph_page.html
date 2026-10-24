@@ -86,8 +86,13 @@
   <!-- V107: ПАНЕЛЬ НАСТРОЕК прямо в HTML. Строится из единого реестра SETTINGS_SPEC
        (тот же список, что в окне PLM Reader) — «все настройки в одном месте». -->
   <div id="cfgpanel" style="display:none;padding:8px 12px;border-bottom:1px solid #2a3138;
-       background:#151a1f;max-height:52vh;overflow:auto">
+       background:#151a1f;max-height:70vh;overflow:auto">
     <div style="font-weight:600;margin-bottom:6px">НАСТРОЙКИ ПОКАЗА (применяются сразу)</div>
+    <!-- V113: ПОИСК ПО НАСТРОЙКАМ. Владелец не находил нужный пункт в длинном списке
+         (панель прокручивается, а параметров 29). Теперь можно ввести слово — список отфильтруется. -->
+    <input id="cfgfind" placeholder="поиск по настройкам (например: строй, граф, история…)"
+           style="width:100%;margin-bottom:6px;padding:4px 8px;background:#11151a;color:#dfe6ee;
+                  border:1px solid #2f373f;border-radius:4px;font-size:11px">
     <div id="cfgform"></div>
     <div style="margin-top:8px;display:flex;gap:8px;flex-wrap:wrap">
       <button id="cfgsave" style="padding:3px 10px;cursor:pointer">💾 Скачать settings.json</button>
@@ -191,11 +196,26 @@ try {
   const box = document.getElementById("cfgform");
   const panel = document.getElementById("cfgpanel");
 
+  // V113: ЯВНЫЕ ПОДПИСИ ВАРИАНТОВ (по-русски) — «row/col» владельцу ни о чём не говорили.
+  const OPT = {
+    "row": "горизонтально", "col": "вертикально",
+    "auto": "авто (по типу файла)", "pict": "только картинка",
+    "draw": "только чертёж", "none": "без изображений"
+  };
+  const optLabel = o => OPT[o] || o;
+  // V113: настройки СТРОЯ показываем ПЕРВЫМИ и подсвечиваем — их искал владелец.
+  const HOT = {"graph_graph_layout": 1, "graph_card_layout": 1};
+
   function build(){
-    if (!box || box.dataset.built) return;
+    if (!box) return;
     box.dataset.built = "1";
+    box.innerHTML = "";
+    const q = (document.getElementById("cfgfind") || {}).value || "";
+    const needle = q.trim().toLowerCase();
     let curGroup = "";
     for (const s of spec){
+      const hay = (s.label + " " + s.key + " " + (s.group || "")).toLowerCase();
+      if (needle && hay.indexOf(needle) < 0) continue;      // V113: фильтр по поиску
       if (s.group !== curGroup){
         curGroup = s.group;
         const h = document.createElement("div");
@@ -205,9 +225,13 @@ try {
       }
       const row = document.createElement("div");
       row.style.cssText = "display:flex;align-items:center;gap:8px;margin:2px 0";
+      if (HOT[s.key]){                                       // V113: подсветка СТРОЯ
+        row.style.cssText += ";background:#1d2733;border-left:3px solid #56a6ff;padding-left:6px";
+      }
       const lab = document.createElement("label");
       lab.textContent = s.label;
       lab.style.cssText = "flex:1 1 auto;font-size:11px;color:#b8c6d4";
+      if (HOT[s.key]) lab.style.cssText += ";color:#cfe4ff;font-weight:600";
       row.appendChild(lab);
       let inp;
       const v = eff(s.key);
@@ -216,7 +240,7 @@ try {
       } else if (s.type === "choice"){
         inp = document.createElement("select");
         for (const o of (s.lo || [])){
-          const op = document.createElement("option"); op.value = o; op.textContent = o;
+          const op = document.createElement("option"); op.value = o; op.textContent = optLabel(o);
           if (String(v) === String(o)) op.selected = true;
           inp.appendChild(op);
         }
@@ -297,6 +321,9 @@ try {
     panel.style.display = (panel.style.display === "none") ? "block" : "none";
   }
   const b1 = document.getElementById("btncfg"); if (b1) b1.addEventListener("click", open_);
+  // V113: поиск по настройкам — перестраивает форму при вводе (нужное находится за секунду).
+  const bf = document.getElementById("cfgfind");
+  if (bf) bf.addEventListener("input", () => { box.dataset.built = ""; build(); });
   const b2 = document.getElementById("cfgsave"); if (b2) b2.addEventListener("click", download);
   const b3 = document.getElementById("cfgclose");
   if (b3) b3.addEventListener("click", () => { panel.style.display = "none"; });
