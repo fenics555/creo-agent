@@ -1259,6 +1259,27 @@ def run_gui():
             return ""
         return ("%.0f" % f) if (f == f and 0 < f <= 1e9) else ""
 
+    def _win_kind(m, role, i=None):
+        """V111: ТИП МОДЕЛИ в окне — СБОРКА и МАНУФАКТУРИНГ РАЗДЕЛЕНЫ.
+
+        Владелец: «сборки ASM и сборки мануфактуринг нужно как-то разделять — сейчас в окнах,
+        графах и связях это всё сборка». Признаки: роль из базы (`role='MFG'`), имя/обозначение
+        с `-MFG`, расширение `.asm`/`.prt`/`.drw`. Иначе — прежние «изделие/деталь».
+        """
+        r = (role or "").upper()
+        name = ((m or "") + " " + ((i[0] if i else "") or "")).upper()
+        mfg = (r == "MFG") or ("-MFG" in name) or ("ASSEM_MFG" in name)
+        if mfg:
+            return "СБОРКА МФГ"                  # мануфактуринг (обработка ЧПУ) — ОТДЕЛЬНО
+        ml = (m or "").lower()
+        if ".asm." in ml or ml.endswith(".asm"):
+            return "СБОРКА"
+        if ".prt." in ml or ml.endswith(".prt"):
+            return "ДЕТАЛЬ"
+        if ".drw." in ml or ml.endswith(".drw"):
+            return "ЧЕРТЁЖ"
+        return "изделие" if (i and len(i) > 6 and (i[6] or i[7])) else "деталь"
+
     def _file_row(parent, p, desig, name, material, volume, rev, role):
         return tview.insert(parent, "end", values=(
             "файл", os.path.basename(p), desig or "", name or "", material or "",
@@ -1277,10 +1298,14 @@ def run_gui():
             tview.insert(n, "end", text="загрузка…")      # «плюсик» для раскрытия
 
     def _vals9(m, i, qty=""):
-        """Строка для дерева вкладки «Дерево» (9 колонок)."""
+        """Строка для дерева вкладки «Дерево» (9 колонок).
+
+        V111: ТИП с РАЗДЕЛЕНИЕМ сборки и мануфактуринга. Было «оснастка/изделие/деталь» —
+        мануфактуринг терялся среди сборок. Теперь: `СБОРКА МФГ` / `СБОРКА` / `ДЕТАЛЬ` / `ЧЕРТЁЖ`,
+        а для моделей из базы, у которых тип неизвестен, — прежние «изделие/деталь/оснастка».
+        """
         role = (i[5] or "") if len(i) > 5 else ""
-        kind = "оснастка" if role == "MFG" else ("изделие" if (i[6] or i[7]) else "деталь")
-        return (kind, m, i[0] or "", i[1] or "", i[2] or "",
+        return (_win_kind(m, role, i), m, i[0] or "", i[1] or "", i[2] or "",
                 _vol(i[3] if len(i) > 3 else 0), i[4] or "", role, qty)   # V106: объём без мусора
 
     def _fill_node(tree_widget, node, model, with_up=True):
@@ -2141,8 +2166,8 @@ def run_gui():
 
     def _live_vals(m, i, qty=""):
         role = (i[5] or "") if len(i) > 5 else ""
-        kind = "оснастка" if role == "MFG" else ("изделие" if (i[6] or i[7]) else "деталь")
-        return (kind, m, i[0] or "", i[1] or "", qty)
+        # V111: тип с разделением сборки и мануфактуринга (было «оснастка/изделие/деталь»).
+        return (_win_kind(m, role, i), m, i[0] or "", i[1] or "", qty)
 
     _LTREE = {}
     _LLINKS = {}                               # узел нижнего «дерева связей» -> (модель, режим down/up)

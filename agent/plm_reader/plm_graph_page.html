@@ -37,6 +37,14 @@
  #card h2{margin:0 0 8px;font-size:16px}
  #card .meta{font-size:11px;color:#8fa0b3;margin-bottom:10px;word-break:break-all}
  #card .flex{display:flex;gap:12px}
+ /* V111: ВАРИАНТ 2 — ВЕРТИКАЛЬНО (друг под другом). Владелец: «хочется и вертикальный строй».
+    Вариант 1 (по умолчанию) — `row`: три колонки в ряд. */
+ #card .flex.vcol{flex-direction:column;gap:8px}
+ #card .flex.vcol>div{width:100%}
+ #card .flex.vcol .prev{width:auto;flex:0 0 auto}
+ #card .flex.vcol .hist ol{max-height:180px}
+ /* V111: MFG (мануфактуринг) — ОТДЕЛЬНАЯ метка, не «сборка» */
+ .t.drw{background:#3a2f4a;color:#d4b3ff}
  /* V109: ИСТОРИЯ ИЗМЕНЕНИЙ — теперь ТРЕТЬЯ КОЛОНКА рядом (Состав / Куда входит / История) */
  #card .hist{flex:1 1 0;min-width:0}
  #card .hist h3{margin:0 0 5px;font-size:12px;color:#9fb1c4;text-transform:uppercase;letter-spacing:.4px}
@@ -146,6 +154,28 @@ try {
     " (" + (c.graph_image_mode || "auto") + ") · бюджет " + c.graph_scan_budget + " с";
 } catch (e) {}
 
+// V111: СТРОЙ СВЯЗЕЙ В КАРТОЧКЕ — «в ряд» (горизонтально, вариант 1) или «друг под другом»
+  // (вертикально, вариант 2). Настройка `graph_card_layout` (меняется в панели НАСТРОЙКИ).
+  // Функция `cardLayout()` учитывает и файл, и локальные правки браузера (localStorage).
+  window.cardLayout = function(){
+    let v = "row";
+    try {
+      const c = (ST && ST.cfg) || {};
+      v = c.graph_card_layout || "row";
+      const loc = JSON.parse(localStorage.getItem("plm_graph_cfg") || "{}") || {};
+      if (loc.graph_card_layout) v = loc.graph_card_layout;
+    } catch (e) {}
+    return (v === "col") ? "col" : "row";
+  };
+  window.applyCardLayout = function(){
+    const el = document.querySelector("#card .flex");
+    if (el){
+      const v = window.cardLayout();
+      el.classList.toggle("vcol", v === "col");
+      el.classList.toggle("vrow", v === "row");
+    }
+  };
+
 // ───────────── V107: ПАНЕЛЬ «НАСТРОЙКИ» В HTML (строится из единого реестра ST.spec) ─────────────
 // Владелец: «нужно прям в ХТМЛ окне сделать кнопку НАСТРОЙКИ и там собирать/выводить разные
 // варианты показа, не в коде». Форма строится из того же реестра, что и окно PLM Reader.
@@ -225,6 +255,8 @@ try {
       if (local.graph_depth) R.depth = local.graph_depth;
       if (local.graph_nodes_max) R.nodes_max = local.graph_nodes_max;
       if (local.graph_children_max) R.children_max = local.graph_children_max;
+      // V111: строй карточки меняется сразу (вариант 1 «в ряд» / вариант 2 «друг под другом»)
+      if (typeof window.applyCardLayout === "function") window.applyCardLayout();
       if (local.graph_card_h){
         const c = document.getElementById("card");
         if (c) c.style.height = local.graph_card_h + "px";
@@ -328,26 +360,34 @@ function LIM(name, baked){
 
 // V107: ТИП УЗЛА — одна функция для всего (граф, карточка «СВЯЗИ», список).
 // Возвращает [буква, цвет]: Д деталь · С сборка · М мануфактуринг · Ч чертёж · ? неизвестно.
+function isMfg(n){
+  // V111: МАНУФАКТУРИНГ — ОТДЕЛЬНЫЙ тип (обработка ЧПУ), НЕ «сборка».
+  // Признаки: флаг `m`, роль базы role='MFG', тип с ASSEM_MFG, имя/путь с -MFG.
+  if (n.m) return true;
+  const k = (n.k || "").toUpperCase();
+  if (k.indexOf("ASSEM_MFG") >= 0 || k.indexOf("MFG") === 0) return true;
+  if ((n.role || "").toUpperCase() === "MFG") return true;
+  const nm = (n.nm || "").toUpperCase();
+  return nm.indexOf("-MFG") >= 0 || /(^|[^A-Z])MFG([^A-Z]|$)/.test(nm);
+}
 function typeMark(n){
   n = n || {};
   const k = (n.k || "").toUpperCase();
-  if (n.m) return ["М", "#c98a5a"];                      // М = мануфактуринг (ASSEM_MFG)
-  if (k.indexOf("ASSEM_MFG") === 0) return ["М", "#c98a5a"];
-  if (k.indexOf("ASSEMBLY") === 0 || k.indexOf("ASM") === 0) return ["С", "#4ea8e0"];
-  if (k.indexOf("PART") === 0 || k.indexOf("PRT") === 0) return ["Д", "#4ec97a"];
+  if (isMfg(n)) return ["М", "#c98a5a"];                  // М = мануфактуринг (ЧПУ)
   if (k.indexOf("DRAW") === 0) return ["Ч", "#a97cd8"];
+  if (k.indexOf("PART") === 0 || k.indexOf("PRT") === 0) return ["Д", "#4ec97a"];
+  if (k.indexOf("ASSEMBLY") === 0 || k.indexOf("ASM") === 0) return ["С", "#4ea8e0"];
   return ["?", "#8fa0b3"];
 }
 
 function kindTag(n){
-  // V104: .asm НИКОГДА не «PRT». MFG — обработка, ASM — сборка, PRT — деталь, DRW — чертёж.
-  // Раньше при неизвестном типе ("?") показывался PRT — владелец видел сборку как деталь.
+  // V104: .asm НИКОГДА не «PRT». V111: MFG — ОТДЕЛЬНАЯ метка, НЕ путать со сборкой.
   const k = (n.k || "").toUpperCase();
-  if (n.m) return '<span class="t mfg">MFG</span>';
+  if (isMfg(n)) return '<span class="t mfg">MFG</span>';
   if (k.indexOf("ASSEMBLY") === 0 || k.indexOf("ASM") === 0) return '<span class="t as">ASM</span>';
   if (k.indexOf("PART") === 0 || k.indexOf("PRT") === 0) return '<span class="t pr">PRT</span>';
-  if (k.indexOf("DRAW") === 0) return '<span class="t as">DRW</span>';
-  return '<span class="t">' + (k || "?") + '</span>';      // честно: тип неизвестен
+  if (k.indexOf("DRAW") === 0) return '<span class="t drw">DRW</span>';
+  return '<span class="t">' + (k || "?") + '</span>';
 }
 function matches(m){
   const n = ND[m];
@@ -498,6 +538,8 @@ function show(m){
     '<div><h3>Состав — что использует (' + n.o.length + ')</h3><ul>' + li(n.o) + '</ul></div>' +
     '<div><h3>Куда входит (' + n.n.length + ')</h3><ul>' + li(n.n) + '</ul></div>' +
     '<div class="hist"><h3>История изменений (' + hist.length + ')</h3>' + hcol + '</div></div>';
+  // V111: применить выбранный строй (row = в ряд / col = друг под другом)
+  try { window.applyCardLayout(); } catch (e) {}
   document.querySelectorAll("#card li").forEach(el =>
     el.addEventListener("click", () => show(el.dataset.m)));
   draw(m);
@@ -616,7 +658,8 @@ function draw(root){
     const [px, py] = pos[m0], n = ND[m];
     if (!n) continue;                     // узла нет в данных — не рисуем (иначе TypeError)
     const [mk, mc] = typeMark(n);
-    const c = m === root ? "#56a6ff" : (n.m ? "#c98a5a" : "#59666f");
+    // V111: цвет рамки узла тоже различает тип — мануфактуринг (обработка) отдельно от сборки.
+    const c = m === root ? "#56a6ff" : (isMfg(n) ? "#c98a5a" : "#59666f");
     svg += '<g class="nd" data-m="' + m + '" style="cursor:pointer">' +
       '<rect x="' + px + '" y="' + py + '" width="212" height="18" rx="4" fill="' +
       (m === root ? "#213042" : "#1b2128") + '" stroke="' + c + '"/>' +

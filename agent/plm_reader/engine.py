@@ -1508,12 +1508,29 @@ ROW_SQL = ("path,model,volume,material,name,designation,rev,author,revdate,role,
            "mtime,created")
 
 
+def _kind_of(path, role):
+    """V111: ТИП ФАЙЛА для окна, с РАЗДЕЛЕНИЕМ сборки и мануфактуринга.
+    Было: `"Тип": ""` — пусто, и владелец видел «всё — сборка» (в окнах, графах, связях).
+    Теперь: `СБОРКА МФГ` (роль MFG) · `СБОРКА` (.asm) · `ДЕТАЛЬ` (.prt) · `ЧЕРТЁЖ` (.drw).
+    """
+    p = (path or "").lower()
+    if (role or "").upper() == "MFG":
+        return "СБОРКА МФГ"                      # мануфактуринг (обработка ЧПУ) — ОТДЕЛЬНО от сборки
+    if ".asm." in p or p.endswith(".asm"):
+        return "СБОРКА"
+    if ".prt." in p or p.endswith(".prt"):
+        return "ДЕТАЛЬ"
+    if ".drw." in p or p.endswith(".drw"):
+        return "ЧЕРТЁЖ"
+    return ""
+
+
 def _row_dict(t):
     """Кортеж из ROW_SQL → словарь строки окна (единый вид для окна и поиска)."""
     (p, model, volume, material, name, desig, rev, author, revdate, role, hist, creo,
      mtime, created) = (list(t) + [None] * 14)[:14]
     return {
-        "Файл": os.path.basename(p or ""), "Тип": "", "Обозначение": desig or "",
+        "Файл": os.path.basename(p or ""), "Тип": _kind_of(p, role), "Обозначение": desig or "",
         "Наименование": name or "", "Материал": material or "",
         "Объём, мм³": ("%.0f" % volume) if volume else "", "Габарит, мм": "",
         "Роль": role or "", "Родитель": "", "Ревизия": rev or "",

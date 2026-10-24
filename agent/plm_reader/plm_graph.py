@@ -193,7 +193,14 @@ def collect_by_path(media_dir=None):
             # файл не читали (бюджет превью исчерпан / нет доступа), оставался "?" → страница
             # показывала «PRT» даже для .asm-сборки (жалоба владельца: AX57K-V2 = PRT, а это сборка).
             kind = _kind_by_path(path)
-            mfg = False
+            # V111: МАНУФАКТУРИНГ ОТДЕЛЯЕМ ОТ СБОРКИ. Раньше `mfg` ставился ТОЛЬКО при чтении
+            # файла (`ASSEM_MFG` в первых 400 байтах), а читаются не все (бюджет превью) — из
+            # 6 353 MFG в базе в страницу попадало лишь 264, и владелец видел «всё — сборка».
+            # Теперь надёжный признак — РОЛЬ ИЗ БАЗЫ (`role='MFG'`), плюс путь/тип.
+            role_db = (row[5] or "").upper()
+            mfg = (role_db == "MFG"
+                   or "ASSEM_MFG" in (kind or "").upper()
+                   or "ASSEM_MFG" in path.upper())
             # КЭШ: если файл уже читали — берём готовые превью, к диску не идём.
             # V107: `_media_max` = 0 → БЕЗ ПРЕДЕЛА (докачка). Раньше жёсткий потолок 25 000
             # оставлял 22 000 файлов без превью, хотя картинка в файле ЕСТЬ (жалоба владельца:
@@ -230,7 +237,7 @@ def collect_by_path(media_dir=None):
                     mt = PAT_TYPE.search(raw[:400])
                     if mt:
                         kind = mt.group(1).decode("latin-1")
-                    mfg = b"ASSEM_MFG" in raw[:400]
+                    mfg = mfg or (b"ASSEM_MFG" in raw[:400])
                     if not v:
                         mv = RE_CREO.search(raw[:3000])
                         v = ("Creo " + mv.group(1).decode()) if mv else (
@@ -745,6 +752,7 @@ def build_html(nodes, edges, media_dir, stats_extra=None):
         nm = v.get("n") or _norm(full.split("\\")[-1])
         folder = full.rsplit("\\", 2)[-2] if "\\" in full else ""
         nd[idx[m]] = {"k": v.get("k", "?"), "v": v.get("v", ""), "m": bool(v.get("m")),
+                      "role": (v.get("role") or "").upper(),   # V111: MFG отдельно от сборки
                       "i": v.get("i", ""), "i2": v.get("i2", ""),
                       "h": (v.get("h") or [])[:40],          # V109: история изменений файла
                       "s": v.get("s", 0), "nm": nm, "dir": folder,
