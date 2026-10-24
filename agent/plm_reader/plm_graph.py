@@ -554,10 +554,15 @@ def load_settings():
     # Умолчания графа. 23.10.2026: лимиты ПОДНЯТЫ по слову владельца («графа нет») —
     # при depth 3 / children 25 / nodes 120 на экран попадало 55 узлов из ветки на 344 связи,
     # и граф выглядел «пустым». Настройки читаются из settings.json, если ключи там есть.
+    # V104: graph_page_nodes 12000 → 60000 — на боевой базе 21 868 моделей СО СВЯЗЯМИ, и при
+    # старом лимите ~10 000 связанных моделей ВООБЩЕ не попадали в страницу (владелец не мог
+    # найти DF-STP2-VDF / 170META-2-МОДЕЛЬ-ВЕРХА — «не выводит ни картинку, ни чертёж»).
+    # Ленивая загрузка (порции) держит страницу быстрой даже при 60 000 узлов.
     cfg = {"graph_depth": 4, "graph_nodes_max": 400, "graph_children_max": 60,
            "graph_list_max": 800, "graph_links_max": 120, "graph_card_h": 230,
            "graph_thumb": 40, "graph_media": True, "graph_image_mode": "auto",
-           "graph_media_limit": 25000, "graph_scan_budget": 120, "graph_page_nodes": 12000,
+           "graph_chunk_nodes": 1200, "lazy_first_chunk": 1500,   # V104: показываем и их
+           "graph_media_limit": 25000, "graph_scan_budget": 120, "graph_page_nodes": 60000,
            "graph_open_browser": True}
     try:
         import plm_settings
@@ -605,7 +610,7 @@ def build_html(nodes, edges, media_dir, stats_extra=None):
     # КОМПАКТНО: в страницу идут только узлы, у которых ЕСТЬ связи или превью,
     # плюс ограничение объёма (иначе 46 МБ — браузер не отрисует).
     cfg0 = load_settings()
-    limit_nodes = int(cfg0.get("graph_page_nodes", 12000))
+    limit_nodes = int(cfg0.get("graph_page_nodes", 60000))
     # ОТСЕВ ШАБЛОНОВ и служебных: они «входят в тысячи сборок» и портят список
     # (SBORKA_MM — 3682, SBORKA_MFG — 1975, MM_PART — 1847, папки ШАБЛОНЫ/НАСТРОЙКИ).
     SVC = re.compile(r"^(SBORKA_MM|SBORKA_MFG|MFG_NC|MFG_NC_NEW|INLBS_MFG_NC|MM_PART|MM_ASSY|"
@@ -617,16 +622,44 @@ def build_html(nodes, edges, media_dir, stats_extra=None):
         nm = (v.get("n") or "").upper()
         return bool(SVC.match(nm)) or bool(SVC_DIR.search(v.get("p") or ""))
 
+    # ── V104: СВОРАЧИВАЕМ ОДНОИМЁННЫЕ ПУТИ В ОДИН УЗЕЛ ────────────────────────────────────────
+    # У имени бывает десятки путей (HB72501-401 — 98). Раньше каждый путь = отдельный узел, и
+    # модель показывалась в списке десятки раз, а превью (лежит на ОДНОМ из путей) могло не
+    # попасть в страницу вовсе. Теперь: один узел на ИМЯ, превью берём с того пути, где оно есть.
     live = [k for k, v in nodes.items()
             if (out_.get(k) or in_.get(k) or v.get("i")) and not _svc(k)]
-    live.sort(key=lambda k: -(len(out_.get(k, ())) + len(in_.get(k, ()))))
-    keep = set(live[:limit_nodes])
+    live.sort(key=lambda k: (-(len(out_.get(k, ())) + len(in_.get(k, ()))),
+                             # приоритет пути: сначала с превью (чтобы превью попало в узел)
+                             0 if nodes[k].get("i") or nodes[k].get("i2") else 1,
+                             k))
+    # имя → лучший ключ-путь
+    rep, rep_of = {}, {}
+    for k in live:
+        nm = nodes[k].get("n") or _norm((nodes[k].get("p") or k).split("\\")[-1])
+        if nm not in rep:
+            rep[nm] = k                     # первый в порядке приоритета = с превью
+        rep_of[k] = nm
+    keep_names = list(rep.keys())[:limit_nodes]
+    keep = {rep[n] for n in keep_names}
     idx = {k: i for i, k in enumerate(sorted(keep))}      # ключ → номер (коротко)
+    name_idx = {n: idx[rep[n]] for n in keep_names}       # имя → номер узла
+    # перенос рёбер на «представителя» имени
+    def remap(m):
+        nm = rep_of.get(m)
+        return rep.get(nm, m)
+    out2, in2 = defaultdict(list), defaultdict(list)
+    for m in keep:
+        for e in out_m.get(m, []):
+            t = remap(e["key"])
+            if t in idx and t != m:
+                out2[m].append({"key": t, "type": e["type"], "qty": e["qty"]})
+        for e in in_m.get(m, []):
+            f = remap(e["key"])
+            if f in idx and f != m:
+                in2[m].append({"key": f, "type": e["type"], "qty": e["qty"]})
     nd = {}
-    for m, v in nodes.items():
-        if m not in keep:
-            continue
-        # m — КЛЮЧ (путь); nm — имя для показа и поиска; folder — папка (чтобы различить одноимённые)
+    for m in keep:
+        v = nodes[m]
         full = v.get("p", "") or m
         nm = v.get("n") or _norm(full.split("\\")[-1])
         folder = full.rsplit("\\", 2)[-2] if "\\" in full else ""
@@ -635,10 +668,8 @@ def build_html(nodes, edges, media_dir, stats_extra=None):
                       "s": v.get("s", 0), "nm": nm, "dir": folder,
                       # o — состав (что использует модель), n — входимость (кто использует её).
                       # V104: [номер, тип, количество] — ОДНА строка на соседа (без дублей).
-                      "o": [[idx[e["key"]], e["type"], e["qty"]] for e in out_m.get(m, [])
-                            if e["key"] in idx],
-                      "n": [[idx[e["key"]], e["type"], e["qty"]] for e in in_m.get(m, [])
-                            if e["key"] in idx]}
+                      "o": [[idx[e["key"]], e["type"], e["qty"]] for e in out2.get(m, [])],
+                      "n": [[idx[e["key"]], e["type"], e["qty"]] for e in in2.get(m, [])]}
     # статистика — ПО СТРАНИЦЕ (в неё попадает часть узлов), а не по всей базе
     n_img = sum(1 for v in nd.values() if v.get("i"))
     n_e = sum(len(v.get("o") or []) for v in nd.values())
@@ -679,9 +710,20 @@ def _chunk_size():
         return 1200
 
 
+def _ordered_keys(nd):
+    """Порядок узлов для страницы: сначала САМЫЕ СВЯЗАННЫЕ (они уходят в HTML сразу).
+
+    V104: и `_split_chunks`, и `_write_chunks` ОБЯЗАНЫ идти по одному порядку — иначе первая
+    порция и файл порций «разъезжаются», и часть моделей не попадает НИКУДА
+    (грабля: `170META-2-МОДЕЛЬ-ВЕРХА` исчезала со страницы).
+    """
+    return sorted(nd.keys(),
+                  key=lambda k: -(len(nd[k].get("o") or []) + len(nd[k].get("n") or [])))
+
+
 def _split_chunks(nd, st):
     """Первую порцию — в HTML (сразу), остальные — в файл `CREO_GRAPH_data.js`."""
-    keys = list(nd.keys())
+    keys = _ordered_keys(nd)
     size = _chunk_size()
     first_keys = keys[:size]
     first = {"nodes": {k: nd[k] for k in first_keys},
@@ -696,8 +738,7 @@ def _write_chunks(nd, st):
     осмысленно — первыми приходят самые связанные изделия).
     """
     size = _chunk_size()
-    keys = sorted(nd.keys(),
-                  key=lambda k: -(len(nd[k].get("o") or []) + len(nd[k].get("n") or [])))
+    keys = _ordered_keys(nd)               # тот же порядок, что и в первой порции (V104)
     chunks = []
     for i in range(size, len(keys), size):
         part = {k: nd[k] for k in keys[i:i + size]}

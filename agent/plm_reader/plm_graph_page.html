@@ -75,6 +75,11 @@
   </div>
   <div id="stats"></div>
   <div id="list"></div>
+  <div id="srchint" style="padding:6px 12px;font-size:10px;color:#5f6f7f;border-top:1px solid #20262c">
+    настройки графа — в окне PLM Reader: «Пути, исключения…» → раздел
+    <b style="color:#8fa0b3">ГРАФ И HTML-КОНСОЛЬ</b> (файл <code>settings\settings.json</code>).
+    Значения этой страницы: <span id="cfgline"></span>
+  </div>
 </div>
 <div id="vgrip" title="Потяните, чтобы изменить ширину списка"></div>
 <div id="main">
@@ -97,6 +102,16 @@ let cur = null, shown = [];
 const list = document.getElementById("list");
 const q = document.getElementById("q"), fk = document.getElementById("fk"),
       fv = document.getElementById("fv"), fs = document.getElementById("fs");
+
+// V104: показать, ОТКУДА взяты настройки страницы (владелец: «не понятно, откуда читает»)
+try {
+  const c = (ST && ST.cfg) || {};
+  const cl = document.getElementById("cfgline");
+  if (cl) cl.textContent = "глубина " + c.graph_depth + " · узлов " + c.graph_page_nodes +
+    " · строк " + c.graph_list_max + " · связей в карточке " + c.graph_links_max +
+    " · порция " + c.graph_chunk_nodes + " · превью " + (c.graph_media ? "да" : "нет") +
+    " (" + (c.graph_image_mode || "auto") + ") · бюджет " + c.graph_scan_budget + " с";
+} catch (e) {}
 
 // сколько порций применено — показываем в статусе («живой» прогресс)
 const LIVE = {chunks: 0, nodes: 0, edges: 0};

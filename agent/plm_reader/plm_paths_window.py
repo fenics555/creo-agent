@@ -92,6 +92,52 @@ class PathsWindow:
         self.mir_now = ttk.Button(box, text="Скопировать базу в зеркала ПРЯМО СЕЙЧАС",
                                   command=self.copy_now)
         self.mir_now.pack(anchor="w", pady=(6, 0))
+
+        # ─────────────── V104: ГРАФ И HTML-КОНСОЛЬ (настройки в окне, НЕ в коде) ───────────────
+        ttk.Label(box, text="ГРАФ И HTML-КОНСОЛЬ (все настройки графа — здесь; файл settings\\settings.json):",
+                  font=("", 10, "bold")).pack(anchor="w", pady=(16, 0))
+        ttk.Label(box, text="Окно графа: сколько уровней/узлов/детей тянуть и как показывать. "
+                            "HTML-консоль (кнопка «PDM-Консоль») читает ЭТИ ЖЕ значения.",
+                  foreground="#555").pack(anchor="w")
+        self.gvars = {}
+        gdef = {
+            "graph_depth": ("глубина графа (уровней)", 1, 12),
+            "graph_nodes_max": ("узлов в графе окна", 20, 20000),
+            "graph_children_max": ("детей на узел (окно)", 1, 1000),
+            "graph_list_max": ("строк в списке HTML", 50, 100000),
+            "graph_links_max": ("связей в карточке HTML", 5, 10000),
+            "graph_card_h": ("высота карточки HTML, px", 80, 2000),
+            "graph_thumb": ("миниатюра в списке, px", 16, 200),
+            "graph_page_nodes": ("узлов в HTML-странице", 100, 200000),
+            "graph_media_limit": ("предел превью за прогон", 0, 500000),
+            "graph_scan_budget": ("бюджет чтения превью, сек", 1, 3600),
+            "graph_chunk_nodes": ("узлов в порции (лениво)", 100, 50000),
+            "lazy_first_chunk": ("строк сразу при старте", 100, 100000),
+        }
+        grid = ttk.Frame(box)
+        grid.pack(fill="x", pady=(4, 0))
+        for i, (key, (label, lo, hi)) in enumerate(gdef.items()):
+            ttk.Label(grid, text=label).grid(row=i, column=0, sticky="w", padx=(0, 8), pady=1)
+            sp = ttk.Spinbox(grid, from_=lo, to=hi, width=10)
+            sp.set(str(settings.get(key, "")))
+            sp.grid(row=i, column=1, sticky="w", pady=1)
+            self.gvars[key] = sp
+        self.var_gmedia = tk.BooleanVar(value=bool(settings.get("graph_media", True)))
+        ttk.Checkbutton(grid, text="собирать превью (картинка+чертёж) для HTML",
+                        variable=self.var_gmedia).grid(row=len(gdef), column=0, columnspan=2,
+                                                       sticky="w", pady=(4, 0))
+        self.var_gopen = tk.BooleanVar(value=bool(settings.get("graph_open_browser", True)))
+        ttk.Checkbutton(grid, text="открывать HTML в браузере после сборки",
+                        variable=self.var_gopen).grid(row=len(gdef) + 1, column=0, columnspan=2,
+                                                      sticky="w")
+        imrow = ttk.Frame(box)
+        imrow.pack(fill="x", pady=(4, 0))
+        ttk.Label(imrow, text="превью в HTML:").pack(side="left")
+        self.var_gmode = tk.StringVar(value=(settings.get("graph_image_mode") or "auto"))
+        for val, txt in (("auto", "оба"), ("pict", "только картинка"), ("draw", "только чертёж"),
+                         ("none", "без превью")):
+            ttk.Radiobutton(imrow, text=txt, value=val, variable=self.var_gmode).pack(side="left", padx=4)
+
         foot = ttk.Frame(box)
         foot.pack(fill="x", pady=(12, 0))
         ttk.Button(foot, text="Сохранить", command=self.save).pack(side="left")
@@ -209,6 +255,20 @@ class PathsWindow:
         except Exception:
             self.settings["mirror_keep"] = 3
         self.settings["mirror_full_only"] = bool(self.var_mfull.get())
+        # V104: настройки ГРАФА и HTML-консоли — из окна (а не «зашиты в код»)
+        saved_g = 0
+        for key, sp in getattr(self, "gvars", {}).items():
+            try:
+                self.settings[key] = int(float(str(sp.get()).replace(",", ".") or 0))
+                saved_g += 1
+            except Exception:
+                pass
+        try:
+            self.settings["graph_media"] = bool(self.var_gmedia.get())
+            self.settings["graph_open_browser"] = bool(self.var_gopen.get())
+            self.settings["graph_image_mode"] = self.var_gmode.get() or "auto"
+        except Exception:
+            pass
         save_settings_file(self.settings)
         try:
             import engine as _e
@@ -220,9 +280,10 @@ class PathsWindow:
         if new_dir != old_dir:
             # папка базы поменялась — предупреждаем честно: подхватка только при перезапуске окна
             tail = " · база переедет на %s — ПЕРЕЗАПУСТИ окно" % (new_dir or "папку db\\")
-        self.msg.config(text="сохранено: папок %d, исключений %d, шаблонов %d, зеркал %d, служебных %d%s"
+        self.msg.config(text="сохранено: папок %d, исключений %d, шаблонов %d, зеркал %d, "
+                             "служебных %d, настроек графа %d%s"
                              % (len(d["folders"]), len(d["exclude"]), len(d["template_folders"]),
-                                len(d["db_mirror"]), len(d["service_models"]), tail))
+                                len(d["db_mirror"]), len(d["service_models"]), saved_g, tail))
         if self.on_save:
             try:
                 self.on_save()

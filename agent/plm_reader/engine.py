@@ -1468,13 +1468,19 @@ def file_search_cols():
 
 
 def _like_cond(words, cols=None):
-    """«каждое слово встречается в любой из колонок» — фильтр по ВСЕМ словам, что видно в окне."""
-    cols = cols or file_search_cols()
+    """«каждое слово встречается в любой из колонок» — фильтр по ВСЕМ словам, что видно в окне.
+
+    `cols` принимает И просто имена колонок (`"model"`), И готовые выражения (`"path LIKE ?"`,
+    `"CAST(volume AS TEXT) LIKE ?"`) — V104: раньше смешение давало битый SQL
+    (`(model OR designation …)`), из-за чего фильтр вкладки «Дерево» молчал.
+    """
+    exprs = list(cols) if cols else file_search_cols()
+    exprs = [c if "LIKE" in c.upper() else ("%s LIKE ?" % c) for c in exprs]
     conds, params = [], []
     for w in words:
         like = "%" + w + "%"
-        conds.append("(" + " OR ".join(cols) + ")")
-        params += [like] * len(cols)
+        conds.append("(" + " OR ".join(exprs) + ")")
+        params += [like] * len(exprs)
     return " AND ".join(conds), params
 
 
@@ -2009,11 +2015,11 @@ def plm_down_data(model, depth=2):
 
 
 def find_plm_models(text, limit=400):
-    """Модели по фильтру (все слова — в модели/обозначении/наименовании/материале/ревизии/роли)."""
+    """Модели по фильтру (все слова — в ЛЮБОМ видимом поле паспорта, как и в таблице)."""
     words = [w for w in (text or "").split() if w]
     if not words:
         return []
-    where, params = _like_cond(words, ("model", "designation", "name", "material", "rev", "role"))
+    where, params = _like_cond(words)          # V104: полный набор полей (как в окне/HTML)
     try:
         con = connect()
         models = [r[0] for r in con.execute(

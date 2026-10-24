@@ -1,27 +1,27 @@
 {
- "version": "V104",
- "version_num": 104,
+ "version": "V105",
+ "version_num": 105,
  "date": "24.10.2026",
- "notes": "V104 NO DUPLICATE LINKS + CORRECT TYPE: (1) model type is now taken from the file EXTENSION in the DB (.asm->ASM, .prt->PRT, .drw->DRW) instead of only from the read file header - owner saw AX57K-V2 (an .asm assembly) shown as PRT when its file was not read (preview budget). (2) Links are MERGED BY MODEL NAME: one name lives in many paths (HB72501-401 = 98 files) and the old 'every path combination = its own edge' logic produced 30 links x 98 paths = 948 edges per model; now ONE row per neighbour model with summed quantity (xN), sums computed in SQL (GROUP BY parent,child) in engine.plm_up_data/plm_down_data; same in plm_graph (_merge by name, type priority) and in the window graph plm_toolwin._graph_data (one line per pair, qty on the line). Down/up stay SEPARATE lists (different meaning, not duplicates). README: new sections 'Links: one row per model' + 'Lazy loading'; version table V100-V104 added. Creo skills updated: SKILL_GRABLI 7-9, SKILL_creo_read_asm_bom aggregation rule, SKILL_creo_read_mfg output rule, SKILL_creo_index V99->V104. SMOKE OK + compile 12 modules + _check_page 0 CDN",
+ "notes": "V105 FILTER TREE FIXED + ALL MODELS IN HTML + GRAPH SETTINGS IN UI: (1) the 'Derevo' (tree) tab filter was silently returning nothing - _like_cond received bare column names instead of SQL expressions producing broken SQL (model OR designation...); now it accepts both names and expressions and searches ALL visible fields like the table. (2) same-name paths are now COLLAPSED INTO ONE NODE (one node per model name, preview taken from whichever path has it) - before, DF-STP2-VDF and 170META-2-MODEL-VERHA were missing from the page with no picture/drawing; also first inline chunk and chunk file now use ONE ordering (_ordered_keys) so models no longer vanish. (3) graph_page_nodes 12000 -> 60000 (base has 21868 linked models, so 10000 were invisible). (4) NEW section GRAPH AND HTML-CONSOLE in the 'Paths, exceptions...' window: 12 graph settings + preview + browser + image mode edited in UI, not in code; the HTML page prints where its values come from (settings.json). SMOKE OK + compile 12 modules + _check_page 0 CDN",
  "files": {
-  "engine.py": "28fe123e8e6a2a066646020c9f69c76bd966e2ee6016762efea04fd239acf85d",
-  "plm_reader.py": "7f130a4923135d64d476f17278ea6600cce921cd64e4128bcc665ee475065612",
+  "engine.py": "298b8de55a2d31a36f5d657de16eb5060908ed55fbc3faa6f735c2f0f50d2020",
+  "plm_reader.py": "4d6215d7f8fe1100c9a719cb64c5623e404982796466a4fbb7a73ac1b84102a7",
   "plm_toolwin.py": "95939db959672436ec3c0398632f8f8b35d9028408e5bdb205a4f99396695ab5",
   "plm_history.py": "0e8a1b414f3ad7c67175251fb4192e26431b0e9760bcce6ba6d9faf03ada8c77",
   "plm_parse.py": "c6bb33a412b6b606ad402e3eb78cd49246b77738b69d82be1b6218a1358c0312",
   "plm_dbview.py": "b5c55aea5a4ad2440e19f0699c6b21c04f8f01bc5a14b0511e04ed39357dcd83",
-  "plm_settings.py": "62bf02ca97ef90b846e2e380ac926a9352f1e817f9afa829b20793eab983a982",
+  "plm_settings.py": "af38f3242178d6259e9f08dd2c1a9de06e39e71ce2f6ea72b3106154073bcf00",
   "plm_scan.py": "e32d610e33932afaee4c952cb0b4564801508f0568d4360d7d039ffacb856f48",
-  "plm_paths_window.py": "bf1a2bc91ec4ec2398b8c1bb1b5997c4a295e2f8f76dde5353e3ead97b14eb21",
+  "plm_paths_window.py": "2aa94c50e9c6f7435e816cffd892f3e84af69cb3b7da493617f84813c814c7c0",
   "creo_read.py": "9175d7a8ffc3007faf098c4077919c4a3a7bea79cd253cfd4054231347cc64e0",
-  "README.md": "78645e6f4aa469ceda7b9cb8bf538582dcfea77f0b44bef578c38b87a27eacf9",
+  "README.md": "b1b9972b8928b8837b75cea39080e54734d18261967e38e78d915b98c78315bc",
   "SHARE_copy.bat": "4eccb549a17251392337aeabbc3ef76233dfa3072beadff9d158cd6e932622ee",
   "plm_reader.bat": "bdd125397db3ac7e7432dbdb078a6a811ed4913fca02b062edb27907032fca3d",
   "plm_reader_gui.bat": "9f695898d5db6431e840784b9587c75304ca9e526b06f79d4b44ab026663bd20",
   "make_version_json.py": "4603968533bec13a05defb4a164246728b9649d50d524479f639493eeed7c92f",
   ".gitignore": "911fbdb5acf889293fdc61c836b691014da748fa55bd6464ce35a67f30e636ee",
   "AGENTS.md": "3b08e6e81731ace78deac46df3b802de337c3924acb87c54fe1562a2573650ef",
-  "plm_graph.py": "210e56193a7a7d57263fc98387b9eb4d66ca7a07a5585d70bca162f75522d0e4",
-  "plm_graph_page.html": "601136eabb3e3ba7ab16864140452f9d1180f2c8ebcddff46a816421429591dc"
+  "plm_graph.py": "1b8dd06e7510e7e2cddb0f59a34b828b6b06e7c99d099fad2cafe1cd2d5fa026",
+  "plm_graph_page.html": "a54ee01229b7a55f20e62cd2050202f89ff5ad146728871e4efac0187a8909dd"
  }
 }
