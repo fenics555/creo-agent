@@ -36,15 +36,20 @@
  .row:hover{background:#212831}.row.on{background:#26313c;border-left:3px solid #56a6ff}
  #card h2{margin:0 0 8px;font-size:16px}
  #card .meta{font-size:11px;color:#8fa0b3;margin-bottom:10px;word-break:break-all}
- #card .flex{display:flex;gap:18px}
- /* V109: ИСТОРИЯ ИЗМЕНЕНИЙ в карточке (кто/когда/что) */
- #card .hist{margin-top:10px;border-top:1px solid #2a3138;padding-top:8px}
+ #card .flex{display:flex;gap:12px}
+ /* V109: ИСТОРИЯ ИЗМЕНЕНИЙ — теперь ТРЕТЬЯ КОЛОНКА рядом (Состав / Куда входит / История) */
+ #card .hist{flex:1 1 0;min-width:0}
  #card .hist h3{margin:0 0 5px;font-size:12px;color:#9fb1c4;text-transform:uppercase;letter-spacing:.4px}
- #card .hist table{width:100%;border-collapse:collapse;font-size:11px}
- #card .hist th{text-align:left;color:#7f8fa2;font-weight:600;padding:2px 6px;
-   border-bottom:1px solid #2a3138;position:sticky;top:0;background:#1a1f25}
- #card .hist td{padding:2px 6px;border-bottom:1px solid #20262c;vertical-align:top}
- #card .hist tr:hover td{background:#212831}
+ #card .hist ol{list-style:none;margin:0;padding:0;font-size:11px;
+   max-height:var(--histh,220px);overflow:auto}
+ #card .hist li{padding:2px 4px;border-bottom:1px solid #20262c;white-space:nowrap;
+   overflow:hidden;text-overflow:ellipsis}
+ #card .hist li:hover{background:#212831;white-space:normal}
+ #card .hist .h1{color:#c8d4e0}      /* дата правки */
+ #card .hist .h2{color:#e0b060}      /* компьютер/юзер */
+ #card .hist .h3{color:#8ab0d8}      /* ревизия */
+ #card .hist .h4{color:#98a6b4}      /* что изменено */
+ #card .hist .new{color:#6fcf7f}
  /* ПРЕВЬЮ В КАРТОЧКЕ: картинка, ниже — чертёж; своя прокрутка, если не влезают */
  #card .prev{width:200px;flex:0 0 200px;background:#0d1115;border-radius:6px;
    display:flex;flex-direction:column;align-items:center;gap:6px;overflow:auto;padding:6px}
@@ -450,6 +455,9 @@ function show(m){
   if (!prev) prev = '<span style="color:#5a6773;text-align:center;padding:10px">' +
                     'нет превью<br><small>в файле нет картинки/чертежа</small></span>';
   const nmOf = k => (ND[k] && (ND[k].nm || k)) || k;
+  // V110: экранирование текста для истории (в именах/описаниях бывают < > & ").
+  const esc = s => String(s == null ? "" : s)
+    .replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
   // V104: в списке связей — имя + КОЛИЧЕСТВО (xN), если больше 1. Одна строка на связь (без дублей).
   // V107: перед именем — БЕЙДЖ ТИПА (Д/С/М/Ч), иначе «не понять, что за файл» (владелец).
   const li = arr => arr.length ? arr.slice(0, LIM("links_max", __LINKSMAX__)).map(x => {
@@ -463,18 +471,23 @@ function show(m){
         ((x[2] && x[2] > 1) ? ' <b style="color:#8fa0b3">×' + x[2] + '</b>' : '') + '</li>';
     }).join("")
     : "<li style='color:#5a6773'>—</li>";
-  // V109: ИСТОРИЯ ИЗМЕНЕНИЙ файла (кто/когда/что) — из журнала `changes` базы.
+  // V110: ИСТОРИЯ ИЗМЕНЕНИЙ — ТРЕТЬЯ КОЛОНКА рядом (Состав / Куда входит / История).
+  // Строка = «ДАТА ПРАВКИ — КОМП/ЮЗЕР — РЕВИЗИЯ — ЧТО» (одна строка, ellipsis).
   const hist = n.h || [];
-  let hrow = "";
+  let hcol = "";
   if (hist.length){
-    hrow = '<div class="hist"><h3>История изменений (' + hist.length + ')</h3><table>' +
-      '<tr><th>Когда</th><th>Кто</th><th>Ревизия</th><th>Что</th></tr>' +
-      hist.map(x => '<tr><td>' + (x[0] || '—') + '</td><td>' + (x[1] || '—') + '</td>' +
-                    '<td>' + (x[2] || '—') + '</td><td>' + (x[4] || x[3] || '—') + '</td></tr>').join("") +
-      '</table></div>';
+    hcol = '<ol>' + hist.map(x => {
+      const kind = (x[3] || "").toLowerCase();
+      const what = (x[4] || "").trim() || (kind === "new" ? "первая запись паспорта" : "—");
+      return '<li title="' + esc(x[0]) + ' — ' + esc(x[1] || "?") + ' — рев. ' +
+        esc(x[2] || "—") + ' — ' + esc(what) + '">' +
+        '<span class="h1">' + esc(x[0] || "—") + '</span> · ' +
+        '<span class="h2">' + esc(x[1] || "?") + '</span> · ' +
+        '<span class="h3">рев. ' + esc(x[2] || "—") + '</span> · ' +
+        '<span class="' + (kind === "new" ? "new" : "h4") + '">' + esc(what) + '</span></li>';
+    }).join("") + '</ol>';
   } else {
-    hrow = '<div class="hist"><h3>История изменений</h3>' +
-           '<div style="color:#5a6773;font-size:11px">записей нет — правок в журнале базы не найдено</div></div>';
+    hcol = '<div style="color:#5a6773;font-size:11px">записей нет</div>';
   }
   document.getElementById("card").innerHTML =
     '<h2>' + (n.nm || m) + '</h2>' +
@@ -482,10 +495,9 @@ function show(m){
       ' · ' + (n.s/1048576).toFixed(2) + ' МБ<br>' +
       '<span style="color:#7f8fa2">папка:</span> ' + (n.dir || '—') + '</div>' +
     '<div class="flex"><div class="prev">' + prev + '</div>' +
-    '<div class="cols"><div><h3>Состав — что использует (' + n.o.length +
-      ')</h3><ul>' + li(n.o) + '</ul></div>' +
-    '<div><h3>Куда входит (' + n.n.length + ')</h3><ul>' + li(n.n) + '</ul></div></div></div>' +
-    hrow;
+    '<div><h3>Состав — что использует (' + n.o.length + ')</h3><ul>' + li(n.o) + '</ul></div>' +
+    '<div><h3>Куда входит (' + n.n.length + ')</h3><ul>' + li(n.n) + '</ul></div>' +
+    '<div class="hist"><h3>История изменений (' + hist.length + ')</h3>' + hcol + '</div></div>';
   document.querySelectorAll("#card li").forEach(el =>
     el.addEventListener("click", () => show(el.dataset.m)));
   draw(m);

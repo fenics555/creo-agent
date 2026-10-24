@@ -1,11 +1,11 @@
 {
- "version": "V109",
- "version_num": 109,
+ "version": "V110",
+ "version_num": 110,
  "date": "24.10.2026",
- "notes": "V109 — история файла в HTML, тип ASM>PART>DRW, автосборка страницы после обновления",
+ "notes": "V110 — история вбок (Состав/Куда входит/История) одной строкой, дата правки + КОМП/ЮЗЕР + ревизия + что, имя компьютера обязательно",
  "files": {
-  "engine.py": "0e5058e450e96de1a1a6c05f4bbea34a61d0c791405981608779792a3248d054",
-  "plm_reader.py": "a7f6e1f4b094738a4bbc861c52b28885d6e91848a9289c758c8a6665d987a646",
+  "engine.py": "34b31b12cf702a07e650580bafa7a1686528bfd1c4cae86b07cead110f05c90c",
+  "plm_reader.py": "99c9b6cc6007777bb0a1d6a0af80e475d6b3001942d7f8b05cc75555170a7044",
   "plm_toolwin.py": "3531c1e8422212a11e85b566910bb84676d311af12043be29288ce58b9a5ad43",
   "plm_history.py": "0e8a1b414f3ad7c67175251fb4192e26431b0e9760bcce6ba6d9faf03ada8c77",
   "plm_parse.py": "c6bb33a412b6b606ad402e3eb78cd49246b77738b69d82be1b6218a1358c0312",
@@ -14,14 +14,14 @@
   "plm_scan.py": "e32d610e33932afaee4c952cb0b4564801508f0568d4360d7d039ffacb856f48",
   "plm_paths_window.py": "8887ccacd53f475171c89a8948084420078ed4fc1fc8a914a40ea4af1968124d",
   "creo_read.py": "eb28ec862c1eb4a5519f5215d4ec11d060222348c54ebc407abbcd5f88ada170",
-  "README.md": "e3ddca047b99f196281a6b4c6dd077a7d59a0ec8f2f213d37082b4e39919f37b",
+  "README.md": "d471fea2e9a22c5e14df55512dcfa0e9c7f5778ebfccf9b7aea2d38596cd1e3a",
   "SHARE_copy.bat": "4eccb549a17251392337aeabbc3ef76233dfa3072beadff9d158cd6e932622ee",
   "plm_reader.bat": "bdd125397db3ac7e7432dbdb078a6a811ed4913fca02b062edb27907032fca3d",
   "plm_reader_gui.bat": "9f695898d5db6431e840784b9587c75304ca9e526b06f79d4b44ab026663bd20",
   "make_version_json.py": "4603968533bec13a05defb4a164246728b9649d50d524479f639493eeed7c92f",
   ".gitignore": "911fbdb5acf889293fdc61c836b691014da748fa55bd6464ce35a67f30e636ee",
   "AGENTS.md": "3b08e6e81731ace78deac46df3b802de337c3924acb87c54fe1562a2573650ef",
-  "plm_graph.py": "f4c25f0ecb955a62ae50a4a713414a64030766b25e552962604890e5ff53f109",
-  "plm_graph_page.html": "f5f08543519a49dfa0c37c05ff1fae53cb35c0c9b55edbd7cd31974da6365ce1"
+  "plm_graph.py": "56c01308f90c176e2d75b829876d41df1373b799ff7276a9a201f25f559f4ca8",
+  "plm_graph_page.html": "6e3dedae8ecb43acbc12bf0b18495294cca7d80ecc9756436a846a79cb7524d8"
  }
 }

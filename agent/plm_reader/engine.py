@@ -669,6 +669,14 @@ LOCK_FILE = os.path.join(os.path.dirname(DB), "plm.lock")
 LOCK_STALE_SEC = 180
 
 
+def _machine_name():
+    """Имя компьютера, сделавшего запись (V110). Windows: COMPUTERNAME; иначе hostname.
+    Нужно для колонки «КОМП/ЮЗЕР» в истории файла — автор из паспорта Creo часто пуст."""
+    import socket
+    return (os.environ.get("COMPUTERNAME") or os.environ.get("HOSTNAME")
+            or socket.gethostname() or "?").strip() or "?"
+
+
 def _lock_owner():
     import socket
     return {"machine": os.environ.get("COMPUTERNAME") or socket.gethostname(),
@@ -969,6 +977,13 @@ def do_scan(roots, max_mb, limit, depth=None, progress_cb=None, stop_cb=None, fu
             log("ERROR %s: %s" % (path, e))
             continue
         diffs = []
+        # V110: ИМЯ КОМПЬЮТЕРА ОБЯЗАТЕЛЬНО. Автор из паспорта Creo часто пуст или служебный
+        # («USER», «ADMIN») — тогда владельцу непонятно, «кто». Подставляем машину, сделавшую
+        # запись: `COMPUTERNAME` (Windows) или hostname. Своё имя НЕ трогаем (реальные ZEH116,
+        # FENICS, GORSHKOV сохраняются).
+        who_rec = (it["author"] or "").strip()
+        if not who_rec or who_rec.upper() in ("USER", "ADMIN", "?"):
+            who_rec = _machine_name()
         if old:
             if abs(float(old[1] or 0) - float(it["volume"] or 0)) >= 0.5:
                 diffs.append("объём %d→%d" % (old[1] or 0, it["volume"] or 0))
@@ -979,11 +994,11 @@ def do_scan(roots, max_mb, limit, depth=None, progress_cb=None, stop_cb=None, fu
                     diffs.append("%s: %s→%s" % (key, a or "-", b or "-"))
             if diffs:
                 con.execute("INSERT INTO changes (item,rev,kind,descr,who,ts) VALUES (?,?,?,?,?,?)",
-                            (path, it["rev"], "modify", "; ".join(diffs), it["author"], now))
+                            (path, it["rev"], "modify", "; ".join(diffs), who_rec, now))
                 mod += 1
         else:
             con.execute("INSERT INTO changes (item,rev,kind,descr,who,ts) VALUES (?,?,?,?,?,?)",
-                        (path, it["rev"], "new", "первая запись паспорта", it["author"], now))
+                        (path, it["rev"], "new", "первая запись паспорта", who_rec, now))
             new += 1
         con.execute("INSERT OR REPLACE INTO snapshots VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)",
                     (it["path"], it["model"], os.path.dirname(path), it["size"], it["mtime"],
@@ -1361,12 +1376,15 @@ def count_models(text=""):
         return 0
 
 
-def mark_change(item, kind, descr, who="инструмент ДОМА", rev=""):
-    """Записать в журнал правку КОДА/паспорта (kind='code') — чтобы отличать от правок человека."""
+def mark_change(item, kind, descr, who=None, rev=""):
+    """Записать в журнал правку КОДА/паспорта (kind='code') — чтобы отличать от правок человека.
+
+    V110: `who` по умолчанию — ИМЯ КОМПЬЮТЕРА (владелец: «нужно имя компьютера обязательно»).
+    """
     try:
         con = connect()
         con.execute("INSERT INTO changes (item,rev,kind,descr,who,ts) VALUES (?,?,?,?,?,?)",
-                    (item, rev, kind, descr, who,
+                    (item, rev, kind, descr, who or _machine_name(),
                      datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")))
         con.commit()
         con.close()

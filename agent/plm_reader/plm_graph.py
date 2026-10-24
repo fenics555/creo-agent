@@ -147,12 +147,27 @@ def collect_by_path(media_dir=None):
             иначе они попадают в JSON как `\\u0001` и ломают проверку JS."""
             return "".join(ch for ch in str(x or "") if ch >= " " or ch == "\t")
 
+        # V110 (запрос владельца): строка истории = «ДАТА ПРАВКИ — КОМП/ЮЗЕР — РЕВИЗИЯ — ЧТО».
+        # `who` в журнале — это АВТОР из паспорта Creo (имя машины/пользователя: ZEH116, FENICS,
+        # GORSHKOV), а `ts` — когда ИНСТРУМЕНТ заметил правку (не когда её сделали в Creo).
+        # Поэтому реальную дату правки достаём из описания: `revdate: -→31.08.23 05:11`.
+        RE_REVDATE = re.compile(r"revdate:\s*[^→]*→([^;]+)")
+
+        def _real_date(descr, ts):
+            m = RE_REVDATE.search(descr or "")
+            if m:
+                return m.group(1).strip()
+            return (ts or "")[:16]
+
         try:
             for item, rev, kind, descr, who, ts in con.execute(
                     "SELECT item,rev,kind,descr,who,ts FROM changes ORDER BY ts DESC LIMIT 200000"):
                 if item:
-                    hist[item].append([_clean(ts), _clean(who), _clean(rev),
-                                       _clean(kind), _clean(descr)])
+                    d = _clean(descr)
+                    # ЧТО изменилось — без служебного `revdate` (он показан отдельной колонкой).
+                    what = RE_REVDATE.sub("", d).strip(" ;")
+                    hist[item].append([_real_date(d, ts), _clean(who), _clean(rev),
+                                       _clean(kind), what])
         except Exception:
             pass
         print("история: путей с записями %d" % len(hist), flush=True)
