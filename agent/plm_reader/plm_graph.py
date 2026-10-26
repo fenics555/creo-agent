@@ -711,6 +711,16 @@ def load_settings():
 
 def build_html(nodes, edges, media_dir, stats_extra=None):
     """Собирает автономную страницу (0 CDN) и возвращает текст HTML."""
+    # V122: ОТДЕЛЬНОЕ соединение для «железной» сверки физических пар (`links`).
+    # Рёбра приходят из `collect_by_path` уже разложенными по именам/путям, и `remap` может
+    # привести соседа к «представителю имени» — пары, которой в базе НЕТ. Сверка нужна, чтобы на
+    # карточке не появлялись чужие соседи (владелец: «DIN912 — входит в 5 сборок ))), хотя 2»).
+    con_pairs = None
+    try:
+        if engine is not None:
+            con_pairs = engine.connect()
+    except Exception:                  # noqa: BLE001
+        con_pairs = None
     # V104: ОДНА строка на МОДЕЛЬ-соседа (жалоба владельца «HB72501-401 подряд десятки раз»).
     # У имени бывает много путей (HB72501-401 — 98), и в «связях» появлялись все пути одной
     # модели подряд. Сворачиваем по ИМЕНИ соседа (+тип): количество суммируется, а путь-дубль
@@ -828,14 +838,34 @@ def build_html(nodes, edges, media_dir, stats_extra=None):
         return rep.get(nm)              # None, если имя не попало в страницу
     out2, in2 = defaultdict(list), defaultdict(list)
     outh2, inh2 = defaultdict(list), defaultdict(list)     # V121: производность (наследование)
+    # ── V122 ЖЕЛЕЗНАЯ ЗАЩИТА: «Состав / Куда входит» — ТОЛЬКО пары, ФИЗИЧЕСКИ записанные в `links`.
+    # Владелец: «DIN912 — входит в 5 сборок ))), хотя физически — в 2». Причина: рёбра раскладываются
+    # по ИМЕНАМ (`by_name`), у имени много путей, затем `remap` приводит к представителю — и на карточку
+    # попадали соседи, которых в `links` с этой моделью НЕТ (напр. `◘G0O1IHU7…`, `07118252-06-M`).
+    # Теперь каждая пара (имя-источника, имя-приёмника) СВЕРЯЕТСЯ с физическим множеством `links`.
+    # Нет пары в `links` → ребро НЕ показываем (производность идёт отдельным блоком, см. `oh`/`ih`).
+    _phys_pairs = set()
+    try:
+        for _r in con_pairs.execute("SELECT parent, child FROM links"):
+            _phys_pairs.add((_norm(_r[0]), _norm(_r[1])))
+    except Exception:                  # noqa: BLE001
+        _phys_pairs = None             # нет данных — не блокируем (страница важнее)
+
+    def _is_physical(fr_name, to_name):
+        """Есть ли в `links` физическая пара «родитель → ребёнок» (V122)."""
+        if _phys_pairs is None:
+            return True
+        return (fr_name, to_name) in _phys_pairs
+
     for m in keep:
+        _src = nodes[m].get("n") or ""
         for e in out_m.get(m, []):
             t = remap(e["key"])
-            if t and t in idx and t != m:
+            if t and t in idx and t != m and _is_physical(_src, nodes[t].get("n") or ""):
                 out2[m].append({"key": t, "type": e["type"], "qty": e["qty"]})
         for e in in_m.get(m, []):
             f = remap(e["key"])
-            if f and f in idx and f != m:
+            if f and f in idx and f != m and _is_physical(nodes[f].get("n") or "", _src):
                 in2[m].append({"key": f, "type": e["type"], "qty": e["qty"]})
         for e in out_h.get(m, []):
             t = remap(e["key"])
@@ -906,6 +936,12 @@ def build_html(nodes, edges, media_dir, stats_extra=None):
     # мгновенно, а список/граф наполняются по мере поступления порций.
     _write_chunks(nd, st)
     first_chunk, rest = _split_chunks(nd, st)
+    # V122: закрыть служебное соединение сверки физических пар.
+    try:
+        if con_pairs is not None:
+            con_pairs.close()
+    except Exception:                  # noqa: BLE001
+        pass
     return (page.replace("__DATA__", json.dumps(first_chunk["nodes"], ensure_ascii=False))
                 .replace("__STATS__", json.dumps(first_chunk["stats"], ensure_ascii=False))
                 .replace("__MEDIA__", rel))
