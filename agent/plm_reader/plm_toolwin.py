@@ -3036,7 +3036,14 @@ def run_gui():
             w = max(cv.winfo_width(), 600)
             h = max(cv.winfo_height(), 300)
             n = len(bins)
-            W = max(w, n * 26 + 72)               # месяц/неделя/день — не мельче 26 px
+            # V118: РЕКА «ЗАСТЫЛА» — двигать было нечего! Владелец: «река вроде как застыла,
+            # динамики не видно». Причина: ширина холста = `max(ширина окна, n*26)`, и при малом
+            # числе бинов (напр. 4-5 месяцев) всё УМЕЩАЛОСЬ в окно → ни прокрутки, ни зума
+            # (колесо зумит только когда контент переполнен, и зум сбрасывался при resize).
+            # Теперь: у каждого бина ГАРАНТИРОВАННАЯ ширина (крупнее для дня/недели), поэтому река
+            # шире окна и её реально видно в движении; зум и сдвиг сохраняются (см. _river_keepscale).
+            per_bin = 46 if step_res == "m" else (64 if step_res == "w" else 34)
+            W = max(w, n * per_bin + 72)
             pad_l, pad_t, axis_h = 56, 12, 24
             plot_h = h - pad_t - axis_h
             xs = [pad_l + i * (W - pad_l - 16) / float(max(n - 1, 1)) for i in range(n)]
@@ -3418,19 +3425,15 @@ def run_gui():
                 label = n if len(n) <= 22 else n[:20] + "…"
                 gr_canvas.create_text(x * unit + 8, y * row, text=label, font=("Consolas", 9),
                                       tags=("node", "n:" + n))
-            # легенда типов (под картой, слева)
-            _ly = 6
-            for _mk, _mc, _mt in (("Д", "#4ec97a", "деталь"), ("С", "#4ea8e0", "сборка"),
-                                  ("М", "#c98a5a", "мануфактуринг"), ("Ч", "#a97cd8", "чертёж")):
-                gr_canvas.create_rectangle(8, _ly, 20, _ly + 12, fill=_mc, outline="")
-                gr_canvas.create_text(14, _ly + 6, text=_mk, font=("Segoe UI", 8, "bold"),
-                                      fill="#1a1a1a")
-                gr_canvas.create_text(24, _ly + 6, anchor="w", text=_mt, font=("Segoe UI", 8),
-                                      fill="#555")
-                _ly += 15
+            # V118: ЛЕГЕНДА ТИПОВ — В ШАПКУ ВКЛАДКИ (а не на холст!). Владелец: «подсказки в окне
+            # прям на карточках и двигаются вместе с окном». Причина: легенда рисовалась
+            # `gr_canvas.create_text` внутри прокручиваемой области → уезжала при сдвиге и
+            # накладывалась на узлы. Теперь она в ЛЕЙБЛЕ над картой — всегда на месте.
+            _leg = "тип: Д деталь · С сборка · М мануфактуринг (ЧПУ) · Ч чертёж"
             gr_canvas.config(scrollregion=gr_canvas.bbox("all"))
             grs.config(text="карта «%s»: узлов %d · рёбер %d · вниз %d / вверх %d · %.2f с"
-                       % (root, len(nodes), len(edges), ddown, dup, time.time() - t0))
+                            "    |    %s"
+                       % (root, len(nodes), len(edges), ddown, dup, time.time() - t0, _leg))
         except Exception as e:                          # вкладка не должна ронять окно
             try:
                 grs.config(text="карта не построена: %s" % e)

@@ -247,6 +247,7 @@ def collect_by_path(media_dir=None):
             nodes[key] = {"k": kind, "v": v, "m": mfg, "i": img, "i2": img2,
                           "s": int(row[6] or 0), "p": path, "role": (row[5] or "").upper(),
                           "n": name, "d": (row[8] or ""),
+                          "a": (row[9] or ""),               # V118: автор/компьютер из паспорта
                           "h": hist.get(path, [])[:40]}      # V109: история файла (до 40 записей)
             if img or img2:
                 cache[path] = (img, img2)
@@ -752,6 +753,7 @@ def build_html(nodes, edges, media_dir, stats_extra=None):
         nm = v.get("n") or _norm(full.split("\\")[-1])
         folder = full.rsplit("\\", 2)[-2] if "\\" in full else ""
         nd[idx[m]] = {"k": v.get("k", "?"), "v": v.get("v", ""), "m": bool(v.get("m")),
+                      "a": v.get("a", ""),                    # V118: компьютер/автор из паспорта
                       "role": (v.get("role") or "").upper(),   # V111: MFG отдельно от сборки
                       "i": v.get("i", ""), "i2": v.get("i2", ""),
                       "h": (v.get("h") or [])[:40],          # V109: история изменений файла

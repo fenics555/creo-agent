@@ -1,12 +1,12 @@
 {
- "version": "V117",
- "version_num": 117,
+ "version": "V118",
+ "version_num": 118,
  "date": "26.10.2026",
- "notes": "V117 — вертикальный граф красиво: полосы уровней «уровень N · узлов K», широкие отступы между уровнями, разнесённые ряды",
+ "notes": "V118 — вечный «НУЖЕН СКАН» вылечен (476 -> 2: проверка теперь по правилам скана, пропало не требует скана); компьютер в HTML-истории; легенда графа в шапку; река прокручивается",
  "files": {
-  "engine.py": "a4403b289925421c1dd418fe8cb0cb565a4d88eac9579eb0068f13a772ad04a6",
-  "plm_reader.py": "e9e2f02f431e66050624524b54fc63672dfc2cd659ddf67bde7a495dbdd54ba5",
-  "plm_toolwin.py": "9ca29b13941c8a3cb2d1b54e36aa27485f4e05a5ef442ea6266ed48d54de7c47",
+  "engine.py": "764ccfcdb7973dfe5b9879ec362a90202caad8f74fca7c7030962cf30c5e1939",
+  "plm_reader.py": "51fba0efe36124708df691871c6e3aafa0ea38854eb76232cd0d0573f1e5ab7b",
+  "plm_toolwin.py": "a62f6dae1b031920b982bf29faaa89ce5b61038facf70dda3cfb2156507af9b8",
   "plm_history.py": "0e8a1b414f3ad7c67175251fb4192e26431b0e9760bcce6ba6d9faf03ada8c77",
   "plm_parse.py": "c6bb33a412b6b606ad402e3eb78cd49246b77738b69d82be1b6218a1358c0312",
   "plm_dbview.py": "5527e2a651af5d509692ba71e2bed1c23272fbe6d1153caee070cb8c1457a1db",
@@ -14,14 +14,14 @@
   "plm_scan.py": "e32d610e33932afaee4c952cb0b4564801508f0568d4360d7d039ffacb856f48",
   "plm_paths_window.py": "8887ccacd53f475171c89a8948084420078ed4fc1fc8a914a40ea4af1968124d",
   "creo_read.py": "eb28ec862c1eb4a5519f5215d4ec11d060222348c54ebc407abbcd5f88ada170",
-  "README.md": "cba8317b24f7998d5b15ece78abaf30225aa6ab2df22f87c344b742e58e70d5f",
+  "README.md": "69ed5bce825f705d2b793a7c97d487aa794782814fb463132647cec143e47166",
   "SHARE_copy.bat": "4eccb549a17251392337aeabbc3ef76233dfa3072beadff9d158cd6e932622ee",
   "plm_reader.bat": "bdd125397db3ac7e7432dbdb078a6a811ed4913fca02b062edb27907032fca3d",
   "plm_reader_gui.bat": "9f695898d5db6431e840784b9587c75304ca9e526b06f79d4b44ab026663bd20",
   "make_version_json.py": "4603968533bec13a05defb4a164246728b9649d50d524479f639493eeed7c92f",
   ".gitignore": "911fbdb5acf889293fdc61c836b691014da748fa55bd6464ce35a67f30e636ee",
   "AGENTS.md": "3b08e6e81731ace78deac46df3b802de337c3924acb87c54fe1562a2573650ef",
-  "plm_graph.py": "04e648b21ad63755b1514c292a0bff2846ebe02a9ed39c728a430e10afca5665",
-  "plm_graph_page.html": "6367e3b4aae232947fdb0eeaa036684d1d1b2a4efc071064c873384c2cfa34dd"
+  "plm_graph.py": "e90c0299865e5aec8c47a6759253802acc8e718be03d07914befb3a1d6c86b8c",
+  "plm_graph_page.html": "169d782164dea54720a67e77889a666994504dc4072ea485d88cd031549151df"
  }
 }

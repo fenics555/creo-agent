@@ -566,10 +566,15 @@ function show(m){
     hcol = '<ul>' + hist.map(x => {
       const kind = (x[3] || "").toLowerCase();
       const what = (x[4] || "").trim() || (kind === "new" ? "первая запись паспорта" : "—");
-      return '<li title="' + esc(x[0]) + ' — ' + esc(x[1] || "?") + ' — рев. ' +
+      // V118: КОМПЬЮТЕР. В окне «История файла» он показывается (FREZER-1, FENOM), а в HTML
+      // его не было — владелец заметил. Берём `who` из журнала правок, а если он пуст/служебный
+      // (USER/ADMIN) — подставляем автора из паспорта модели (`n.a`), как делает окно.
+      let comp = (x[1] || "").trim();
+      if (!comp || /^(USER|ADMIN|\?)$/i.test(comp)) comp = (n.a || "").trim() || comp || "—";
+      return '<li title="' + esc(x[0]) + ' — ' + esc(comp) + ' — рев. ' +
         esc(x[2] || "—") + ' — ' + esc(what) + '">' +
         '<span class="h1">' + esc(x[0] || "—") + '</span> · ' +
-        '<span class="h2">' + esc(x[1] || "?") + '</span> · ' +
+        '<span class="h2">' + esc(comp) + '</span> · ' +
         '<span class="h3r">рев. ' + esc(x[2] || "—") + '</span> · ' +
         '<span class="' + (kind === "new" ? "new" : "h4") + '">' + esc(what) + '</span></li>';
     }).join("") + '</ul>';

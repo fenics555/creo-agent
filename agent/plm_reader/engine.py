@@ -1334,12 +1334,10 @@ def do_check(roots=None, max_mb=8.0, depth=None, exclude=None, latest_only=None,
     prev = {r[0]: (r[1], r[2]) for r in con.execute("SELECT path,size,mtime FROM snapshots")}
     con.close()
     prev = {p: v for p, v in prev.items() if under_roots(p, roots) and not excluded(p, exclude)}
-    # V118: из базы оставляем только те версии, которые скан СЧИТАЕТ АКТУАЛЬНЫМИ — иначе
-    # «пропало» вечно показывает файлы версий, которые скан намеренно не ведёт.
-    if latest_only:
-        _pstat = [(p, v[0], v[1], 0) for p, v in prev.items()]
-        _keep = {f[0] for f in _filter_latest(_pstat)}
-        prev = {p: v for p, v in prev.items() if p in _keep}
+    # V118: «пропало» не должно требовать скана — но фильтровать prev через _filter_latest НЕЛЬЗЯ:
+    # у файла на диске может быть «старший» сосед ТОЛЬКО в базе (его уже нет на диске), и тогда
+    # известный файл выглядел «новым» (33 ложных). Поэтому prev берём КАК ЕСТЬ, а rules применяем
+    # только к файлам диска (files) — именно так делает скан.
     # ^ строки ВНЕ текущих корней — не «пропало»: база могла собираться по более широкой папке
     found, new, changed, same = set(), 0, 0, 0
     for p, size, mtime, _ctime in files:
