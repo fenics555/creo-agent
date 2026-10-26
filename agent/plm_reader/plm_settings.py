@@ -227,7 +227,14 @@ def _settings_migrations():
 
     return {2: v1_to_v2, 3: v2_to_v3}
 def _validate_settings(out):
-    """Мягкая проверка типов: что не число — умолчание + строка в лог (битый файл не роняет окно)."""
+    """Мягкая проверка типов: что не число — умолчание + строка в лог (битый файл не роняет окно).
+
+    V116 ГЛАВНАЯ ГРАБЛЯ: проверялись только 4 ключа, а настройки графа — НЕТ. На шаре в файле
+    лежало `"graph_media_limit": "25000"` (СТРОКА, старый формат) → `int("25000")` = 25000 →
+    включался ЖЁСТКИЙ ПОТОЛОК 25 000 превью (хотя в коде стоит 0 = без предела), и 8 494 файла
+    оставались без картинок. Теперь нормализация идёт ПО ВСЕМУ РЕЕСТРУ `SETTINGS_SPEC`:
+    строка «25000» → число 25000, «true» → True, и т.д.
+    """
     def _num(key, caster, fallback):
         try:
             out[key] = caster(out.get(key, fallback))
@@ -238,6 +245,49 @@ def _validate_settings(out):
     _num("show_limit", int, 50000)
     _num("depth", int, 0)
     _num("purge_keep", int, 2)
+
+    # V116: нормализуем ВСЕ параметры по единому реестру (тип из SETTINGS_SPEC).
+    try:
+        spec = SETTINGS_SPEC
+    except NameError:
+        spec = []
+    for item in spec:
+        try:
+            key, typ = item[1], item[3]
+        except Exception:
+            continue
+        if key in ("db_dir", "purge_backup_dir") or typ in ("text", "list"):
+            continue
+        val = out.get(key)
+        if typ == "int":
+            try:
+                out[key] = int(float(str(val).replace(",", ".")))
+            except Exception:
+                out[key] = DEFAULT_SETTINGS.get(key, 0)
+                log_line("settings: «%s» не число (%r) — умолчание" % (key, val))
+        elif typ == "bool":
+            if isinstance(val, str):
+                out[key] = val.strip().lower() in ("1", "true", "да", "yes", "on")
+            else:
+                out[key] = bool(val)
+        elif typ == "choice":
+            allowed = item[4] if len(item) > 4 and isinstance(item[4], list) else None
+            if allowed and str(val) not in allowed:
+                out[key] = DEFAULT_SETTINGS.get(key, allowed[0])
+                log_line("settings: «%s»=%r не из списка — умолчание" % (key, val))
+            else:
+                out[key] = str(val)
+
+    # V116: ЛЕЧИМ УСТАРЕВШИЙ ПОТОЛОК ПРЕВЬЮ. В файлах осталось `graph_media_limit=25000`
+    # (умолчание до V107) — оно МОЛЧА возвращает жёсткий потолок, и «хвост» базы остаётся без
+    # картинок: на шаре так остались 8 494 модели БЕЗ превью, хотя превью в файлах ЕСТЬ.
+    # Теперь это значение переводится в 0 = без предела (как и задумано в V107).
+    try:
+        if int(out.get("graph_media_limit") or 0) == 25000:
+            out["graph_media_limit"] = 0
+            log_line("settings: graph_media_limit 25000 (устаревший потолок) → 0 (без предела)")
+    except Exception:
+        pass
     return out
 def _rotate_settings_backups(keep=5):
     """Оставить последние `keep` файлов в settings\\backup_settings; старые удалить."""

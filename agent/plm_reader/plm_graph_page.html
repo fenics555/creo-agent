@@ -687,13 +687,14 @@ function draw(root){
   const cols = Object.keys(rows).sort((a, b) => Number(a) - Number(b));
   const CW = 250, RH = 24, pos = {};
   const GL = graphLayout();
-  // V115: ВЕРТИКАЛЬНЫЙ СТРОЙ СДЕЛАН ЧИТАЕМЫМ. Владелец: «вертикальная связь очень не очень» —
-  // причина: узлы уровня шли ОДНОЙ ДЛИННОЙ строкой (x += CW без переноса), и граф уходил
-  // вправо за экран, а уровни уползали вниз «простынёй». Теперь внутри уровня — ПЕРЕНОС строк:
-  // узлы раскладываются СЕТКОЙ (не более PER_ROW в ряд), уровень занимает несколько рядов.
-  // Плюс: горизонтальный строй остаётся по умолчанию и возвращается кнопкой «↺ Сбросить».
-  const PER_ROW = Math.max(1, Math.floor((Math.max(window.innerWidth - 320, 700)) / CW));
-  let maxLine = 0;
+  // V116: ВЕРТИКАЛЬНЫЙ ГРАФ ОБРЕЗАЛ ОКНО. Владелец: «вертикально — обрезает окно». Причина:
+  // холст получался ОЧЕНЬ высоким (много уровней × ряды), а область графа маленькая — приходилось
+  // крутить. Теперь в вертикальном строе ширина ПОДГОНЯЕТСЯ под окно (без горизонтальной прокрутки),
+  // а высота остаётся прокручиваемой; PER_ROW считается от реальной ширины области графа.
+  const gbox = document.getElementById("graph");
+  const availW = Math.max(700, (gbox ? gbox.clientWidth : window.innerWidth - 360) - 40);
+  const PER_ROW = Math.max(1, Math.floor(availW / CW));
+  let maxLine = 0, colBottom = 0;
   if (GL === "col"){
     // ВЕРТИКАЛЬНО: уровни СВЕРХУ ВНИЗ (y), внутри уровня узлы СЕТКОЙ (перенос каждые PER_ROW).
     let y = 20;
@@ -705,7 +706,9 @@ function draw(root){
         pos[m] = [20 + cc * CW, y + r * RH];
       });
       maxLine = Math.max(maxLine, Math.min(n, PER_ROW));
-      y += Math.max(1, Math.ceil(n / PER_ROW)) * RH + 4;
+      const rowsUsed = Math.max(1, Math.ceil(n / PER_ROW));
+      y += rowsUsed * RH + 4;
+      colBottom = y;                                  // V116: фактический низ холста
     }
   } else {
     // ГОРИЗОНТАЛЬНО (по умолчанию): каждый уровень — КОЛОНКА (x растёт), узлы — вниз (y растёт).
@@ -718,9 +721,11 @@ function draw(root){
       x += CW;
     }
   }
-  const W = (GL === "col") ? Math.max(500, maxLine * CW + 40)
+  const W = (GL === "col") ? Math.max(500, Math.min(maxLine, PER_ROW) * CW + 40)
                            : Math.max(500, cols.length * CW + 40);
-  const H = (GL === "col") ? Math.max(200, cols.length * (RH + 4) + 50)
+  // V116: высота холста считается ПО ФАКТИЧЕСКОЙ раскладке (уровни × ряды), иначе вертикальный
+  // граф «обрезался» (низ не попадал в холст). Копим реальную высоту по ходу раскладки.
+  const H = (GL === "col") ? Math.max(200, colBottom + 50)
                            : Math.max(200, maxLine * RH + 50);
   let svg = "<defs>";
   const used = {};

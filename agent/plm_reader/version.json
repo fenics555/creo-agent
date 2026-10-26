@@ -1,20 +1,20 @@
 {
- "version": "V115",
- "version_num": 115,
- "date": "24.10.2026",
- "notes": "V115 — вертикальный строй читаемый (перенос строк сеткой, не уходит за экран) + кнопка «Горизонтально (по умолчанию)» в один клик",
+ "version": "V116",
+ "version_num": 116,
+ "date": "26.10.2026",
+ "notes": "V116 — корень «нет картинок»: строковая настройка graph_media_limit 25000 включала потолок превью (лечится: нормализация всех настроек + 25000 -> 0); вертикальный граф не обрезает окно (ширина по окну, высота по факту)",
  "files": {
   "engine.py": "a4403b289925421c1dd418fe8cb0cb565a4d88eac9579eb0068f13a772ad04a6",
-  "plm_reader.py": "6c3a48cb85ca329b1e5060d81130093837423e42c748b07deee8538c85939a6b",
+  "plm_reader.py": "33ee8d9f7f81c347477cad06f127fd4529e6a34daf26264f49b93fbda347052b",
   "plm_toolwin.py": "9ca29b13941c8a3cb2d1b54e36aa27485f4e05a5ef442ea6266ed48d54de7c47",
   "plm_history.py": "0e8a1b414f3ad7c67175251fb4192e26431b0e9760bcce6ba6d9faf03ada8c77",
   "plm_parse.py": "c6bb33a412b6b606ad402e3eb78cd49246b77738b69d82be1b6218a1358c0312",
   "plm_dbview.py": "5527e2a651af5d509692ba71e2bed1c23272fbe6d1153caee070cb8c1457a1db",
-  "plm_settings.py": "aa79ec6f0379b7bc0c7f4fd4b83d314e0c62da32f2b23d8648bc043b452bd143",
+  "plm_settings.py": "8647f8e5a6116d7bc89c702d9fa27d31fb3df935f4454d0c5dd64e02516429b6",
   "plm_scan.py": "e32d610e33932afaee4c952cb0b4564801508f0568d4360d7d039ffacb856f48",
   "plm_paths_window.py": "8887ccacd53f475171c89a8948084420078ed4fc1fc8a914a40ea4af1968124d",
   "creo_read.py": "eb28ec862c1eb4a5519f5215d4ec11d060222348c54ebc407abbcd5f88ada170",
-  "README.md": "1ba2c541a022f0ca40a43c31e4ce0cf3f0f7f768ec1fc02f54871fa9af52bbd1",
+  "README.md": "893e85c14c1e16254b1be3ac4912f8f34b7bb9e63d099f3efecf496777d4ee6c",
   "SHARE_copy.bat": "4eccb549a17251392337aeabbc3ef76233dfa3072beadff9d158cd6e932622ee",
   "plm_reader.bat": "bdd125397db3ac7e7432dbdb078a6a811ed4913fca02b062edb27907032fca3d",
   "plm_reader_gui.bat": "9f695898d5db6431e840784b9587c75304ca9e526b06f79d4b44ab026663bd20",
@@ -22,6 +22,6 @@
   ".gitignore": "911fbdb5acf889293fdc61c836b691014da748fa55bd6464ce35a67f30e636ee",
   "AGENTS.md": "3b08e6e81731ace78deac46df3b802de337c3924acb87c54fe1562a2573650ef",
   "plm_graph.py": "04e648b21ad63755b1514c292a0bff2846ebe02a9ed39c728a430e10afca5665",
-  "plm_graph_page.html": "2d07446d115e6af45de4a4240898a4e78db59881f615b7f1299b2bd452cfd6eb"
+  "plm_graph_page.html": "55b86382db9d539bdeda15e8965b39774f543669724f317211dc1d9390d7c8df"
  }
 }
