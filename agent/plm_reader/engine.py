@@ -1290,13 +1290,30 @@ def purge_execute(root, keep=2, backup_dir=None, dry=False, items=None):
     return rep
 
 
-def do_check(roots=None, max_mb=8.0, depth=None, exclude=None):
+def do_check(roots=None, max_mb=8.0, depth=None, exclude=None, latest_only=None, recurse=None):
     """БЫСТРАЯ проверка актуальности базы: обход + stat, БЕЗ чтения файлов.
 
     Отвечает на вопрос владельца «актуально / нужен скан?». Исключённые папки не обходятся
     и не считаются «пропавшими».
+
+    V118 ГЛАВНАЯ ГРАБЛЯ (вечный цикл «НУЖЕН СКАН»): проверка шла **без** настроек скана —
+    не применялся `latest_only` («только последние версии») и `recurse`. Поэтому файлы версий
+    `.2/.3/.4` (после Purge / промежуточные) считались «новыми» (476 шт.), хотя скан их
+    **сознательно не берёт**. Владелец сканировал — сообщение возвращалось. Теперь проверка
+    использует ТЕ ЖЕ правила, что и скан.
     """
     t0 = time.time()
+    # правила — как в do_scan: из аргументов, иначе из настроек
+    if recurse is None or latest_only is None:
+        try:
+            import plm_settings
+            _cfg = plm_settings.load_settings_file()
+        except Exception:
+            _cfg = {}
+        if recurse is None:
+            recurse = bool(_cfg.get("recurse", True))
+        if latest_only is None:
+            latest_only = bool(_cfg.get("latest_only", True))
     if not roots:
         try:
             roots = json.loads(meta_get("roots") or "null") or DEFAULT_ROOTS
@@ -1308,11 +1325,21 @@ def do_check(roots=None, max_mb=8.0, depth=None, exclude=None):
         except Exception:
             exclude = []
     roots = as_roots(roots)          # в базе корни могут лежать СТРОКОЙ — лечим (грабля 29.09)
-    files = collect_stat(roots, max_mb, depth, exclude)
+    # V118: собираем файлы ТЕМИ ЖЕ правилами, что скан (иначе «новые» — это версии, которые
+    # скан не берёт, и сообщение «НУЖЕН СКАН» висит вечно).
+    files = collect_stat(roots, max_mb, depth, exclude, recurse=bool(recurse))
+    if latest_only:
+        files = _filter_latest(files)
     con = connect()
     prev = {r[0]: (r[1], r[2]) for r in con.execute("SELECT path,size,mtime FROM snapshots")}
     con.close()
     prev = {p: v for p, v in prev.items() if under_roots(p, roots) and not excluded(p, exclude)}
+    # V118: из базы оставляем только те версии, которые скан СЧИТАЕТ АКТУАЛЬНЫМИ — иначе
+    # «пропало» вечно показывает файлы версий, которые скан намеренно не ведёт.
+    if latest_only:
+        _pstat = [(p, v[0], v[1], 0) for p, v in prev.items()]
+        _keep = {f[0] for f in _filter_latest(_pstat)}
+        prev = {p: v for p, v in prev.items() if p in _keep}
     # ^ строки ВНЕ текущих корней — не «пропало»: база могла собираться по более широкой папке
     found, new, changed, same = set(), 0, 0, 0
     for p, size, mtime, _ctime in files:
@@ -1329,9 +1356,16 @@ def do_check(roots=None, max_mb=8.0, depth=None, exclude=None):
     really_gone = [p for p in gone_paths if stem(os.path.basename(p)) not in live_models]
     purged = len(gone_paths) - len(really_gone)      # старые версии после ПУРГЕ — норма, не тревога
     gone = len(really_gone)
-    need = bool(new or changed or gone)
+    # V118: «ПРОПАЛО» НЕ ТРЕБУЕТ СКАНА. Владелец: «при старте всегда пишет НУЖЕН СКАН … пропало 584»
+    # — и так каждый раз. Причина: `need` включалось и от `gone` (файлы из базы, которых больше нет
+    # на диске). Таких записей скан НЕ добавит — он лишь уберёт их из базы, и до скана сообщение
+    # висит вечно, раздражая. Скан нужен только когда есть ЧТО ЧИТАТЬ: новые или изменённые файлы.
+    need = bool(new or changed)
     verdict = ("НУЖЕН СКАН: новых %d, изменённых %d, пропало %d" % (new, changed, gone)) if need \
         else "АКТУАЛЬНО (скан не нужен)"
+    if not need and gone:
+        verdict = ("АКТУАЛЬНО (скан не нужен) · устаревших записей (нет на диске): %d "
+                   "— уйдут при следующем скане" % gone)
     if purged:
         verdict += " · старые версии после Purge: %d (норма)" % purged
     # V35: models — изделия БЕЗ дублей версий; total — файлы моделей с копиями версий (для отчёта и статуса)

@@ -173,7 +173,7 @@ def collect_by_path(media_dir=None):
         print("история: путей с записями %d" % len(hist), flush=True)
 
         _rows = list(con.execute("SELECT model, path, volume, material, creo, role, size, "
-                                 "name, designation FROM snapshots"))
+                                 "name, designation, author FROM snapshots"))
         if media_dir and int(_media_max) > 0:
             _rows.sort(key=lambda r: 0 if (r[1] or "") in cache else 1)
         for row in _rows:

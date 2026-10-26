@@ -4075,7 +4075,11 @@ def run_gui():
         def work():
             try:
                 import engine as eng
-                r = eng.do_check(exclude=exclude_list(settings.get("exclude")))
+                # V118: проверка идёт ТЕМИ ЖЕ правилами, что скан (иначе вечный «НУЖЕН СКАН»)
+                r = eng.do_check(exclude=exclude_list(settings.get("exclude")),
+                                 latest_only=bool(settings.get("latest_only", True)),
+                                 recurse=bool(settings.get("recurse", True)),
+                                 max_mb=float(settings.get("max_size_mb", 24)))
             except Exception as e:
                 try:
                     root.after(0, lambda: work_stop("проверка не удалась: %s" % e))
@@ -4096,12 +4100,16 @@ def run_gui():
     def show_check(r):
         _p = r.get("purged", 0)
         _tail = ("  ·  старые версии после Purge: %d — норма" % _p) if _p else ""
+        _gone = r.get("gone", 0)
         if r.get("need"):
-            lbl.config(text="НУЖЕН СКАН: новых %d · изменённых %d · пропало %d (%.1f с)%s"
-                       % (r["new"], r["mod"], r["gone"], r["secs"], _tail))
+            lbl.config(text="НУЖЕН СКАН: новых %d · изменённых %d (%.1f с)%s"
+                       % (r["new"], r["mod"], r["secs"], _tail))
         else:
-            lbl.config(text="БАЗА АКТУАЛЬНА: изделий %d (файлов на диске %d, с копиями версий), изменений нет (%.1f с)%s"
-                       % (r.get("models", r["total"]), r["total"], r["secs"], _tail))
+            # V118: «пропало» больше НЕ требует скана (это устаревшие записи, скан их лишь уберёт).
+            _g = ("  ·  устаревших записей (нет на диске): %d — уйдут при скане" % _gone) if _gone else ""
+            lbl.config(text="БАЗА АКТУАЛЬНА: изделий %d (файлов на диске %d, с копиями версий), "
+                            "изменений нет (%.1f с)%s%s"
+                       % (r.get("models", r["total"]), r["total"], r["secs"], _tail, _g))
         log_line("check: %s" % r.get("verdict", ""))
 
     def load_base(limit=None, first=False):
