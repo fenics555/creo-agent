@@ -564,10 +564,12 @@ function show(m){
       const nn = ND[x[0]] || {};
       const [mk, mc] = typeMark(nn);
       const rel = (x[1] || "").toLowerCase();
-      // слово-подпись: тип модели, а для «копия/заготовка» — сам вид связи (он важнее типа)
+      // слово-подпись: тип модели, а для содержательных видов связи — сам вид
       let word = kindWord(nn.k);
       if (rel.indexOf("коп") >= 0) word = "копия";
       else if (rel.indexOf("загот") >= 0) word = "заготовка";
+      else if (rel.indexOf("исполн") >= 0) word = "исполнение";
+      else if (rel.indexOf("производ") >= 0) word = "производная";
       const tag = word ? '<span class="t">' + word + '</span>' : '';
       return '<li data-m="' + x[0] + '">' +
         '<span style="display:inline-block;width:12px;height:12px;border-radius:3px;background:' + mc +
@@ -577,6 +579,25 @@ function show(m){
         ((x[2] && x[2] > 1) ? ' <b style="color:#8fa0b3">×' + x[2] + '</b>' : '') + '</li>';
     }).join("")
     : "<li style='color:#5a6773'>—</li>";
+  // V121: БАЗА НАСЛЕДОВАНИЯ — ОТДЕЛЬНЫЙ БЛОК. Владелец: «показывать только ФИЗИЧЕСКИЕ связи,
+  // выдумывать не нужно». Раньше `derived` рисовались в «Состав»/«Куда входит» (44% рёбер были
+  // «не своими» — `DIN912` показывал соседей, в которые НЕ входит). Теперь это отдельный блок:
+  //   «база (куда наследует)» — `MERGE_BASE_PART` этой модели: на какой базе она построена;
+  //   «исполнения / производные» — кто наследует ОТ неё.
+  const oh = n.oh || [], ih = n.ih || [];
+  let inh = "";
+  if (oh.length || ih.length){
+    inh = '<div class="hist"><h3>База наследования — из файла (' +
+          (oh.length + ih.length) + ')</h3><ul>' +
+      // база этой модели — то, что физически записано в её паспорте
+      '<li style="color:#9fb0c2;list-style:none;margin-left:-14px">' +
+      '<span class="t">база (эта модель построена на)</span>:' +
+      '<ul>' + li(oh) + '</ul></li>' +
+      '<li style="color:#9fb0c2;list-style:none;margin-left:-14px">' +
+      '<span class="t">исполнения / производные (построены отсюда)</span>:' +
+      '<ul>' + li(ih) + '</ul></li>' +
+      '</ul></div>';
+  }
   // V112: ИСТОРИЯ — ТАКОЙ ЖЕ БЛОК, как «Состав» и «Куда входит»: список с точками, тот же
   // шрифт и высота. Строка = «ДАТА ПРАВКИ · КОМП/ЮЗЕР · рев. N · ЧТО».
   const hist = n.h || [];
@@ -608,7 +629,8 @@ function show(m){
     '<div class="flex"><div class="prev">' + prev + '</div>' +
     '<div><h3>Состав — что использует (' + n.o.length + ')</h3><ul>' + li(n.o) + '</ul></div>' +
     '<div><h3>Куда входит (' + n.n.length + ')</h3><ul>' + li(n.n) + '</ul></div>' +
-    '<div class="hist"><h3>История изменений (' + hist.length + ')</h3>' + hcol + '</div></div>';
+    '<div class="hist"><h3>История изменений (' + hist.length + ')</h3>' + hcol + '</div>' +
+    inh + '</div>';
   // V111: применить выбранный строй (row = в ряд / col = друг под другом)
   try { window.applyCardLayout(); } catch (e) {}
   document.querySelectorAll("#card li").forEach(el =>
@@ -620,14 +642,14 @@ function show(m){
 //  main-up     основные К выбранному (прямые родители)   — голубой
 //  deep-down   связи ВНИЗ (транзитные потомки)           — тёмно-зелёный
 //  deep-up     связи ВВЕРХ (транзитные предки)           — тёмно-синий
-//  base        база/заготовка (_Z, MERGE_BASE_PART)      — жёлтый
+//  inherit     БАЗА НАСЛЕДОВАНИЯ (MERGE_BASE_PART)       — жёлтый  (V121)
 //  copy        копия (from_mdl_name)                     — фиолетовый
 const CLR = {
   "main-down": {"s": "#4ec97a", "t": "основные от выбранного"},
   "main-up":   {"s": "#4ea8e0", "t": "основные к выбранному"},
   "deep-down": {"s": "#2f7a4a", "t": "связи вниз (через узел)"},
   "deep-up":   {"s": "#2f5a8a", "t": "связи вверх (через узел)"},
-  "base":      {"s": "#d8b74a", "t": "заготовка / база"},
+  "inherit":   {"s": "#d8b74a", "t": "база наследования (из файла)"},
   "copy":      {"s": "#a97cd8", "t": "копия модели"}
 };
 
@@ -638,7 +660,8 @@ function edgeKind(from, to){
   // а роли заготовка/копия терялись. Сравниваем строкой.
   const arr = (ND[from] && ND[from].o) || [];
   for (const t of arr){ if (String(t[0]) === String(to)) {
-    if (t[1] === "заготовка" || t[1] === "база/заготовка") return "base";
+    if (t[1] === "заготовка" || t[1] === "база/заготовка") return "inherit";
+    if (t[1] === "исполнение" || t[1] === "производная") return "inherit";
     if (t[1] === "копия") return "copy";
     return "child";
   } }
@@ -671,7 +694,7 @@ function draw(root){
           (N[lvl] = N[lvl] || []).push(nm);
           const role = edgeKind(dir === "d" ? m : nm, dir === "d" ? nm : m);
           const main = (depth === 1);
-          const k = (role === "base" || role === "copy") ? role
+          const k = (role === "inherit" || role === "copy") ? role
                   : (main ? "main-" + dir : "deep-" + dir);
           // ребро в данных ND всегда «родитель → ребёнок»:
           const eFrom = dir === "d" ? m : nm, eTo = dir === "d" ? nm : m;

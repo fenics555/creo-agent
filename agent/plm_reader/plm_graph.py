@@ -55,6 +55,18 @@ def _norm(name):
     return s.upper()
 
 
+def _is_service(name):
+    """V121: СЛУЖЕБНАЯ «база»/шаблон — НЕ модель (в `snapshots` её нет, узла не будет).
+
+    `MM_ASSY`, `SBORKA_MM`, `MM_PART` в базе значатся как `base` у 58% записей `derived`
+    (11 665 из 19 952), но самой модели нет → ребро через неё приклеивалось к ЧУЖОМУ узлу.
+    Тот же список, что `SVC` в build_html — держать согласованным.
+    """
+    return bool(re.match(r"^(SBORKA_MM|SBORKA_MFG|MFG_NC|MFG_NC_NEW|INLBS_MFG_NC|MM_PART|"
+                         r"MM_ASSY|MM_|TEMPLATE|REGEN_BACKUP|NONE|NULL)$",
+                         (name or "").strip(), re.I))
+
+
 def _kind_by_path(path):
     """Тип модели ПО РАСШИРЕНИЮ файла (без чтения) — чтобы .asm не показывался как PRT.
 
@@ -267,25 +279,54 @@ def collect_by_path(media_dir=None):
         # Поэтому: (1) сначала СКЛЕИВАЕМ связи на уровне ИМЁН (одна связь «имя→имя» = одно ребро,
         # количество суммируется); (2) затем раскладываем по путям, но ТОЛЬКО для тех узлов,
         # что реально попали в страницу — и один узел получает НЕ БОЛЕЕ ОДНОЙ строки на соседа.
+        # ── V121 КОРНЕВОЙ ДЕФЕКТ (владелец: «DIN912 — исполнения входят в кучи сборок,
+        # но ПДМридер нигде это не указывает»; «показывать только ФИЗИЧЕСКИЕ связи»).
+        #
+        # ГРАБЛЯ: `derived` рисовались в ТЕ ЖЕ блоки, что и физический состав/входимость:
+        #     for row in derived: add_edge(child, base, ...)
+        # но `derived.base` — это ИМЯ БАЗЫ НАСЛЕДОВАНИЯ (`MERGE_BASE_PART` из файла:
+        # `MM_ASSY`, `SBORKA_MM`, `3DIN912-M6X20`), а НЕ реальный родитель. Проверка на боевой
+        # базе: физических связей `links` — 15 085, записей `derived` — 19 952, из них
+        # ПОДТВЕРЖДЕНЫ физически лишь 567 (3%), а 19 385 (97%) — ФАНТОМНЫЕ. На странице это
+        # давало 25 750 из 57 940 рёбер (44%) «не своим» видом: `DIN912` показывал соседей,
+        # в которые НЕ входит, а его производные (`3DIN912-*`) выдавались за состав.
+        #
+        # ТЕПЕРЬ: `links` → состав/входимость (физическая правда, `channel="db"`);
+        # `derived` → ОТДЕЛЬНЫЙ канал `channel="inherit"` (блок «БАЗА НАСЛЕДОВАНИЯ»),
+        # и `наследование` больше НЕ сливается с `производная` в одно слово «заготовка».
         agg = {}
 
-        def add_edge(fr_name, to_name, typ, q):
+        def add_edge(fr_name, to_name, typ, q, ch="db"):
             if not fr_name or not to_name or fr_name == to_name:
                 return
-            k = (fr_name, to_name, typ)
+            k = (fr_name, to_name, typ, ch)
             agg[k] = agg.get(k, 0) + int(q or 1)
 
         for row in con.execute("SELECT parent, child, qty FROM links"):
-            add_edge(_norm(row[0]), _norm(row[1]), "деталь", row[2])
+            add_edge(_norm(row[0]), _norm(row[1]), "деталь", row[2], "db")
+        # V121: вид связи = КАК ЗАПИСАНО В ФАЙЛЕ, без склейки в «заготовка».
+        # V121 ГРАБЛЯ (продолжение): 58% записей `derived` идут через СЛУЖЕБНЫЕ базы
+        # (`MM_ASSY`, `SBORKA_MM`, `MM_PART` — их НЕТ в `snapshots`, т. е. это не модели).
+        # Такого узла в странице не существует → `remap` в build_html приклеивал ребро к
+        # СЛУЧАЙНОМУ узлу («ST-30-35Y_XT_2009-2019_1 -> 10_A2-6_CHUCK_RETRACT_»). Поэтому
+        # служебные отсекаем ЗДЕСЬ, на входе.
         for row in con.execute("SELECT child, base, kind FROM derived"):
+            if _is_service(_norm(row[0])) or _is_service(_norm(row[1])):
+                continue
             k0 = (row[2] or "").lower()
-            add_edge(_norm(row[0]), _norm(row[1]), "копия" if "коп" in k0 else "заготовка", 1)
-        for (fr, to, typ), q in agg.items():
+            if "коп" in k0:
+                typ = "копия"
+            elif "наслед" in k0:
+                typ = "исполнение"          # MERGE_BASE_PART — деталь наследует геометрию базы
+            else:
+                typ = "производная"
+            add_edge(_norm(row[0]), _norm(row[1]), typ, 1, "inherit")
+        for (fr, to, typ, ch), q in agg.items():
             for pk in by_name.get(fr, []):
                 for ck in by_name.get(to, []):
                     if pk != ck:
                         edges.append({"from": pk, "to": ck, "type": typ, "qty": q,
-                                      "channel": "db"})
+                                      "channel": ch})
     except Exception as e:             # noqa: BLE001
         # НЕ ГЛУШИМ: раньше исключение съедалось и откат шёл на неверную модель
         # (ключ = имя) — из-за этого граф строился «не тот». Теперь видно.
@@ -670,10 +711,6 @@ def load_settings():
 
 def build_html(nodes, edges, media_dir, stats_extra=None):
     """Собирает автономную страницу (0 CDN) и возвращает текст HTML."""
-    out_, in_ = defaultdict(list), defaultdict(list)
-    for e in edges:
-        out_[e["from"]].append(e)
-        in_[e["to"]].append(e)
     # V104: ОДНА строка на МОДЕЛЬ-соседа (жалоба владельца «HB72501-401 подряд десятки раз»).
     # У имени бывает много путей (HB72501-401 — 98), и в «связях» появлялись все пути одной
     # модели подряд. Сворачиваем по ИМЕНИ соседа (+тип): количество суммируется, а путь-дубль
@@ -681,6 +718,9 @@ def build_html(nodes, edges, media_dir, stats_extra=None):
     # Приоритет типа при склейке: «заготовка»/«копия» важнее «деталь» (их и показываем).
     _TPRI = {"деталь": 0, "заготовка": 1, "база/заготовка": 1, "копия": 2}
 
+    # V121: ФИЗИЧЕСКИЕ связи (`channel="db"`) — в «Состав»/«Куда входит»; ПРОИЗВОДНОСТЬ
+    # (`channel="inherit"`) — в ОТДЕЛЬНЫЙ блок «База наследования», иначе 44% рёбер на
+    # карточке были «не своими» (владелец: «DIN912 — исполнения входят в кучу сборок»).
     def _merge(lst, side):
         """Одна строка на МОДЕЛЬ-соседа. Типы одной пары склеиваем (берём «сильнейший»)."""
         res = {}
@@ -695,8 +735,30 @@ def build_html(nodes, edges, media_dir, stats_extra=None):
                 if _TPRI.get(e.get("type", ""), 0) > _TPRI.get(cur["type"], 0):
                     cur["type"] = e.get("type", "")
         return [{"key": v["idx"], "type": v["type"], "qty": v["qty"]} for v in res.values()]
-    out_m = {m: _merge(v, "to") for m, v in out_.items()}
-    in_m = {m: _merge(v, "from") for m, v in in_.items()}
+
+    # V121: разделяем рёбра на ФИЗИЧЕСКИЕ и ПРОИЗВОДНЫЕ (наследование базы).
+    _phys = [e for e in edges if e.get("channel") != "inherit"]
+    _inh = [e for e in edges if e.get("channel") == "inherit"]
+    out_, in_ = defaultdict(list), defaultdict(list)
+    for e in edges:
+        out_[e["from"]].append(e)
+        in_[e["to"]].append(e)
+    # отдельные словари ТОЛЬКО для физических (в них идут «Состав»/«Куда входит»)
+    out_p, in_p = defaultdict(list), defaultdict(list)
+    for e in _phys:
+        out_p[e["from"]].append(e)
+        in_p[e["to"]].append(e)
+    # и ТОЛЬКО для производных (блок «База наследования»)
+    out_i, in_i = defaultdict(list), defaultdict(list)
+    for e in _inh:
+        out_i[e["from"]].append(e)
+        in_i[e["to"]].append(e)
+    # V121: «Состав»/«Куда входит» строим ТОЛЬКО по ФИЗИЧЕСКИМ связям (`out_p`/`in_p`).
+    out_m = {m: _merge(v, "to") for m, v in out_p.items()}
+    in_m = {m: _merge(v, "from") for m, v in in_p.items()}
+    # V121: производность (MERGE_BASE_PART) — отдельными картами для блока «База наследования».
+    out_h = {m: _merge(v, "to") for m, v in out_i.items()}
+    in_h = {m: _merge(v, "from") for m, v in in_i.items()}
     # КОМПАКТНО: в страницу идут только узлы, у которых ЕСТЬ связи или превью,
     # плюс ограничение объёма (иначе 46 МБ — браузер не отрисует).
     cfg0 = load_settings()
@@ -755,19 +817,34 @@ def build_html(nodes, edges, media_dir, stats_extra=None):
     idx = {k: i for i, k in enumerate(sorted(keep))}      # ключ → номер (коротко)
     name_idx = {n: idx[rep[n]] for n in keep_names}       # имя → номер узла
     # перенос рёбер на «представителя» имени
+    # V121 ГРАБЛЯ: раньше при отсутствии представителя возвращался ИСХОДНЫЙ ключ (`m`), и ребро
+    # приклеивалось к ЧУЖОМУ узлу (грабля: `ST-30-35Y_XT_2009-2019_1 -> 10_A2-6_CHUCK_RETRACT_` —
+    # в базе такой связи нет; это было ребро через служебную базу `SBORKA_MM`).
+    # Теперь: нет представителя — ребро ОТБРАСЫВАЕТСЯ (None), а не «вырождается».
     def remap(m):
         nm = rep_of.get(m)
-        return rep.get(nm, m)
+        if nm is None:
+            return None                 # у узла нет имени-представителя → ребро не рисуем
+        return rep.get(nm)              # None, если имя не попало в страницу
     out2, in2 = defaultdict(list), defaultdict(list)
+    outh2, inh2 = defaultdict(list), defaultdict(list)     # V121: производность (наследование)
     for m in keep:
         for e in out_m.get(m, []):
             t = remap(e["key"])
-            if t in idx and t != m:
+            if t and t in idx and t != m:
                 out2[m].append({"key": t, "type": e["type"], "qty": e["qty"]})
         for e in in_m.get(m, []):
             f = remap(e["key"])
-            if f in idx and f != m:
+            if f and f in idx and f != m:
                 in2[m].append({"key": f, "type": e["type"], "qty": e["qty"]})
+        for e in out_h.get(m, []):
+            t = remap(e["key"])
+            if t and t in idx and t != m:
+                outh2[m].append({"key": t, "type": e["type"], "qty": e["qty"]})
+        for e in in_h.get(m, []):
+            f = remap(e["key"])
+            if f and f in idx and f != m:
+                inh2[m].append({"key": f, "type": e["type"], "qty": e["qty"]})
     nd = {}
     for m in keep:
         v = nodes[m]
@@ -782,8 +859,13 @@ def build_html(nodes, edges, media_dir, stats_extra=None):
                       "s": v.get("s", 0), "nm": nm, "dir": folder,
                       # o — состав (что использует модель), n — входимость (кто использует её).
                       # V104: [номер, тип, количество] — ОДНА строка на соседа (без дублей).
+                      # V121: ЭТО ТОЛЬКО ФИЗИЧЕСКИЕ связи (`links`).
                       "o": [[idx[e["key"]], e["type"], e["qty"]] for e in out2.get(m, [])],
-                      "n": [[idx[e["key"]], e["type"], e["qty"]] for e in in2.get(m, [])]}
+                      "n": [[idx[e["key"]], e["type"], e["qty"]] for e in in2.get(m, [])],
+                      # V121: ПРОИЗВОДНОСТЬ (`MERGE_BASE_PART` / `derived`) — ОТДЕЛЬНО.
+                      # oh — базы наследования этой модели; ih — кто наследует ОТ неё.
+                      "oh": [[idx[e["key"]], e["type"], e["qty"]] for e in outh2.get(m, [])],
+                      "ih": [[idx[e["key"]], e["type"], e["qty"]] for e in inh2.get(m, [])]}
     # статистика — ПО СТРАНИЦЕ (в неё попадает часть узлов), а не по всей базе
     n_img = sum(1 for v in nd.values() if v.get("i"))
     n_e = sum(len(v.get("o") or []) for v in nd.values())

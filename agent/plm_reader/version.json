@@ -1,11 +1,11 @@
 {
- "version": "V120",
- "version_num": 120,
+ "version": "V121",
+ "version_num": 121,
  "date": "26.10.2026",
- "notes": "V120 - biblioteka v HTML: 285 -> 617 modeley (filtr treboval svyaz-ili-preview, a etalony biblioteki ni v odnu sborku ne vhodyat); dokachka preview teper vsegda snachala 'chego net v keshe' (bylo tolko pri predele); novaya nastroyka 'HTML: pokazyvat odinochek' (graph_show_loose, VKL)",
+ "notes": "V121 - v Sostav/Kuda vhodit tolko FIZICHESKIE svyazi: bylo 44% proizvodnyh (18790 fantomnyh iz 19952 derived). derived teper otdelnym kanalom i blokom 'Baza nasledovaniya'; nasledovanie/proizvodnaya/kopiya - raznye vidy; sluzhebnye bazy (MM_ASSY/SBORKA_MM) otsekayutsya na vhode; remap bolshe ne prikleivaet rebro k chuzhomu uzlu. MERGE_BASE_PART - fizicheskiy priznak ispolneniya",
  "files": {
   "engine.py": "764ccfcdb7973dfe5b9879ec362a90202caad8f74fca7c7030962cf30c5e1939",
-  "plm_reader.py": "873b6b572581bd445aab9a75b7f6e946d7d3791fd2f88688e6184e02ae33ccbc",
+  "plm_reader.py": "92d43b01cd3aca6c57b5eccbda9e95a01691d2870fd2492cfb79ca5dee8c82d2",
   "plm_toolwin.py": "a62f6dae1b031920b982bf29faaa89ce5b61038facf70dda3cfb2156507af9b8",
   "plm_history.py": "0e8a1b414f3ad7c67175251fb4192e26431b0e9760bcce6ba6d9faf03ada8c77",
   "plm_parse.py": "c6bb33a412b6b606ad402e3eb78cd49246b77738b69d82be1b6218a1358c0312",
@@ -14,14 +14,14 @@
   "plm_scan.py": "e32d610e33932afaee4c952cb0b4564801508f0568d4360d7d039ffacb856f48",
   "plm_paths_window.py": "8887ccacd53f475171c89a8948084420078ed4fc1fc8a914a40ea4af1968124d",
   "creo_read.py": "eb28ec862c1eb4a5519f5215d4ec11d060222348c54ebc407abbcd5f88ada170",
-  "README.md": "5610315874d1803c6c5f7e3fb606a900b4dea0c67cfdeac9c3213a943caa0467",
+  "README.md": "cea5e15fb707891ef5f97998feec67722588b92d3e02cd8e0ed2b304108a76b3",
   "SHARE_copy.bat": "4eccb549a17251392337aeabbc3ef76233dfa3072beadff9d158cd6e932622ee",
   "plm_reader.bat": "bdd125397db3ac7e7432dbdb078a6a811ed4913fca02b062edb27907032fca3d",
   "plm_reader_gui.bat": "9f695898d5db6431e840784b9587c75304ca9e526b06f79d4b44ab026663bd20",
   "make_version_json.py": "4603968533bec13a05defb4a164246728b9649d50d524479f639493eeed7c92f",
   ".gitignore": "911fbdb5acf889293fdc61c836b691014da748fa55bd6464ce35a67f30e636ee",
   "AGENTS.md": "3b08e6e81731ace78deac46df3b802de337c3924acb87c54fe1562a2573650ef",
-  "plm_graph.py": "dfa3f679ffb10b17f9e74e1b122e59e226eefa2cbd05e6d4d08ec70b0a52f977",
-  "plm_graph_page.html": "ada8ba30fdfa4d8ae0d3217d967f406ef0b9ebc46c241b737a5ebdcaa49a32a1"
+  "plm_graph.py": "60ba70f8bddf5eaf5db5f502ce248aabb47bdbc5baad8158b5537bc6dcf18c32",
+  "plm_graph_page.html": "f1dad5856a76f1f74e7aefd37095cd11fc96588ef983740eb14fcc5cb0916894"
  }
 }
