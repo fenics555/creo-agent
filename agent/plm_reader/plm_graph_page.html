@@ -695,20 +695,33 @@ function draw(root){
   const availW = Math.max(700, (gbox ? gbox.clientWidth : window.innerWidth - 360) - 40);
   const PER_ROW = Math.max(1, Math.floor(availW / CW));
   let maxLine = 0, colBottom = 0;
+  // V117: ВЕРТИКАЛЬНЫЙ СТРОЙ СДЕЛАН «КРАСИВЫМ» И РАЗБОРЧИВЫМ. Владелец: «вертикальные —
+  // не очень красиво строятся, можно интереснее». Что было не так: узлы уровней шли вплотную
+  // (отступ между уровнями всего 4 px при высоте узла 24) и НЕ БЫЛО видно, где кончается уровень —
+  // всё сливалось в одну кучу. Теперь: (1) у каждого уровня — ПОЛОСА-ЗАГОЛОВОК «уровень N»;
+  // (2) между уровнями широкий отступ; (3) ряды внутри уровня чуть разнесены; (4) уровень
+  // подсвечивается полосой слева. Горизонтальный строй не тронут.
+  const HDR = 20;                 // высота полосы-заголовка уровня
+  const GAP = 22;                 // отступ между уровнями (было 4)
+  const lvlBand = [];             // [{y0,y1,label}] — для отрисовки полос уровней
   if (GL === "col"){
-    // ВЕРТИКАЛЬНО: уровни СВЕРХУ ВНИЗ (y), внутри уровня узлы СЕТКОЙ (перенос каждые PER_ROW).
-    let y = 20;
+    let y = 16;
     for (const c of cols){
       rows[c].sort();
       const n = rows[c].length;
+      const rowsUsed = Math.max(1, Math.ceil(n / PER_ROW));
+      const y0 = y;
+      y += HDR;                                       // полоса заголовка уровня
       rows[c].forEach((m, i) => {
         const r = Math.floor(i / PER_ROW), cc = i % PER_ROW;
-        pos[m] = [20 + cc * CW, y + r * RH];
+        // V117: ряды внутри уровня разнесены (RH+4), а не вплотную
+        pos[m] = [24 + cc * CW, y + r * (RH + 4)];
       });
       maxLine = Math.max(maxLine, Math.min(n, PER_ROW));
-      const rowsUsed = Math.max(1, Math.ceil(n / PER_ROW));
-      y += rowsUsed * RH + 4;
-      colBottom = y;                                  // V116: фактический низ холста
+      const y1 = y + rowsUsed * (RH + 4);
+      lvlBand.push({ "y0": y0, "y1": y1, "label": "уровень " + c, "n": n });
+      y = y1 + GAP;                                   // широкий отступ между уровнями
+      colBottom = y;
     }
   } else {
     // ГОРИЗОНТАЛЬНО (по умолчанию): каждый уровень — КОЛОНКА (x растёт), узлы — вниз (y растёт).
@@ -723,9 +736,8 @@ function draw(root){
   }
   const W = (GL === "col") ? Math.max(500, Math.min(maxLine, PER_ROW) * CW + 40)
                            : Math.max(500, cols.length * CW + 40);
-  // V116: высота холста считается ПО ФАКТИЧЕСКОЙ раскладке (уровни × ряды), иначе вертикальный
-  // граф «обрезался» (низ не попадал в холст). Копим реальную высоту по ходу раскладки.
-  const H = (GL === "col") ? Math.max(200, colBottom + 50)
+  // V117: высота — по фактическому низу (уровни × ряды) + запас на последнюю полосу/подписи.
+  const H = (GL === "col") ? Math.max(200, colBottom + 30)
                            : Math.max(200, maxLine * RH + 50);
   let svg = "<defs>";
   const used = {};
@@ -736,6 +748,17 @@ function draw(root){
            CLR[k].s + '"/></marker>';
   }
   svg += "</defs>";
+  // V117: ПОЛОСЫ УРОВНЕЙ (только вертикальный строй) — видно, где какой уровень, «куча» исчезает.
+  if (GL === "col"){
+    for (const b of lvlBand){
+      svg += '<rect x="4" y="' + b.y0 + '" width="' + (W - 12) + '" height="' + (b.y1 - b.y0) +
+             '" rx="6" fill="#141a20" stroke="#232c35"/>' +
+             '<rect x="4" y="' + b.y0 + '" width="4" height="' + (b.y1 - b.y0) +
+             '" rx="2" fill="#3a6ea5"/>' +
+             '<text x="16" y="' + (b.y0 + 14) + '" style="font-size:11px;font-weight:600;' +
+             'fill:#7fb0e0;letter-spacing:.5px">' + b.label + ' · узлов ' + b.n + '</text>';
+    }
+  }
   for (const [a, b, k] of L){
     const p = pos[a], r = pos[b]; if (!p || !r) continue;
     const x1 = p[0] + 212, y1 = p[1] + 9, x2 = r[0], y2 = r[1] + 9;
