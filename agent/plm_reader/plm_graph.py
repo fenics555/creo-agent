@@ -174,7 +174,13 @@ def collect_by_path(media_dir=None):
 
         _rows = list(con.execute("SELECT model, path, volume, material, creo, role, size, "
                                  "name, designation, author FROM snapshots"))
-        if media_dir and int(_media_max) > 0:
+        # V120 ГРАБЛЯ (владелец: «библиотечные файлы не выдаёт HTML страница»): обход шёл по
+        # ПОРЯДКУ ТАБЛИЦЫ, и при исчерпании БЮДЖЕТА (600 с) хвост базы (папка Libraries —
+        # `Производство\MFG\mfglib_PTC\...`) вообще не читался → у моделей не было превью, и
+        # фильтр `live` (нужна связь ИЛИ превью) выбрасывал их из страницы навсегда: 333 из 618.
+        # Было: сортировка «сначала не в кэше» ТОЛЬКО при `_media_max > 0`. Теперь ВСЕГДА —
+        # каждый прогон сначала дочитывает то, чего нет, поэтому и хвост базы получает превью.
+        if media_dir:
             _rows.sort(key=lambda r: 0 if (r[1] or "") in cache else 1)
         for row in _rows:
             path = row[1] or ""
@@ -645,6 +651,8 @@ def load_settings():
            # V107: предел превью 25000 → 0 (без предела): потолок оставлял 22 000 файлов без
            # картинок, хотя превью в файлах есть. Бюджет времени 120 → 600 с (сбор идёт фоном).
            "graph_media_limit": 0, "graph_scan_budget": 600, "graph_page_nodes": 60000,
+           # V120: библиотечные «одиночки» (эталоны без связей) — в страницу (338 моделей).
+           "graph_show_loose": True,
            "graph_open_browser": True}
     try:
         import plm_settings
@@ -713,8 +721,22 @@ def build_html(nodes, edges, media_dir, stats_extra=None):
     # и при равных связях побеждал ЧЕРТЁЖ — владелец видел «нет картинки сборки». Поэтому в
     # приоритете выбора представителя — ТИП: сборка > деталь > чертёж (чертёж лишь дополняет).
     _KPRI = {"ASSEMBLY": 0, "PART": 1, "MFG": 1, "DRAWING": 2}
+    # V120 ГРАБЛЯ (владелец: «библиотечные файлы не выдаёт HTML страница»): фильтр требовал
+    # СВЯЗЬ ИЛИ ПРЕВЬЮ, и библиотечные модели-эталоны (на них не ссылаются, напр. taps_s/mills_s)
+    # выбрасывались навсегда. Теперь «одиночки» (без связей) тоже могут попасть в страницу —
+    # если включена настройка `graph_show_loose` (по умолчанию ДА) и у них есть превью
+    # (иначе страница раздувается тысячами служебных «пустышек»).
+    show_loose = bool(cfg0.get("graph_show_loose", True))
     live = [k for k, v in nodes.items()
-            if (out_.get(k) or in_.get(k) or v.get("i")) and not _svc(k)]
+            if (out_.get(k) or in_.get(k) or v.get("i") or (show_loose and v.get("i")))
+            and not _svc(k)]
+    if show_loose:
+        # «одиночки» БЕЗ картинки — добавляем ТОЛЬКО из папки библиотеки (там эталоны,
+        # ради которых владелец и открывает страницу); прочий «мусор» без связей не берём.
+        lib_only = re.compile(r"\\Librar(y|ies)\\", re.I)
+        live += [k for k, v in nodes.items()
+                 if not (out_.get(k) or in_.get(k)) and not v.get("i")
+                 and lib_only.search(v.get("p") or "") and not _svc(k)]
     live.sort(key=lambda k: (-(len(out_.get(k, ())) + len(in_.get(k, ()))),
                              # приоритет пути: сначала с превью (чтобы превью попало в узел)
                              0 if nodes[k].get("i") or nodes[k].get("i2") else 1,
