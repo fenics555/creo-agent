@@ -547,14 +547,33 @@ function show(m){
     .replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
   // V104: в списке связей — имя + КОЛИЧЕСТВО (xN), если больше 1. Одна строка на связь (без дублей).
   // V107: перед именем — БЕЙДЖ ТИПА (Д/С/М/Ч), иначе «не понять, что за файл» (владелец).
+  // V119: В «СОСТАВ / КУДА ВХОДИТ» ПОКАЗЫВАЛСЯ ВИД СВЯЗИ, А НЕ ТИП МОДЕЛИ.
+  // Владелец: «сборки — правильно (бейдж С), а написано „деталь“». Причина: рядом с бейджем
+  // выводился `x[1]` — это ВИД СВЯЗИ из базы («деталь»/«копия»/«заготовка»), а не тип модели,
+  // и он путал. Теперь: показываем ТИП МОДЕЛИ словом (деталь/сборка/мануфактуринг/чертёж),
+  // а вид связи — ТОЛЬКО когда он содержателен (копия / заготовка).
+  const kindWord = k => {
+    const w = (k || "").toUpperCase();
+    if (w.indexOf("ASSEM_MFG") >= 0 || w === "MFG") return "мануфактуринг";
+    if (w.indexOf("DRAW") === 0) return "чертёж";
+    if (w.indexOf("PART") === 0 || w.indexOf("PRT") === 0) return "деталь";
+    if (w.indexOf("ASSEMBLY") === 0 || w.indexOf("ASM") === 0) return "сборка";
+    return "";
+  };
   const li = arr => arr.length ? arr.slice(0, LIM("links_max", __LINKSMAX__)).map(x => {
       const nn = ND[x[0]] || {};
       const [mk, mc] = typeMark(nn);
+      const rel = (x[1] || "").toLowerCase();
+      // слово-подпись: тип модели, а для «копия/заготовка» — сам вид связи (он важнее типа)
+      let word = kindWord(nn.k);
+      if (rel.indexOf("коп") >= 0) word = "копия";
+      else if (rel.indexOf("загот") >= 0) word = "заготовка";
+      const tag = word ? '<span class="t">' + word + '</span>' : '';
       return '<li data-m="' + x[0] + '">' +
         '<span style="display:inline-block;width:12px;height:12px;border-radius:3px;background:' + mc +
         ';color:#14171a;font-size:9px;font-weight:700;text-align:center;line-height:12px;' +
         'margin-right:5px">' + mk + '</span>' +
-        '<span class="t">' + x[1] + '</span>' + nmOf(x[0]) +
+        tag + nmOf(x[0]) +
         ((x[2] && x[2] > 1) ? ' <b style="color:#8fa0b3">×' + x[2] + '</b>' : '') + '</li>';
     }).join("")
     : "<li style='color:#5a6773'>—</li>";

@@ -41,7 +41,7 @@ if __name__ == "__main__":
     import sys as _sys
     _sys.modules.setdefault("plm_reader", _sys.modules["__main__"])
 
-APP_VERSION = "V118"      # V118: вечный «НУЖЕН СКАН» вылечен (476→2), компьютер в HTML-истории, легенда графа в шапке, река двигается
+APP_VERSION = "V119"      # V119: в «Состав/Куда входит» показывается ТИП МОДЕЛИ словом (было слово вида связи)
 APP_TITLE = "PLM Reader " + APP_VERSION          # версия ОДНА: заголовок берёт её из константы
 DATA_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "db")          # данные — в подпапке db\
 SETTINGS_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "settings")  # настройки — в подпапке settings\
