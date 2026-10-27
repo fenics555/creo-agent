@@ -2188,6 +2188,26 @@ def run_gui():
                 add("   " + _i, "")
             if len(_fam["generic"]) > 60:
                 add("   …", "ещё %d исполнений" % (len(_fam["generic"]) - 60))
+        # ── V126: КТО И КОГДА ПРАВИЛ (компьютер + юзер + версия Creo) ──────────────────────
+        # Владелец: «+ что когда правилось и кем (имя компьютера + юзер)».
+        try:
+            _who = eng.who_edited(model)
+        except Exception:              # noqa: BLE001
+            _who = []
+        if _who:
+            add("КТО ПРАВИЛ (компьютер)", "записей · последняя дата")
+            for _c, _n, _d in _who:
+                add("   " + _c, "%d · %s" % (_n, _d))
+        try:
+            _hist = eng.model_history(model, limit=40)
+        except Exception:              # noqa: BLE001
+            _hist = []
+        if _hist:
+            add("Последние правки (кто/когда)", "компьютер · версия Creo · rev")
+            for _x in _hist[:25]:
+                add("   " + (_x["ts"] or "—"),
+                    "%s · %s%s" % (_x["computer"] or "—", _x["creo"] or "—",
+                                   (" · rev " + _x["rev"]) if _x["rev"] else ""))
         # 06.10.2026: РАЗМЕРЫ детали и история изменений (d_dims / dim_history)
         dims = read_dims_all(raw)
         add("Размеров в файле", str(len(dims)) if dims else "— нет (формат или их нет)")

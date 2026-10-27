@@ -41,7 +41,7 @@ if __name__ == "__main__":
     import sys as _sys
     _sys.modules.setdefault("plm_reader", _sys.modules["__main__"])
 
-APP_VERSION = "V125"      # V125: ВСЕ параметры модели «как в Creo» (имя+тип+значение, таблица params) + ТАБЛИЦА СЕМЕЙСТВА (генерик↔исполнения, таблица family): поиск по параметрам, связи исполнений
+APP_VERSION = "V126"      # V126: ИСТОРИЯ ПРАВОК «кто и когда» (компьютер + юзер + версия Creo, таблица history) — как пишет сам Creo; показ в «Свойствах детали»
 APP_TITLE = "PLM Reader " + APP_VERSION          # версия ОДНА: заголовок берёт её из константы
 DATA_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "db")          # данные — в подпапке db\
 SETTINGS_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "settings")  # настройки — в подпапке settings\

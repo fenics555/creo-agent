@@ -548,6 +548,7 @@ def scan_item(s, path, stems, fstems=frozenset(), pdes=None, pname=None, pmat=No
     # иметь СВОИ параметры, управляемые через уравнения или таблицу семейства».
     cparams = creo_params(raw)
     fam = family_of(raw, s)
+    hist2 = creo_history(raw)          # V126: кто/когда правил (компьютер + юзер + Creo)
     h = last_hist(raw) or ("", "", "")
     hm = HISTRE.findall(raw)
     base, dkind = derived_of(raw)
@@ -566,7 +567,7 @@ def scan_item(s, path, stems, fstems=frozenset(), pdes=None, pname=None, pmat=No
             "rev": h[0], "author": h[1], "revdate": h[2], "role": role(raw, fstems, s), "refs": refs,
             "hist": len(hm), "creo": (hm[-1][3].decode("latin-1") if hm else ""),
             "base": base, "dkind": dkind, "copy_from": cf, "parts": parts,
-            "cparams": cparams, "family": fam}
+            "cparams": cparams, "family": fam, "hist2": hist2}
 
 
 # --- ЕДИНЫЙ ЧИТАТЕЛЬ: своя вложенная копия creo_read (папка самодостаточна) ---
@@ -611,6 +612,14 @@ CREATE INDEX IF NOT EXISTS ix_params_path ON params(path);
 CREATE TABLE IF NOT EXISTS family (generic TEXT, instance TEXT, params TEXT, source TEXT);
 CREATE INDEX IF NOT EXISTS ix_family_generic ON family(generic);
 CREATE INDEX IF NOT EXISTS ix_family_instance ON family(instance);
+-- V126: ИСТОРИЯ ПРАВОК «КТО И КОГДА» — КОМПЬЮТЕР + ПОЛЬЗОВАТЕЛЬ + ВРЕМЯ + ВЕРСИЯ CREO.
+-- Владелец: «+ что когда правилось и кем (имя компьютера + юзер)». Creo пишет это в файл
+-- (`user_name`, `comment` → «Наименование компьютера: 'X'», `modif_time`, `Proe_version`).
+CREATE TABLE IF NOT EXISTS history (path TEXT, model TEXT, ts TEXT, user TEXT, computer TEXT,
+  creo TEXT, rev TEXT, action TEXT);
+CREATE INDEX IF NOT EXISTS ix_history_model ON history(model);
+CREATE INDEX IF NOT EXISTS ix_history_path ON history(path);
+CREATE INDEX IF NOT EXISTS ix_history_comp ON history(computer);
 CREATE TABLE IF NOT EXISTS folders (path TEXT PRIMARY KEY, parent TEXT, depth INTEGER,
   models INTEGER, files INTEGER, seen TEXT);
 """
@@ -924,6 +933,50 @@ def creo_history(raw):
             if out:
                 out[-1]["rev"] = data
     return out
+
+
+def model_history(model, limit=500):
+    """V126: ИСТОРИЯ ПРАВОК модели из базы: [{ts, user, computer, creo, rev}] — «кто и когда».
+
+    Владелец: «+ что когда правилось и кем (имя компьютера + юзер)». Берём из таблицы `history`
+    (её наполняет скан из файла: `user_name`, «Наименование компьютера: 'X'», `modif_time`,
+    `Proe_version`). Возвращает свежие записи последними.
+    """
+    try:
+        con = connect(ro=True)
+    except Exception:                  # noqa: BLE001
+        return []
+    try:
+        return [{"ts": r[0], "user": r[1], "computer": r[2], "creo": r[3], "rev": r[4]}
+                for r in con.execute(
+                    "SELECT ts, user, computer, creo, rev FROM history WHERE model=? "
+                    "ORDER BY rowid DESC LIMIT ?", (model, int(limit)))]
+    except Exception:                  # noqa: BLE001
+        return []
+    finally:
+        try:
+            con.close()
+        except Exception:              # noqa: BLE001
+            pass
+
+
+def who_edited(model, limit=50):
+    """V126: КТО правил модель (сводка по компьютерам): [(компьютер, записей, последняя дата)]."""
+    try:
+        con = connect(ro=True)
+    except Exception:                  # noqa: BLE001
+        return []
+    try:
+        return [(r[0], r[1], r[2]) for r in con.execute(
+            "SELECT computer, COUNT(*), MAX(ts) FROM history WHERE model=? AND computer != '' "
+            "GROUP BY computer ORDER BY COUNT(*) DESC LIMIT ?", (model, int(limit)))]
+    except Exception:                  # noqa: BLE001
+        return []
+    finally:
+        try:
+            con.close()
+        except Exception:              # noqa: BLE001
+            pass
 
 
 # --- ЗАМОК СКАНА: один писатель на общую базу (файл рядом с базой) ---
@@ -1309,6 +1362,14 @@ def do_scan(roots, max_mb, limit, depth=None, progress_cb=None, stop_cb=None, fu
         con.execute("DELETE FROM family WHERE generic=?", (s,))
         for _inst in fam:
             con.execute("INSERT INTO family VALUES (?,?,?,?)", (s, _inst, "", "plm_tree"))
+        # ── V126: ИСТОРИЯ ПРАВОК (компьютер + юзер + время + Creo) ──────────────────────────
+        # Владелец: «+ что когда правилось и кем (имя компьютера + юзер)».
+        h2 = it.get("hist2") or []
+        con.execute("DELETE FROM history WHERE path=?", (path,))
+        for _h in h2:
+            con.execute("INSERT INTO history VALUES (?,?,?,?,?,?,?,?)",
+                        (path, s, _h.get("ts", ""), _h.get("user", ""), _h.get("computer", ""),
+                         _h.get("creo", ""), _h.get("rev", ""), _h.get("action", "")))
         done += 1
         if progress_cb and n % 25 == 0:
             progress_cb(n, total)
