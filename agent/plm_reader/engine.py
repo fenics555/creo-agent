@@ -761,21 +761,42 @@ _RX_INST = re.compile(rb"user_instances|user_visible_name|drv_tbl_ptr")
 
 
 def family_of(raw, model=""):
-    """ТАБЛИЦА СЕМЕЙСТВА из файла ГЕНЕРИКА: список исполнений (или [] — если это не генерик).
+    """ТАБЛИЦА СЕМЕЙСТВА из файла ГЕНЕРИКА: [(исполнение, родитель)] — с МНОГОУРОВНЕВОСТЬЮ.
 
-    Читается по блоку `user_instances` / `drv_tbl_ptr` (проверено на DIN912, DIN931, DIN7991,
-    O-RING). Имена исполнений — `<модель>[-_]<типразмер>`; сам генерик (`DIN912`) в список
-    не входит. Пустой список = модель НЕ генерик (обычная деталь).
+    Читается по блоку `instances_data` / `user_instances` (проверено на DIN912, DIN931, DIN7991,
+    O-RING). Имена исполнений — `<модель>[-_]<типразмер>`; у каждого есть свой **родитель**
+    (`drv_tbl_ptr`), поэтому таблица бывает **многоуровневой**: `DIN912-M2_5X4` → `DIN912-M2_5`
+    → `DIN912`. Пустой список = модель НЕ генерик (обычная деталь).
+
+    Возвращает [(instance, parent)]: parent = '' для верхнего уровня.
     """
     if not model or not _RX_INST.search(raw):
         return []
+    # 1) собираем пары «имя → родитель» из блока instances_data.
+    # ЗАМЕР (DIN912): запись выглядит так —
+    #   user_visible_name\x00…<ИМЯ>\x00\xe1\xe1\xe1\xe1\xe1…<РОДИТЕЛЬ>\x00
+    # имена идут парами: `DIN912-M2_5` → `DIN912-M`, `DIN912-M2_5X4` → `DIN912-M2_5`
+    # (то есть таблица МНОГОУРОВНЕВАЯ). Имя и родитель разделены `\xe1\xe1\xe1\xe1\xe1`.
+    pairs = {}
+    blk = raw
+    i = raw.find(b"instances_data")
+    if i >= 0:
+        blk = raw[i:i + 400000]          # блок таблицы (дальше уже геометрия)
     base = re.escape(model.encode("utf-8", "replace"))
-    out, seen = [], set()
+    for m in re.finditer(rb"\xe3\x02(" + base + rb"[-_][A-Za-z0-9_\-\.]{1,30})\x00"
+                         rb"\xe1\xe1\xe1\xe1\xe1"           # разделитель «имя | родитель»
+                         rb".{0,20}?\xe3\x02(" + base + rb"[-_A-Za-z0-9\.]{1,30})\x00", blk, re.S):
+        nm = _creo_clean(m.group(1).decode("utf-8", "replace"))
+        par = _creo_clean(m.group(2).decode("utf-8", "replace"))
+        if nm and nm != model:
+            pairs[nm] = par
+    # 2) все имена (на случай, если иерархию не разобрали) — родитель = генерик
+    seen, out = set(), []
     for m in re.finditer(base + rb"[-_][A-Za-z0-9_\-\.]{1,30}", raw):
         s = _creo_clean(m.group(0).decode("utf-8", "replace"))
-        if s and s not in seen:
+        if s and s != model and s not in seen:
             seen.add(s)
-            out.append(s)
+            out.append((s, pairs.get(s, model)))
     return out
 
 
@@ -833,20 +854,26 @@ def model_params(path, limit=2000):
 
 
 def model_family(model, limit=5000):
-    """V125: ТАБЛИЦА СЕМЕЙСТВА модели: исполнения (если генерик) и его родитель (если исполнение)."""
+    """V127: СЕМЕЙСТВО модели: исполнения (со СВОИМ родителем — таблица бывает многоуровневой)
+    и родитель самой модели (если она исполнение).
+
+    Возвращает {"children": [(исполнение, родитель)], "parent": ""}. Владелец: «связи
+    фемили-линкс» + «есть многоуровневые таблицы семейств» — поэтому отдаём и РОДИТЕЛЯ каждого
+    исполнения, а не плоский список.
+    """
     try:
         con = connect(ro=True)
     except Exception:                  # noqa: BLE001
-        return {"generic": [], "parent": ""}
+        return {"children": [], "parent": ""}
     try:
-        kids = [r[0] for r in con.execute(
-            "SELECT instance FROM family WHERE generic=? ORDER BY instance LIMIT ?",
+        kids = [(r[0], r[1]) for r in con.execute(
+            "SELECT instance, generic FROM family WHERE generic=? ORDER BY instance LIMIT ?",
             (model, int(limit)))]
         par = con.execute("SELECT generic FROM family WHERE instance=? LIMIT 1",
                           (model,)).fetchone()
-        return {"generic": kids, "parent": (par[0] if par else "")}
+        return {"children": kids, "parent": (par[0] if par else "")}
     except Exception:                  # noqa: BLE001
-        return {"generic": [], "parent": ""}
+        return {"children": [], "parent": ""}
     finally:
         try:
             con.close()
@@ -972,6 +999,100 @@ def who_edited(model, limit=50):
             "GROUP BY computer ORDER BY COUNT(*) DESC LIMIT ?", (model, int(limit)))]
     except Exception:                  # noqa: BLE001
         return []
+    finally:
+        try:
+            con.close()
+        except Exception:              # noqa: BLE001
+            pass
+
+
+# --- V127: ЗДОРОВЬЕ ФАЙЛА CREO (регенерация, статус модели, «не использовать») ---------------
+# Владелец: «Нужно знать историю и ЗДОРОВЬЕ файлов крео». Разведано в файлах (DIN912, G11738,
+# DIN931, O-RING): `reg_status` (флаг регенерации: `\x00` = ок, иное = требует регенерации),
+# `MdlStatus`/`Sld_MdlStatus` (статус модели), `mdl_geom_rev` (ревизия геометрии),
+# `inactive_geom` («не использовать» — неактивная геометрия).
+_RX_REG = re.compile(rb"reg_status\x00(.)", re.S)
+
+
+def creo_health(raw):
+    """ЗДОРОВЬЕ файла Creo: {regen, reg_status, inactive, geom_rev} — без запуска Creo.
+
+    Владелец: «Нужно знать историю и здоровье файлов крео». Читаем признаки, которые Creo
+    пишет в файл: `reg_status` (0 = модель регенерирована, иное = требует регенерации),
+    наличие неактивной геометрии (`inactive_geom`), ревизию геометрии (`mdl_geom_rev`).
+    """
+    out = {"regen": "", "reg_status": "", "inactive": 0, "geom_rev": ""}
+    m = _RX_REG.search(raw)
+    if m:
+        b = m.group(1)[0]
+        out["reg_status"] = str(b)
+        out["regen"] = "ok" if b == 0 else "требует регенерации"
+    elif b"MdlStatus" in raw or b"Sld_MdlStatus" in raw:
+        out["regen"] = "статус есть"
+    out["inactive"] = len(re.findall(rb"inactive_geom", raw))
+    m2 = re.search(rb"mdl_geom_rev\x00(.{0,12}?)\x00", raw, re.S)
+    if m2:
+        _g = _creo_clean(m2.group(1).decode("utf-8", "replace"))
+        # V127: значение бывает «ссылочным» (нечитаемые байты) — берём только печатаемое
+        if _g and all(ch.isprintable() for ch in _g):
+            out["geom_rev"] = _g
+    return out
+
+
+def model_health(model):
+    """V127: ЗДОРОВЬЕ модели из базы: {regen, reg_status, inactive, geom_rev} или {}."""
+    try:
+        con = connect(ro=True)
+    except Exception:                  # noqa: BLE001
+        return {}
+    try:
+        r = con.execute("SELECT regen, reg_status, inactive, geom_rev FROM health WHERE model=? "
+                        "LIMIT 1", (model,)).fetchone()
+        if not r:
+            return {}
+        return {"regen": r[0], "reg_status": r[1], "inactive": r[2], "geom_rev": r[3]}
+    except Exception:                  # noqa: BLE001
+        return {}
+    finally:
+        try:
+            con.close()
+        except Exception:              # noqa: BLE001
+            pass
+
+
+def bad_health(limit=500):
+    """V127: «БОЛЬНЫЕ» файлы — требуют регенерации. [(model, regen, inactive)] для окна."""
+    try:
+        con = connect(ro=True)
+    except Exception:                  # noqa: BLE001
+        return []
+    try:
+        return [(r[0], r[1], r[2]) for r in con.execute(
+            "SELECT model, regen, inactive FROM health WHERE regen != '' AND regen != 'ok' "
+            "ORDER BY model LIMIT ?", (int(limit),))]
+    except Exception:                  # noqa: BLE001
+        return []
+    finally:
+        try:
+            con.close()
+        except Exception:              # noqa: BLE001
+            pass
+
+
+def health_summary():
+    """V127: СВОДКА здоровья: {total, ok, bad, inactive} — сколько файлов проверено/больны."""
+    try:
+        con = connect(ro=True)
+    except Exception:                  # noqa: BLE001
+        return {}
+    try:
+        total = con.execute("SELECT COUNT(*) FROM health").fetchone()[0]
+        ok = con.execute("SELECT COUNT(*) FROM health WHERE regen='ok'").fetchone()[0]
+        bad = con.execute("SELECT COUNT(*) FROM health WHERE regen != '' AND regen != 'ok'").fetchone()[0]
+        inact = con.execute("SELECT COUNT(*) FROM health WHERE inactive > 0").fetchone()[0]
+        return {"total": total, "ok": ok, "bad": bad, "inactive": inact}
+    except Exception:                  # noqa: BLE001
+        return {}
     finally:
         try:
             con.close()
@@ -1360,8 +1481,13 @@ def do_scan(roots, max_mb, limit, depth=None, progress_cb=None, stop_cb=None, fu
             con.execute("INSERT INTO params VALUES (?,?,?,?,?)", (path, s, _pn, _pt, _pv))
         fam = it.get("family") or []
         con.execute("DELETE FROM family WHERE generic=?", (s,))
-        for _inst in fam:
-            con.execute("INSERT INTO family VALUES (?,?,?,?)", (s, _inst, "", "plm_tree"))
+        for _item in fam:
+            # V127: family теперь пары (исполнение, РОДИТЕЛЬ) — таблица бывает МНОГОУРОВНЕВОЙ.
+            if isinstance(_item, (tuple, list)):
+                _inst, _par = _item[0], (_item[1] if len(_item) > 1 else s)
+            else:
+                _inst, _par = _item, s
+            con.execute("INSERT INTO family VALUES (?,?,?,?)", (_par or s, _inst, "", "plm_tree"))
         # ── V126: ИСТОРИЯ ПРАВОК (компьютер + юзер + время + Creo) ──────────────────────────
         # Владелец: «+ что когда правилось и кем (имя компьютера + юзер)».
         h2 = it.get("hist2") or []
@@ -1370,6 +1496,26 @@ def do_scan(roots, max_mb, limit, depth=None, progress_cb=None, stop_cb=None, fu
             con.execute("INSERT INTO history VALUES (?,?,?,?,?,?,?,?)",
                         (path, s, _h.get("ts", ""), _h.get("user", ""), _h.get("computer", ""),
                          _h.get("creo", ""), _h.get("rev", ""), _h.get("action", "")))
+        # ── V127: ЗДОРОВЬЕ ФАЙЛА (регенерация/статус/неактивная геометрия) ────────────────────
+        # Владелец: «Нужно знать историю и ЗДОРОВЬЕ файлов крео». Пишем в meta (одна строка на путь).
+        try:
+            _hl = creo_health(raw)
+            con.execute("CREATE TABLE IF NOT EXISTS health (path TEXT PRIMARY KEY, model TEXT, "
+                        "regen TEXT, reg_status TEXT, inactive INTEGER, geom_rev TEXT)")
+            con.execute("INSERT OR REPLACE INTO health VALUES (?,?,?,?,?,?)",
+                        (path, s, _hl.get("regen", ""), _hl.get("reg_status", ""),
+                         int(_hl.get("inactive", 0) or 0), _hl.get("geom_rev", "")))
+        except Exception:              # noqa: BLE001
+            pass
+        # ── V127: СВЯЗЬ СЕМЕЙСТВА С СОСТАВОМ (`family` → `links`). ──────────────────────────
+        # Владелец: «все пункты наконец доделай, связи фемили-линкс». Генерик показывает свои
+        # исполнения в СОСТАВЕ (источник `family`), а исполнение — своего генерика. Так связи
+        # «реальные» и видны без «плясок»: DIN912 → 1375 исполнений.
+        if fam:
+            con.execute("DELETE FROM links WHERE parent=? AND source='family'", (s,))
+            for _item in fam:
+                _inst = _item[0] if isinstance(_item, (tuple, list)) else _item
+                con.execute("INSERT INTO links VALUES (?,?,?,?)", (s, _inst, 1, "family"))
         done += 1
         if progress_cb and n % 25 == 0:
             progress_cb(n, total)

@@ -598,6 +598,8 @@ def run_gui():
         ("История выбранного", lambda: show_history()),
         ("История по папке", lambda: show_folder_history()),
         ("Столбцы и параметры…", lambda: choose_columns()),
+        # V127: здоровье файлов Creo (регенерация) — владелец: «нужно знать здоровье файлов».
+        ("Здоровье файлов", lambda: show_health()),
         ("Выгрузить в CSV", lambda: export()),
         ("README", lambda: show_readme()),
         ("Проверить обновление", lambda: check_updates_ui(True)),
@@ -721,6 +723,48 @@ def run_gui():
                     root.after(0, lambda: messagebox.showinfo(
                         "Обновление", "У вас последняя версия: %s" % r.get("local")))
         threading.Thread(target=work, daemon=True).start()
+
+    def show_health():
+        """V127: ЗДОРОВЬЕ ФАЙЛОВ — какие модели требуют регенерации (без запуска Creo).
+
+        Владелец: «Нужно знать историю и ЗДОРОВЬЕ файлов крео». Creo пишет в файл `reg_status`
+        (0 = регенерирована, иное = требует регенерации) и наличие неактивной геометрии.
+        """
+        win = tk.Toplevel(root)
+        win.title("PLM Reader — здоровье файлов (регенерация)")
+        win.geometry("720x520")
+        win.transient(root)
+        head = ttk.Label(win, text="считаю…", padding=8)
+        head.pack(anchor="w")
+        tv = ttk.Treeview(win, columns=("m", "r", "i"), show="headings", height=20)
+        for c, t, w in (("m", "Модель", 340), ("r", "Регенерация", 190), ("i", "неактивной геометрии", 150)):
+            tv.heading(c, text=t)
+            tv.column(c, width=w, anchor="w")
+        tv.pack(fill="both", expand=True, padx=8, pady=4)
+
+        def work():
+            try:
+                bad = eng.bad_health()
+                allh = eng.health_summary() if hasattr(eng, "health_summary") else {}
+            except Exception as e:      # noqa: BLE001
+                bad, allh = [], {"error": str(e)}
+
+            def done():
+                try:
+                    tv.delete(*tv.get_children())
+                    for m, r, i in bad:
+                        tv.insert("", "end", values=(m, r, i))
+                    txt = "требуют регенерации: %d" % len(bad)
+                    if allh.get("total"):
+                        txt += "  ·  всего проверено: %d  ·  здоровых: %d" % (
+                            allh["total"], allh.get("ok", 0))
+                    head.config(text=txt)
+                except Exception:
+                    pass
+            root.after(0, done)
+        threading.Thread(target=work, daemon=True).start()
+        ttk.Button(win, text="Пересчитать",
+                   command=lambda: threading.Thread(target=work, daemon=True).start()).pack(pady=6)
 
     def show_facts():
         """Окно «Дополнительно»: интересные факты по активной базе (расчёт в фоне)."""
@@ -2175,19 +2219,20 @@ def run_gui():
             add("   %s  [%s]" % (_pn, _pt), _pv)
         if len(_cp) > 120:
             add("   …", "ещё %d параметров" % (len(_cp) - 120))
-        # ТАБЛИЦА СЕМЕЙСТВА: генерик ↔ исполнения (обе стороны)
+        # ТАБЛИЦА СЕМЕЙСТВА: генерик ↔ исполнения (обе стороны, с УРОВНЯМИ)
         try:
             _fam = eng.model_family(model)
         except Exception:              # noqa: BLE001
-            _fam = {"generic": [], "parent": ""}
+            _fam = {"children": [], "parent": ""}
         if _fam.get("parent"):
             add("Исполнение от (генерик)", _fam["parent"])
-        if _fam.get("generic"):
-            add("Исполнений в семействе", str(len(_fam["generic"])))
-            for _i in _fam["generic"][:60]:
-                add("   " + _i, "")
-            if len(_fam["generic"]) > 60:
-                add("   …", "ещё %d исполнений" % (len(_fam["generic"]) - 60))
+        _kids = _fam.get("children") or []
+        if _kids:
+            add("Исполнений в семействе", str(len(_kids)))
+            for _i, _par in _kids[:60]:
+                add("   " + _i, ("родитель: " + _par) if _par and _par != model else "")
+            if len(_kids) > 60:
+                add("   …", "ещё %d исполнений" % (len(_kids) - 60))
         # ── V126: КТО И КОГДА ПРАВИЛ (компьютер + юзер + версия Creo) ──────────────────────
         # Владелец: «+ что когда правилось и кем (имя компьютера + юзер)».
         try:
@@ -2208,6 +2253,19 @@ def run_gui():
                 add("   " + (_x["ts"] or "—"),
                     "%s · %s%s" % (_x["computer"] or "—", _x["creo"] or "—",
                                    (" · rev " + _x["rev"]) if _x["rev"] else ""))
+        # ── V127: ЗДОРОВЬЕ ФАЙЛА (регенерация, неактивная геометрия) ───────────────────────
+        # Владелец: «Нужно знать историю и ЗДОРОВЬЕ файлов крео».
+        try:
+            _hl = eng.model_health(model)
+        except Exception:              # noqa: BLE001
+            _hl = {}
+        if _hl:
+            _rg = _hl.get("regen") or "—"
+            add("ЗДОРОВЬЕ: регенерация", _rg)
+            add("   статус (reg_status)", _hl.get("reg_status") or "—")
+            add("   неактивной геометрии", str(_hl.get("inactive") or 0))
+            if _hl.get("geom_rev"):
+                add("   ревизия геометрии", _hl["geom_rev"])
         # 06.10.2026: РАЗМЕРЫ детали и история изменений (d_dims / dim_history)
         dims = read_dims_all(raw)
         add("Размеров в файле", str(len(dims)) if dims else "— нет (формат или их нет)")
