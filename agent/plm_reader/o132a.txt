@@ -1,0 +1,14 @@
+settings.json: D:\AI\tools\agent\plm_reader\settings\settings.json
+ключей в файле: 38
+   param_layout   в файле: 'НЕТ'
+   param_glue     в файле: 'НЕТ'
+   param_max      в файле: 'НЕТ'
+   param_pick     в файле: 'НЕТ'
+
+после load_settings_file:
+   param_layout   = 'col'
+   param_glue     = ' · '
+   param_max      = 0
+   param_pick     = []
+
+ключей реестра НЕТ в cfg: нет — все подхватились

@@ -1,0 +1,12 @@
+всего настроек в реестре: 34
+  СКАН         8: max_size_mb, recurse, latest_only, depth, full, auto_refresh, show_limit, purge_keep
+  ПОКАЗ        14: graph_graph_layout, graph_card_layout, graph_depth, graph_nodes_max, graph_children_max, graph_list_max, graph_links_max, graph_card_h, graph_thumb, graph_page_nodes, graph_chunk_nodes, lazy_first_chunk, graph_open_browser, graph_show_loose
+  ПРЕВЬЮ       4: graph_media, graph_image_mode, graph_media_limit, graph_scan_budget
+  ПАРАМЕТРЫ    4: param_layout, param_glue, param_max, param_pick
+  БАЗА         4: db_dir, purge_backup_dir, mirror_keep, mirror_full_only
+
+группа ПАРАМЕТРЫ:
+    {'group': 'ПАРАМЕТРЫ', 'key': 'param_layout', 'label': 'параметры: в строку (через разделитель) / под столб (таблицей)', 'type': 'choice', 'lo': ['row', 'col'], 'hi': None}
+    {'group': 'ПАРАМЕТРЫ', 'key': 'param_glue', 'label': 'параметры: разделитель в строке', 'type': 'text', 'lo': None, 'hi': None}
+    {'group': 'ПАРАМЕТРЫ', 'key': 'param_max', 'label': 'параметры: показывать не больше (0 = все)', 'type': 'int', 'lo': 0, 'hi': 100000}
+    {'group': 'ПАРАМЕТРЫ', 'key': 'param_pick', 'label': 'параметры: показывать только эти (пусто = все)', 'type': 'list', 'lo': None, 'hi': None}
