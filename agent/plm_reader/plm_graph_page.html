@@ -439,11 +439,7 @@ function kindTag(n){
 function matches(m){
   const n = ND[m];
   // ключ узла — ЧИСЛО (index); ищем по имени и по папке (одноимённые различимы)
-  // V122: + `pd` — СОБРАННЫЕ ИЗ НАСТРОЕК параметры Creo (наименование/NAME_1/NAME_2…). Владелец:
-  // «искать по имени файла + ВСЕМ параметрам моделей и сборок». Так находится деталь с
-  // нечитаемым именем файла (`◘G0O1IHU7…`), у которой в паспорте «Винт M10x25 DIN 912».
-  const hay = ((n.nm || m) + " " + (n.dir || "") + " " + (n.pd || "") + " " + (n.d || ""))
-              .toLowerCase();
+  const hay = ((n.nm || m) + " " + (n.dir || "")).toLowerCase();
   if (q.value && !hay.includes(q.value.toLowerCase())) return false;
   if (fk.value && n.k !== fk.value) return false;
   if (fv.value && n.v !== fv.value) return false;
@@ -634,11 +630,7 @@ function show(m){
     '<h2>' + (n.nm || m) + '</h2>' +
     '<div class="meta">' + kindTag(n) + ' тип ' + n.k + ' · Creo ' + n.v +
       ' · ' + (n.s/1048576).toFixed(2) + ' МБ<br>' +
-      '<span style="color:#7f8fa2">папка:</span> ' + (n.dir || '—') +
-      // V122: ПАРАМЕТРЫ ИЗ НАСТРОЕК (наименование/NAME_1/NAME_2…). Владелец собирает их именно
-      // для того, чтобы «видно было, что это за деталь» — особенно когда имя файла нечитаемое.
-      (n.pd ? '<br><span style="color:#7f8fa2">параметры:</span> ' + esc(n.pd) : '') +
-      (n.d ? '<br><span style="color:#7f8fa2">обозначение:</span> ' + esc(n.d) : '') + '</div>' +
+      '<span style="color:#7f8fa2">папка:</span> ' + (n.dir || '—') + '</div>' +
     '<div class="flex"><div class="prev">' + prev + '</div>' +
     '<div><h3>Состав — что использует (' + n.o.length + ')</h3><ul>' + li(n.o) + '</ul></div>' +
     '<div><h3>Куда входит (' + n.n.length + ')</h3><ul>' + li(n.n) + '</ul></div>' +

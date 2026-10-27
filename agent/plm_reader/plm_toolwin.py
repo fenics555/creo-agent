@@ -598,8 +598,6 @@ def run_gui():
         ("История выбранного", lambda: show_history()),
         ("История по папке", lambda: show_folder_history()),
         ("Столбцы и параметры…", lambda: choose_columns()),
-        # V122: дозаполнить параметры поиска в собранной базе (без полного скана).
-        ("Дозаполнить параметры", lambda: backfill_params()),
         ("Выгрузить в CSV", lambda: export()),
         ("README", lambda: show_readme()),
         ("Проверить обновление", lambda: check_updates_ui(True)),
@@ -722,53 +720,6 @@ def run_gui():
                 if manual:
                     root.after(0, lambda: messagebox.showinfo(
                         "Обновление", "У вас последняя версия: %s" % r.get("local")))
-        threading.Thread(target=work, daemon=True).start()
-
-    def backfill_params():
-        """V122: ДОЗАПОЛНИТЬ параметры поиска (`pdata`) в собранной базе — без полного скана.
-
-        Владелец собирает свои параметры (НАИМЕНОВАНИЕ, NAME_1, NAME_2) и хочет искать по ним
-        («ГОСТ 11738», «DIN 912»). Колонка `pdata` заполняется при скане; если база собрана
-        раньше — здесь проходим по `snapshots`, читаем доступные файлы и пишем `pdata`.
-        """
-        win = tk.Toplevel(root)
-        win.title("PLM Reader — дозаполнить параметры для поиска")
-        win.geometry("560x220")
-        win.transient(root)
-        ttk.Label(win, text="Дозаполняю параметры по файлам базы — можно закрыть окно,\n"
-                            "работа продолжится в фоне.", padding=8, justify="left").pack(anchor="w")
-        lbl = ttk.Label(win, text="0 %", padding=8)
-        lbl.pack(anchor="w")
-        warn = ttk.Label(win, text="", foreground="#a00", wraplength=520, justify="left", padding=8)
-        warn.pack(anchor="w")
-
-        def work():
-            try:
-                cfg = {"psearch": settings.get("param_search", DEFAULT_SETTINGS.get("param_search", []))}
-
-                def pc(i, t):
-                    try:
-                        root.after(0, lambda: lbl.config(text="%d/%d (%d%%)" % (i, t, 100 * i // max(t, 1))))
-                    except Exception:
-                        pass
-
-                res = eng.backfill_pdata(param_cfg=cfg, progress_cb=pc)
-
-                def done():
-                    try:
-                        if res.get("error"):
-                            warn.config(text=res["error"])
-                        else:
-                            txt = ("готово: всего %d, заполнено %d, нет файла %d, ошибок %d"
-                                   % (res.get("total", 0), res.get("filled", 0),
-                                      res.get("missing", 0), res.get("skipped", 0)))
-                            lbl.config(text=txt)
-                            warn.config(text="теперь поиск находит по параметрам (напр. «ГОСТ 11738»)")
-                    except Exception:
-                        pass
-                root.after(0, done)
-            except Exception as e:
-                root.after(0, lambda: warn.config(text="ошибка: %s" % e))
         threading.Thread(target=work, daemon=True).start()
 
     def show_facts():
@@ -4396,14 +4347,7 @@ def run_gui():
         ttk.Label(pf, text="Имена параметров для «Материал»:").pack(anchor="w")
         e_mat = ttk.Entry(pf, width=92)
         e_mat.insert(0, ", ".join(settings.get("param_material", DEFAULT_SETTINGS["param_material"])))
-        e_mat.pack(fill="x", pady=(0, 6))
-        # V122: ПОИСК ПО ПАСПОРТУ. Владелец собирает свои параметры (НАИМЕНОВАНИЕ, NAME_1, NAME_2),
-        # другой пользователь — свои. Список ОТСЮДА складывается в `pdata`, и по нему ищут И
-        # главное окно, И HTML — поэтому находится «наименование», даже если имя файла нечитаемое.
-        ttk.Label(pf, text="Параметры ДЛЯ ПОИСКА (сверх паспорта — в главном окне и в HTML):").pack(anchor="w")
-        e_srch = ttk.Entry(pf, width=92)
-        e_srch.insert(0, ", ".join(settings.get("param_search", DEFAULT_SETTINGS.get("param_search", []))))
-        e_srch.pack(fill="x")
+        e_mat.pack(fill="x")
         ttk.Label(win, text="Список проверяется по порядку — берётся первое НЕПУСТОЕ.\n"
                             "Разделитель правил — ЗАПЯТАЯ. Правило = имя параметра ИЛИ шаблон:\n"
                             "  {NAME_1} {NAME_2}      → склеит в одну строку: M5x20 ГОСТ 11738-72\n"
@@ -4418,7 +4362,6 @@ def run_gui():
             settings["param_designation"] = split_list(e_des.get())
             settings["param_name"] = split_list(e_nam.get())
             settings["param_material"] = split_list(e_mat.get())
-            settings["param_search"] = split_list(e_srch.get())      # V122: параметры для поиска
             save_settings()
             rebuild_tree()
             lbl.config(text="столбцы сохранены")
@@ -4535,9 +4478,7 @@ def run_gui():
                                    latest_only=bool(opts.get("latest_only", True)),
                                    param_cfg={"pdes": settings.get("param_designation"),
                                               "pname": settings.get("param_name"),
-                                              "pmat": settings.get("param_material"),
-                                              # V122: параметры поиска (собираются в snapshots.pdata)
-                                              "psearch": settings.get("param_search")},
+                                              "pmat": settings.get("param_material")},
                                    exclude=exclude_list(settings.get("exclude"))) or {}
         except Exception as e:
             res = {"error": str(e)}

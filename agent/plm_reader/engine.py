@@ -533,7 +533,7 @@ def _des_from_rel(raw):
     return False
 
 
-def scan_item(s, path, stems, fstems=frozenset(), pdes=None, pname=None, pmat=None, psearch=None):
+def scan_item(s, path, stems, fstems=frozenset(), pdes=None, pname=None, pmat=None):
     raw = open(path, "rb").read()
     vol = real(raw, "volume") or real(raw, "mtrl_volume")
     des = _by_rules(raw, pdes or _PARAM_DES)
@@ -541,24 +541,6 @@ def scan_item(s, path, stems, fstems=frozenset(), pdes=None, pname=None, pmat=No
     mat = _by_rules(raw, pmat or _PARAM_MAT)
     if not des and _des_from_rel(raw):
         des = s                                  # ОБОЗНАЧЕНИЕ = rel_model_name → имя модели
-    # ── V122 (владелец: «именно Я собираю эти параметры, другие люди — СВОИ ИНЫЕ, БРАТЬ ИЗ
-    # НАСТРОЕК!»): собираем ЗАДАННЫЕ в настройках параметры Creo в ОДНУ строку поиска `pdata`.
-    # Список `param_search` — из настроек (напр. НАИМЕНОВАНИЕ, NAME_1, NAME_2). По `pdata`
-    # ищут И главное окно, И HTML-страница — поэтому «наименование» детали находится, даже если
-    # имя файла нечитаемое (`◘G0O1IHU7…` с паспортом `Винт M10x25 DIN 912`).
-    pdata = ""
-    if psearch:
-        _vals, _seen = [], set()
-        for _rule in psearch:
-            _r = (_rule or "").strip()
-            if not _r:
-                continue
-            _v = compose(raw, _r) if ("{" in _r or '"' in _r) else param(raw, [_r])
-            _v = (_v or "").strip()
-            if _v and _v not in _seen:
-                _seen.add(_v)
-                _vals.append(_v)
-        pdata = " | ".join(_vals)
     nm = names(raw)
     refs = {c: nm[c] for c in nm if c != s and c in stems and len(c) >= 2}
     h = last_hist(raw) or ("", "", "")
@@ -576,7 +558,6 @@ def scan_item(s, path, stems, fstems=frozenset(), pdes=None, pname=None, pmat=No
             "volume": vol or 0.0, "material": mat,
             "name": nmv,
             "designation": des,
-            "pdata": pdata,                       # V122: собранные из настроек параметры (для поиска)
             "rev": h[0], "author": h[1], "revdate": h[2], "role": role(raw, fstems, s), "refs": refs,
             "hist": len(hm), "creo": (hm[-1][3].decode("latin-1") if hm else ""),
             "base": base, "dkind": dkind, "copy_from": cf, "parts": parts}
@@ -604,7 +585,7 @@ SCHEMA = """
 CREATE TABLE IF NOT EXISTS snapshots (
   path TEXT PRIMARY KEY, model TEXT, folder TEXT, size INTEGER, mtime REAL, volume REAL,
   material TEXT, name TEXT, designation TEXT, rev TEXT, author TEXT, revdate TEXT,
-  role TEXT, seen TEXT, hist INTEGER, creo TEXT, created REAL, pdata TEXT);
+  role TEXT, seen TEXT, hist INTEGER, creo TEXT, created REAL);
 CREATE TABLE IF NOT EXISTS changes (
   id INTEGER PRIMARY KEY AUTOINCREMENT, item TEXT, rev TEXT, kind TEXT, descr TEXT,
   who TEXT, ts TEXT);
@@ -676,62 +657,11 @@ def connect(ro=False, db=None):
         if cols and "created" not in cols:                # 28.09: дата создания файла (ОС)
             con.execute("ALTER TABLE snapshots ADD COLUMN created REAL")
             con.commit()
-        if cols and "pdata" not in cols:                  # V122: собираемые параметры (поиск по паспорту)
-            con.execute("ALTER TABLE snapshots ADD COLUMN pdata TEXT")
-            con.commit()
     except Exception:
         pass
     con.executescript(SCHEMA)
     con.commit()
     return con
-
-
-def backfill_pdata(param_cfg=None, progress_cb=None, stop_cb=None, db=None):
-    """V122: ДОЗАПОЛНИТЬ `pdata` (параметры из настроек) в УЖЕ СОБРАННОЙ базе — без полного скана.
-
-    Зачем: колонка `pdata` добавлена в V122, и заполняется она при `do_scan`. Если база собрана
-    РАНЬШЕ, `pdata` пуста → поиск по параметрам («ГОСТ 11738», «DIN 912») ничего не находит,
-    хотя файлы на месте и параметры в них ЕСТЬ. Здесь проходим по `snapshots`, читаем КАЖДЫЙ
-    доступный файл и пишем `pdata` (файл читается 1 раз; связи/историю не трогаем).
-
-    Возвращает {"total", "filled", "skipped", "missing"}.
-    """
-    cfg = param_cfg or {}
-    psearch = cfg.get("psearch") or []
-    con = connect(db=db)
-    try:
-        if not psearch:
-            return {"total": 0, "filled": 0, "skipped": 0, "missing": 0, "error": "param_search пуст"}
-        rows = list(con.execute("SELECT path, model FROM snapshots"))
-        total = len(rows)
-        filled = skipped = missing = 0
-        for i, (path, model) in enumerate(rows):
-            if stop_cb and stop_cb():
-                break
-            if not path or not os.path.isfile(path):
-                missing += 1
-            else:
-                try:
-                    it = scan_item(model or stem(os.path.basename(path)), path, set(), set(),
-                                   **cfg)
-                    con.execute("UPDATE snapshots SET pdata=? WHERE path=?",
-                                (it.get("pdata", ""), path))
-                    filled += 1
-                except Exception:
-                    skipped += 1
-            if progress_cb and (i % 25 == 0 or i + 1 == total):
-                progress_cb(i + 1, total)
-            if i % 500 == 0:
-                con.commit()
-        con.commit()
-        log("backfill_pdata: всего %d, заполнено %d, пропущено %d, нет файла %d"
-            % (total, filled, skipped, missing))
-        return {"total": total, "filled": filled, "skipped": skipped, "missing": missing}
-    finally:
-        try:
-            con.close()
-        except Exception:
-            pass
 
 
 # --- ЗАМОК СКАНА: один писатель на общую базу (файл рядом с базой) ---
@@ -1070,11 +1000,11 @@ def do_scan(roots, max_mb, limit, depth=None, progress_cb=None, stop_cb=None, fu
             con.execute("INSERT INTO changes (item,rev,kind,descr,who,ts) VALUES (?,?,?,?,?,?)",
                         (path, it["rev"], "new", "первая запись паспорта", who_rec, now))
             new += 1
-        con.execute("INSERT OR REPLACE INTO snapshots VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)",
+        con.execute("INSERT OR REPLACE INTO snapshots VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)",
                     (it["path"], it["model"], os.path.dirname(path), it["size"], it["mtime"],
                      it["volume"], it["material"], it["name"], it["designation"], it["rev"],
                      it["author"], it["revdate"], it["role"], now, it.get("hist", 0),
-                     it.get("creo", ""), ctime, it.get("pdata", "")))
+                     it.get("creo", ""), ctime))
         if it.get("base") or it.get("copy_from"):   # изделие ← заготовка/отливка/КОПИЯ
             if s not in seen_der:               # у одного имени несколько файлов — чистим ОДИН раз,
                 con.execute("DELETE FROM derived WHERE child=? AND source='plm_tree'", (s,))
@@ -1574,10 +1504,8 @@ def folder_files_count(folder):
 
 # Поля поиска = ВСЕ столбцы, которые видно в окне по настройкам (требование владельца 24.10.2026).
 # Текст ищется LIKE-ом; числа/даты — приведением к строке (CAST), чтобы «2026» находило и дату.
-# V122: добавлен `pdata` — собранные из настроек параметры Creo (НАИМЕНОВАНИЕ, NAME_1, NAME_2…).
-# Владелец: «искать по имени файла + ВСЕМ параметрам моделей и сборок + исполнениям».
 FILE_COLS = ("path", "designation", "name", "material", "rev", "role", "model",
-             "author", "creo", "folder", "revdate", "pdata")
+             "author", "creo", "folder", "revdate")
 # Числовые/временные поля — ищем по CAST(... AS TEXT), чтобы слово находило и объём, и записей.
 # V106: ЧИСЛА В ПОИСК НЕ БЕРЁМ. Грабля владельца: запрос «170» находил записи по цифрам
 # внутри объёма (`CAST(volume AS TEXT) LIKE '%170%'` — «выводит совсем не по фильтру»).

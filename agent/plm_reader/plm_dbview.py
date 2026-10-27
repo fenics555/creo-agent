@@ -501,7 +501,7 @@ def eng_file_search_cols():
     except Exception:
         return ["path LIKE ?", "designation LIKE ?", "name LIKE ?", "material LIKE ?",
                 "rev LIKE ?", "role LIKE ?", "model LIKE ?", "author LIKE ?", "creo LIKE ?",
-                "folder LIKE ?", "revdate LIKE ?", "pdata LIKE ?"]
+                "folder LIKE ?", "revdate LIKE ?"]
 def log_line(text):
     """Одна строка в общий лог инструмента: D:\\AI\\log\\plm_reader\\plm_reader.log."""
     try:

@@ -184,12 +184,8 @@ def collect_by_path(media_dir=None):
             pass
         print("история: путей с записями %d" % len(hist), flush=True)
 
-        # V122: колонка `pdata` (параметры из настроек, для поиска) есть не в каждой базе —
-        # в старых её нет. Тогда берём пустую строку, чтобы страница строилась как раньше.
-        _sdcols = {r[1] for r in con.execute("PRAGMA table_info(snapshots)")}
-        _psel = "pdata" if "pdata" in _sdcols else "'' AS pdata"
         _rows = list(con.execute("SELECT model, path, volume, material, creo, role, size, "
-                                 "name, designation, author, %s FROM snapshots" % _psel))
+                                 "name, designation, author FROM snapshots"))
         # V120 ГРАБЛЯ (владелец: «библиотечные файлы не выдаёт HTML страница»): обход шёл по
         # ПОРЯДКУ ТАБЛИЦЫ, и при исчерпании БЮДЖЕТА (600 с) хвост базы (папка Libraries —
         # `Производство\MFG\mfglib_PTC\...`) вообще не читался → у моделей не было превью, и
@@ -270,7 +266,6 @@ def collect_by_path(media_dir=None):
                           "s": int(row[6] or 0), "p": path, "role": (row[5] or "").upper(),
                           "n": name, "d": (row[8] or ""),
                           "a": (row[9] or ""),               # V118: автор/компьютер из паспорта
-                          "pd": (row[10] or ""),             # V122: параметры из настроек (поиск)
                           "h": hist.get(path, [])[:40]}      # V109: история файла (до 40 записей)
             if img or img2:
                 cache[path] = (img, img2)
@@ -888,7 +883,6 @@ def build_html(nodes, edges, media_dir, stats_extra=None):
         folder = full.rsplit("\\", 2)[-2] if "\\" in full else ""
         nd[idx[m]] = {"k": v.get("k", "?"), "v": v.get("v", ""), "m": bool(v.get("m")),
                       "a": v.get("a", ""),                    # V118: компьютер/автор из паспорта
-                      "pd": v.get("pd", ""),                  # V122: параметры из настроек (поиск)
                       "role": (v.get("role") or "").upper(),   # V111: MFG отдельно от сборки
                       "i": v.get("i", ""), "i2": v.get("i2", ""),
                       "h": (v.get("h") or [])[:40],          # V109: история изменений файла
