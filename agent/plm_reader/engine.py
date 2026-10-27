@@ -2652,6 +2652,15 @@ def main():
     _roots, _excl = scan_config(_s)
     _mbv = _s.get("max_size_mb", 24)                   # V86: единое умолчание24; 0 = без ограничения
     _max_mb = float(_mbv) if _mbv not in (None, "") else 24.0
+    # V122 ГРАБЛЯ (владелец: «параметры детали задаются ЧЕЛОВЕКОМ, они у всех РАЗНЫЕ»):
+    # CLI-скан НЕ передавал правила параметров (`param_cfg`) → `param_sig` записывался как `{}`,
+    # и `name`/`designation` собирались ЗАШИТЫМИ правилами БЕЗ склейки владельца:
+    # `G11738` получал `name='Винт'` вместо `'Винт ГОСТ 11738-72'` (по правилу `{NAME_1} {NAME_2}`).
+    # Поэтому поиск «ГОСТ 11738» ничего не находил. Теперь CLI берёт те же правила, что и окно
+    # («Столбцы и параметры…»): `param_designation` / `param_name` / `param_material`.
+    _pcfg = {"pdes": _s.get("param_designation"), "pname": _s.get("param_name"),
+             "pmat": _s.get("param_material")}
+    _pcfg = {k: v for k, v in _pcfg.items() if v}      # пустые не передаём (возьмутся умолчания кода)
     ap = argparse.ArgumentParser(description="PLM Reader " + VERSION)
     ap.add_argument("cmd", choices=["scan", "check", "count", "where", "changes", "tree", "rename-plan"])
     ap.add_argument("model", nargs="?")
@@ -2668,7 +2677,8 @@ def main():
     a = ap.parse_args()
     roots = a.roots or _roots or DEFAULT_ROOTS
     if a.cmd == "scan":
-        scan_to_base(roots, a.max_mb, a.limit, (a.max_depth or None), full=a.full, exclude=_excl)
+        scan_to_base(roots, a.max_mb, a.limit, (a.max_depth or None), full=a.full, exclude=_excl,
+                     param_cfg=_pcfg)
     elif a.cmd == "check":
         do_check(roots if roots != DEFAULT_ROOTS else None, a.max_mb, (a.max_depth or None),
                  exclude=_excl)
