@@ -640,11 +640,59 @@ def _versioned(dbdir=None):
         return []
 
 
+def _db_search_dirs():
+    """ГДЕ ИСКАТЬ базу. ГЛАВНАЯ ГРАБЛЯ 27.10.2026: база лежала в ДВУХ папках —
+    локальной (`<инструмент>\\db`, 63 МБ, от 24.10) и БОЕВОЙ на складе
+    (`Z:\\PTC\\CREO-START\\plm_reader\\db`, 188 МБ, от 27.10). `active_db()` смотрела ТОЛЬКО
+    в локальную → страница читала СТАРУЮ базу, где нет ни `arch_dims` (параметров), ни
+    свежих связей. Теперь ищем в ОБЕИХ и берём САМУЮ СВЕЖУЮ по времени правки.
+    Порядок: (1) `set_base_dir()`/`db_dir` из настроек; (2) папка рядом с инструментом;
+    (3) каталог базы рядом со СКЛАДОМ (первый корень скана — `Z:\\PTC\\CREO-START\\plm_reader\\db`).
+    """
+    out = []
+    for d in (os.path.dirname(DB), BASE_DIR, os.path.join(HERE, "db")):
+        if d and os.path.isdir(d) and d not in out:
+            out.append(d)
+    # папка базы РЯДОМ СО СКЛАДОМ: <корень>\plm_reader\db (корни берём из настроек)
+    try:
+        for root in (scan_config()[0] or []):
+            d = os.path.join(str(root).rstrip("\\"), "plm_reader", "db")
+            if os.path.isdir(d) and d not in out:
+                out.append(d)
+    except Exception:                              # noqa: BLE001
+        pass
+    return out
+
+
 def active_db():
-    """Путь к АКТИВНОЙ базе: свежайший versioned-файл, иначе legacy `plm_reader.db`."""
-    v = _versioned()
-    if v:
-        return os.path.join(_base_dir(), v[-1])
+    """Путь к АКТИВНОЙ базе — САМАЯ СВЕЖАЯ по ВРЕМЕНИ ПРАВКИ, среди ВСЕХ папок базы.
+
+    Владелец: «сделай чтоб читало наконец» (база с датой интереснее — видно, когда снята).
+    Порядок: (1) versioned-файлы (`plm_reader_ГГГГММДД_ЧЧММСС.db`) — берём СВЕЖАЙШИЙ по mtime;
+    (2) если versioned нет — `plm_reader.db` (он обновляется публикацией).
+    Пустой/битый файл (0 байт) пропускаем. Ищем в ЛОКАЛЬНОЙ папке И РЯДОМ СО СКЛАДОМ
+    (раньше локальная 63-МБ копия от 24.10 «затмевала» боевые 188 МБ от 27.10).
+    """
+    dirs = _db_search_dirs()
+    cand, main = [], []
+    for d in dirs:
+        for name in _versioned(d):
+            p = os.path.join(d, name)
+            try:
+                if os.path.getsize(p) > 0:            # 0 байт = недописанный/битый файл
+                    cand.append((os.path.getmtime(p), name, p))
+            except Exception:                        # noqa: BLE001 — файл исчез между листингом и stat
+                pass
+        m = os.path.join(d, "plm_reader.db")
+        try:
+            if os.path.isfile(m) and os.path.getsize(m) > 0:
+                main.append((os.path.getmtime(m), "plm_reader.db", m))
+        except Exception:                            # noqa: BLE001
+            pass
+    if cand:
+        return max(cand)[2]                          # самый свежий versioned по ВРЕМЕНИ ПРАВКИ
+    if main:
+        return max(main)[2]                          # иначе — самый свежий `plm_reader.db`
     return DB
 
 
@@ -1228,6 +1276,22 @@ def _publish(draft, to_mirror=True):
     ver = os.path.join(d, "plm_reader_%s.db" % ts)
     shutil.copy2(draft, ver)                     # НОВЫЙ файл — существующее не заменяем
     log("publish: новая база %s" % ver)
+    # ГРАБЛЯ 27.10.2026: `plm_reader.db` был «памятником» от 05.10 и НИКОГДА не обновлялся —
+    # в нём links 15 085 против 50 612 в свежей базе. Кто читал его напрямую, видел другую картину.
+    # Теперь публикация обновляет и его: атомарная замена (tmp+rename), чтобы читатели не увидели
+    # полуфайл. Боевой источник остаётся версионным файлом, `plm_reader.db` = «последняя копия».
+    try:
+        tmp_main = DB + ".tmp%d" % os.getpid()
+        shutil.copy2(ver, tmp_main)
+        os.replace(tmp_main, DB)                 # атомарная подмена
+        log("publish: обновлён %s" % DB)
+    except Exception as e:                       # noqa: BLE001 — открытый файл на шаре не должен рушить скан
+        try:
+            if os.path.isfile(tmp_main):
+                os.remove(tmp_main)
+        except Exception:                        # noqa: BLE001
+            pass
+        log("publish: не удалось обновить %s (%s)" % (DB, e))
     _rotate(3)
     try:                                         # ЗЕРКАЛА (другой диск): копия свежей базы
         if to_mirror:

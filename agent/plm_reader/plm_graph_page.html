@@ -631,22 +631,55 @@ function show(m){
   // детали и исполнения». `n.dm` — параметры из `arch_dims` (объект ключ→значение),
   // `n.dch` — история их изменений из `arch_dim_ch` (имя, было, стало, вид).
   const dm = n.dm || {}, dch = n.dch || [];
-  const dmKeys = Object.keys(dm);
+  // V131 НАСТРОЙКИ ВЫВОДА ПАРАМЕТРОВ (владелец: «были настройки вывода параметров в строку +
+  // под каждый столб, и склейка»). Читаем ИЗ ОБЩЕГО РЕЕСТРА: файл settings.json + правки браузера.
+  function pcfg(k, dflt){
+    try {
+      const loc = JSON.parse(localStorage.getItem("plm_graph_cfg") || "{}") || {};
+      if (loc[k] !== undefined && loc[k] !== null) return loc[k];
+    } catch (e) {}
+    const c = (ST && ST.cfg) || {};
+    return (c[k] !== undefined && c[k] !== null) ? c[k] : dflt;
+  }
+  // какие параметры показываем: пусто = ВСЕ; иначе — только перечисленные (param_pick)
+  const _pick = String(pcfg("param_pick", "") || "").split(/[,;\s]+/).filter(Boolean)
+                  .map(s => s.toLowerCase());
+  let dmKeys = Object.keys(dm);
+  if (_pick.length) dmKeys = dmKeys.filter(k => _pick.indexOf(k.toLowerCase()) >= 0);
+  // сколько показывать: 0 = все (param_max)
+  const _pmax = parseInt(pcfg("param_max", 0), 10) || 0;
+  const _all = dmKeys.length;
+  if (_pmax > 0) dmKeys = dmKeys.slice(0, _pmax);
+  const _layout = String(pcfg("param_layout", "col")) === "row" ? "row" : "col";
+  const _glue = String(pcfg("param_glue", "") === undefined ? " · " : pcfg("param_glue", " · "));
+  const fmtVal = v => {
+    if (typeof v === "number") return (Math.abs(v - Math.round(v)) < 1e-9)
+      ? String(Math.round(v)) : String(v);
+    return String(v == null ? "" : v);
+  };
   let pcol = "";
   if (dmKeys.length){
-    pcol = '<ul>' + dmKeys.slice(0, LIM("links_max", __LINKSMAX__)).map(k => {
-      let val = dm[k];
-      const t = (typeof val === "number") ? "число" : "строка";
-      if (typeof val === "number") val = (Math.abs(val - Math.round(val)) < 1e-9)
-        ? String(Math.round(val)) : String(val);
-      return '<li title="' + esc(k) + ' = ' + esc(val) + '"><span class="h4">' + esc(k) +
-             '</span> <span style="color:#5f6f7f">[' + t + ']</span> = <b>' + esc(val) + '</b></li>';
-    }).join("") + '</ul>';
-    if (dmKeys.length > LIM("links_max", __LINKSMAX__))
-      pcol += '<div style="color:#5f6f7f;font-size:11px">ещё ' +
-              (dmKeys.length - LIM("links_max", __LINKSMAX__)) + ' параметров</div>';
+    if (_layout === "row"){
+      // ВАРИАНТ «в строку»: все параметры через разделитель (компактно)
+      pcol = '<div style="font-size:11px;line-height:1.6;word-break:break-word">' +
+        dmKeys.map(k => '<span title="' + esc(k) + ' = ' + esc(fmtVal(dm[k])) + '">' +
+                        '<span class="h4">' + esc(k) + '</span>=<b>' + esc(fmtVal(dm[k])) +
+                        '</b></span>').join('<span style="color:#5f6f7f">' +
+                                            esc(_glue) + '</span>') + '</div>';
+    } else {
+      // ВАРИАНТ «под столб»: таблица «имя = значение» (каждый параметр под своим столбцом)
+      pcol = '<table style="font-size:11px;border-collapse:collapse">' +
+        dmKeys.map(k => '<tr><td style="color:#98a6b4;padding-right:8px;white-space:nowrap">' +
+                        esc(k) + '</td><td style="color:#dfe6ee"><b>' + esc(fmtVal(dm[k])) +
+                        '</b></td></tr>').join("") + '</table>';
+    }
+    if (_all > dmKeys.length)
+      pcol += '<div style="color:#5f6f7f;font-size:11px">показано ' + dmKeys.length +
+              ' из ' + _all + ' (настройка «параметры: не больше»)</div>';
   } else {
-    pcol = '<ul><li style="color:#5a6773">— параметров нет (нужен скан с новым движком)</li></ul>';
+    pcol = '<ul><li style="color:#5a6773">— параметров нет' +
+           (_pick.length ? ' (фильтр «показывать только эти» ничего не выбрал)' : '') +
+           '</li></ul>';
   }
   // история ИЗМЕНЕНИЙ ПАРАМЕТРОВ (arch_dim_ch): «имя: было → стало (вид)»
   let pch = "";
