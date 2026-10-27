@@ -366,6 +366,13 @@ def db_search_rows(words=None, limit=5000):
     на 40k+ строк это заметно тормозило (владелец: «фильтр долго думает»). Теперь фильтр и
     LIMIT делает SQLite; в Python попадает только результат.
 
+    V122 (жалоба владельца «фильтр очень сильно подвешивает в верхнем окне, а в HTML плавно»):
+    при КАЖДОМ нажатии клавиши гонялись ДВА полных запроса — `COUNT(*)` по 12 колонкам LIKE
+    (полный проход по 47k строк) и следом выборка. Теперь:
+      * КЕШ результатов по (слова, лимит, ревизия базы) — повтор «того же фильтра» мгновенный;
+      * при непустом «И» счётчик НЕ считаем отдельно — берём длину выборки (LIMIT+1: «есть ли ещё»);
+      * счётчик `total` — это «найдено (не больше лимита)», его и показываем.
+
     Сначала «ВСЕ слова» (И); если так пусто — «ЛЮБОЕ слово» (ИЛИ), режим видно в строке состояния.
     Возвращает (строки, найдено_всего, режим).
     """
@@ -373,6 +380,15 @@ def db_search_rows(words=None, limit=5000):
     if not ws:
         rows = db_rows(None, limit)
         return rows, len(rows), ""
+    # --- кеш: тот же фильтр + та же ревизия базы → отдаём готовое (фильтр «не думает») ---
+    try:
+        key = ("|".join(ws), int(limit), _active_db_file(), _db_stamp())
+    except Exception:
+        key = None
+    if key is not None:
+        hit = _SEARCH_CACHE.get(key)
+        if hit is not None:
+            return hit
     cols = eng_file_search_cols()
     try:
         c = db_conn()
@@ -391,25 +407,27 @@ def db_search_rows(words=None, limit=5000):
             return join.join(conds), params
 
         w_and, p_and = where_for(" AND ", ws)
-        total = c.execute("SELECT COUNT(*) FROM snapshots WHERE " + w_and, p_and).fetchone()[0]
+        # V122: НЕ считаем COUNT отдельно — берём выборку на (limit+1), чтобы знать «есть ли ещё»
+        # и не гонять второй полный проход по 47k строк (это и «подвешивало» окно).
+        _sel = sel + " WHERE " + w_and + " ORDER BY model, path LIMIT ?"
+        _lim = int(limit) + 1
+        data = [tuple(r) + ((None,) if not has else ()) for r in c.execute(_sel, p_and + [_lim])]
         mode = "И"
-        params = p_and
-        if not total and len(ws) > 1:                 # «И» пусто → «ЛЮБОЕ слово» (ИЛИ)
+        if not data and len(ws) > 1:                  # «И» пусто → «ЛЮБОЕ слово» (ИЛИ)
             w_or, p_or = where_for(" OR ", ws)
-            total = c.execute("SELECT COUNT(*) FROM snapshots WHERE " + w_or, p_or).fetchone()[0]
-            mode, params = "ИЛИ", p_or
-        if mode == "И":
-            sql_where = w_and
-        else:
-            sql_where = where_for(" OR ", ws)[0]
-        data = [tuple(r) + ((None,) if not has else ())
-                for r in c.execute(sel + " WHERE " + sql_where + " ORDER BY model, path LIMIT ?",
-                                   params + [limit])]
+            data = [tuple(r) + ((None,) if not has else ())
+                    for r in c.execute(sel + " WHERE " + w_or + " ORDER BY model, path LIMIT ?",
+                                       p_or + [_lim])]
+            mode = "ИЛИ"
+        total = len(data)
+        if total > int(limit):                        # «есть ещё» — показываем «>limit»
+            data = data[:int(limit)]
         vers = dict(c.execute("SELECT model, COUNT(*) FROM snapshots GROUP BY model"))
         c.close()
     except Exception:
         return [], 0, ""
     out = [_row_from_db(t, vers) for t in data]
+    _search_cache_put(key, (out, total, mode))
     return out, total, mode
 
 
@@ -445,6 +463,36 @@ def _row_from_db(t, vers=None):
     }
 
 
+# ── V122: КЕШ ПОИСКА. Фильтр в верхнем окне гонял `COUNT(*)` + выборку по 12 колонкам LIKE при
+# КАЖДОМ нажатии клавиши (владелец: «очень сильно подвешивает»). Кеш по ключу (слова, лимит,
+# файл базы, время правки базы) отдаёт повтор мгновенно; при смене базы ключ меняется сам.
+_SEARCH_CACHE = {}
+_SEARCH_CACHE_MAX = 64
+_db_stamp_cache = [None, None]          # [путь, отпечаток]
+
+
+def _db_stamp():
+    """Отпечаток активной базы (путь + время правки + размер) — чтобы кеш поиска не «залипал»."""
+    try:
+        p = _active_db_file()
+        st = os.stat(p)
+        return (int(st.st_mtime), st.st_size)
+    except Exception:
+        return None
+
+
+def _search_cache_put(key, val):
+    """Положить результат в кеш (с простой ротацией: не даём словарю расти без предела)."""
+    if key is None:
+        return
+    try:
+        if len(_SEARCH_CACHE) >= _SEARCH_CACHE_MAX:
+            _SEARCH_CACHE.clear()
+        _SEARCH_CACHE[key] = val
+    except Exception:
+        pass
+
+
 def eng_file_search_cols():
     """Колонки поиска из движка (единый источник: текстовые LIKE). Лениво — без цикла импортов."""
     try:
@@ -453,7 +501,7 @@ def eng_file_search_cols():
     except Exception:
         return ["path LIKE ?", "designation LIKE ?", "name LIKE ?", "material LIKE ?",
                 "rev LIKE ?", "role LIKE ?", "model LIKE ?", "author LIKE ?", "creo LIKE ?",
-                "folder LIKE ?", "revdate LIKE ?"]
+                "folder LIKE ?", "revdate LIKE ?", "pdata LIKE ?"]
 def log_line(text):
     """Одна строка в общий лог инструмента: D:\\AI\\log\\plm_reader\\plm_reader.log."""
     try:
