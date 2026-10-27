@@ -115,6 +115,53 @@ def _save_media_cache(cache):
         pass
 
 
+def plm_edges():
+    """V128: ЕДИНЫЙ ИСТОЧНИК СВЯЗЕЙ — ОДНИ связи для ВСЕХ окон (HTML, граф, отчёты).
+
+    Владелец: «разве могут быть несколько графов и связей в одной плм-ридере?» —
+    «база одна, граф один, связи одни и те же». Поэтому связи строятся ЗДЕСЬ, ОДИН РАЗ:
+
+      * `links`   → состав/входимость, канал `db`      (ФИЗИЧЕСКАЯ связь из файла);
+      * `derived` → база наследования, канал `inherit` (НЕ состав!);
+      * служебные базы (`MM_ASSY`, `SBORKA_MM`, `MM_PART`) — отсекаются;
+      * СВЯЗЬ = ПАРА ИМЁН; путь — только для выбора узла-представителя.
+
+    Раньше связи раскладывались по ВСЕМ путям имени (V104), и одна физическая связь
+    превращалась в ×3.9 рёбер (24 297 пар → 95 116 рёбер) — «граф не тот».
+    Возвращает список {from, to, type, qty, channel} ПО ИМЕНАМ (`_norm`).
+    """
+    if engine is None:
+        return []
+    try:
+        con = engine.connect(ro=True)
+    except Exception:                  # noqa: BLE001
+        return []
+    out = {}
+    try:
+        for r in con.execute("SELECT parent, child, qty FROM links"):
+            a, b = _norm(r[0]), _norm(r[1])
+            if a and b and a != b:
+                k = (a, b, "деталь", "db")
+                out[k] = out.get(k, 0) + int(r[2] or 1)
+        for r in con.execute("SELECT child, base, kind FROM derived"):
+            a, b = _norm(r[0]), _norm(r[1])
+            if not a or not b or a == b or _is_service(a) or _is_service(b):
+                continue
+            k0 = (r[2] or "").lower()
+            typ = "копия" if "коп" in k0 else ("исполнение" if "наслед" in k0 else "производная")
+            k = (a, b, typ, "inherit")
+            out[k] = out.get(k, 0) + 1
+    except Exception:                  # noqa: BLE001
+        return []
+    finally:
+        try:
+            con.close()
+        except Exception:              # noqa: BLE001
+            pass
+    return [{"from": a, "to": b, "type": t, "qty": q, "channel": ch}
+            for (a, b, t, ch), q in out.items()]
+
+
 def collect_by_path(media_dir=None):
     """Узлы по ПУТИ файла (правильная модель: одноимённые в разных папках — РАЗНЫЕ узлы).
 
@@ -321,12 +368,20 @@ def collect_by_path(media_dir=None):
             else:
                 typ = "производная"
             add_edge(_norm(row[0]), _norm(row[1]), typ, 1, "inherit")
+        # ── V128: ОДНО РЕБРО НА СВЯЗЬ (без размножения ×3.9). ─────────────────────────────
+        # Владелец: «разве могут быть несколько графов и связей в одной плм-ридере?»;
+        # «база одна, граф один, связи одни и те же».
+        # ГРАБЛЯ: раньше стоял ДВОЙНОЙ цикл по путям имён —
+        #     for pk in by_name[источник]: for ck in by_name[приёмник]: edges.append(...)
+        # и ОДНА физическая связь превращалась в 4×4=16 рёбер (24 297 пар → 95 116 рёбер).
+        # Теперь связь = ПАРА ИМЁН = ОДНО ребро; в граф идут УЗЛЫ-ПРЕДСТАВИТЕЛИ этих имён
+        # (первый путь имени по приоритету = с превью), а не все пути сразу.
+        # Если у имени ещё нет узла-представителя — берём ЛЮБОЙ путь (он станет узлом позже).
         for (fr, to, typ, ch), q in agg.items():
-            for pk in by_name.get(fr, []):
-                for ck in by_name.get(to, []):
-                    if pk != ck:
-                        edges.append({"from": pk, "to": ck, "type": typ, "qty": q,
-                                      "channel": ch})
+            pk = by_name.get(fr, [None])[0] or fr
+            ck = by_name.get(to, [None])[0] or to
+            if pk != ck:
+                edges.append({"from": pk, "to": ck, "type": typ, "qty": q, "channel": ch})
     except Exception as e:             # noqa: BLE001
         # НЕ ГЛУШИМ: раньше исключение съедалось и откат шёл на неверную модель
         # (ключ = имя) — из-за этого граф строился «не тот». Теперь видно.
@@ -426,22 +481,34 @@ def collect_from_db(media_dir=None):
             nodes[model] = {"k": kind, "v": v, "m": mfg, "i": img, "i2": img2,
                             "s": int(row[6] or 0), "p": path.split("\\")[-1],
                             "role": role}
-        # V104: склейка одинаковых связей + суммирование qty (без дублей «одна связь = строка»)
+        # V128: ЕДИНАЯ ЛОГИКА СВЯЗЕЙ (как в collect_by_path — «база одна, связи одни»).
+        # Владелец: «разве могут быть несколько графов и связей в одной плм-ридере?»
+        # Раньше ЗДЕСЬ (запасной путь) производность `derived` шла в ТОТ ЖЕ канал `db`, что и
+        # физический состав `links`, и вид назывался «заготовка». Теперь — как в основном пути:
+        # `links` → канал `db` (состав/входимость), `derived` → канал `inherit` (база наследования),
+        # а вид связи берётся КАК ЗАПИСАНО В ФАЙЛЕ (копия / исполнение / производная).
         agg = {}
 
-        def add_edge(fr, to, typ, q):
+        def add_edge(fr, to, typ, q, ch="db"):
             if fr and to and fr != to and fr in nodes and to in nodes:
-                k = (fr, to, typ)
+                k = (fr, to, typ, ch)
                 agg[k] = agg.get(k, 0) + int(q or 1)
 
         for row in con.execute("SELECT parent, child, qty FROM links"):
-            add_edge(_norm(row[0]), _norm(row[1]), "деталь", row[2])
+            add_edge(_norm(row[0]), _norm(row[1]), "деталь", row[2], "db")
         for row in con.execute("SELECT child, base, kind FROM derived"):
-            k = (row[2] or "").lower()
-            add_edge(_norm(row[0]), _norm(row[1]),
-                     "копия" if "коп" in k else "заготовка", 1)
-        for (fr, to, typ), q in agg.items():
-            edges.append({"from": fr, "to": to, "type": typ, "qty": q, "channel": "db"})
+            if _is_service(_norm(row[0])) or _is_service(_norm(row[1])):
+                continue                     # служебные базы (MM_ASSY/SBORKA_MM) — не модели
+            k0 = (row[2] or "").lower()
+            if "коп" in k0:
+                typ = "копия"
+            elif "наслед" in k0:
+                typ = "исполнение"
+            else:
+                typ = "производная"
+            add_edge(_norm(row[0]), _norm(row[1]), typ, 1, "inherit")
+        for (fr, to, typ, ch), q in agg.items():
+            edges.append({"from": fr, "to": to, "type": typ, "qty": q, "channel": ch})
     except Exception:                  # noqa: BLE001
         pass
     finally:
