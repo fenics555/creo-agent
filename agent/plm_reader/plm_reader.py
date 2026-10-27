@@ -41,7 +41,7 @@ if __name__ == "__main__":
     import sys as _sys
     _sys.modules.setdefault("plm_reader", _sys.modules["__main__"])
 
-APP_VERSION = "V132"      # V132: настройки вывода параметров (в строку/под столб/склейка) в ОБЩЕМ реестре; параметры читаются из arch_dims; active_db берёт СВЕЖАЙШУЮ базу (и со склада); автоподхват новых настроек
+APP_VERSION = "V133"      # V133: СКАН ПОЧИНЕН — вставка в snapshots со СПИСКОМ колонок (в боевой базе 18-я чужая колонка `pdata` роняла скан: «18 columns but 17 values»); путь базы: db_dir пуст → папка РЯДОМ СО СКЛАДОМ (раньше публиковали в папку инструмента, а читали со склада); «последняя копия» и бэкапы — рядом с боевой базой; отсев «памятников» (plm_reader_before_*.db) и черновиков (.tmp)
 APP_TITLE = "PLM Reader " + APP_VERSION          # версия ОДНА: заголовок берёт её из константы
 DATA_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "db")          # данные — в подпапке db\
 SETTINGS_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "settings")  # настройки — в подпапке settings\

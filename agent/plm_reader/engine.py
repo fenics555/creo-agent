@@ -1630,7 +1630,19 @@ def do_scan(roots, max_mb, limit, depth=None, progress_cb=None, stop_cb=None, fu
             con.execute("INSERT INTO changes (item,rev,kind,descr,who,ts) VALUES (?,?,?,?,?,?)",
                         (path, it["rev"], "new", "первая запись паспорта", who_rec, now))
             new += 1
-        con.execute("INSERT OR REPLACE INTO snapshots VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)",
+        # ГЛАВНАЯ ГРАБЛЯ 27.10.2026 — ПОЧЕМУ «СКАН НЕ РАБОТАЛ» (владелец: «скан не работает»).
+        # Было `INSERT ... snapshots VALUES (17 знаков ?)` БЕЗ списка колонок. SQLite в такой
+        # форме требует значения для ВСЕХ колонок таблицы. А в боевой базе `snapshots` имеет
+        # 18 колонок: кто-то (НЕ наш код — в доме 0 вхождений слова `pdata`) добавил колонку
+        # `pdata` (склейка «имя | параметры», заполнена у 12 956 из 47 289 записей).
+        # Итог: `table snapshots has 18 columns but 17 values were supplied` → скан падал
+        # КАЖДЫЙ раз, черновик не публиковался, база не менялась.
+        # ТЕПЕРЬ пишем СПИСКОМ КОЛОНОК: скан работает и на базе с чужой колонкой, и без неё,
+        # а `pdata` не затирается (её значение остаётся как было — мы её не трогаем).
+        con.execute("INSERT OR REPLACE INTO snapshots "
+                    "(path,model,folder,size,mtime,volume,material,name,designation,rev,"
+                    "author,revdate,role,seen,hist,creo,created) "
+                    "VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)",
                     (it["path"], it["model"], os.path.dirname(path), it["size"], it["mtime"],
                      it["volume"], it["material"], it["name"], it["designation"], it["rev"],
                      it["author"], it["revdate"], it["role"], now, it.get("hist", 0),
@@ -1649,7 +1661,8 @@ def do_scan(roots, max_mb, limit, depth=None, progress_cb=None, stop_cb=None, fu
                 dk = (s, bb, k)
                 if dk not in seen_derp:
                     seen_derp.add(dk)
-                    con.execute("INSERT INTO derived VALUES (?,?,?,?)", (s, bb, k, "plm_tree"))
+                    con.execute("INSERT INTO derived (child,base,kind,source) VALUES (?,?,?,?)",
+                                (s, bb, k, "plm_tree"))
         if s not in seen:                       # связи код-родителя чистим ОДИН раз
             con.execute("DELETE FROM links WHERE parent=? AND source='plm_tree'", (s,))
             seen.add(s)
@@ -1657,7 +1670,8 @@ def do_scan(roots, max_mb, limit, depth=None, progress_cb=None, stop_cb=None, fu
             if (s, child) in seen:
                 continue
             seen.add((s, child))
-            con.execute("INSERT INTO links VALUES (?,?,?,?)", (s, child, qty, "plm_tree"))
+            con.execute("INSERT INTO links (parent,child,qty,source) VALUES (?,?,?,?)",
+                        (s, child, qty, "plm_tree"))
         # СВЯЗИ ИЗ СТРУКТУРЫ ФАЙЛА (эта сессия): состав .asm и модели .asm-обработки. Идут своим
         # источником `asm_comp`, а «имя по вхождению» остаётся как было (`plm_tree`) — их видно
         # отдельно в SQL, поэтому связь можно ПРОВЕРИТЬ, а не верить ей (грабля «приёмка по строкам»).
@@ -1665,14 +1679,16 @@ def do_scan(roots, max_mb, limit, depth=None, progress_cb=None, stop_cb=None, fu
         if parts:
             con.execute("DELETE FROM links WHERE parent=? AND source='asm_comp'", (s,))
             for child, _role, qty in parts:
-                con.execute("INSERT INTO links VALUES (?,?,?,?)", (s, child, qty or 1, "asm_comp"))
+                con.execute("INSERT INTO links (parent,child,qty,source) VALUES (?,?,?,?)",
+                            (s, child, qty or 1, "asm_comp"))
         # ── V125: ВСЕ ПАРАМЕТРЫ МОДЕЛИ (имя + тип + значение) и ТАБЛИЦА СЕМЕЙСТВА ─────────────
         # Владелец: «хранить как все параметры детали, так и все параметры исполнения, тогда
         # связи будут реальные и выводиться будут без плясок». Пишем по ПУТИ файла (как snapshots).
         cp = it.get("cparams") or []
         con.execute("DELETE FROM params WHERE path=?", (path,))
         for _pn, _pt, _pv in cp:
-            con.execute("INSERT INTO params VALUES (?,?,?,?,?)", (path, s, _pn, _pt, _pv))
+            con.execute("INSERT INTO params (path,model,name,type,value) VALUES (?,?,?,?,?)",
+                        (path, s, _pn, _pt, _pv))
         fam = it.get("family") or []
         con.execute("DELETE FROM family WHERE generic=?", (s,))
         for _item in fam:
@@ -1681,13 +1697,15 @@ def do_scan(roots, max_mb, limit, depth=None, progress_cb=None, stop_cb=None, fu
                 _inst, _par = _item[0], (_item[1] if len(_item) > 1 else s)
             else:
                 _inst, _par = _item, s
-            con.execute("INSERT INTO family VALUES (?,?,?,?)", (_par or s, _inst, "", "plm_tree"))
+            con.execute("INSERT INTO family (generic,instance,params,source) VALUES (?,?,?,?)",
+                        (_par or s, _inst, "", "plm_tree"))
         # ── V126: ИСТОРИЯ ПРАВОК (компьютер + юзер + время + Creo) ──────────────────────────
         # Владелец: «+ что когда правилось и кем (имя компьютера + юзер)».
         h2 = it.get("hist2") or []
         con.execute("DELETE FROM history WHERE path=?", (path,))
         for _h in h2:
-            con.execute("INSERT INTO history VALUES (?,?,?,?,?,?,?,?)",
+            con.execute("INSERT INTO history (path,model,ts,user,computer,creo,rev,action) "
+                        "VALUES (?,?,?,?,?,?,?,?)",
                         (path, s, _h.get("ts", ""), _h.get("user", ""), _h.get("computer", ""),
                          _h.get("creo", ""), _h.get("rev", ""), _h.get("action", "")))
         # ── V127: ЗДОРОВЬЕ ФАЙЛА (регенерация/статус/неактивная геометрия) ────────────────────
@@ -1696,7 +1714,8 @@ def do_scan(roots, max_mb, limit, depth=None, progress_cb=None, stop_cb=None, fu
             _hl = creo_health(raw)
             con.execute("CREATE TABLE IF NOT EXISTS health (path TEXT PRIMARY KEY, model TEXT, "
                         "regen TEXT, reg_status TEXT, inactive INTEGER, geom_rev TEXT)")
-            con.execute("INSERT OR REPLACE INTO health VALUES (?,?,?,?,?,?)",
+            con.execute("INSERT OR REPLACE INTO health (path,model,regen,reg_status,inactive,geom_rev) "
+                        "VALUES (?,?,?,?,?,?)",
                         (path, s, _hl.get("regen", ""), _hl.get("reg_status", ""),
                          int(_hl.get("inactive", 0) or 0), _hl.get("geom_rev", "")))
         except Exception:              # noqa: BLE001
@@ -1709,7 +1728,8 @@ def do_scan(roots, max_mb, limit, depth=None, progress_cb=None, stop_cb=None, fu
             con.execute("DELETE FROM links WHERE parent=? AND source='family'", (s,))
             for _item in fam:
                 _inst = _item[0] if isinstance(_item, (tuple, list)) else _item
-                con.execute("INSERT INTO links VALUES (?,?,?,?)", (s, _inst, 1, "family"))
+                con.execute("INSERT INTO links (parent,child,qty,source) VALUES (?,?,?,?)",
+                            (s, _inst, 1, "family"))
         done += 1
         if progress_cb and n % 25 == 0:
             progress_cb(n, total)
