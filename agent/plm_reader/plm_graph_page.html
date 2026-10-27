@@ -511,11 +511,16 @@ function render(){
   // «ЖИВОЙ» статус: пока порции идут — показываем рост узлов/рёбер, потом — итог.
   const live = (LIVE.chunks > 1) ? (" · порций " + LIVE.chunks + " · узлов " + LIVE.nodes +
                                     " · рёбер " + LIVE.edges + " (растёт…)") : "";
+  // V122: ЯВНО называем прочитанную базу. В каталоге лежит и старый `plm_reader.db` (legacy),
+  // и боевые `plm_reader_<дата>.db` — числа у них РАЗНЫЕ, и «спор о цифрах» без этой строки
+  // невозможен (владелец: «ГОСТ 11738 = 0» — он смотрел активную, сверяли старую).
+  const db = ST.db_name ? (" · база " + ST.db_name + (ST.db_when ? " от " + ST.db_when : "") +
+                           (ST.db_mb ? " (" + ST.db_mb + " МБ)" : "")) : "";
   document.getElementById("stats").textContent =
     "показано " + shown.length + " из " + keys.length + " · в странице " +
     Object.keys(ND).length + " моделей · рёбер " + ST.edges +
     " · с превью " + (ST.media || 0) +
-    (ST.all_nodes ? " · в базе всего " + ST.all_nodes + " / " + ST.all_edges + " связей" : "") + live;
+    (ST.all_nodes ? " · в базе всего " + ST.all_nodes + " / " + ST.all_edges + " связей" : "") + db + live;
 }
 list.addEventListener("click", e => {
   const r = e.target.closest(".row"); if (r) show(r.dataset.m);

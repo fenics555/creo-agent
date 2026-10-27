@@ -901,6 +901,23 @@ def build_html(nodes, edges, media_dir, stats_extra=None):
     n_e = sum(len(v.get("o") or []) for v in nd.values())
     st = {"nodes": len(nd), "edges": n_e, "media": n_img, "no_img": len(nd) - n_img,
           "all_nodes": len(nodes), "all_edges": len(edges)}
+    # ── V122 ГЛАВНАЯ ГРАБЛЯ (владелец: «ГОСТ 11738 = 0», «DIN912 — 5 сборок?», и агент сверял
+    # ДРУГУЮ базу): в каталоге базы живут И `plm_reader.db` (старый legacy от 05.10), И
+    # `plm_reader_<дата>.db` (боевые, ротация `_rotate(3)`). `engine.active_db()` отдаёт
+    # СВЕЖАЙШИЙ versioned-файл, а `plm_reader.db` остаётся «памятником» — на нём links 15 085
+    # против 50 612 на активной. Любая диагностика «по plm_reader.db» уходит НЕ ТУДА.
+    # Поэтому страница ОБЯЗАНА называть базу вслух: имя файла + дата правки + размер.
+    st["db_name"], st["db_when"], st["db_mb"] = "", "", 0
+    try:
+        if engine is not None:
+            _p = engine.active_db()
+            st["db_name"] = os.path.basename(_p)
+            if os.path.isfile(_p):
+                import datetime as _dt
+                st["db_when"] = _dt.datetime.fromtimestamp(os.path.getmtime(_p)).strftime("%d.%m.%Y %H:%M")
+                st["db_mb"] = int(os.path.getsize(_p) / 1048576)
+    except Exception:                  # noqa: BLE001
+        pass
     if stats_extra:
         st.update(stats_extra)
     rel = os.path.relpath(media_dir, HERE).replace("\\", "/") if media_dir else "."
