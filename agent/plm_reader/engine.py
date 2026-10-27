@@ -845,6 +845,87 @@ def model_family(model, limit=5000):
             pass
 
 
+# --- V126: ИСТОРИЯ ПРАВОК «КТО И КОГДА» — КОМПЬЮТЕР + ПОЛЬЗОВАТЕЛЬ + ВРЕМЯ --------------------
+# Владелец: «+ что когда правилось и кем (имя компьютера + юзер)».
+#
+# РАЗВЕДАНО НА ЖИВЫХ ФАЙЛАХ (G11738.prt.1): Creo пишет в файл КАЖДУЮ запись истории:
+#   полный вид:  user_name\x00\xf1USER\x00\xe0\x00modif_time\x00\xe2
+#                tm_sec\x00<1б> tm_min\x00<1б> tm_hour\x00<1б> tm_mday\x00<1б> tm_mon\x00<1б> tm_year\x00<1б>
+#                typed_data(<ВИД>)\x00\xf1\xe3 rev_string\x00<НОМЕР>\x00
+#                comment\x00<UTF-8>"Наименование компьютера: '<КОМПЬЮТЕР>'"\x00 Proe_version\x00<"Creo X.Y.Z">
+#   сжатый вид:  \xf7\x14USER\x00\xe2 <sec><min><hour><mday><mon><year>   (6 байт времени)
+# ВАЖНО: поле `user_name` почти всегда = служебное «USER»; РЕАЛЬНЫЙ КОМПЬЮТЕР/ПОЛЬЗОВАТЕЛЬ
+# лежит в `comment`: «Наименование компьютера: 'Konstruktor-2'» (бывает 'frezer-4', 'Valeriy').
+# Год = 1900 + байт, месяц = байт + 1 (проверено: 2026-10-02 11:42:07).
+_CREO_PC_MARK = "Наименование компьютера: '".encode("utf-8")
+_RX_HIST_FULL = re.compile(
+    rb"user_name\x00.{0,4}?\x00\xe0\x00modif_time\x00\xe2"
+    rb"tm_sec\x00(.)tm_min\x00(.)tm_hour\x00(.)tm_mday\x00(.)tm_mon\x00(.)tm_year\x00(.)"
+    rb".{0,40}?(?:rev_string\x00(.{0,12}?)\x00)?"
+    rb".{0,200}?" + re.escape(_CREO_PC_MARK) + rb"([^']{0,60})'"
+    rb".{0,60}?Proe_version\x00([^\x00]{0,20})", re.S)
+_RX_HIST_SHORT = re.compile(rb"\xf7\x14([\x20-\x7e]{1,24}?)\x00\xe2"
+                            rb"(.)(.)(.)(.)(.)(.)")
+
+
+def creo_history(raw):
+    """ИСТОРИЯ ПРАВОК из файла Creo: [{user, computer, creo, ts, rev, action}] — КАК В CREO.
+
+    Владелец: «что когда правилось и кем (имя компьютера + юзер)». Берём ВСЕ записи журнала.
+    ЗАМЕР на G11738: коротких времён (каждая операция) — 4833, а «компьютер» (`comment`) — лишь 9
+    (Creo пишет компьютер ТОЛЬКО при сохранении модели, `typed_data(MdlStored)`). Поэтому
+    компьютер привязываем к БЛИЖАЙШЕМУ времени ПЕРЕД ним по позиции в файле, а не по индексу.
+    """
+    events = []          # (позиция, вид, данные)
+    # V126: между полями времени стоит разделитель `\xe0\x01` (проверено на живом файле:
+    # `tm_sec\x00\x07\xe0\x01tm_min\x00\x2a…`) — БЕЗ него шаблон не находил НИ ОДНОГО времени,
+    # и все «компьютеры» прилипали к единственной пустой записи.
+    for m in re.finditer(rb"tm_sec\x00(.)\xe0\x01tm_min\x00(.)\xe0\x01tm_hour\x00(.)"
+                         rb"\xe0\x01tm_mday\x00(.)\xe0\x01tm_mon\x00(.)\xe0\x01tm_year\x00(.)",
+                         raw, re.S):
+        sec, mi, h, d, mo, y = (b[0] for b in m.groups())
+        events.append((m.start(), "t", (sec, mi, h, d, mo, y)))
+    for m in _RX_HIST_SHORT.finditer(raw):
+        sec, mi, h, d, mo, y = (b[0] for b in m.groups()[1:7])
+        events.append((m.start(), "t", (sec, mi, h, d, mo, y)))
+    # V126: компьютер + версия Creo. Формат записи (проверено):
+    #   \xf7\x14USER\x00\xe2<6 байт времени>\xe3<rev>\x00 … \x00<"Наименование компьютера: 'X'">\x00Creo <ver>
+    # поэтому компьютер относим к ПОСЛЕДНЕЙ записи времени ПЕРЕД ним (а не по индексу).
+    for m in re.finditer(re.escape(_CREO_PC_MARK) + rb"([^']{0,60})'\x00([^\x00]{0,24})", raw, re.S):
+        events.append((m.start(), "pc", (m.group(1).decode("utf-8", "replace").strip(),
+                                         m.group(2).decode("utf-8", "replace").strip())))
+    for m in re.finditer(rb"rev_string\x00(.{0,12}?)\x00", raw):
+        events.append((m.start(), "rev", m.group(1).decode("utf-8", "replace").strip()))
+    events.sort(key=lambda x: x[0])
+
+    out, last_ts = [], ""
+    for _pos, kind, data in events:
+        if kind == "t":
+            sec, mi, h, d, mo, y = data
+            try:
+                dt = datetime.datetime(1900 + y, mo + 1, d, h, mi, sec)
+            except ValueError:
+                continue
+            if not (1990 <= dt.year <= 2040):
+                continue
+            last_ts = dt.strftime("%d.%m.%Y %H:%M:%S")
+            out.append({"user": "USER", "computer": "", "creo": "", "ts": last_ts,
+                        "rev": "", "action": ""})
+        elif kind == "pc":
+            comp, creo = data
+            # компьютер относится к ПОСЛЕДНЕЙ записи времени (сохранение модели)
+            if out:
+                out[-1]["computer"] = comp
+                out[-1]["creo"] = creo
+            else:
+                out.append({"user": "USER", "computer": comp, "creo": creo,
+                            "ts": last_ts, "rev": "", "action": ""})
+        elif kind == "rev":
+            if out:
+                out[-1]["rev"] = data
+    return out
+
+
 # --- ЗАМОК СКАНА: один писатель на общую базу (файл рядом с базой) ---
 LOCK_FILE = os.path.join(os.path.dirname(DB), "plm.lock")
 LOCK_STALE_SEC = 180
