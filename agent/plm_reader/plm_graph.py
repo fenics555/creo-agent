@@ -231,6 +231,51 @@ def collect_by_path(media_dir=None):
             pass
         print("история: путей с записями %d" % len(hist), flush=True)
 
+        # V130 ПАРАМЕТРЫ + НАСТРОЙКИ (владелец: «где мои старые настройки? висит твой паспорт»).
+        # Параметры ЛЕЖАТ в базе: `arch_dims.dims` = JSON {"d26": 27.19, ...} по arch_date+model,
+        # `arch_dim_ch` = история изменений параметра. Раньше граф читал ТОЛЬКО `changes`
+        # (паспорт), поэтому на странице был «паспорт» без параметров.
+        # НАСТРОЙКИ — ОДИН источник: `meta.param_sig` (pdes/pmat/pname/psearch + ревизия).
+        param_sig = {}
+        try:
+            r = con.execute("SELECT v FROM meta WHERE k='param_sig'").fetchone()
+            if r and r[0]:
+                sig, _, _rev = str(r[0]).rpartition("|")
+                param_sig = json.loads(sig or "{}")
+        except Exception:
+            param_sig = {}
+        print("настройки параметров: ключей %d" % len(param_sig), flush=True)
+
+        # ГРУППЫ ПАРАМЕТРОВ (V130): собираем в те же имена, что ждёт страница.
+        # Ключ узла — путь файла (как у snapshots), значение — {ключ: значение}.
+        dims_by_model = defaultdict(dict)          # model -> {"d26": 27.19, ...}
+        dimch_by_model = defaultdict(list)         # model -> [[дата, имя, было, стало, вид], ...]
+        try:
+            for model, dims in con.execute(
+                    "SELECT model, dims FROM arch_dims ORDER BY arch_date DESC LIMIT 300000"):
+                if not model or not dims:
+                    continue
+                try:
+                    d = json.loads(dims)
+                except Exception:
+                    continue
+                if isinstance(d, dict):
+                    for k, v in d.items():
+                        dims_by_model[model].setdefault(str(k), v)
+        except Exception:
+            pass
+        try:
+            for model, dim, old_val, new_val, kind in con.execute(
+                    "SELECT model, dim, old_val, new_val, kind FROM arch_dim_ch "
+                    "ORDER BY arch_date DESC LIMIT 300000"):
+                if model and dim:
+                    dimch_by_model[model].append([_clean(dim), _clean(old_val),
+                                                  _clean(new_val), _clean(kind)])
+        except Exception:
+            pass
+        print("параметры: моделей с размерами %d, с изменениями %d"
+              % (len(dims_by_model), len(dimch_by_model)), flush=True)
+
         _rows = list(con.execute("SELECT model, path, volume, material, creo, role, size, "
                                  "name, designation, author FROM snapshots"))
         # V120 ГРАБЛЯ (владелец: «библиотечные файлы не выдаёт HTML страница»): обход шёл по
@@ -313,7 +358,11 @@ def collect_by_path(media_dir=None):
                           "s": int(row[6] or 0), "p": path, "role": (row[5] or "").upper(),
                           "n": name, "d": (row[8] or ""),
                           "a": (row[9] or ""),               # V118: автор/компьютер из паспорта
-                          "h": hist.get(path, [])[:40]}      # V109: история файла (до 40 записей)
+                          "h": hist.get(path, [])[:40],      # V109: история файла (до 40 записей)
+                          # V130: ПАРАМЕТРЫ (arch_dims) + их история (arch_dim_ch).
+                          # Ключ параметров — имя модели файла (как в arch_dims.model).
+                          "dm": dims_by_model.get(name, {}),
+                          "dch": dimch_by_model.get(name, [])[:40]}
             if img or img2:
                 cache[path] = (img, img2)
                 cnt_media += 1
@@ -962,7 +1011,13 @@ def build_html(nodes, edges, media_dir, stats_extra=None):
                       # V121: ПРОИЗВОДНОСТЬ (`MERGE_BASE_PART` / `derived`) — ОТДЕЛЬНО.
                       # oh — базы наследования этой модели; ih — кто наследует ОТ неё.
                       "oh": [[idx[e["key"]], e["type"], e["qty"]] for e in outh2.get(m, [])],
-                      "ih": [[idx[e["key"]], e["type"], e["qty"]] for e in inh2.get(m, [])]}
+                      "ih": [[idx[e["key"]], e["type"], e["qty"]] for e in inh2.get(m, [])],
+                      # ── V130 ГЛАВНАЯ ГРАБЛЯ (владелец: «где мои параметры? висит твой паспорт»):
+                      # узел УЖЕ нёс параметры (`dm`) и их историю (`dch`), но ЭТОТ словарь — то,
+                      # что реально уходит в HTML, — их НЕ ПЕРЕНОСИЛ. Поэтому на странице были
+                      # «паспорт/история», а параметров не было ВООБЩЕ. Теперь переносим.
+                      "dm": v.get("dm") or {},                 # параметры модели (arch_dims)
+                      "dch": (v.get("dch") or [])[:40]}        # изменения параметров (arch_dim_ch)
     # статистика — ПО СТРАНИЦЕ (в неё попадает часть узлов), а не по всей базе
     n_img = sum(1 for v in nd.values() if v.get("i"))
     n_e = sum(len(v.get("o") or []) for v in nd.values())

@@ -626,14 +626,54 @@ function show(m){
   } else {
     hcol = '<ul><li style="color:#5a6773">записей нет</li></ul>';
   }
+  // ── V130 ПАРАМЕТРЫ МОДЕЛИ (как в Creo): имя · тип · значение ──────────────────────────
+  // Владелец: «где мои параметры? висит твой паспорт»; «нужно хранить все параметры
+  // детали и исполнения». `n.dm` — параметры из `arch_dims` (объект ключ→значение),
+  // `n.dch` — история их изменений из `arch_dim_ch` (имя, было, стало, вид).
+  const dm = n.dm || {}, dch = n.dch || [];
+  const dmKeys = Object.keys(dm);
+  let pcol = "";
+  if (dmKeys.length){
+    pcol = '<ul>' + dmKeys.slice(0, LIM("links_max", __LINKSMAX__)).map(k => {
+      let val = dm[k];
+      const t = (typeof val === "number") ? "число" : "строка";
+      if (typeof val === "number") val = (Math.abs(val - Math.round(val)) < 1e-9)
+        ? String(Math.round(val)) : String(val);
+      return '<li title="' + esc(k) + ' = ' + esc(val) + '"><span class="h4">' + esc(k) +
+             '</span> <span style="color:#5f6f7f">[' + t + ']</span> = <b>' + esc(val) + '</b></li>';
+    }).join("") + '</ul>';
+    if (dmKeys.length > LIM("links_max", __LINKSMAX__))
+      pcol += '<div style="color:#5f6f7f;font-size:11px">ещё ' +
+              (dmKeys.length - LIM("links_max", __LINKSMAX__)) + ' параметров</div>';
+  } else {
+    pcol = '<ul><li style="color:#5a6773">— параметров нет (нужен скан с новым движком)</li></ul>';
+  }
+  // история ИЗМЕНЕНИЙ ПАРАМЕТРОВ (arch_dim_ch): «имя: было → стало (вид)»
+  let pch = "";
+  if (dch.length){
+    pch = '<ul>' + dch.map(x =>
+      '<li><span class="h4">' + esc(x[0]) + '</span>: ' +
+      '<span style="color:#8fa0b3">' + esc(x[1] || "—") + '</span> → ' +
+      '<b style="color:#6fcf7f">' + esc(x[2] || "—") + '</b>' +
+      (x[3] ? ' <span style="color:#5f6f7f">(' + esc(x[3]) + ')</span>' : '') + '</li>'
+    ).join("") + '</ul>';
+  } else {
+    pch = '<ul><li style="color:#5a6773">изменений параметров нет</li></ul>';
+  }
   document.getElementById("card").innerHTML =
     '<h2>' + (n.nm || m) + '</h2>' +
     '<div class="meta">' + kindTag(n) + ' тип ' + n.k + ' · Creo ' + n.v +
       ' · ' + (n.s/1048576).toFixed(2) + ' МБ<br>' +
-      '<span style="color:#7f8fa2">папка:</span> ' + (n.dir || '—') + '</div>' +
+      '<span style="color:#7f8fa2">папка:</span> ' + (n.dir || '—') +
+      // V130: обозначение и параметры-паспорт рядом с типом (как в Creo «свойства модели»)
+      (n.d ? '<br><span style="color:#7f8fa2">обозначение:</span> ' + esc(n.d) : '') +
+      (n.a ? ' · <span style="color:#7f8fa2">компьютер:</span> ' + esc(n.a) : '') +
+      '</div>' +
     '<div class="flex"><div class="prev">' + prev + '</div>' +
     '<div><h3>Состав — что использует (' + n.o.length + ')</h3><ul>' + li(n.o) + '</ul></div>' +
     '<div><h3>Куда входит (' + n.n.length + ')</h3><ul>' + li(n.n) + '</ul></div>' +
+    '<div class="hist"><h3>Параметры модели (' + dmKeys.length + ')</h3>' + pcol + '</div>' +
+    '<div class="hist"><h3>Изменения параметров (' + dch.length + ')</h3>' + pch + '</div>' +
     '<div class="hist"><h3>История изменений (' + hist.length + ')</h3>' + hcol + '</div>' +
     inh + '</div>';
   // V111: применить выбранный строй (row = в ряд / col = друг под другом)
