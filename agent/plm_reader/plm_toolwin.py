@@ -2209,16 +2209,40 @@ def run_gui():
         # Владелец: «все же что за ПЛМ, которая хранит не все параметры?»; «хранить как все
         # параметры детали, так и все параметры исполнения, тогда связи будут реальные и
         # выводиться будут без плясок». Показываем ВСЁ: имя · тип · значение.
+        # V132: параметры с УЧЁТОМ НАСТРОЕК (владелец: «настройки вывода параметров в строку +
+        # под каждый столб, и склейка»). Те же настройки, что на HTML-странице — ОДИН реестр:
+        #   param_layout — "row": одной строкой через разделитель; "col": таблицей (имя → значение);
+        #   param_glue   — разделитель для "row";  param_max — сколько показывать (0 = все);
+        #   param_pick   — показывать только перечисленные (пусто = все).
         try:
             _cp = eng.model_params(path)
         except Exception:              # noqa: BLE001
             _cp = []
-        add("Параметров в базе (все, как в Creo)", str(len(_cp)) if _cp else
-            "— нет (соберите базу заново: скан наполняет таблицу params)")
-        for _pn, _pt, _pv in _cp[:120]:
-            add("   %s  [%s]" % (_pn, _pt), _pv)
-        if len(_cp) > 120:
-            add("   …", "ещё %d параметров" % (len(_cp) - 120))
+        _pick = [x.strip().lower() for x in (settings.get("param_pick") or []) if str(x).strip()]
+        if _pick:
+            _cp = [t for t in _cp if str(t[0]).lower() in _pick]
+        _pmax = int(settings.get("param_max") or 0)
+        _total = len(_cp)
+        if _pmax > 0:
+            _cp = _cp[:_pmax]
+        _lay = str(settings.get("param_layout") or "col").lower()
+        add("Параметров (как в Creo)", "%d%s" % (
+            _total, ("  ·  показано %d (настройка «не больше»)" % len(_cp))
+            if _total > len(_cp) else "") if _cp else
+            "— нет (база без параметров: нужен скан)")
+        if _cp and _lay == "row":
+            # «в строку»: одна строка, параметры через разделитель (склейка)
+            _glue = settings.get("param_glue")
+            if _glue is None:
+                _glue = " · "
+            add("   (одной строкой)", str(_glue).join(
+                "%s=%s" % (_pn, _fmt(_pv) if isinstance(_pv, (int, float)) else _pv)
+                for _pn, _pt, _pv in _cp))
+        else:
+            for _pn, _pt, _pv in _cp[:200]:
+                add("   %s  [%s]" % (_pn, _pt), _pv)
+            if len(_cp) > 200:
+                add("   …", "ещё %d параметров" % (len(_cp) - 200))
         # ТАБЛИЦА СЕМЕЙСТВА: генерик ↔ исполнения (обе стороны, с УРОВНЯМИ)
         try:
             _fam = eng.model_family(model)

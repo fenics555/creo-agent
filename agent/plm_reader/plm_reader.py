@@ -41,7 +41,7 @@ if __name__ == "__main__":
     import sys as _sys
     _sys.modules.setdefault("plm_reader", _sys.modules["__main__"])
 
-APP_VERSION = "V127"      # V127: связи СЕМЕЙСТВО→СОСТАВ (исполнения в links), МНОГОУРОВНЕВЫЕ таблицы (родитель у каждого исполнения), ЗДОРОВЬЕ файлов (регенерация, неактивная геометрия)
+APP_VERSION = "V132"      # V132: настройки вывода параметров (в строку/под столб/склейка) в ОБЩЕМ реестре; параметры читаются из arch_dims; active_db берёт СВЕЖАЙШУЮ базу (и со склада); автоподхват новых настроек
 APP_TITLE = "PLM Reader " + APP_VERSION          # версия ОДНА: заголовок берёт её из константы
 DATA_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "db")          # данные — в подпапке db\
 SETTINGS_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "settings")  # настройки — в подпапке settings\

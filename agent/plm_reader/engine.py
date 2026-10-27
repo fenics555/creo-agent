@@ -882,18 +882,66 @@ def search_params(words, limit=500):
             pass
 
 
-def model_params(path, limit=2000):
-    """V125: ВСЕ параметры модели по ПУТИ файла — [(имя, тип, значение)] для карточки/окна."""
+def model_params(path_or_model, limit=2000):
+    """V132: ВСЕ параметры модели — [(имя, тип, значение)] для карточки/окна.
+
+    ГЛАВНАЯ ГРАБЛЯ (владелец: «где мои параметры? висит твой паспорт»): параметры в БОЕВОЙ
+    базе лежат в `arch_dims` (`{model, arch_date, dims}` = JSON `{"d26": 27.19, ...}`) и в
+    `arch_dim_ch` (история). Таблица `params` создаётся только НОВЫМ сканом — в старой базе
+    её НЕТ, и окно показывало «параметров нет». Теперь читаем ОБА источника:
+      1) `arch_dims` по ИМЕНИ модели (как HTML) — основной путь;
+      2) таблицу `params` по ПУТИ (если база собрана новым сканом) — как дополнение.
+    `path_or_model` принимает И путь файла, И имя модели (что дали — то и ищем).
+    """
     try:
         con = connect(ro=True)
     except Exception:                  # noqa: BLE001
         return []
+    out = []
+    seen = set()
+    # Стем модели (как `_norm` в plm_graph): `din912-m4x20.prt.1` -> `DIN912-M4X20`.
+    # В engine своей `_norm` нет — считаем здесь, чтобы не тянуть plm_graph (цикл импортов).
+    def _stem(x):
+        s = str(x or "").strip()
+        low = s.lower()
+        for suf in (".prt.", ".asm.", ".prt", ".asm", ".drw."):
+            i = low.find(suf)
+            if i > 0:
+                return s[:i].upper()
+        return s.upper()
+
     try:
-        return [(r[0], r[1], r[2]) for r in con.execute(
-            "SELECT name, type, value FROM params WHERE path=? ORDER BY name LIMIT ?",
-            (path, int(limit)))]
-    except Exception:                  # noqa: BLE001
-        return []
+        # 1) arch_dims: параметры по ИМЕНИ модели (JSON-словарь)
+        mdl = _stem(str(path_or_model).split("\\")[-1])
+        try:
+            row = con.execute("SELECT dims FROM arch_dims WHERE model=? "
+                              "ORDER BY arch_date DESC LIMIT 1", (mdl,)).fetchone()
+            if row and row[0]:
+                d = json.loads(row[0])
+                if isinstance(d, dict):
+                    for k, v in list(d.items())[:int(limit)]:
+                        kk = str(k)
+                        if kk in seen:
+                            continue
+                        seen.add(kk)
+                        out.append((kk, "число" if isinstance(v, (int, float)) else "строка", v))
+        except Exception:              # noqa: BLE001
+            pass
+        # 2) params: полный набор от нового скана (по пути, затем по имени)
+        for col, val in (("path", path_or_model), ("model", mdl)):
+            if len(out) >= int(limit):
+                break
+            try:
+                for r in con.execute(
+                        "SELECT name, type, value FROM params WHERE %s=? ORDER BY name LIMIT ?"
+                        % col, (val, int(limit))):
+                    if r[0] in seen:
+                        continue
+                    seen.add(r[0])
+                    out.append((r[0], r[1], r[2]))
+            except Exception:          # noqa: BLE001 — таблицы params может не быть
+                pass
+        return out[:int(limit)]
     finally:
         try:
             con.close()
@@ -1333,8 +1381,35 @@ def scan_to_base(roots, max_mb=8, limit=120, depth=None, progress_cb=None, stop_
     published = False
     try:
         src = active_db()
-        if os.path.isfile(src):
+        # V132 ЗАЩИТА ОТ ПОТЕРИ БАЗЫ (владелец: «а у кого-то уже есть база данных, нужно
+        # продолжить её»): скан обязан ПРОДОЛЖАТЬ существующую базу, а не начинать с нуля.
+        # Если активная база не найдена (или пустая), а где-то рядом ЕСТЬ непустая база —
+        # берём ЕЁ как основу, иначе накопленная история молча обнулилась бы.
+        if not (os.path.isfile(src) and os.path.getsize(src) > 0):
+            best = None
+            for _d in _db_search_dirs():
+                try:
+                    for _f in os.listdir(_d):
+                        if not _f.endswith(".db") or _f.endswith("-journal"):
+                            continue
+                        _p = os.path.join(_d, _f)
+                        try:
+                            _sz = os.path.getsize(_p)
+                        except Exception:              # noqa: BLE001
+                            continue
+                        if _sz > 0 and (best is None or os.path.getmtime(_p) > os.path.getmtime(best)):
+                            best = _p
+                except Exception:                      # noqa: BLE001
+                    pass
+            if best:
+                log("scan: активная база пуста/не найдена → продолжаю с %s" % best)
+                src = best
+        if os.path.isfile(src) and os.path.getsize(src) > 0:
             shutil.copy2(src, draft)                  # работаем на локальной копии активной базы
+            log("scan: база-основа %s (%d МБ)"
+                % (os.path.basename(src), os.path.getsize(src) // 1048576))
+        else:
+            log("scan: база-основа НЕ найдена — скан начнёт новую (истории ещё нет)")
         # правила параметров изменились → принудительно ПЕРЕЧИТАТЬ всё и запомнить подпись
         sig = json.dumps(param_cfg or {}, sort_keys=True, ensure_ascii=False) + "|" + PARSER_TAG
         eff_full = bool(full)

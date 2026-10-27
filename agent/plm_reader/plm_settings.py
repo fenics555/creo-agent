@@ -378,6 +378,32 @@ def load_settings_file(path=None):
     except Exception as e:
         log_line("settings: чтение не удалось (%s) — работаю на умолчаниях" % e)
 
+    # V132: АВТОПОДХВАТ НОВЫХ НАСТРОЕК (владелец: «настройки должны подхватываться у каждого
+    # свои автоматом, если вдруг что-то новое добавляется»). Механизм:
+    #   1) база — `DEFAULT_SETTINGS` (умолчания); файл владельца их ПЕРЕКРЫВАЕТ — свои значения
+    #      у каждого и сохраняются сами;
+    #   2) СТРАХОВКА: если ключ ЕСТЬ в реестре (`SETTINGS_SPEC`), а в `DEFAULT_SETTINGS` его
+    #      забыли — подставляем разумное значение по типу, чтобы настройка РАБОТАЛА, а не падала.
+    #      Так «забыл добавить умолчание» больше не выключает функцию молча.
+    try:
+        _spec = SETTINGS_SPEC
+    except NameError:
+        _spec = []
+    for _g, _k, _lab, _t, _lo, _hi in _spec:
+        if _k in out:
+            continue
+        if _t == "bool":
+            out[_k] = False
+        elif _t == "int":
+            out[_k] = int(_lo) if isinstance(_lo, (int, float)) else 0
+        elif _t == "choice":
+            out[_k] = (_lo[0] if isinstance(_lo, list) and _lo else "")
+        elif _t == "list":
+            out[_k] = []
+        else:
+            out[_k] = ""
+        log_line("settings: ключ «%s» не имел умолчания — подставлено %r" % (_k, out[_k]))
+
     # Миграция структуры: от версии файла к текущей
     try:
         v = int(out.get("settings_version", 1))
