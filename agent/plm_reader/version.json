@@ -1,27 +1,27 @@
 {
- "version": "V122",
- "version_num": 122,
+ "version": "V123",
+ "version_num": 123,
  "date": "27.10.2026",
- "notes": "V122 - poisk po PARAMETRAM iz nastroek (param_search -> snapshots.pdata), imya chitaemoy bazy na stranice, bystryy filtr okna (kesh, bez vtorogo COUNT)",
+ "notes": "V123 - parametry tolko v nastrojkah (Stolbcy i parametry, sklejka {NAME_1} {NAME_2}); ubr an oshibochnyy param_search/PASPORT; pochinen skan iz komandnoy stroki (teper peredaet param_cfg -> sklejka rabotaet, G11738 = 'Vint GOST 11738-72'); na stranice vidno kakuyu bazu chitaem; filtr okna bystree (kesh)",
  "files": {
-  "engine.py": "76e0142ff604d769f0cc2dffac17eb94285753b5a34a63d0628d2096938bb858",
-  "plm_reader.py": "70cebaea7f251fc6575e0f1182d9e400e74ff42e2ff48fd8d0a34b12e156b56b",
-  "plm_toolwin.py": "bf5ac04891b459f293e71503848e9a6293d5fb3a7907c791532afd46823c85a7",
+  "engine.py": "7bf6cb5f867e4951ecf0ad92085ef02aafd9ba0ef6868fbeedc5e5d2de7c6c50",
+  "plm_reader.py": "62407394681e0e773899fb6c7bdd650566594371221bf11f9a49540825925fd6",
+  "plm_toolwin.py": "a62f6dae1b031920b982bf29faaa89ce5b61038facf70dda3cfb2156507af9b8",
   "plm_history.py": "0e8a1b414f3ad7c67175251fb4192e26431b0e9760bcce6ba6d9faf03ada8c77",
   "plm_parse.py": "c6bb33a412b6b606ad402e3eb78cd49246b77738b69d82be1b6218a1358c0312",
-  "plm_dbview.py": "ce4833fddd169998e3f13249bab7af77cb9b9059524437b4d8caf5ade034651c",
-  "plm_settings.py": "a698a78bfbe22584a5f1a39d119e32fc51a0effeb59be95b6246aa8fac124dbe",
+  "plm_dbview.py": "4ff22eb6651a3abdd95a92706a6c64e59addcefe7ef3aa4d74465c5283f496bc",
+  "plm_settings.py": "7b411256ee76ba3ecdb16614422be2ee34866b81ec980a21121743b218354220",
   "plm_scan.py": "e32d610e33932afaee4c952cb0b4564801508f0568d4360d7d039ffacb856f48",
   "plm_paths_window.py": "8887ccacd53f475171c89a8948084420078ed4fc1fc8a914a40ea4af1968124d",
   "creo_read.py": "eb28ec862c1eb4a5519f5215d4ec11d060222348c54ebc407abbcd5f88ada170",
-  "README.md": "a7d8dda794ae336e0a675dc714f5e89ddb0e5a9901a376ce3567d11302ea66dd",
+  "README.md": "57ea119878fd68f4c9daff08c40407af761ca53fe32fdf2312d5fcb8d769195c",
   "SHARE_copy.bat": "4eccb549a17251392337aeabbc3ef76233dfa3072beadff9d158cd6e932622ee",
   "plm_reader.bat": "bdd125397db3ac7e7432dbdb078a6a811ed4913fca02b062edb27907032fca3d",
   "plm_reader_gui.bat": "9f695898d5db6431e840784b9587c75304ca9e526b06f79d4b44ab026663bd20",
   "make_version_json.py": "4603968533bec13a05defb4a164246728b9649d50d524479f639493eeed7c92f",
   ".gitignore": "911fbdb5acf889293fdc61c836b691014da748fa55bd6464ce35a67f30e636ee",
   "AGENTS.md": "3b08e6e81731ace78deac46df3b802de337c3924acb87c54fe1562a2573650ef",
-  "plm_graph.py": "e8332c89d13579b1c239e72c6961868fb2036427584f08b690cdde98765d3b04",
-  "plm_graph_page.html": "3648bdb0bc1c9dca4bb71f04b3625de5024851e42c1665e431949dd6f50183f8"
+  "plm_graph.py": "35d8881cc67b3812bc716de60c72bd2f5092303a9ee9ab2a189133d597506d8a",
+  "plm_graph_page.html": "d3743e1d520bda87cba025696c56bf81f7f6bead9f15d97544ef427a231b5793"
  }
 }
