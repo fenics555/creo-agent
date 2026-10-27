@@ -41,7 +41,7 @@ if __name__ == "__main__":
     import sys as _sys
     _sys.modules.setdefault("plm_reader", _sys.modules["__main__"])
 
-APP_VERSION = "V123"      # V123: убран ошибочный param_search/ПАСПОРТ (параметры — ТОЛЬКО в «Столбцы и параметры»); CLI-скан передаёт правила параметров (склейка {NAME_1} {NAME_2} работает); на странице видно, какую базу читаем; фильтр окна быстрее
+APP_VERSION = "V124"      # V124: окно «Пути, исключения и база данных» переименовано в «⚙ НАСТРОЙКИ» (как кнопка в HTML); подраздел — «ПАРАМЕТРЫ»
 APP_TITLE = "PLM Reader " + APP_VERSION          # версия ОДНА: заголовок берёт её из константы
 DATA_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "db")          # данные — в подпапке db\
 SETTINGS_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "settings")  # настройки — в подпапке settings\

@@ -460,7 +460,7 @@ def run_gui():
     spath = grp_paths                      # панель путей живёт в группе «ПАПКИ»
     _hidden = ttk.Frame(top)               # невидимый держатель (совместимость разметки)
     class _Field:
-        """Поле-путь БЕЗ виджета: ввод путей живёт в окне «Пути и исключения…», тут только значение."""
+        """Поле-путь БЕЗ виджета: ввод путей живёт в окне «⚙ НАСТРОЙКИ…», тут только значение."""
 
         def __init__(self, value=""):
             self.v = value or ""
@@ -495,7 +495,7 @@ def run_gui():
         lbl_e.config(text="Исключено: %d. %s" % (len(exc), _paths_text(exc)))
 
     def pull_paths():
-        """После окна «Пути и исключения…»: значения — в поля-держатели, подписи — на панель."""
+        """После окна «⚙ НАСТРОЙКИ…»: значения — в поля-держатели, подписи — на панель."""
         flds = settings.get("folders") or []
         e_folder.v = flds[0] if flds else ""
         e_folder2.v = flds[1] if len(flds) > 1 else ""
@@ -504,7 +504,7 @@ def run_gui():
     def open_paths():
         PathsWindow(root, settings, tk, ttk, filedialog, on_save=pull_paths)
 
-    btn_paths = ttk.Button(spath, text="Пути и исключения…", command=open_paths, width=26)
+    btn_paths = ttk.Button(spath, text="⚙ НАСТРОЙКИ…", command=open_paths, width=26)
     btn_paths.grid(row=0, column=0, sticky="w")
     lim = ttk.Frame(grp_show)
     lim.pack(fill="x")
@@ -1635,7 +1635,7 @@ def run_gui():
             lbl.config(text="Purge: чистить нечего — лишних версий нет")
             return
         if not folder or not os.path.isdir(folder):
-            lbl.config(text="Purge: выбери существующую папку (кнопка «Пути и исключения…»)")
+            lbl.config(text="Purge: выбери существующую папку (кнопка «⚙ НАСТРОЙКИ…»)")
             return
         keep = int(e_keep.get() or 2)
         try:                                      # V99: папка бэкапа из настроек (пусто = как раньше)
