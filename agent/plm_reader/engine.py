@@ -640,20 +640,56 @@ def _versioned(dbdir=None):
         return []
 
 
+def warehouse_db_dir():
+    """ПАПКА БАЗЫ РЯДОМ СО СКЛАДОМ: `<корень>\\plm_reader\\db` — для корней из настроек.
+
+    Владелец 27.10.2026: «сделай чтоб читало наконец». База обязана лежать РЯДОМ СО СКЛАДОМ,
+    а не в папке инструмента: инструмент можно перенести/обновить — история склада остаётся.
+    Считается от корней настроек (`Z:\\PTC\\Work` → `Z:\\PTC\\Work\\plm_reader\\db`,
+    `Z:\\PTC\\CREO-START` → `Z:\\PTC\\CREO-START\\plm_reader\\db`). Нет ни одной — ''.
+    """
+    try:
+        roots = scan_config()[0] or DEFAULT_ROOTS
+    except Exception:                              # noqa: BLE001
+        roots = DEFAULT_ROOTS
+    for root in roots:
+        r = str(root).rstrip("\\")
+        if not r:
+            continue
+        cand = os.path.join(r, "plm_reader", "db")
+        if os.path.isdir(cand):
+            return cand
+    return ""
+
+
+def _is_plm_db(name):
+    """ЭТО ФАЙЛ НАШЕЙ БАЗЫ? Законны ТОЛЬКО две формы: `plm_reader.db` и
+    `plm_reader_ГГГГММДД_ЧЧММСС.db`.
+
+    ГРАБЛЯ 27.10.2026: в папке базы лежали ПОСТОРОННИЕ файлы — `plm_reader_before_{ 20261006_121208 }.db`
+    и `plm_reader_before_patch_20261005_212954.db` (46 МБ, «памятники» от 05.10). Широкий фильтр
+    `f.endswith('.db')` пропускал их, и такой «памятник» мог стать АКТИВНОЙ базой (в нём links
+    15 085 против 50 746 в боевой). Отсекаем всё, что не подходит ТОЧНО.
+    """
+    return bool(re.match(r"^plm_reader(_\d{8}_\d{6})?\.db$", name or ""))
+
+
 def _db_search_dirs():
     """ГДЕ ИСКАТЬ базу. ГЛАВНАЯ ГРАБЛЯ 27.10.2026: база лежала в ДВУХ папках —
     локальной (`<инструмент>\\db`, 63 МБ, от 24.10) и БОЕВОЙ на складе
     (`Z:\\PTC\\CREO-START\\plm_reader\\db`, 188 МБ, от 27.10). `active_db()` смотрела ТОЛЬКО
     в локальную → страница читала СТАРУЮ базу, где нет ни `arch_dims` (параметров), ни
     свежих связей. Теперь ищем в ОБЕИХ и берём САМУЮ СВЕЖУЮ по времени правки.
-    Порядок: (1) `set_base_dir()`/`db_dir` из настроек; (2) папка рядом с инструментом;
-    (3) каталог базы рядом со СКЛАДОМ (первый корень скана — `Z:\\PTC\\CREO-START\\plm_reader\\db`).
+
+    ПОРЯДОК ВАЖЕН: СНАЧАЛА папка склада (боевая), потом локальная. `active_db()` берёт
+    свежайшую по mtime, но при равных датах выигрывает ПЕРВАЯ в списке — склад идёт раньше.
+    Папка `backup\\` НЕ включается (там копии для отката, не боевые).
     """
     out = []
-    for d in (os.path.dirname(DB), BASE_DIR, os.path.join(HERE, "db")):
+    for d in (warehouse_db_dir(), os.path.dirname(DB), BASE_DIR, os.path.join(HERE, "db")):
         if d and os.path.isdir(d) and d not in out:
             out.append(d)
-    # папка базы РЯДОМ СО СКЛАДОМ: <корень>\plm_reader\db (корни берём из настроек)
+    # папка базы РЯДОМ СО СКЛАДОМ у КАЖДОГО корня (корней может быть несколько)
     try:
         for root in (scan_config()[0] or []):
             d = os.path.join(str(root).rstrip("\\"), "plm_reader", "db")
@@ -675,24 +711,25 @@ def active_db():
     """
     dirs = _db_search_dirs()
     cand, main = [], []
-    for d in dirs:
+    for order, d in enumerate(dirs):
         for name in _versioned(d):
             p = os.path.join(d, name)
             try:
                 if os.path.getsize(p) > 0:            # 0 байт = недописанный/битый файл
-                    cand.append((os.path.getmtime(p), name, p))
+                    # order: папка СКЛАДА идёт раньше → при равных датах выигрывает она
+                    cand.append((os.path.getmtime(p), -order, name, p))
             except Exception:                        # noqa: BLE001 — файл исчез между листингом и stat
                 pass
         m = os.path.join(d, "plm_reader.db")
         try:
             if os.path.isfile(m) and os.path.getsize(m) > 0:
-                main.append((os.path.getmtime(m), "plm_reader.db", m))
+                main.append((os.path.getmtime(m), -order, "plm_reader.db", m))
         except Exception:                            # noqa: BLE001
             pass
     if cand:
-        return max(cand)[2]                          # самый свежий versioned по ВРЕМЕНИ ПРАВКИ
+        return max(cand)[3]                          # самый свежий versioned по ВРЕМЕНИ ПРАВКИ
     if main:
-        return max(main)[2]                          # иначе — самый свежий `plm_reader.db`
+        return max(main)[3]                          # иначе — самый свежий `plm_reader.db`
     return DB
 
 
@@ -1277,6 +1314,18 @@ def lock_release():
 
 # --- ПУБЛИКАЦИЯ: боевая база меняется только целиком и атомарно ---
 def _backup_dir():
+    """Папка бэкапов — РЯДОМ С БОЕВОЙ БАЗОЙ (не в папке инструмента, если база на складе).
+
+    ГРАБЛЯ 27.10.2026: бэкапы копились в `D:\\...\\plm_reader\\db\\backup`, а боевая база жила
+    на складе — при переносе инструмента бэкапы «терялись». Теперь папка считается от ТОЙ базы,
+    которую реально читает инструмент (`active_db()`), с запасным вариантом — папка `DB`.
+    """
+    try:
+        live = active_db()
+        if live and os.path.isfile(live):
+            return os.path.join(os.path.dirname(live), "backup")
+    except Exception:                            # noqa: BLE001
+        pass
     return os.path.join(os.path.dirname(DB), "backup")
 
 
@@ -1312,6 +1361,12 @@ def _publish(draft, to_mirror=True):
     ts = datetime.datetime.now().strftime("%Y%m%d_%H%M%S")
     d = _base_dir()
     os.makedirs(d, exist_ok=True)
+    # ГДЕ ЖИВЁТ БОЕВАЯ БАЗА. ГРАБЛЯ 27.10.2026 (вторая половина той же ошибки): `DB` берётся из
+    # настроек (`db_dir`), а он БЫЛ ПУСТ → `DB` = локальная папка инструмента, а `active_db()`
+    # читала БОЕВУЮ на складе. Публикация обновляла ЛОКАЛЬНЫЙ `plm_reader.db`, а читали СКЛАДСКОЙ
+    # → «последняя копия» оставалась «памятником» от 05.10, и рассинхрон не лечился никогда.
+    # Теперь «последняя копия» пишется РЯДОМ С ТОЙ БАЗОЙ, ОТКУДА ВЗЯТА ОСНОВА (`prev`), — тогда
+    # и публикация, и чтение всегда смотрят в ОДНУ папку.
     try:                                         # бэкап текущей активной базы
         prev = active_db()
         if os.path.isfile(prev):
@@ -1324,22 +1379,22 @@ def _publish(draft, to_mirror=True):
     ver = os.path.join(d, "plm_reader_%s.db" % ts)
     shutil.copy2(draft, ver)                     # НОВЫЙ файл — существующее не заменяем
     log("publish: новая база %s" % ver)
-    # ГРАБЛЯ 27.10.2026: `plm_reader.db` был «памятником» от 05.10 и НИКОГДА не обновлялся —
-    # в нём links 15 085 против 50 612 в свежей базе. Кто читал его напрямую, видел другую картину.
-    # Теперь публикация обновляет и его: атомарная замена (tmp+rename), чтобы читатели не увидели
-    # полуфайл. Боевой источник остаётся версионным файлом, `plm_reader.db` = «последняя копия».
+    # «ПОСЛЕДНЯЯ КОПИЯ» = `plm_reader.db` РЯДОМ С БОЕВОЙ. Атомарная замена (tmp+rename), чтобы
+    # читатели не увидели полуфайл. Боевой источник остаётся версионным файлом.
     try:
-        tmp_main = DB + ".tmp%d" % os.getpid()
+        live_dir = os.path.dirname(prev) if (prev and os.path.isfile(prev)) else d
+        main_db = os.path.join(live_dir, "plm_reader.db")
+        tmp_main = main_db + ".tmp%d" % os.getpid()
         shutil.copy2(ver, tmp_main)
-        os.replace(tmp_main, DB)                 # атомарная подмена
-        log("publish: обновлён %s" % DB)
+        os.replace(tmp_main, main_db)            # атомарная подмена
+        log("publish: обновлён %s" % main_db)
     except Exception as e:                       # noqa: BLE001 — открытый файл на шаре не должен рушить скан
         try:
             if os.path.isfile(tmp_main):
                 os.remove(tmp_main)
         except Exception:                        # noqa: BLE001
             pass
-        log("publish: не удалось обновить %s (%s)" % (DB, e))
+        log("publish: не удалось обновить %s (%s)" % (main_db, e))
     _rotate(3)
     try:                                         # ЗЕРКАЛА (другой диск): копия свежей базы
         if to_mirror:
