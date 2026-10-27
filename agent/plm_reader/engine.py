@@ -543,6 +543,11 @@ def scan_item(s, path, stems, fstems=frozenset(), pdes=None, pname=None, pmat=No
         des = s                                  # ОБОЗНАЧЕНИЕ = rel_model_name → имя модели
     nm = names(raw)
     refs = {c: nm[c] for c in nm if c != s and c in stems and len(c) >= 2}
+    # V125: ВСЕ параметры модели (имя + тип + значение) и ТАБЛИЦА СЕМЕЙСТВА.
+    # Владелец: «все же что за ПЛМ, которая хранит не все параметры?»; «исполнения могут
+    # иметь СВОИ параметры, управляемые через уравнения или таблицу семейства».
+    cparams = creo_params(raw)
+    fam = family_of(raw, s)
     h = last_hist(raw) or ("", "", "")
     hm = HISTRE.findall(raw)
     base, dkind = derived_of(raw)
@@ -560,7 +565,8 @@ def scan_item(s, path, stems, fstems=frozenset(), pdes=None, pname=None, pmat=No
             "designation": des,
             "rev": h[0], "author": h[1], "revdate": h[2], "role": role(raw, fstems, s), "refs": refs,
             "hist": len(hm), "creo": (hm[-1][3].decode("latin-1") if hm else ""),
-            "base": base, "dkind": dkind, "copy_from": cf, "parts": parts}
+            "base": base, "dkind": dkind, "copy_from": cf, "parts": parts,
+            "cparams": cparams, "family": fam}
 
 
 # --- ЕДИНЫЙ ЧИТАТЕЛЬ: своя вложенная копия creo_read (папка самодостаточна) ---
@@ -594,6 +600,17 @@ CREATE INDEX IF NOT EXISTS ix_links_child ON links(child);
 CREATE TABLE IF NOT EXISTS derived (child TEXT, base TEXT, kind TEXT, source TEXT);
 CREATE INDEX IF NOT EXISTS ix_derived_child ON derived(child);
 CREATE INDEX IF NOT EXISTS ix_derived_base ON derived(base);
+-- V125: ВСЕ ПАРАМЕТРЫ МОДЕЛИ «как в Creo» (имя + тип + значение). Владелец: «хранить нужно
+-- как все параметры детали, так и все параметры исполнения — тогда связи будут реальные».
+CREATE TABLE IF NOT EXISTS params (path TEXT, model TEXT, name TEXT, type TEXT, value TEXT);
+CREATE INDEX IF NOT EXISTS ix_params_model ON params(model);
+CREATE INDEX IF NOT EXISTS ix_params_name ON params(name);
+CREATE INDEX IF NOT EXISTS ix_params_path ON params(path);
+-- V125: ТАБЛИЦА СЕМЕЙСТВА (генерик ↔ исполнения) — ОТДЕЛЬНО от физических связей `links`.
+-- Владелец: «давай попробуем отдельную family, ну а вдруг чего — переделаем».
+CREATE TABLE IF NOT EXISTS family (generic TEXT, instance TEXT, params TEXT, source TEXT);
+CREATE INDEX IF NOT EXISTS ix_family_generic ON family(generic);
+CREATE INDEX IF NOT EXISTS ix_family_instance ON family(instance);
 CREATE TABLE IF NOT EXISTS folders (path TEXT PRIMARY KEY, parent TEXT, depth INTEGER,
   models INTEGER, files INTEGER, seen TEXT);
 """
@@ -662,6 +679,170 @@ def connect(ro=False, db=None):
     con.executescript(SCHEMA)
     con.commit()
     return con
+
+
+# --- V125: ПАРАМЕТРЫ «КАК В CREO» (имя + тип + значение) и ТАБЛИЦА СЕМЕЙСТВА ---------------
+# Владелец: «хранить параметры нужно В ТОЧНОСТИ КАК В CREO»; «все же что за ПЛМ, которая
+# хранит не все параметры?»; «исполнения вообще могут иметь свои параметры, управляемые
+# через уравнения или таблицу семейства»; «хранить как все параметры детали, так и все
+# параметры исполнения, тогда связи будут реальные и выводиться будут без плясок».
+#
+# РАЗВЕДАНО НА ЖИВЫХ ФАЙЛАХ (DIN912 5.4 МБ, O-RING 6.8 МБ, G11738, DIN931, DIN7991):
+#   1) ПАРАМЕТР В ФАЙЛЕ = `<ИМЯ>\x00` + тег значения (`\x27\x88\x20\xe3\x33` или `\xe2\x33`)
+#      + `<ЗНАЧЕНИЕ-UTF8>\x00`.  Проверено: `NAME_1\x00'\x88 \xe33Винт   \x00`.
+#   2) ТИП — в блоке `attributes`: `name.<ИМЯ>.` → `type.<N>` → `value(<тип>_val).<знач>`.
+#      Типы Creo: `s_val` строка · `d_val` число · `i_val` целое · `l_val` длинное.
+#   3) ТАБЛИЦА СЕМЕЙСТВА — блок `user_instances` → `user_visible_name` → `drv_tbl_ptr`
+#      (генерик) + имена исполнений `<модель>[-_]<размер>`: `DIN912-M2_5X4` … (1375 вхождений
+#      в DIN912; 691 в DIN931; 574 в DIN7991; 2085 в O-RING). У 618 библиотечных генериков —
+#      ВСЕГО ~10 523 исполнения, и ПЛМ их НЕ читал вовсе (отсюда «мало связей по DIN912»).
+#      В скилле дома это УЖЕ было (§8.3/§8.7 SKILL_creo_file_reading.md) — в код не попало.
+CREO_VAL_TAG = (b"\x27\x88\x20\xe3\x33", b"\xe2\x33")
+CREO_TYPES = {b"s_val": "str", b"d_val": "num", b"i_val": "int", b"l_val": "int",
+              b"b_val": "bool", b"r_val": "ref"}
+
+
+def _creo_clean(s):
+    """Убрать служебные байты Creo по краям значения (\\x00-\\x1f) — иначе в базе мусор.
+
+    V125: Creo ставит ПЕРЕД значением пару служебных байтов (`\\xf7\\x1d`, `\\xf7\\x1c`) —
+    если их не срезать, в параметр попадает `'\\x1fDIN912-M'` вместо `'DIN912-M'`.
+    """
+    s = s.strip("\x00\x01\x02\x03\x04\x05\x06\x07\x08\x0b\x0c\x0e\x0f\x10\x11\x12\x13"
+                "\x14\x15\x16\x17\x18\x19\x1a\x1b\x1c\x1d\x1e\x1f \t\r\n")
+    return s.lstrip("\xf7\x1c\xf7\x1d\xf7\x1e\xf7\x1f").strip()
+
+
+# имя параметра: латиница/кириллица/подчёркивание, 2..31 знак (UTF-8 кириллица = 2 байта)
+_RX_PNAME = rb"([A-Za-z\xd0\x90-\xd1\x8f_][A-Za-z0-9\xd0\x90-\xd1\x8f_\.]{1,30})"
+# параметр: <ИМЯ>\0 <тег> <значение>\0
+# V125: Creo ставит ПЕРЕД значением служебные байты `\xf7\x1c/\xf7\x1d/\xf7\x1f` —
+# их надо срезать ДО декодирования, иначе `\xf7` (невалидный UTF-8) «съедает» `\x1f`
+# и в значение попадает мусор (`'\x1fDIN912-M'` вместо `'DIN912-M'`).
+_RX_PARAM = re.compile(_RX_PNAME + rb"\x00(?:" + b"|".join(CREO_VAL_TAG) + rb")"
+                       rb"(?:\xf7[\x1c-\x1f])?(.{0,120}?)\x00", re.S)
+# блок attributes: name.<ИМЯ>. ... type.<N> ... value(<тип>).<знач>
+_RX_ATTR = re.compile(rb"name\." + _RX_PNAME + rb"\x00.{0,150}?value\((s_val|d_val|i_val|l_val)\)"
+                      rb"\x00(.{0,120}?)\x00", re.S)
+
+
+def creo_params(raw):
+    """ВСЕ параметры модели «как в Creo»: [(имя, тип, значение)] — тип из блока `attributes`.
+
+    Тип берётся по разметке Creo (`value(s_val)` = строка, `value(d_val)` = число и т. д.);
+    если разметки нет (сжатый вид) — тип «str». Одно имя = одна запись (первое непустое).
+    """
+    out = {}
+    for m in _RX_ATTR.finditer(raw):
+        nm = m.group(1).decode("utf-8", "replace").strip()
+        typ = CREO_TYPES.get(m.group(2), "str")
+        val = _creo_clean(m.group(3).decode("utf-8", "replace"))
+        if nm and val and nm not in out:
+            out[nm] = (typ, val)
+    for m in _RX_PARAM.finditer(raw):
+        nm = m.group(1).decode("utf-8", "replace").strip()
+        val = _creo_clean(m.group(2).decode("utf-8", "replace"))
+        if nm and val and "\x00" not in val and nm not in out:
+            out[nm] = ("str", val)
+    return [(nm, t, v) for nm, (t, v) in out.items()]
+
+
+# таблица семейства: имена исполнений выглядят как <генерик>[-_]<размер>
+_RX_INST = re.compile(rb"user_instances|user_visible_name|drv_tbl_ptr")
+
+
+def family_of(raw, model=""):
+    """ТАБЛИЦА СЕМЕЙСТВА из файла ГЕНЕРИКА: список исполнений (или [] — если это не генерик).
+
+    Читается по блоку `user_instances` / `drv_tbl_ptr` (проверено на DIN912, DIN931, DIN7991,
+    O-RING). Имена исполнений — `<модель>[-_]<типразмер>`; сам генерик (`DIN912`) в список
+    не входит. Пустой список = модель НЕ генерик (обычная деталь).
+    """
+    if not model or not _RX_INST.search(raw):
+        return []
+    base = re.escape(model.encode("utf-8", "replace"))
+    out, seen = [], set()
+    for m in re.finditer(base + rb"[-_][A-Za-z0-9_\-\.]{1,30}", raw):
+        s = _creo_clean(m.group(0).decode("utf-8", "replace"))
+        if s and s not in seen:
+            seen.add(s)
+            out.append(s)
+    return out
+
+
+def search_params(words, limit=500):
+    """V125: ПОИСК ПО ПАРАМЕТРАМ (таблица `params`): модель, у которой параметр содержит слово.
+
+    Владелец: «искать по имени файла + по всем параметрам моделей и сборок + исполнениям».
+    Ищем по `params.value` И `params.name` (например «ГОСТ 11738» найдёт деталь, у которой
+    параметр NAME_2 = 'ГОСТ 11738-72', даже если имя файла нечитаемое). Возвращает список
+    словарей {model, path, name, type, value}.
+    """
+    ws = [w for w in (words or []) if w]
+    if not ws:
+        return []
+    try:
+        con = connect(ro=True)
+    except Exception:                  # noqa: BLE001
+        return []
+    try:
+        conds, args = [], []
+        for w in ws:
+            like = "%" + w + "%"
+            conds.append("(value LIKE ? OR name LIKE ? OR model LIKE ?)")
+            args += [like, like, like]
+        sql = ("SELECT DISTINCT model, path, name, type, value FROM params WHERE "
+               + " AND ".join(conds) + " ORDER BY model LIMIT ?")
+        return [{"model": r[0], "path": r[1], "name": r[2], "type": r[3], "value": r[4]}
+                for r in con.execute(sql, args + [int(limit)])]
+    except Exception:                  # noqa: BLE001
+        return []
+    finally:
+        try:
+            con.close()
+        except Exception:              # noqa: BLE001
+            pass
+
+
+def model_params(path, limit=2000):
+    """V125: ВСЕ параметры модели по ПУТИ файла — [(имя, тип, значение)] для карточки/окна."""
+    try:
+        con = connect(ro=True)
+    except Exception:                  # noqa: BLE001
+        return []
+    try:
+        return [(r[0], r[1], r[2]) for r in con.execute(
+            "SELECT name, type, value FROM params WHERE path=? ORDER BY name LIMIT ?",
+            (path, int(limit)))]
+    except Exception:                  # noqa: BLE001
+        return []
+    finally:
+        try:
+            con.close()
+        except Exception:              # noqa: BLE001
+            pass
+
+
+def model_family(model, limit=5000):
+    """V125: ТАБЛИЦА СЕМЕЙСТВА модели: исполнения (если генерик) и его родитель (если исполнение)."""
+    try:
+        con = connect(ro=True)
+    except Exception:                  # noqa: BLE001
+        return {"generic": [], "parent": ""}
+    try:
+        kids = [r[0] for r in con.execute(
+            "SELECT instance FROM family WHERE generic=? ORDER BY instance LIMIT ?",
+            (model, int(limit)))]
+        par = con.execute("SELECT generic FROM family WHERE instance=? LIMIT 1",
+                          (model,)).fetchone()
+        return {"generic": kids, "parent": (par[0] if par else "")}
+    except Exception:                  # noqa: BLE001
+        return {"generic": [], "parent": ""}
+    finally:
+        try:
+            con.close()
+        except Exception:              # noqa: BLE001
+            pass
 
 
 # --- ЗАМОК СКАНА: один писатель на общую базу (файл рядом с базой) ---
@@ -1036,6 +1217,17 @@ def do_scan(roots, max_mb, limit, depth=None, progress_cb=None, stop_cb=None, fu
             con.execute("DELETE FROM links WHERE parent=? AND source='asm_comp'", (s,))
             for child, _role, qty in parts:
                 con.execute("INSERT INTO links VALUES (?,?,?,?)", (s, child, qty or 1, "asm_comp"))
+        # ── V125: ВСЕ ПАРАМЕТРЫ МОДЕЛИ (имя + тип + значение) и ТАБЛИЦА СЕМЕЙСТВА ─────────────
+        # Владелец: «хранить как все параметры детали, так и все параметры исполнения, тогда
+        # связи будут реальные и выводиться будут без плясок». Пишем по ПУТИ файла (как snapshots).
+        cp = it.get("cparams") or []
+        con.execute("DELETE FROM params WHERE path=?", (path,))
+        for _pn, _pt, _pv in cp:
+            con.execute("INSERT INTO params VALUES (?,?,?,?,?)", (path, s, _pn, _pt, _pv))
+        fam = it.get("family") or []
+        con.execute("DELETE FROM family WHERE generic=?", (s,))
+        for _inst in fam:
+            con.execute("INSERT INTO family VALUES (?,?,?,?)", (s, _inst, "", "plm_tree"))
         done += 1
         if progress_cb and n % 25 == 0:
             progress_cb(n, total)

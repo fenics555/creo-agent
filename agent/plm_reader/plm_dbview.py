@@ -419,6 +419,30 @@ def db_search_rows(words=None, limit=5000):
                     for r in c.execute(sel + " WHERE " + w_or + " ORDER BY model, path LIMIT ?",
                                        p_or + [_lim])]
             mode = "ИЛИ"
+        # ── V125: ПОИСК ПО ПАРАМЕТРАМ («как в Creo»). Владелец: «искать по имени файла + по
+        # ВСЕМ параметрам моделей и сборок». Ищем в таблице `params` и ДОБАВЛЯЕМ найденные
+        # модели к результату (например «ГОСТ 11738» → G11738 с параметром NAME_2).
+        if not data or (len(data) < int(limit)):
+            try:
+                import engine as _e
+                _pm = _e.search_params(ws, limit=int(limit))
+                if _pm:
+                    _have = {d[0] for d in data}
+                    _extra = []
+                    for _r in _pm:
+                        _p = _r.get("path")
+                        if _p and _p not in _have:
+                            _have.add(_p)
+                            _extra.append(_p)
+                    if _extra:
+                        _q = ",".join(["?"] * len(_extra))
+                        for _row in c.execute(sel + " WHERE path IN (%s) ORDER BY model, path"
+                                              % _q, _extra):
+                            data.append(tuple(_row) + ((None,) if not has else ()))
+                        if mode == "И" and _extra:
+                            mode = "И+параметры"
+            except Exception:              # noqa: BLE001
+                pass
         total = len(data)
         if total > int(limit):                        # «есть ещё» — показываем «>limit»
             data = data[:int(limit)]

@@ -2161,6 +2161,33 @@ def run_gui():
         add("Числовых параметров", str(len(nums)))
         for k, val in nums[:60]:
             add("   " + k, _fmt(val))
+        # ── V125: ВСЕ ПАРАМЕТРЫ «КАК В CREO» + ТАБЛИЦА СЕМЕЙСТВА ──────────────────────────
+        # Владелец: «все же что за ПЛМ, которая хранит не все параметры?»; «хранить как все
+        # параметры детали, так и все параметры исполнения, тогда связи будут реальные и
+        # выводиться будут без плясок». Показываем ВСЁ: имя · тип · значение.
+        try:
+            _cp = eng.model_params(path)
+        except Exception:              # noqa: BLE001
+            _cp = []
+        add("Параметров в базе (все, как в Creo)", str(len(_cp)) if _cp else
+            "— нет (соберите базу заново: скан наполняет таблицу params)")
+        for _pn, _pt, _pv in _cp[:120]:
+            add("   %s  [%s]" % (_pn, _pt), _pv)
+        if len(_cp) > 120:
+            add("   …", "ещё %d параметров" % (len(_cp) - 120))
+        # ТАБЛИЦА СЕМЕЙСТВА: генерик ↔ исполнения (обе стороны)
+        try:
+            _fam = eng.model_family(model)
+        except Exception:              # noqa: BLE001
+            _fam = {"generic": [], "parent": ""}
+        if _fam.get("parent"):
+            add("Исполнение от (генерик)", _fam["parent"])
+        if _fam.get("generic"):
+            add("Исполнений в семействе", str(len(_fam["generic"])))
+            for _i in _fam["generic"][:60]:
+                add("   " + _i, "")
+            if len(_fam["generic"]) > 60:
+                add("   …", "ещё %d исполнений" % (len(_fam["generic"]) - 60))
         # 06.10.2026: РАЗМЕРЫ детали и история изменений (d_dims / dim_history)
         dims = read_dims_all(raw)
         add("Размеров в файле", str(len(dims)) if dims else "— нет (формат или их нет)")
