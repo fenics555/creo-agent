@@ -1,11 +1,11 @@
 {
- "version": "V139",
- "version_num": 139,
+ "version": "V140",
+ "version_num": 140,
  "date": "28.10.2026",
- "notes": "V139: scanner finished - settings window fixed (config.pro now saves, list settings editable, dead SHABLONY row gone), parent name keeps every character, inheritance parents no longer lost (all names per record + second anchor format), one parser instead of two, fake property channel thrown out. DOGMA: links are searched INSIDE files, never by name. PARSER_TAG p26 - FULL RESCAN REQUIRED.",
+ "notes": "V140: scanner cleaned of builders (19 functions moved to plm_queries.py, engine 4051 -> 3545 lines), new BUILDER tool plm_build_links.py adds reverse links by base, new origin column real/built so it is visible where the error is - reader or builder",
  "files": {
-  "engine.py": "7e2bfd12b1d05c0915b2149659a54ec495d53170f802cb5f686f1fa47684dc37",
-  "plm_reader.py": "17671e3ddeeba2a12defcc56ab1b3e474d60c1860a8d8bcb9bb85d4b778f1b16",
+  "engine.py": "33ae7ab74f109a1a6ef6bf49e80968816b0c8ed73b91d4ee6dc82a58cc224082",
+  "plm_reader.py": "266dc685aa8da4f10752c4244a6740ecc914177c5902993514d8ff9cd8c9b818",
   "plm_toolwin.py": "934d3365726be11135669d2b51e757e4f52bd7ecd4159033c5321f565d36dc3f",
   "plm_history.py": "0e8a1b414f3ad7c67175251fb4192e26431b0e9760bcce6ba6d9faf03ada8c77",
   "plm_parse.py": "c6bb33a412b6b606ad402e3eb78cd49246b77738b69d82be1b6218a1358c0312",
