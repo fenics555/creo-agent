@@ -161,7 +161,114 @@ MODEL = re.compile(r"\.(prt|asm|drw)\.\d+$", re.IGNORECASE)
 HISTRE = re.compile(rb"\xf7(.)\xe3([0-9]{1,7})\x00\x00(.{0,220}?)\x00((?:Creo )?[0-9][0-9.]*)\x00", re.S)
 REF_PART = re.compile(rb"ref_part_tab\x00")
 NAME_N = re.compile(rb"name\x00([A-Za-z0-9_\-\.]{4,47})\x00")
+# ⚠️ ОСТАВЛЕНО для совместимости (старые вызовы). НЕ ИСПОЛЬЗОВАТЬ в новых местах:
+# регулярка с `.` по скиллу `Creo\READ\SKILL_creo_read_roles.md` §5 п.1 НЕ РАБОТАЕТ надёжно
+# (непечатные байты между тегами), берёт ТОЛЬКО первую запись и ТОЛЬКО латиницу.
 MERGE_BASE = re.compile(rb"MERGE_BASE_PART.{0,80}?([A-Za-z0-9_\-]{5,40})\x00", re.S)
+
+# 🔴 БАЙТОВЫЕ ЯКОРЯ ЗАПИСИ `MERGE_BASE_PART` (скилл `SKILL_creo_read_roles.md` §1, замер 28.10.2026):
+#   "MERGE_BASE_PART" \x00 \x27 \xeb \x02 z \xd8 \x00 \xe3 \x33 \xf7 \x1c <ИМЯ РОДИТЕЛЯ> \x00
+#                                                        ^^^^^^^^^^^^^^^^^ ЯКОРЬ ИМЕНИ
+#   … повтор: \xf7 \x1d \xe3 \x33 <ИМЯ РОДИТЕЛЯ> \x00
+# Имя стоит ПОСЛЕ `\xe3\x33\xf7\x1c` и повторяется ДВАЖДЫ — берём первое вхождение.
+_MB_MARK = b"MERGE_BASE_PART"
+_MB_ANCHOR = b"\xe3\x33\xf7\x1c"          # перед именем родителя (основная запись)
+_MB_ANCHOR2 = b"\xe3\x33"                 # второй вариант (дубль)
+
+
+def _name_at(raw, pos, limit=64):
+    """Имя модели, начинающееся с позиции `pos`: до `\\x00`, UTF-8, без служебных байтов.
+
+    По скиллу §5 п.1 — БЕЗ регулярок: идём по байтам от `pos` до нуля, отсекаем
+    непчатные/служебные. Кириллица (UTF-8, многобайтная) сохраняется — скилл §1 доп.
+    """
+    if pos < 0 or pos >= len(raw):
+        return ""
+    end = raw.find(b"\x00", pos)
+    if end < 0:
+        end = min(len(raw), pos + limit)
+    chunk = raw[pos:end][:limit]
+    # Отсекаем ведущие служебные байты Creo (могут быть прямо перед именем).
+    i = 0
+    while i < len(chunk) and chunk[i] < 0x20:
+        i += 1
+    chunk = chunk[i:]
+    if not chunk:
+        return ""
+    s = chunk.decode("utf-8", "replace")
+    s = "".join(ch for ch in s if ch.isprintable())
+    return s.strip()
+
+
+def merge_base_parts(raw):
+    """ВСЕ родители из `MERGE_BASE_PART` — [(имя_родителя, вид_записи)] (скилл §1 + §1 доп.).
+
+    Владелец: «наследований есть несколько вариантов в крео: как наследование, как добавление
+    тела… разница есть» — и замер это подтвердил: в ОДНОМ файле бывает НЕСКОЛЬКО записей
+    `MERGE_BASE_PART` (напр. `500-55-500-model-master.prt.1` — 3 записи: отливка, мастер, деталь).
+
+    Владелец о именах: «имя МОДЕЛИ РОДИТЕЛЯ и имя МОДЕЛИ потомка может быть любым, вообще
+    не похожим. НО СВЯЗЬ внутри файла будет уже к точному реальному имени!» — поэтому имя берём
+    ИЗ БАЙТОВ файла и НЕ сверяем с именами файлов на диске.
+
+    Реализация ПО СКИЛЛУ: `bytes.find` (без регулярок), ВСЕ вхождения, UTF-8.
+    """
+    out, seen = [], set()
+    raw = raw or b""
+    pos = raw.find(_MB_MARK)
+    while pos >= 0:
+        after = pos + len(_MB_MARK)
+        # Ищем якорь имени в пределах разумного окна (запись рядом с маркером).
+        window = raw[after:after + 300]
+        ip = window.find(_MB_ANCHOR)
+        shift = len(_MB_ANCHOR)
+        if ip < 0:
+            ip = window.find(_MB_ANCHOR2)
+            shift = len(_MB_ANCHOR2)
+        if ip >= 0:
+            nm = _name_at(window, ip + shift)
+            if nm and len(nm) >= 2 and nm.upper() not in ("MM_ASSY", "MM_PART", "SBORKA_MM",
+                                                          "SBORKA_MFG", "MFG_NC"):
+                key = nm.upper()
+                if key not in seen:
+                    seen.add(key)
+                    out.append((nm, "наследование"))
+        pos = raw.find(_MB_MARK, after)
+    return out
+
+
+_RP_NAME = b"\xe0\x0aname\x00"          # ЯКОРЬ ИМЕНИ в записи `ref_part_tab` (скилл §2)
+
+
+def ref_part_parents(raw):
+    """ЗАГОТОВКА/ОТЛИВКА из `ref_part_tab` → поле `name` (скилл §2, якорь проверен 28.10.2026).
+
+    ⚠️ Только для ДЕТАЛЕЙ (`.prt`): у сборок `ref_part_tab` = СПИСОК КОМПОНЕНТОВ, а не родитель.
+
+    ЗАМЕР живого файла `500-55-500-model-master.prt.1` (hex):
+        ref_part_tab\\x00 … \\xe0\\x00 objname\\x00 \\xe2 \\xe0\\x01 object_type\\x00 \\x02
+            \\xe0\\x0a name \\x00 |052401-OTLIVKA| \\x00
+    🔴 ГРАБЛЯ (моя, 28.10.2026): искать `name\\x00` «как есть» НЕЛЬЗЯ — первым попадается
+    `objname\\x00`, и вместо имени читалось `\\xe2\\xe0\\x01object_type` («object_type»).
+    Имя берём ТОЛЬКО после якоря `\\xe0\\x0aname\\x00` (тип-префикс `0a` = строка).
+    """
+    out, seen = [], set()
+    raw = raw or b""
+    pos = raw.find(b"ref_part_tab\x00")
+    while pos >= 0:
+        seg_end = min(len(raw), pos + 600)
+        i = raw.find(_RP_NAME, pos, seg_end)
+        if i >= 0:
+            nm = _name_at(raw, i + len(_RP_NAME), limit=64)
+            if nm and len(nm) >= 2 and nm.upper() not in ("MM_ASSY", "MM_PART", "SBORKA_MM",
+                                                          "SBORKA_MFG", "MFG_NC"):
+                key = nm.upper()
+                if key not in seen:
+                    seen.add(key)
+                    out.append(nm)
+        pos = raw.find(b"ref_part_tab\x00", pos + 1)
+    return out
+
 
 
 COPY_FROM_RE = re.compile(rb"from_mdl_name\x00(.{1,160}?)to_mdl_name\x00", re.S)
@@ -197,15 +304,27 @@ def copy_from_file(path):
         return ""
 
 
-def derived_of(raw):
-    """Из какой модели сделана деталь (заготовка/отливка): (имя, вид) или ('', '')."""
-    m = MERGE_BASE.search(raw)
-    if m:
-        return m.group(1).decode("latin-1"), "наследование"
-    for mm in REF_PART.finditer(raw):
-        nm = NAME_N.search(raw[mm.end():mm.end() + 200])
-        if nm:
-            return nm.group(1).decode("latin-1"), "производная"
+def derived_of(raw, path=""):
+    """Из какой модели сделана деталь (зеркало/заготовка/отливка): (имя, вид) или ('', '').
+
+    🔴 ПЕРЕПИСАНО 28.10.2026 по скиллу `Creo\\READ\\SKILL_creo_read_roles.md` §1/§2/§5:
+      * `MERGE_BASE_PART` → «наследование» (зеркало), родитель = имя из байтов;
+      * `ref_part_tab` → «производная» (заготовка/отливка) — ⚠️ ТОЛЬКО для `.prt`
+        (у сборок это СПИСОК КОМПОНЕНТОВ, а не родитель — скилл §2 ⚠️);
+      * возвращает ПЕРВОГО родителя (совместимость со старыми вызовами);
+        ВСЕ родители — через `merge_base_parts()` / `ref_part_parents()`.
+
+    Старый код брал ТОЛЬКО первую запись регуляркой `.{0,80}?` (скилл это запрещает) —
+    из-за этого терялись остальные родители и кириллица, а в имя попадал мусор
+    (`PTC_NOTE_TEXT`, `PTC_MATERIAL_TYPE`).
+    """
+    mb = merge_base_parts(raw)
+    if mb:
+        return mb[0][0], "наследование"
+    if not is_drawing_file(path):
+        rp = ref_part_parents(raw)
+        if rp:
+            return rp[0], "производная"
     return "", ""
 def _app_version():
     """Версия — ЕДИНЫЙ источник: APP_VERSION в plm_reader.py.
@@ -222,7 +341,15 @@ def _app_version():
 
 
 VERSION = _app_version()
-PARSER_TAG = "p24"      # меняй при ЛЮБОМ изменении правил разбора — форсирует полный пересчёт
+PARSER_TAG = "p25"      # меняй при ЛЮБОМ изменении правил разбора — форсирует полный пересчёт
+                        # V137 (28.10.2026): p24 → p25. НАСЛЕДОВАНИЕ ПЕРЕЧИТАНО ПО СКИЛЛУ
+                        # `Creo\READ\SKILL_creo_read_roles.md`: `MERGE_BASE_PART` — без регулярок
+                        # (`bytes.find`), ВСЕ записи (не первая!), имя в UTF-8 (была потеряна
+                        # КИРИЛЛИЦА — читалась только латиница), мусор (`PTC_NOTE_TEXT`,
+                        # `PTC_MATERIAL_TYPE`) больше не попадает в имя родителя;
+                        # `ref_part_tab` — якорь имени `\xe0\x0aname\x00` (было `name\x00` →
+                        # читалось `objname`/`object_type`). Замер: 86 связей на 111 файлах,
+                        # до 6 родителей у одного файла. Нужен ПОЛНЫЙ перескан.
                         # V135 (28.10.2026): p23 → p24. Таблица семейства пишется ТОЛЬКО деталям
                         # (.prt), состав (.asm_comp) — ТОЛЬКО не-чертежам; в базу ушли 15 937 + 11 490
                         # ложных исполнений и 25 977 ложных связей чертежей — нужен ПОЛНЫЙ перескан.
@@ -554,7 +681,15 @@ def scan_item(s, path, stems, fstems=frozenset(), pdes=None, pname=None, pmat=No
     hist2 = creo_history(raw)          # V126: кто/когда правил (компьютер + юзер + Creo)
     h = last_hist(raw) or ("", "", "")
     hm = HISTRE.findall(raw)
-    base, dkind = derived_of(raw)
+    base, dkind = derived_of(raw, path)
+    # 🔴 V137 (28.10.2026): ВСЕ родители наследования, а не первый (скилл §1 доп.: в одном файле
+    # бывает НЕСКОЛЬКО записей `MERGE_BASE_PART` — замер дал до 5 у одного файла оснастки).
+    # `derived_of` оставлен для совместимости (даёт первого), а записываются ВСЕ.
+    _mb_all = merge_base_parts(raw)
+    _rp_all = ref_part_parents(raw) if not is_drawing_file(path) else []
+    derived_all = [(nm, "наследование") for nm, _ in _mb_all]
+    derived_all += [(nm, "производная") for nm in _rp_all if nm.upper() not in
+                    {n.upper() for n, _ in derived_all}]
     cf = copy_from_of(raw)      # 07.10.2026: «МОДЕЛЬ СКОПИРОВАНА ОТ …» — ОТДЕЛЬНАЯ связь (Creo пишет
                                 # её в самом файле: `from_mdl_name` → `to_mdl_name`). Она ДОПОЛНЯЕТ
                                 # заготовку/отливку, а не заменяет. Есть и у деталей, и у сборок.
@@ -572,6 +707,7 @@ def scan_item(s, path, stems, fstems=frozenset(), pdes=None, pname=None, pmat=No
             "rev": h[0], "author": h[1], "revdate": h[2], "role": role(raw, fstems, s), "refs": refs,
             "hist": len(hm), "creo": (hm[-1][3].decode("latin-1") if hm else ""),
             "base": base, "dkind": dkind, "copy_from": cf, "parts": parts,
+            "derived_all": derived_all,
             "cparams": cparams, "family": fam, "hist2": hist2}
 
 
@@ -1670,12 +1806,17 @@ def do_scan(roots, max_mb, limit, depth=None, progress_cb=None, stop_cb=None, fu
                      it["volume"], it["material"], it["name"], it["designation"], it["rev"],
                      it["author"], it["revdate"], it["role"], now, it.get("hist", 0),
                      it.get("creo", ""), ctime))
-        if it.get("base") or it.get("copy_from"):   # изделие ← заготовка/отливка/КОПИЯ
+        # 🔴 V137: пишем ВСЕ родители наследования (`derived_all`: MERGE_BASE_PART + ref_part_tab),
+        # а не только первого. Замер 28.10.2026: у `500-55-500-ящик-верх-форма.prt.1` — 5 родителей.
+        _dall = list(it.get("derived_all") or [])
+        if not _dall and (it.get("base") or ""):
+            _dall = [(it.get("base"), it.get("dkind", ""))]        # совместимость: старое поле
+        if _dall or it.get("copy_from"):        # изделие ← заготовка/отливка/зеркало/КОПИЯ
             if s not in seen_der:               # у одного имени несколько файлов — чистим ОДИН раз,
                 con.execute("DELETE FROM derived WHERE child=? AND source='plm_tree'", (s,))
                 seen_der.add(s)                 # иначе последний файл затирал связи предыдущих
-            for b, k in ((it.get("base") or "", it.get("dkind", "")),
-                         (it.get("copy_from") or "", "копия")):
+            _pairs = list(_dall) + [(it.get("copy_from") or "", "копия")]
+            for b, k in _pairs:
                 if not b:
                     continue
                 bb = stem(b)

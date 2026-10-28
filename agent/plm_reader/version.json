@@ -1,11 +1,11 @@
 {
- "version": "V136",
- "version_num": 136,
+ "version": "V137",
+ "version_num": 137,
  "date": "28.10.2026",
- "notes": "V136: config.pro replaced the TEMPLATES setting; template filtering now comes from Creo's own config (start_model_dir + 9 template_* options + library/format/catalog/UDF dirs); library models stay REAL (links allowed)",
+ "notes": "V137: inheritance re-read per skill - MERGE_BASE_PART without regexes (bytes.find), ALL entries not just the first, UTF-8 names so CYRILLIC parents are no longer lost, exact ref_part_tab name anchor e0 0a name (objname/object_type bug fixed), all parents written to the base; PARSER_TAG p25",
  "files": {
-  "engine.py": "20a019f9cf3e19ff5511f5fd0fc979c996062dda69688dc042ad0913fd766ad0",
-  "plm_reader.py": "6c7430c8b8f533a5ad1f19c9a1a5c033cda70bad144f0ee022927fefb1a5c3ee",
+  "engine.py": "0ea61ac5e6b39133c45fb702af3b07bf0c6592c7c86141df4a597b7852dbd80f",
+  "plm_reader.py": "f9bfcef51989bbe073d2a86be5e2ca468e710d3a483696fb76ba68851bc0073b",
   "plm_toolwin.py": "6f80974a327dce64649e15b11d1e88eee377335c58589b7c7b410efe44bac4d4",
   "plm_history.py": "0e8a1b414f3ad7c67175251fb4192e26431b0e9760bcce6ba6d9faf03ada8c77",
   "plm_parse.py": "c6bb33a412b6b606ad402e3eb78cd49246b77738b69d82be1b6218a1358c0312",
