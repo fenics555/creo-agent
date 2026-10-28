@@ -20,6 +20,11 @@ CODE_FILES = [
     "plm_settings.py", "plm_scan.py", "plm_paths_window.py", "creo_read.py", "README.md", "SHARE_copy.bat",
     "plm_reader.bat", "plm_reader_gui.bat", "make_version_json.py", ".gitignore", "AGENTS.md",
     "plm_graph.py", "plm_graph_page.html",      # V100: PDM-Консоль (HTML-граф)
+    # V140: модули, вынесенные из сканера и достройка связей (БЕЗ них приезд engine.py
+    # ломает инструмент: engine вызывает plm_queries -> ImportError).
+    "plm_queries.py",                            # 19 построителей запросов (вынесены из engine)
+    "plm_links.py",                              # единый источник связей (пока не внедрён)
+    "plm_build_links.py",                        # ДОСТРОИТЕЛЬ: links(built) по базе
 ]
 
 

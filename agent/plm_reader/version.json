@@ -2,9 +2,9 @@
  "version": "V140",
  "version_num": 140,
  "date": "28.10.2026",
- "notes": "V140: scanner cleaned of builders (19 functions moved to plm_queries.py, engine 4051 -> 3545 lines), new BUILDER tool plm_build_links.py adds reverse links by base, new origin column real/built so it is visible where the error is - reader or builder",
+ "notes": "V140_scanner_cleaned_of_builders_plus_BUILDER_of_reverse_links_plus_origin_real-built._CRITICAL:_plm_queries_plm_links_and_plm_build_links_are_now_IN_the_manifest_-_without_them_the_new_engine_would_fail_on_arrival._Preview_to_be_collected_by_the_scanner_per_STRATEGY_PLM_2.1",
  "files": {
-  "engine.py": "33ae7ab74f109a1a6ef6bf49e80968816b0c8ed73b91d4ee6dc82a58cc224082",
+  "engine.py": "7aac921125732e5187b2929e032eabc0d2cd085eee00ed36f08c9bacea1999d2",
   "plm_reader.py": "266dc685aa8da4f10752c4244a6740ecc914177c5902993514d8ff9cd8c9b818",
   "plm_toolwin.py": "934d3365726be11135669d2b51e757e4f52bd7ecd4159033c5321f565d36dc3f",
   "plm_history.py": "0e8a1b414f3ad7c67175251fb4192e26431b0e9760bcce6ba6d9faf03ada8c77",
@@ -14,14 +14,17 @@
   "plm_scan.py": "e32d610e33932afaee4c952cb0b4564801508f0568d4360d7d039ffacb856f48",
   "plm_paths_window.py": "30d717f66a1bd17b20bb28c1a99d512946993a326415b6072d94286a42589879",
   "creo_read.py": "b938592ae4515aedf00fd46a3eb61391c6d9e6bc280ca4b0338fe2f1579bae3d",
-  "README.md": "4450cd1c9ac824683302e830031106e898612e297ba3f9ba2b5feab9045fed85",
+  "README.md": "ec60185108b8b07f0387522857fda9b9d3a2fc71e4db9eb7cf1371a631bf8d64",
   "SHARE_copy.bat": "4eccb549a17251392337aeabbc3ef76233dfa3072beadff9d158cd6e932622ee",
   "plm_reader.bat": "bdd125397db3ac7e7432dbdb078a6a811ed4913fca02b062edb27907032fca3d",
   "plm_reader_gui.bat": "9f695898d5db6431e840784b9587c75304ca9e526b06f79d4b44ab026663bd20",
-  "make_version_json.py": "4603968533bec13a05defb4a164246728b9649d50d524479f639493eeed7c92f",
+  "make_version_json.py": "33dea23b84809d9d7d61db29dd1eef51fe77e3590d9c7e46180901158917e78e",
   ".gitignore": "911fbdb5acf889293fdc61c836b691014da748fa55bd6464ce35a67f30e636ee",
   "AGENTS.md": "3b08e6e81731ace78deac46df3b802de337c3924acb87c54fe1562a2573650ef",
   "plm_graph.py": "9ecb31b71e4a2c357d22beb31bdb03e9c0280f0195c19f02e5e79293a13264a6",
-  "plm_graph_page.html": "ab5bfbad3b2a3f058c7b8cbbb5859c5ea57c7318c9ec5e50fcd22973f91c47ac"
+  "plm_graph_page.html": "ab5bfbad3b2a3f058c7b8cbbb5859c5ea57c7318c9ec5e50fcd22973f91c47ac",
+  "plm_queries.py": "3fa963038b75cc5551bb7d7bbc3ced5760c03188fe77d47d393c145c390f1977",
+  "plm_links.py": "5dfdf093d6ca1685e2cfc8ce0e8d3035e63471db366ce960a8af5c05d2c06c1e",
+  "plm_build_links.py": "6fda7f67f48226548720abba11a0b100ec54ffec3abe4c55d63584985b0f319f"
  }
 }
