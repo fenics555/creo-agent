@@ -157,7 +157,16 @@ def as_roots(x):
         if r and r not in out:
             out.append(r)
     return out
-MODEL = re.compile(r"\.(prt|asm|drw)\.\d+$", re.IGNORECASE)
+# 🔴 28.10.2026 (владелец: «есть и будут разные эволюции Creo, нужно уметь читать ВСЕ файлы Creo»).
+# БЫЛО `\.(prt|asm|drw)\.\d+$` — скан видел ТОЛЬКО три типа и ТОЛЬКО файлы с номером версии.
+# Форматы одной ветвью НЕ покрываются: `.frm` (рамки), `.lay` (слои), `.sec` (сечения),
+# `.mfg` (обработка), `.m_p` (модель обработки), `.neu` (нейтральный импорт), `.xpr`/`.crc` (копии)
+# лежат на складе и в базу НЕ ПОПАДАЛИ совсем.
+# ТЕПЕРЬ: все известные расширения моделей Creo/Pro-E, плюс вариант БЕЗ номера версии
+# (в новых Creo файл бывает `name.prt`, без `.1`). Номер версии — необязательная часть.
+CREO_EXTS = ("prt", "asm", "drw", "frm", "lay", "sec", "mfg", "m_p", "neu", "xpr", "crc")
+MODEL = re.compile(
+    r"\.(%s)(\.\d+)?$" % "|".join(re.escape(e) for e in CREO_EXTS), re.IGNORECASE)
 HISTRE = re.compile(rb"\xf7(.)\xe3([0-9]{1,7})\x00\x00(.{0,220}?)\x00((?:Creo )?[0-9][0-9.]*)\x00", re.S)
 REF_PART = re.compile(rb"ref_part_tab\x00")
 NAME_N = re.compile(rb"name\x00([A-Za-z0-9_\-\.]{4,47})\x00")
