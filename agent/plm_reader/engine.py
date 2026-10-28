@@ -1130,35 +1130,41 @@ def _db_search_dirs():
 
 
 def active_db():
-    """Путь к АКТИВНОЙ базе — САМАЯ СВЕЖАЯ по ВРЕМЕНИ ПРАВКИ, среди ВСЕХ папок базы.
+    """Путь к АКТИВНОЙ базе.
 
-    Владелец: «сделай чтоб читало наконец» (база с датой интереснее — видно, когда снята).
-    Порядок: (1) versioned-файлы (`plm_reader_ГГГГММДД_ЧЧММСС.db`) — берём СВЕЖАЙШИЙ по mtime;
-    (2) если versioned нет — `plm_reader.db` (он обновляется публикацией).
-    Пустой/битый файл (0 байт) пропускаем. Ищем в ЛОКАЛЬНОЙ папке И РЯДОМ СО СКЛАДОМ
-    (раньше локальная 63-МБ копия от 24.10 «затмевала» боевые 188 МБ от 27.10).
+    🔴 28.10.2026 (владелец: «ПРОШЛИ БЛЯТЬ СУТКИ», «куча сканов, куча баз, а ничего нет»):
+    раньше брался **свежайший mtime СРЕДИ ВСЕХ папок** — и ЛОКАЛЬНАЯ копия (`<инструмент>\\db`,
+    63 МБ) «затмевала» боевую 1,28-ГБ базу на складе, стоило любой пробе/скану её тронуть.
+    Живой факт: проба писала локальную в 16:44, боевая на `Z:` была 16:46 — и читалась ЛОКАЛЬНАЯ,
+    поэтому «база не пишет» (в локальной не было свежих данных).
+
+    НОВЫЙ ПОРЯДОК (папка важнее времени):
+      1) БОЕВАЯ папка склада (`warehouse_db_dir()`) — если там есть непустая база, берём её
+         (свежайший versioned, иначе `plm_reader.db`);
+      2) только если боевой папки нет или она пуста — остальные папки (`os.path.dirname(DB)`,
+         `BASE_DIR`, локальная `db`), тем же правилом.
+    Пустой/битый файл (0 байт) пропускаем.
     """
     dirs = _db_search_dirs()
-    cand, main = [], []
-    for order, d in enumerate(dirs):
+    for d in dirs:
+        cand, main = [], []
         for name in _versioned(d):
             p = os.path.join(d, name)
             try:
                 if os.path.getsize(p) > 0:            # 0 байт = недописанный/битый файл
-                    # order: папка СКЛАДА идёт раньше → при равных датах выигрывает она
-                    cand.append((os.path.getmtime(p), -order, name, p))
+                    cand.append((os.path.getmtime(p), name, p))
             except Exception:                        # noqa: BLE001 — файл исчез между листингом и stat
                 pass
         m = os.path.join(d, "plm_reader.db")
         try:
             if os.path.isfile(m) and os.path.getsize(m) > 0:
-                main.append((os.path.getmtime(m), -order, "plm_reader.db", m))
+                main.append((os.path.getmtime(m), "plm_reader.db", m))
         except Exception:                            # noqa: BLE001
             pass
-    if cand:
-        return max(cand)[3]                          # самый свежий versioned по ВРЕМЕНИ ПРАВКИ
-    if main:
-        return max(main)[3]                          # иначе — самый свежий `plm_reader.db`
+        if cand:
+            return max(cand)[2]                      # свежайший versioned В ЭТОЙ папке
+        if main:
+            return max(main)[2]                      # иначе — `plm_reader.db` в ЭТОЙ папке
     return DB
 
 
@@ -2025,7 +2031,7 @@ def inventory(roots, max_mb=8, store=True, max_depth=None):
 
 def do_scan(roots, max_mb, limit, depth=None, progress_cb=None, stop_cb=None, full=False, db=None,
             param_cfg=None, exclude=None, recurse=True, latest_only=True,
-            media_dir=None, media_mode="auto"):
+            media_dir=None, media_mode="auto", remember=True):
     """Скан в базу `db` (по умолчанию боевая). Обычно зовётся через scan_to_base — в черновик.
     recurse/latest_only — настройки «с подпапками» и «только последние версии» (работают в главном скане).
 
@@ -2311,12 +2317,20 @@ def do_scan(roots, max_mb, limit, depth=None, progress_cb=None, stop_cb=None, fu
                     % (len(dead), len(gone_stems)))
         except Exception as e:
             log("scan: чистка исключённых не удалась: %s" % e)
-    try:                        # корни скана — чтобы «проверка актуальности» знала, что обходить
-        con.execute("CREATE TABLE IF NOT EXISTS meta (k TEXT PRIMARY KEY, v TEXT)")
-        con.execute("INSERT OR REPLACE INTO meta VALUES ('roots', ?)", (json.dumps(roots),))
-        con.execute("INSERT OR REPLACE INTO meta VALUES ('exclude', ?)", (json.dumps(exclude or []),))
-    except Exception:
-        pass
+    # 🔴 28.10.2026 (владелец: «МНЕ НУЖЕН СКАНЕР И БАЗА ДАННЫХ РАБОЧИЕ»): `meta.roots` пишем
+    # ТОЛЬКО когда скан идёт «по-настоящему» (`remember=True`, из окна). Любая ПРОБА/CLI/тест
+    # вызывала do_scan с техническими путями — и записывала ИХ в боевую базу. Окно читает корни
+    # отсюда (plm_toolwin.py:1161), поэтому тестовый корень (`…\plm_reader\db`) превращал скан
+    # окна в «обход папки с базой»: 0 моделей, «ничего нет». Найдено фактом: в meta стояло
+    # `["Z:\\PTC\\CREO-START\\plm_reader\\db"]`, а у владельца — `Z:\PTC\Work` + `Z:\PTC\CREO-START`.
+    if remember:
+        try:
+            con.execute("CREATE TABLE IF NOT EXISTS meta (k TEXT PRIMARY KEY, v TEXT)")
+            con.execute("INSERT OR REPLACE INTO meta VALUES ('roots', ?)", (json.dumps(roots),))
+            con.execute("INSERT OR REPLACE INTO meta VALUES ('exclude', ?)",
+                        (json.dumps(exclude or []),))
+        except Exception:
+            pass
     con.commit()
     con.close()
     dt = time.time() - t0
