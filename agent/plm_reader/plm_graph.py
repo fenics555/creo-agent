@@ -138,11 +138,32 @@ def plm_edges():
         return []
     out = {}
     try:
-        for r in con.execute("SELECT parent, child, qty FROM links"):
+        # V134: ИСТОЧНИК РАЗЛИЧАЕМ. Грабля (владелец: «у дин912 связей 5, не показывает связи
+        # исполнений»): `links` читалась ОДНОЙ кучей, и `source` терялся — 1375 ИСПОЛНЕНИЙ DIN912
+        # (источник `family`) шли как обычные «деталь» вместе с физическим составом (`plm_tree`,
+        # `asm_comp`). Теперь канал зависит от источника:
+        #   family   → «исполнение» (таблица семейства: генерик → исполнение);
+        #   asm_comp → «структура»  (состав, прочитанный из СТРУКТУРЫ файла сборки);
+        #   plm_tree → «деталь»     (физическая связь по вхождению имени).
+        # `source` может быть NULL (старые базы) — считаем «деталь», как раньше.
+        for r in con.execute("SELECT parent, child, qty, source FROM links"):
             a, b = _norm(r[0]), _norm(r[1])
-            if a and b and a != b:
+            if not a or not b or a == b or _is_service(a) or _is_service(b):
+                continue
+            src = (r[3] or "").strip().lower()
+            if src == "mentions":
+                # V134: УПОМИНАНИЕ имени в байтах детали/чертежа — НЕ связь.
+                # ДОКАЗАНО: `din931.prt.1` содержит `DIN912-UNC` как ЗНАЧЕНИЕ ПАРАМЕТРА таблицы
+                # семейства → рождалась ложная «связь» DIN931 → DIN912. В граф НЕ пускаем
+                # (в базе остаётся источником `mentions` — видно в SQL, но состав не мусорит).
+                continue
+            if src == "family":
+                k = (a, b, "исполнение", "family")
+            elif src == "asm_comp":
+                k = (a, b, "структура", "db")
+            else:
                 k = (a, b, "деталь", "db")
-                out[k] = out.get(k, 0) + int(r[2] or 1)
+            out[k] = out.get(k, 0) + int(r[2] or 1)
         for r in con.execute("SELECT child, base, kind FROM derived"):
             a, b = _norm(r[0]), _norm(r[1])
             if not a or not b or a == b or _is_service(a) or _is_service(b):
@@ -398,8 +419,16 @@ def collect_by_path(media_dir=None):
             k = (fr_name, to_name, typ, ch)
             agg[k] = agg.get(k, 0) + int(q or 1)
 
-        for row in con.execute("SELECT parent, child, qty FROM links"):
-            add_edge(_norm(row[0]), _norm(row[1]), "деталь", row[2], "db")
+        # V134: ИСТОЧНИК РАЗЛИЧАЕМ (та же грабля, что в plm_edges):
+        # `mentions` (упоминание имени в байтах детали/чертежа) — НЕ связь;
+        # `family` (исполнения) — свой тип «исполнение»; `asm_comp` — «структура».
+        for row in con.execute("SELECT parent, child, qty, source FROM links"):
+            _src = (row[3] or "").strip().lower()
+            if _src == "mentions":
+                continue
+            _typ = ("исполнение" if _src == "family"
+                    else "структура" if _src == "asm_comp" else "деталь")
+            add_edge(_norm(row[0]), _norm(row[1]), _typ, row[2], "db")
         # V121: вид связи = КАК ЗАПИСАНО В ФАЙЛЕ, без склейки в «заготовка».
         # V121 ГРАБЛЯ (продолжение): 58% записей `derived` идут через СЛУЖЕБНЫЕ базы
         # (`MM_ASSY`, `SBORKA_MM`, `MM_PART` — их НЕТ в `snapshots`, т. е. это не модели).
@@ -543,8 +572,14 @@ def collect_from_db(media_dir=None):
                 k = (fr, to, typ, ch)
                 agg[k] = agg.get(k, 0) + int(q or 1)
 
-        for row in con.execute("SELECT parent, child, qty FROM links"):
-            add_edge(_norm(row[0]), _norm(row[1]), "деталь", row[2], "db")
+        # V134: источник различаем — `mentions` не связь, `family` = исполнения, `asm_comp` = структура
+        for row in con.execute("SELECT parent, child, qty, source FROM links"):
+            _src = (row[3] or "").strip().lower()
+            if _src == "mentions":
+                continue
+            _typ = ("исполнение" if _src == "family"
+                    else "структура" if _src == "asm_comp" else "деталь")
+            add_edge(_norm(row[0]), _norm(row[1]), _typ, row[2], "db")
         for row in con.execute("SELECT child, base, kind FROM derived"):
             if _is_service(_norm(row[0])) or _is_service(_norm(row[1])):
                 continue                     # служебные базы (MM_ASSY/SBORKA_MM) — не модели
@@ -962,7 +997,11 @@ def build_html(nodes, edges, media_dir, stats_extra=None):
     # Нет пары в `links` → ребро НЕ показываем (производность идёт отдельным блоком, см. `oh`/`ih`).
     _phys_pairs = set()
     try:
-        for _r in con_pairs.execute("SELECT parent, child FROM links"):
+        # V134: «ФИЗИЧЕСКАЯ» пара = настоящая связь. `mentions` (упоминание имени в байтах
+        # детали/чертежа) и `family` (исполнения — виртуальные варианты) НЕ физические связи:
+        # иначе карточка показывала соседей, которых в составе нет (та же грабля, что V122).
+        for _r in con_pairs.execute("SELECT parent, child FROM links "
+                                    "WHERE source IS NULL OR source NOT IN ('mentions','family')"):
             _phys_pairs.add((_norm(_r[0]), _norm(_r[1])))
     except Exception:                  # noqa: BLE001
         _phys_pairs = None             # нет данных — не блокируем (страница важнее)

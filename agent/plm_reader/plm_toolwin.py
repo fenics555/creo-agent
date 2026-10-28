@@ -2415,10 +2415,21 @@ def run_gui():
                     % (model, dn, ups, der))
 
     def _links_show(model):
-        """Вкладка «Дерево связей»: ▲ вверх — где используется; ▼ вниз — состав + отражения + наследование."""
+        """Вкладка «Дерево связей»: ▲ вверх — где используется; ▼ вниз — состав + ИСПОЛНЕНИЯ +
+        отражения + наследование.
+
+        V134 (владелец: «не показывает связи исполнений; сами исполнения как и где должны
+        выводиться?»): ИСПОЛНЕНИЯ (таблица семейства) выведены ОТДЕЛЬНЫМ разделом «◆ исполнения»
+        — раньше они были свалены в «состав» и выглядели как 1375 обычных деталей. Теперь видно
+        сразу: генерик → его исполнения, отдельно от физического состава сборки.
+        """
         ltv2.delete(*ltv2.get_children())
         _LLINKS.clear()
-        kids = eng.plm_children(model)
+        kids = eng.plm_children(model)               # состав БЕЗ исполнений (V134)
+        try:
+            inst = eng.plm_instances(model)          # ◆ исполнения генерика (V134)
+        except Exception:
+            inst = []
         refl = eng.derived_children(model)
         bases = eng.derived_bases(model)
         up = eng.plm_up_data(model, 8)
@@ -2439,6 +2450,17 @@ def run_gui():
             ltv2.insert(dn, "end", text="— в базе нет состава")
         for c, q in kids:
             nn = ltv2.insert(dn, "end", text="%s  x%d" % (c, q), values=iv(c, "x%d" % q))
+            _LLINKS[nn] = (c, "down")
+            ltv2.insert(nn, "end", text="загрузка…")
+
+        # ◆ ИСПОЛНЕНИЯ (таблица семейства) — ОТДЕЛЬНО от состава (V134).
+        # Владелец: «исполнения могут иметь СВОИ параметры, управляемые уравнениями или таблицей
+        # семейства». Показываем их своим разделом: генерик → его исполнения (DIN912 → 1375).
+        ins = ltv2.insert(rn, "end", open=False, text="◆ исполнения (таблица семейства): %d" % len(inst))
+        if not inst:
+            ltv2.insert(ins, "end", text="— эта модель не генерик (исполнений нет)")
+        for c, q in inst:
+            nn = ltv2.insert(ins, "end", text="◆ %s" % c, values=iv(c, "исп."))
             _LLINKS[nn] = (c, "down")
             ltv2.insert(nn, "end", text="загрузка…")
 
@@ -2474,8 +2496,9 @@ def run_gui():
             ltv2.see(rn)
         except Exception:
             pass
-        lsum2.config(text="связи: %s — состав %d · из неё пересохранено %d · пересохранена из %d · сборок вверх %d"
-                     % (model, len(kids), len(refl), len(bases), n_up))
+        lsum2.config(text="связи: %s — состав %d · ИСПОЛНЕНИЙ %d · из неё пересохранено %d · "
+                          "пересохранена из %d · сборок вверх %d"
+                     % (model, len(kids), len(inst), len(refl), len(bases), n_up))
 
     def _fill_up(parent_node, model, up, info, depth, seen):
         """Ветка «где используется»: рекурсивно по карте plm_up_data (все сборки, все уровни)."""

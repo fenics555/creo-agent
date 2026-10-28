@@ -1,12 +1,12 @@
 {
- "version": "V133",
- "version_num": 133,
- "date": "27.10.2026",
- "notes": "V133: SKAN POCHINEN. Prichina 1: vstavka v snapshots VALUES(17 znakov) bez spiska kolonok - a v boevoy baze 18 kolonok (chuzhaya 'pdata' ot drugogo instrumenta) -> 'table snapshots has 18 columns but 17 values were supplied' -> skan padal KAZHDYY raz. Teper vstavka so SPISKOM kolonok (8 mest: snapshots/derived/links/params/family/history/health) - rabotaet i na baze s chuzhoy kolonkoy, i bez neyo, pdata NE zatirayetsya. Prichina 2: db_dir pust -> publikovali v papku instrumenta, a chitali so sklada. Teper: db_dir pust -> papka ryadom so SKLADOM; poslednyaya kopiya i bekapy - ryadom s boevoy bazoy; otsev pamyatnikov (plm_reader_before_*.db) i chernovikov (.tmp). Provereno na boevoy baze: params 210, family 53, history 496, pdata 12952 sohranena.",
+ "version": "V134",
+ "version_num": 134,
+ "date": "28.10.2026",
+ "notes": "V134: ISPOLNENIYA OTDELNO + lozhnye svyazi otseany VO VSEH MESTAH (okno, graf, HTML, CLI). (1) Ispolneniya (tablica semejstva) - SVOY razdel v okne 'Derevo svyazej' ('ispolneniya: 1375') i kanal 'ispolnenie' v grafe (21703 rebra). Bylo: 1375 ispolneniy DIN912 shli kak obyknovennye DETALI v sostave. (2) Svyazi po VHOZHDENIYU IMENI V BAJTY - tolko dlya SBOROK (.asm). U detalej/chertezhej - istochnik 'mentions', v sostav/vhodimost/graf/derevo NE idut. DOKAZANO: v din931.prt.1 (3MB) est DIN912-UNC kak ZNACHENIE PARAMETRA tablicy semejstva -> lozhnaya svyaz DIN931->DIN912; iz 5 svyazej DIN912 realna ODNA (sborka SCREWS_VZ). Otseivaetsya 45% svyazej (34727 iz 76491). Ispravleno 8 mest: plm_edges, 3x build_html, plm_tree_data, tree_text_rows, do_where, do_tree, do_rename_plan, _is_physical.",
  "files": {
-  "engine.py": "f0c58b074c602be50f57a763fa463c8dc19e0c9624bdd7ab3e33204c818bcb88",
-  "plm_reader.py": "6acee363b8abe9ab3f8f4a20322fcb22e8638cc082354c7af446b8e356b5677e",
-  "plm_toolwin.py": "48c80a41c890c6555f4ebea45a4bc41d04cb573ea9085002e2cdca06a49c867b",
+  "engine.py": "99b22d01342fe2c92df98f46d99e89fefed356aac84a012fb36bf946e22dabbf",
+  "plm_reader.py": "da47d89a7b3ac5d49a3114d3120cb6f63706281ea9517a2c34b7e40dab5e6d8a",
+  "plm_toolwin.py": "6f80974a327dce64649e15b11d1e88eee377335c58589b7c7b410efe44bac4d4",
   "plm_history.py": "0e8a1b414f3ad7c67175251fb4192e26431b0e9760bcce6ba6d9faf03ada8c77",
   "plm_parse.py": "c6bb33a412b6b606ad402e3eb78cd49246b77738b69d82be1b6218a1358c0312",
   "plm_dbview.py": "65ba08ed8e5444eb962e3607ab890d4bb9a67934571372ad3aa1d67b53198fc3",
@@ -21,7 +21,7 @@
   "make_version_json.py": "4603968533bec13a05defb4a164246728b9649d50d524479f639493eeed7c92f",
   ".gitignore": "911fbdb5acf889293fdc61c836b691014da748fa55bd6464ce35a67f30e636ee",
   "AGENTS.md": "3b08e6e81731ace78deac46df3b802de337c3924acb87c54fe1562a2573650ef",
-  "plm_graph.py": "4eafa07067bbb9328ba268bd098107f6eb4c8353b0fbbfbf8789ab34a5ac31b5",
+  "plm_graph.py": "67c93e80184674c4dd896a51f00d279cd988c55893a74da8a796ee46141958e9",
   "plm_graph_page.html": "ab5bfbad3b2a3f058c7b8cbbb5859c5ea57c7318c9ec5e50fcd22973f91c47ac"
  }
 }

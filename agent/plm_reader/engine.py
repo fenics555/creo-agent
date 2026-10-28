@@ -1666,12 +1666,32 @@ def do_scan(roots, max_mb, limit, depth=None, progress_cb=None, stop_cb=None, fu
         if s not in seen:                       # связи код-родителя чистим ОДИН раз
             con.execute("DELETE FROM links WHERE parent=? AND source='plm_tree'", (s,))
             seen.add(s)
-        for child, qty in it["refs"].items():
-            if (s, child) in seen:
-                continue
-            seen.add((s, child))
-            con.execute("INSERT INTO links (parent,child,qty,source) VALUES (?,?,?,?)",
-                        (s, child, qty, "plm_tree"))
+        # 🔴 ГРАБЛЯ 28.10.2026 (владелец: «у дин912 связей 5»): связи `plm_tree` пишутся по
+        # ВХОЖДЕНИЮ ИМЕНИ В БАЙТЫ файла. Для .prt/.drw это ЛОЖЬ: имя другой детали лежит там
+        # как ЗНАЧЕНИЕ ПАРАМЕТРА или комментарий, а не как состав. ДОКАЗАНО на живом файле:
+        # `din931.prt.1` (3 МБ) содержит `DIN912` 2 раза — внутри `..._DIN912-UNC\x00...`,
+        # то есть в ПАРАМЕТРЕ таблицы семейства. Отсюда рождалась «связь» DIN931 → DIN912,
+        # и у DIN912 из 5 «связей» реальной была ОДНА (сборка SCREWS_VZ).
+        # Состав по вхождению имени бывает ТОЛЬКО у СБОРОК (.asm): там имена компонентов
+        # действительно записаны. Для деталей/чертежей канал `plm_tree` не пишем вовсе —
+        # настоящий состав даёт `asm_comp` (структура файла).
+        is_asm = ".asm" in path.lower()
+        if is_asm:
+            for child, qty in it["refs"].items():
+                if (s, child) in seen:
+                    continue
+                seen.add((s, child))
+                con.execute("INSERT INTO links (parent,child,qty,source) VALUES (?,?,?,?)",
+                            (s, child, qty, "plm_tree"))
+        else:
+            # деталь/чертёж: вхождение имени — не состав. Пишем отдельным источником `mentions`,
+            # чтобы данные НЕ терялись (видно в SQL), но в состав/граф по умолчанию не попадали.
+            for child, qty in it["refs"].items():
+                if (s, child) in seen:
+                    continue
+                seen.add((s, child))
+                con.execute("INSERT INTO links (parent,child,qty,source) VALUES (?,?,?,?)",
+                            (s, child, qty, "mentions"))
         # СВЯЗИ ИЗ СТРУКТУРЫ ФАЙЛА (эта сессия): состав .asm и модели .asm-обработки. Идут своим
         # источником `asm_comp`, а «имя по вхождению» остаётся как было (`plm_tree`) — их видно
         # отдельно в SQL, поэтому связь можно ПРОВЕРИТЬ, а не верить ей (грабля «приёмка по строкам»).
@@ -2556,7 +2576,12 @@ def plm_tree_data():
     tops, children, info, derived = [], {}, {}, {}
     try:
         con = connect()
-        rows = con.execute("SELECT parent, child, qty FROM links").fetchall()
+        # V134: СОСТАВ = физические связи. `mentions` (упоминание имени в байтах детали/чертежа)
+        # и `family` (исполнения — виртуальные варианты генерика, НЕ детали состава) сюда не идут.
+        # Иначе дерево производства мусорилось: 1375 исполнений DIN912 выглядели деталями.
+        rows = con.execute("SELECT parent, child, SUM(qty) FROM links "
+                           "WHERE source IS NULL OR source NOT IN ('mentions','family') "
+                           "GROUP BY parent, child").fetchall()
         kids = set()
         for p, c, q in rows:
             children.setdefault(p, []).append((c, q or 1))
@@ -2717,28 +2742,89 @@ def service_stems():
     return out
 
 
-def plm_children(model):
-    """СОСТАВ изделия из базы: [(ребёнок, количество)]. Служебные (шаблоны) отсеиваются."""
+def plm_children(model, sources=None):
+    """СОСТАВ изделия из базы: [(ребёнок, количество)]. Служебные (шаблоны) отсеиваются.
+
+    ГРАБЛЯ 28.10.2026 (владелец: «у дин912 связей 5, не показывает связи исполнений»):
+    запрос брал ВСЕ источники `links` в одну кучу — `plm_tree` (физический состав),
+    `asm_comp` (структура файла) и `family` (ТАБЛИЦА СЕМЕЙСТВА: 1375 исполнений DIN912).
+    Из-за этого 1375 исполнений выглядели как 1375 обычных ДЕТАЛЕЙ в составе, а мусорные
+    связи (фантомные имена) не отсеивались. Теперь источник можно выбрать:
+    `sources=None` — состав БЕЗ исполнений (по умолчанию, как и было по смыслу);
+    `sources=("family",)` — только исполнения генерика (для отдельного раздела).
+    """
     m = stem(model)
     svc = service_stems()
     try:
         con = connect()
-        rows = con.execute("SELECT child, qty FROM links WHERE parent=? ORDER BY child",
-                           (m,)).fetchall()
+        if sources:
+            q = ",".join("?" * len(sources))
+            rows = con.execute("SELECT child, SUM(qty) FROM links WHERE parent=? "
+                               "AND source IN (%s) GROUP BY child ORDER BY child" % q,
+                               (m,) + tuple(sources)).fetchall()
+        else:
+            # БЕЗ `family` и БЕЗ `mentions`: исполнения — НЕ состав (они отдельным разделом),
+            # а `mentions` — просто УПОМИНАНИЕ имени в байтах детали/чертежа, тоже не состав.
+            rows = con.execute("SELECT child, SUM(qty) FROM links WHERE parent=? "
+                               "AND (source IS NULL OR source NOT IN ('family','mentions')) "
+                               "GROUP BY child ORDER BY child", (m,)).fetchall()
         con.close()
         return [(c, q or 1) for c, q in rows if (c or "").upper() not in svc]
     except Exception:
         return []
 
 
+def plm_instances(model, limit=5000):
+    """ИСПОЛНЕНИЯ генерика (таблица семейства): [(исполнение, кол-во)] — ОТДЕЛЬНО от состава.
+
+    Владелец: «сами исполнения они как и где должны выводиться?» — отдельным разделом
+    «Исполнения» в окне «Дерево связей» и на HTML-странице, а НЕ вперемешку с составом.
+    Читаем ДВА источника: таблицу `family` (как записал скан: generic→instance) И связи
+    `links` с источником `family` (их пишет тот же скан — так исполнения видны и в графе).
+    """
+    m = stem(model)
+    out, seen = [], set()
+    try:
+        con = connect(ro=True)
+        try:
+            for inst, in con.execute("SELECT instance FROM family WHERE generic=? ORDER BY instance",
+                                     (m,)):
+                if inst and inst not in seen:
+                    seen.add(inst)
+                    out.append((inst, 1))
+        except Exception:                          # таблицы family может не быть — не беда
+            pass
+        try:
+            for inst, q in con.execute("SELECT child, SUM(qty) FROM links WHERE parent=? "
+                                       "AND source='family' GROUP BY child ORDER BY child", (m,)):
+                if inst and inst not in seen:
+                    seen.add(inst)
+                    out.append((inst, q or 1))
+        except Exception:                          # noqa: BLE001
+            pass
+        con.close()
+    except Exception:                              # noqa: BLE001
+        return []
+    return out[:int(limit)]
+
+
 def plm_parents(model):
-    """Куда ВХОДИТ изделие: [(родитель, количество)]. Служебные (шаблоны) отсеиваются."""
+    """Куда ВХОДИТ изделие: [(родитель, количество)]. Служебные (шаблоны) отсеиваются.
+
+    V134: `mentions` (упоминание имени в байтах ДЕТАЛИ/ЧЕРТЕЖА) НЕ считаем входимостью.
+    ГРАБЛЯ (владелец: «у дин912 связей 5»): в `din931.prt.1` есть `DIN912-UNC` как ЗНАЧЕНИЕ
+    ПАРАМЕТРА таблицы семейства — рождалась ложная «входимость» DIN912 в DIN931. Из 5 «связей»
+    DIN912 реальной была одна (сборка SCREWS_VZ); остальные — совпадение байтов.
+    Настоящая входимость: `asm_comp` (структура сборки) и `plm_tree` (сборка по вхождению),
+    `family` (исполнение → генерик).
+    """
     m = stem(model)
     svc = service_stems()
     try:
         con = connect()
-        rows = con.execute("SELECT parent, qty FROM links WHERE child=? ORDER BY parent",
-                           (m,)).fetchall()
+        rows = con.execute("SELECT parent, SUM(qty) FROM links WHERE child=? "
+                           "AND (source IS NULL OR source<>'mentions') "
+                           "GROUP BY parent ORDER BY parent", (m,)).fetchall()
         con.close()
         return [(p, q or 1) for p, q in rows if (p or "").upper() not in svc]
     except Exception:
@@ -2762,7 +2848,9 @@ def plm_up_data(model, depth=8):
             if not frontier:
                 break
             q = ",".join("?" * len(frontier))
+            # V134: `mentions` (упоминание имени в байтах детали/чертежа) — НЕ входимость
             rows = con.execute("SELECT child,parent,SUM(qty) FROM links WHERE child IN (%s) "
+                               "AND (source IS NULL OR source<>'mentions') "
                                "GROUP BY child,parent" % q, frontier).fetchall()
             nxt = []
             for ch, par, qty in rows:
@@ -2859,7 +2947,11 @@ def full_tree_lines(model, depth=6, show_internal=False):
     con = connect()
     svc = service_stems()      # 07.10.2026: служебные шаблоны (SBORKA_MFG/SBORKA_MM/MM_PART…) — НЕ связи изделия
     kids, parents = defaultdict(list), defaultdict(list)
-    for par, ch, qty in con.execute("SELECT parent, child, qty FROM links"):
+    # V134: `mentions` (упоминание имени в байтах детали/чертежа) и `family` (исполнения —
+    # виртуальные варианты генерика) в ДЕРЕВО не идут: иначе 1375 исполнений DIN912
+    # показывались как детали состава, а ложные «связи по параметру» мусорили входимость.
+    for par, ch, qty in con.execute("SELECT parent, child, qty FROM links "
+                                    "WHERE source IS NULL OR source NOT IN ('mentions','family')"):
         if (par or "").upper() in svc or (ch or "").upper() in svc:
             continue
         kids[par].append((ch, qty or 1))
@@ -3029,7 +3121,10 @@ def made_of_list(model, limit=0):
 
 def do_where(model):
     con = connect()
-    rows = con.execute("SELECT parent, qty FROM links WHERE child=? ORDER BY qty DESC",
+    # V134: `mentions` (упоминание имени в байтах детали/чертежа) — НЕ входимость
+    rows = con.execute("SELECT parent, SUM(qty) FROM links WHERE child=? "
+                       "AND (source IS NULL OR source<>'mentions') "
+                       "GROUP BY parent ORDER BY SUM(qty) DESC",
                        (stem(model),)).fetchall()
     con.close()
     print("«%s» входит в %d сборок:" % (stem(model), len(rows)))
@@ -3050,7 +3145,9 @@ def do_changes(n):
 def do_tree(model, depth):
     con = connect()
     kids, parents = defaultdict(list), set()
-    for par, ch, qty in con.execute("SELECT parent, child, qty FROM links"):
+    # V134: без `mentions` (упоминания в байтах) и `family` (исполнения) — это не состав
+    for par, ch, qty in con.execute("SELECT parent, child, qty FROM links "
+                                    "WHERE source IS NULL OR source NOT IN ('mentions','family')"):
         kids[par].append((ch, qty))
         parents.add(ch)
     snap = {r[0]: r for r in con.execute("SELECT model, name, volume, rev FROM snapshots")}
@@ -3096,7 +3193,10 @@ def do_rename_plan(old, new):
     con = connect()
     snap = {r[0] for r in con.execute("SELECT model FROM snapshots")}
     parents = defaultdict(set)
-    for par, ch in con.execute("SELECT parent, child FROM links"):
+    # V134: `mentions` не считаем владельцем (иначе в план переименования попадали бы
+    # детали/чертежи, где имя просто УПОМЯНУТО в параметрах — не настоящие владельцы)
+    for par, ch in con.execute("SELECT parent, child FROM links "
+                               "WHERE source IS NULL OR source<>'mentions'"):
         parents[ch].add(par)
     con.close()
     if not n:
