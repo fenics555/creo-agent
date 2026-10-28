@@ -1,0 +1,146 @@
+
+D:\AI\tools\agent\creo_export>rem ============================================================================ 
+
+D:\AI\tools\agent\creo_export>rem  TREE PROBE (JLINK) - model feature tree from a LIVE Creo. Reference for bytes. 
+
+D:\AI\tools\agent\creo_export>rem  usage: tree_probe.bat MODEL.prt [MODEL2.prt ...] 
+
+D:\AI\tools\agent\creo_export>rem  prints: #MODEL / #FEAT n id type name suppressed / #DIM feat dN value 
+
+D:\AI\tools\agent\creo_export>rem          / #PARAM name value / #ERR ... 
+
+D:\AI\tools\agent\creo_export>rem  Creo is started by the probe; Disconnect at the end, Creo keeps running. 
+
+D:\AI\tools\agent\creo_export>rem  NOTE: this file is ASCII ONLY - Cyrillic in a .bat without BOM breaks the parser. 
+
+D:\AI\tools\agent\creo_export>rem ============================================================================ 
+WARNING: A restricted method in java.lang.System has been called
+WARNING: java.lang.System::loadLibrary has been called by TreeProbe in an unnamed module (file:/D:/AI/tools/agent/creo_export/)
+WARNING: Use --enable-native-access=ALL-UNNAMED to avoid a warning for callers in this module
+WARNING: Restricted methods will be blocked in a future release unless native access is enabled
+
+# cwd=Z:\PTC\CREO-START\Libraries\Библиотека_стандартных_изделий\Шпильки_резьбовые\
+#MODEL g22033.prt.1
+#FEAT-COUNT 9
+#DIM-COUNT 8
+#FEAT 0 105 TYPE_0 null
+#DIM feat=105 sym=d7 name=d7 dimid=7 val=8.0
+#DIM feat=105 sym=d8 name=d8 dimid=8 val=8.0
+#DIM feat=105 sym=d10 name=d10 dimid=10 val=30.0
+#DIM feat=105 sym=d13 name=d13 dimid=13 val=0.625
+#DIM feat=105 sym=d14 name=d14 dimid=14 val=22.0
+#DIM feat=105 sym=d15 name=d15 dimid=15 val=6.75
+#DIM feat=105 sym=d27 name=d27 dimid=27 val=6.75
+#DIM feat=105 sym=d28 name=d28 dimid=28 val=8.0
+#FEAT 1 472 TYPE_13 DTM5
+#DIM feat=472 sym=d7 name=d7 dimid=7 val=8.0
+#DIM feat=472 sym=d8 name=d8 dimid=8 val=8.0
+#DIM feat=472 sym=d10 name=d10 dimid=10 val=30.0
+#DIM feat=472 sym=d13 name=d13 dimid=13 val=0.625
+#DIM feat=472 sym=d14 name=d14 dimid=14 val=22.0
+#DIM feat=472 sym=d15 name=d15 dimid=15 val=6.75
+#DIM feat=472 sym=d27 name=d27 dimid=27 val=6.75
+#DIM feat=472 sym=d28 name=d28 dimid=28 val=8.0
+#FEAT 2 139 TYPE_13 no_name
+#DIM feat=139 sym=d7 name=d7 dimid=7 val=8.0
+#DIM feat=139 sym=d8 name=d8 dimid=8 val=8.0
+#DIM feat=139 sym=d10 name=d10 dimid=10 val=30.0
+#DIM feat=139 sym=d13 name=d13 dimid=13 val=0.625
+#DIM feat=139 sym=d14 name=d14 dimid=14 val=22.0
+#DIM feat=139 sym=d15 name=d15 dimid=15 val=6.75
+#DIM feat=139 sym=d27 name=d27 dimid=27 val=6.75
+#DIM feat=139 sym=d28 name=d28 dimid=28 val=8.0
+#FEAT 3 138 TYPE_7 null
+#DIM feat=138 sym=d7 name=d7 dimid=7 val=8.0
+#DIM feat=138 sym=d8 name=d8 dimid=8 val=8.0
+#DIM feat=138 sym=d10 name=d10 dimid=10 val=30.0
+#DIM feat=138 sym=d13 name=d13 dimid=13 val=0.625
+#DIM feat=138 sym=d14 name=d14 dimid=14 val=22.0
+#DIM feat=138 sym=d15 name=d15 dimid=15 val=6.75
+#DIM feat=138 sym=d27 name=d27 dimid=27 val=6.75
+#DIM feat=138 sym=d28 name=d28 dimid=28 val=8.0
+#FEAT 4 219 TYPE_4 null
+#DIM feat=219 sym=d7 name=d7 dimid=7 val=8.0
+#DIM feat=219 sym=d8 name=d8 dimid=8 val=8.0
+#DIM feat=219 sym=d10 name=d10 dimid=10 val=30.0
+#DIM feat=219 sym=d13 name=d13 dimid=13 val=0.625
+#DIM feat=219 sym=d14 name=d14 dimid=14 val=22.0
+#DIM feat=219 sym=d15 name=d15 dimid=15 val=6.75
+#DIM feat=219 sym=d27 name=d27 dimid=27 val=6.75
+#DIM feat=219 sym=d28 name=d28 dimid=28 val=8.0
+#FEAT 5 235 TYPE_13 no_name
+#DIM feat=235 sym=d7 name=d7 dimid=7 val=8.0
+#DIM feat=235 sym=d8 name=d8 dimid=8 val=8.0
+#DIM feat=235 sym=d10 name=d10 dimid=10 val=30.0
+#DIM feat=235 sym=d13 name=d13 dimid=13 val=0.625
+#DIM feat=235 sym=d14 name=d14 dimid=14 val=22.0
+#DIM feat=235 sym=d15 name=d15 dimid=15 val=6.75
+#DIM feat=235 sym=d27 name=d27 dimid=27 val=6.75
+#DIM feat=235 sym=d28 name=d28 dimid=28 val=8.0
+#FEAT 6 234 TYPE_153 null
+#DIM feat=234 sym=d7 name=d7 dimid=7 val=8.0
+#DIM feat=234 sym=d8 name=d8 dimid=8 val=8.0
+#DIM feat=234 sym=d10 name=d10 dimid=10 val=30.0
+#DIM feat=234 sym=d13 name=d13 dimid=13 val=0.625
+#DIM feat=234 sym=d14 name=d14 dimid=14 val=22.0
+#DIM feat=234 sym=d15 name=d15 dimid=15 val=6.75
+#DIM feat=234 sym=d27 name=d27 dimid=27 val=6.75
+#DIM feat=234 sym=d28 name=d28 dimid=28 val=8.0
+#FEAT 7 514 TYPE_13 no_name
+#DIM feat=514 sym=d7 name=d7 dimid=7 val=8.0
+#DIM feat=514 sym=d8 name=d8 dimid=8 val=8.0
+#DIM feat=514 sym=d10 name=d10 dimid=10 val=30.0
+#DIM feat=514 sym=d13 name=d13 dimid=13 val=0.625
+#DIM feat=514 sym=d14 name=d14 dimid=14 val=22.0
+#DIM feat=514 sym=d15 name=d15 dimid=15 val=6.75
+#DIM feat=514 sym=d27 name=d27 dimid=27 val=6.75
+#DIM feat=514 sym=d28 name=d28 dimid=28 val=8.0
+#FEAT 8 513 TYPE_153 null
+#DIM feat=513 sym=d7 name=d7 dimid=7 val=8.0
+#DIM feat=513 sym=d8 name=d8 dimid=8 val=8.0
+#DIM feat=513 sym=d10 name=d10 dimid=10 val=30.0
+#DIM feat=513 sym=d13 name=d13 dimid=13 val=0.625
+#DIM feat=513 sym=d14 name=d14 dimid=14 val=22.0
+#DIM feat=513 sym=d15 name=d15 dimid=15 val=6.75
+#DIM feat=513 sym=d27 name=d27 dimid=27 val=6.75
+#DIM feat=513 sym=d28 name=d28 dimid=28 val=8.0
+#PARAM DRW_NAME Шпилька
+#PARAM MASS 0.014921140138664956
+#PARAM MATERIAL 
+#PARAM DENSITY 7.8E-6
+#PARAM MODEL_CHECK Wed Jan 31 2001 16:07:44
+#PARAM MC_ERRORS com.ptc.pfc.Implementation.pfcModelItem$ParamValue@312b1dae
+#PARAM COATING 
+#PARAM IMPL_TYPE 
+#PARAM PREC_CLASS 
+#PARAM THREAD_TOL 
+#PARAM NUMBER 
+#PARAM NAME_1 Шпилька 
+#PARAM NAME_2 ГОСТ 22033-76
+#PARAM MATERIAL_1 
+#PARAM MATERIAL_2 
+#PARAM DEPARTMENT 
+#PARAM AUTOR www.tpolis.com
+#PARAM DESCRIPTION 
+#PARAM DS 8.0
+#PARAM L 30.0
+#PARAM L1 8.0
+#PARAM L0 22.0
+#PARAM PITCH_BIG com.ptc.pfc.Implementation.pfcModelItem$ParamValue@7530d0a
+#PARAM RECOMENDED com.ptc.pfc.Implementation.pfcModelItem$ParamValue@27bc2616
+#PARAM IDENT 
+#PARAM STANDART ГОСТ 22033-76
+#PARAM PITCH 1.25
+#PARAM PTC_MATERIAL_NAME STEEL_40X
+#PARAM GROUP std
+#PARAM ТИП Стандарт
+#PARAM ТИП2  
+#PARAM ФОРМАТ А3
+#PARAM PTC_MASTER_MATERIAL STEEL_40X
+#PARAM PTC_REPORTED_MATERIAL STEEL_40X
+#PARAM PTC_UNITS_LENGTH mm
+#PARAM PTC_UNITS_MASS kg
+#PARAM PTC_UNITS_FORCE mm kg / sec^2
+#PARAM PTC_UNITS_TIME sec
+#PARAM PTC_UNITS_TEMPERATURE C
+#PARAM PTC_UNITS_SYSTEM_TYPE Mass length time (MLT)

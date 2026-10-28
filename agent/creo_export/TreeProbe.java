@@ -65,10 +65,19 @@ public class TreeProbe {
     try {
       Object t = f.GetFeatType();
       if (t == null) return "null";
-      // факт: enum не переопределяет toString -> берём name() через reflection
+      // ФАКТ API (из pfcasync.jar): enum FeatureType хранит номер в поле `__Value`,
+      // а наверх отдаётся через метод `getValue()`. Ни toString, ни name() не помогают.
+      for (String meth : new String[]{"getValue", "__Value", "name"}) {
+        try {
+          java.lang.reflect.Method m = t.getClass().getMethod(meth);
+          Object v = m.invoke(t);
+          if (v != null) return "TYPE_" + v;
+        } catch (Throwable ignored) {}
+      }
       try {
-        Object nm = t.getClass().getMethod("name").invoke(t);
-        if (nm != null) return String.valueOf(nm);
+        java.lang.reflect.Field fl = t.getClass().getDeclaredField("__Value");
+        fl.setAccessible(true);
+        return "TYPE_" + fl.get(t);
       } catch (Throwable ignored) {}
       String s = t.toString();
       int at = s.indexOf('@');
