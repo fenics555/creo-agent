@@ -175,29 +175,59 @@ _MB_MARK = b"MERGE_BASE_PART"
 _MB_ANCHOR = b"\xe3\x33\xf7\x1c"          # перед именем родителя (основная запись)
 _MB_ANCHOR2 = b"\xe3\x33"                 # второй вариант (дубль)
 
+# 🔴 28.10.2026: Creo ставит ПЕРЕД именем служебный байт-префикс (тип строки: \xe0, \xe1, \xe2, \xe3,
+# \xf6, \xf7 …). Их НЕЛЬЗЯ декодировать вместе с именем: в UTF-8 они дают `\ufffd`, а `isprintable()`
+# съедал часть многобайтной пары — замер на складе: 3 имени из 95 приходили с потерянным символом.
+# Префиксы Creo (проверены на живых файлах: `\xe2`+имя, `\xe0\x0a`+имя, `\xe3\x33`+имя).
+_CREO_PREFIX = {0xe0, 0xe1, 0xe2, 0xe3, 0xf6, 0xf7, 0xf8, 0xfb, 0xfc}
+
+
+def _clean_name_bytes(chunk):
+    """Имя модели из байтов Creo: срезать служебный префикс, декодировать UTF-8 с откатом cp1251.
+
+    Скилл §5 п.1 — БЕЗ регулярок: только по байтам. Кириллица (UTF-8) сохраняется целиком.
+    """
+    # 1) ведём до первого НУЛЯ — конец строки Creo
+    z = chunk.find(b"\x00")
+    if z >= 0:
+        chunk = chunk[:z]
+    # 2) срезаем СЛУЖЕБНЫЕ байты Creo в начале и в конце (управляющие и префиксы типов строк)
+    i, j = 0, len(chunk)
+    while i < j and (chunk[i] < 0x20 or chunk[i] in _CREO_PREFIX):
+        # префикс типа идёт ОДИН раз: если следующий байт — уже буква, снимаем только префикс
+        i += 1
+    while j > i and (chunk[j - 1] < 0x20 or chunk[j - 1] in _CREO_PREFIX):
+        j -= 1
+    chunk = chunk[i:j]
+    if not chunk:
+        return ""
+    # 3) декод: UTF-8 (кириллица) с откатом на cp1251/latin-1 — кодировки Creo «прыгают» (грабля §91)
+    for enc in ("utf-8", "cp1251", "latin-1"):
+        try:
+            s = chunk.decode(enc)
+        except UnicodeDecodeError:
+            continue
+        if "\ufffd" not in s:
+            break
+    else:
+        s = chunk.decode("utf-8", "replace")
+    # 4) режем мусор, НО не режем буквы (isprintable() ломал кириллицу — только явные служебные)
+    s = "".join(ch for ch in s if ch.isprintable() or ch in " \t-_.")
+    return s.strip()
+
 
 def _name_at(raw, pos, limit=64):
     """Имя модели, начинающееся с позиции `pos`: до `\\x00`, UTF-8, без служебных байтов.
 
-    По скиллу §5 п.1 — БЕЗ регулярок: идём по байтам от `pos` до нуля, отсекаем
-    непчатные/служебные. Кириллица (UTF-8, многобайтная) сохраняется — скилл §1 доп.
+    По скиллу §5 п.1 — БЕЗ регулярок: идём по байтам от `pos`. Кириллица (UTF-8, многобайтная)
+    сохраняется — скилл §1 доп. Служебный префикс Creo снимается ДО декода (см. `_clean_name_bytes`).
     """
     if pos < 0 or pos >= len(raw):
         return ""
     end = raw.find(b"\x00", pos)
     if end < 0:
         end = min(len(raw), pos + limit)
-    chunk = raw[pos:end][:limit]
-    # Отсекаем ведущие служебные байты Creo (могут быть прямо перед именем).
-    i = 0
-    while i < len(chunk) and chunk[i] < 0x20:
-        i += 1
-    chunk = chunk[i:]
-    if not chunk:
-        return ""
-    s = chunk.decode("utf-8", "replace")
-    s = "".join(ch for ch in s if ch.isprintable())
-    return s.strip()
+    return _clean_name_bytes(raw[pos:end][:limit])
 
 
 def merge_base_parts(raw):
@@ -238,6 +268,58 @@ def merge_base_parts(raw):
 
 
 _RP_NAME = b"\xe0\x0aname\x00"          # ЯКОРЬ ИМЕНИ в записи `ref_part_tab` (скилл §2)
+
+# 🔴 28.10.2026 (скилл §7): `nasled.PTC_*` / `layers` / `restrict_table` / `p_set_data_arr` /
+# `NEUT_SPEC_*` — это наследование СВОЙСТВА, а НЕ модели. Родителя-МОДЕЛИ по ним строить НЕЛЬЗЯ,
+# но и ВЫБРАСЫВАТЬ нельзя (владелец: «наследуется не обязательно геометрия — ЛЮБОЕ свойство»).
+# Замер на складе: 1 368 файлов имеют `nasled.*` (боевая база). Пишем каналом `prop` в `derived`,
+# чтобы свойство было ВИДНО, но связи «потомок → модель» по нему не возникало.
+PROP_KEYS = (b"mat_name_ptr", b"PTC_ASSIGNED_MATERIAL_NAME", b"Z_SHRINK_FACTOR",
+             b"THREAD_SERIES", b"PRO_MP_MASS")
+
+
+def is_property_name(nm):
+    """Имя похоже на СВОЙСТВО, а не на модель? (схемные `PTC_*` — это формат базы PLM, но знать о них надо)."""
+    up = (nm or "").upper()
+    if not up:
+        return False
+    return up.startswith(("PTC_", "PRO_")) or up in ("LAYERS", "RESTRICT_TABLE",
+                                                     "P_SET_DATA_ARR", "Z_SHRINK_FACTOR")
+
+
+def inherited_properties(raw):
+    """СВОЙСТВА, РЕАЛЬНО прочитанные из файла: [(имя, значение)] — БЕЗ дублей и схемного мусора.
+
+    🔴 УРОК ЭТОЙ НОГИ (важно, чтобы не повторить): материал в базе УЖЕ читается —
+    `scan_item` → `_by_rules(raw, _PARAM_MAT)` → `snapshots.material`. Замер: 1 172 из 1 200 файлов
+    имеют ключ `mat_name_ptr`, и материал там ЕСТЬ.
+    Я трижды пытался читать его ЗАНОВО своим якорем — и трижды ошибся (то `PTC_SYSTEM_MTRL_PROPS`,
+    то `INITIAL_BEND_Y_FACTOR`, то пусто), потому что `name`-блок стоит ДО ключа `mat_name_ptr`,
+    а не после. Вывод: НЕ ДУБЛИРОВАТЬ существующий рабочий разбор (ДОГМА §4 — одна правда).
+
+    Здесь остаются ТОЛЬКО свойства, которых в базе нет вовсе:
+      * `Z_SHRINK_FACTOR` — усадка (признак литейной отливки, скилл §1 доп. п.5).
+    """
+    out, seen = [], set()
+    raw = raw or b""
+    # УСАДКА: ключ стоит один, значение — сразу за ним (Creo пишет число/строку с префиксом)
+    for key, name in ((b"Z_SHRINK_FACTOR", "shrinkage"),):
+        pos = raw.find(key)
+        if pos < 0:
+            continue
+        after = pos + len(key)
+        seg = raw[after:after + 12]
+        val = ""
+        for pre in (b"\xf2", b"\xe0\x0a", b"\xe2", b"\xe0", b"\xe3\x33", b"\xe3", b"\x00"):
+            if seg.startswith(pre):
+                val = _name_at(raw, after + len(pre), limit=32)
+                break
+        if not val:
+            val = _name_at(raw, after, limit=32)
+        if val and (name, val) not in seen:
+            seen.add((name, val))
+            out.append((name, val))
+    return out
 
 
 def ref_part_parents(raw):
@@ -341,8 +423,10 @@ def _app_version():
 
 
 VERSION = _app_version()
-PARSER_TAG = "p25"      # меняй при ЛЮБОМ изменении правил разбора — форсирует полный пересчёт
-                        # V137 (28.10.2026): p24 → p25. НАСЛЕДОВАНИЕ ПЕРЕЧИТАНО ПО СКИЛЛУ
+PARSER_TAG = "p26"      # меняй при ЛЮБОМ изменении правил разбора — форсирует полный пересчёт
+                        # V139 (28.10.2026): p25 → p26. (1) ИМЯ РОДИТЕЛЯ: снят служебный префикс Creo
+                        # ПЕРЕД декодом (давал `\ufffd` — замер: 3 имени из 95), откат UTF-8→cp1251.
+                        # (2) НАСЛЕДОВАНИЕ СВОЙСТВА: новый канал `prop` + таблица `props` (скилл §7).
                         # `Creo\READ\SKILL_creo_read_roles.md`: `MERGE_BASE_PART` — без регулярок
                         # (`bytes.find`), ВСЕ записи (не первая!), имя в UTF-8 (была потеряна
                         # КИРИЛЛИЦА — читалась только латиница), мусор (`PTC_NOTE_TEXT`,
@@ -690,6 +774,11 @@ def scan_item(s, path, stems, fstems=frozenset(), pdes=None, pname=None, pmat=No
     derived_all = [(nm, "наследование") for nm, _ in _mb_all]
     derived_all += [(nm, "производная") for nm in _rp_all if nm.upper() not in
                     {n.upper() for n, _ in derived_all}]
+    # 🔴 V139 (28.10.2026, скилл §7): НАСЛЕДОВАНИЕ СВОЙСТВА — канал `prop`.
+    # Владелец: «наследуется не обязательно геометрия — наследуется ЛЮБОЕ свойство».
+    # ВАЖНО: по свойству родителя-МОДЕЛИ НЕ строим (иначе `PTC_MATERIAL_TYPE` станет «моделью»),
+    # но данные СОХРАНЯЕМ — иначе 1 368 файлов свойств исчезают из системы.
+    props_all = inherited_properties(raw)
     cf = copy_from_of(raw)      # 07.10.2026: «МОДЕЛЬ СКОПИРОВАНА ОТ …» — ОТДЕЛЬНАЯ связь (Creo пишет
                                 # её в самом файле: `from_mdl_name` → `to_mdl_name`). Она ДОПОЛНЯЕТ
                                 # заготовку/отливку, а не заменяет. Есть и у деталей, и у сборок.
@@ -707,7 +796,7 @@ def scan_item(s, path, stems, fstems=frozenset(), pdes=None, pname=None, pmat=No
             "rev": h[0], "author": h[1], "revdate": h[2], "role": role(raw, fstems, s), "refs": refs,
             "hist": len(hm), "creo": (hm[-1][3].decode("latin-1") if hm else ""),
             "base": base, "dkind": dkind, "copy_from": cf, "parts": parts,
-            "derived_all": derived_all,
+            "derived_all": derived_all, "props_all": props_all,
             "cparams": cparams, "family": fam, "hist2": hist2}
 
 
@@ -742,6 +831,14 @@ CREATE INDEX IF NOT EXISTS ix_links_child ON links(child);
 CREATE TABLE IF NOT EXISTS derived (child TEXT, base TEXT, kind TEXT, source TEXT);
 CREATE INDEX IF NOT EXISTS ix_derived_child ON derived(child);
 CREATE INDEX IF NOT EXISTS ix_derived_base ON derived(base);
+-- V139 (28.10.2026, скилл §7 + ЗАМЕР): НАСЛЕДОВАНИЕ СВОЙСТВА (не геометрии).
+-- 🔴 ЗАМЕР ДОКАЗАЛ (1 500 живых файлов): слова `nasled` в файлах Creo НЕТ ВООБЩЕ (0 вхождений) —
+-- `nasled.PTC_*` это формат БАЗЫ PLM (значение колонки role), а НЕ байты файла. Поэтому в `props`
+-- пишем ТОЛЬКО то, что РЕАЛЬНО прочитано из файла: имя материала (`mat_name_ptr`), усадка
+-- (`Z_SHRINK_FACTOR`), таблица семейства и т.п. Схемные имена (`PTC_*`) в базу НЕ идут — это мусор.
+CREATE TABLE IF NOT EXISTS props (child TEXT, prop TEXT, value TEXT, source TEXT);
+CREATE INDEX IF NOT EXISTS ix_props_child ON props(child);
+CREATE INDEX IF NOT EXISTS ix_props_prop ON props(prop);
 -- V125: ВСЕ ПАРАМЕТРЫ МОДЕЛИ «как в Creo» (имя + тип + значение). Владелец: «хранить нужно
 -- как все параметры детали, так и все параметры исполнения — тогда связи будут реальные».
 CREATE TABLE IF NOT EXISTS params (path TEXT, model TEXT, name TEXT, type TEXT, value TEXT);
@@ -1738,6 +1835,8 @@ def do_scan(roots, max_mb, limit, depth=None, progress_cb=None, stop_cb=None, fu
     seen = set()
     seen_der = set()          # модели, у которых связи «из чего» уже почищены (у имени много файлов)
     seen_derp = set()         # пары (изделие, основа, вид) — чтобы не плодить дубли
+    seen_prop = set()         # модели, у которых свойства уже почищены (V139, канал prop)
+    seen_propp = set()        # тройки (изделие, свойство, значение) — без дублей
     n = 0
     stopped = False
     for path, size, mtime, ctime in files_stat:
@@ -1827,6 +1926,21 @@ def do_scan(roots, max_mb, limit, depth=None, progress_cb=None, stop_cb=None, fu
                     seen_derp.add(dk)
                     con.execute("INSERT INTO derived (child,base,kind,source) VALUES (?,?,?,?)",
                                 (s, bb, k, "plm_tree"))
+        # 🔴 V139: НАСЛЕДОВАНИЕ СВОЙСТВА — канал `prop`. Родителя-МОДЕЛИ НЕ строим (скилл §7),
+        # но данные пишем: свойство видно в системе, а граф по нему не «связывает» модели.
+        _props = list(it.get("props_all") or [])
+        if _props:
+            if s not in seen_prop:
+                con.execute("DELETE FROM props WHERE child=? AND source='plm_tree'", (s,))
+                seen_prop.add(s)
+            for pname, pval in _props:
+                if not pname or pname.upper() == (s or "").upper():
+                    continue
+                pk = (s, pname, pval)
+                if pk not in seen_propp:
+                    seen_propp.add(pk)
+                    con.execute("INSERT INTO props (child,prop,value,source) VALUES (?,?,?,?)",
+                                (s, pname, pval, "plm_tree"))
         if s not in seen:                       # связи код-родителя чистим ОДИН раз
             con.execute("DELETE FROM links WHERE parent=? AND source='plm_tree'", (s,))
             seen.add(s)

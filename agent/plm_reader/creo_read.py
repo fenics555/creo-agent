@@ -223,22 +223,43 @@ def compose(raw, rule):
 
 def role(raw, stems=frozenset(), me=""):
     """Роль изделия по правилам §8.5 (имя файла НЕ признак):
-    `MFG` — сборка `ASSEM_MFG`; `nasled.<база>` — `MERGE_BASE_PART` (отражение/отливка);
+    `MFG` — сборка `ASSEM_MFG`; `nasled.<родитель>` — `MERGE_BASE_PART` (отражение/базовая деталь);
+    `nasled.<СВОЙСТВО>` — наследование СВОЙСТВА (`PTC_*`/`layers`/`restrict_table` — скилл §7);
     `proizv.<родитель>` — `ref_part_tab.name` из ТОЙ ЖЕ папки (у обычной детали там шаблонный
-    `MM_ASSY`/`SBORKA_MM` — не роль, поэтому сверяем с именами папки)."""
+    `MM_ASSY`/`SBORKA_MM` — не роль, поэтому сверяем с именами папки).
+
+    🔴 V139 (28.10.2026): ПЕРЕПИСАНО. Старый код брал родителя РЕГУЛЯРКОЙ `.{0,80}?` + `latin-1` —
+    скилл §5 п.1 это ЗАПРЕЩАЕТ: кириллица превращалась в мусор, а имя обрезалось. Теперь разбор
+    идёт ТЕМ ЖЕ кодом, что и сканер (`engine.merge_base_parts` / `ref_part_parents`) — одна правда.
+    """
     if b"ASSEM_MFG" in raw[:400]:
         return "MFG"
-    if b"MERGE_BASE_PART" in raw:
-        m = re.search(rb"MERGE_BASE_PART.{0,80}?([A-Za-z0-9_\-]{5,40})\x00", raw, re.S)
-        base = m.group(1).decode("latin-1") if m else ""
-        if base and base.upper() not in ("MM_ASSY", "MM_PART"):
+    try:
+        import engine as _eng                      # локальный импорт: разрыв цикла creo_read <-> engine
+        mb = _eng.merge_base_parts(raw)
+    except Exception:
+        mb = []
+    if not mb:                                     # запасной путь, если движка рядом нет
+        if b"MERGE_BASE_PART" in raw:
+            i = raw.find(b"\xe3\x33\xf7\x1c")
+            if i >= 0:
+                nm = raw[i + 4:raw.find(b"\x00", i + 4)]
+                s2 = nm.decode("utf-8", "replace").strip()
+                if s2:
+                    mb = [(s2, "наследование")]
+    if mb:
+        base = mb[0][0]
+        if base and base.upper() not in ("MM_ASSY", "MM_PART", "SBORKA_MM", "SBORKA_MFG", "MFG_NC"):
             return "nasled." + base
-    for m in re.finditer(rb"ref_part_tab\x00", raw):
-        nm = re.search(rb"name\x00([A-Za-z0-9_\-\.]{4,47})\x00", raw[m.end():m.end() + 200])
-        if nm:
-            s = stem(nm.group(1).decode("latin-1"))
-            if s != me and (not stems or s in stems):
-                return "proizv." + nm.group(1).decode("latin-1")
+    try:
+        import engine as _eng2
+        rp = _eng2.ref_part_parents(raw)
+    except Exception:
+        rp = []
+    for p in rp:
+        s = stem(p)
+        if s != me and (not stems or s in stems):
+            return "proizv." + p
     return ""
 
 
