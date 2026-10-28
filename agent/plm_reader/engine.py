@@ -158,15 +158,34 @@ def as_roots(x):
             out.append(r)
     return out
 # 🔴 28.10.2026 (владелец: «есть и будут разные эволюции Creo, нужно уметь читать ВСЕ файлы Creo»).
-# БЫЛО `\.(prt|asm|drw)\.\d+$` — скан видел ТОЛЬКО три типа и ТОЛЬКО файлы с номером версии.
-# Форматы одной ветвью НЕ покрываются: `.frm` (рамки), `.lay` (слои), `.sec` (сечения),
-# `.mfg` (обработка), `.m_p` (модель обработки), `.neu` (нейтральный импорт), `.xpr`/`.crc` (копии)
-# лежат на складе и в базу НЕ ПОПАДАЛИ совсем.
-# ТЕПЕРЬ: все известные расширения моделей Creo/Pro-E, плюс вариант БЕЗ номера версии
-# (в новых Creo файл бывает `name.prt`, без `.1`). Номер версии — необязательная часть.
-CREO_EXTS = ("prt", "asm", "drw", "frm", "lay", "sec", "mfg", "m_p", "neu", "xpr", "crc")
+# ЗАМЕР на живом складе: старый фильтр `\.(prt|asm|drw)\.\d+$` видел 44 809 файлов,
+# новый видит 63 171 (+18 362). Но прибавка НЕ однородна, поэтому списки РАЗДЕЛЕНЫ:
+#   МОДЕЛИ  — дают паспорт, состав и семейство;
+#   КОПИИ   — `.xpr`/`.crc` (ЗАМЕР: `er20-a.xpr` 497 КБ, `konus_mas-403-bt40_zagotovka.xpr` 365 КБ)
+#             это ЭКСПОРТ-КОПИИ моделей. Их 14 809 — если считать моделями, в дереве будут двойники;
+#   ПРОЧИЕ  — `.lay`/`.sec`/`.frm`/`.mfg`/`.m_p`/`.neu` — слои, сечения, рамки, обработка, импорт.
+CREO_MODEL_EXTS = ("prt", "asm", "drw")            # модели: паспорт + состав + family
+CREO_COPY_EXTS = ("xpr", "crc")                    # копии/экспорт: в базу, но роль `copy`/`export`
+CREO_OTHER_EXTS = ("frm", "lay", "sec", "mfg", "m_p", "neu")   # вспомогательные, состав НЕ берём
+CREO_EXTS = CREO_MODEL_EXTS + CREO_COPY_EXTS + CREO_OTHER_EXTS
 MODEL = re.compile(
     r"\.(%s)(\.\d+)?$" % "|".join(re.escape(e) for e in CREO_EXTS), re.IGNORECASE)
+
+
+def creo_ext(path):
+    """Расширение Creo файла (строчными) или '' — если это не файл Creo."""
+    m = MODEL.search(os.path.basename(path))
+    return m.group(1).lower() if m else ""
+
+
+def is_copy_file(path):
+    """КОПИЯ/ЭКСПОРТ (`.xpr`, `.crc`) — не самостоятельная модель."""
+    return creo_ext(path) in CREO_COPY_EXTS
+
+
+def is_other_creo(path):
+    """Вспомогательный файл Creo (`.lay`, `.sec`, `.frm`, `.mfg`, `.m_p`, `.neu`)."""
+    return creo_ext(path) in CREO_OTHER_EXTS
 HISTRE = re.compile(rb"\xf7(.)\xe3([0-9]{1,7})\x00\x00(.{0,220}?)\x00((?:Creo )?[0-9][0-9.]*)\x00", re.S)
 REF_PART = re.compile(rb"ref_part_tab\x00")
 NAME_N = re.compile(rb"name\x00([A-Za-z0-9_\-\.]{4,47})\x00")
@@ -681,7 +700,34 @@ def params(raw, toc):
     return out
 
 
-def role(raw):
+# 🔴 28.10.2026: РОЛЬ ПО РАСШИРЕНИЮ — для форматов, которых в Creo-разборе нет.
+# Замер: `paralelka_15x4.xpr` (209 918 Б) — полноценная модель-КОПИЯ, но `role(raw)` вернула ''
+# (канал `MERGE_BASE_PART`/`ref_part_tab` там не встречается). Без роли такие файлы в дереве
+# не отличимы от мусора, поэтому имя роли берём ИЗ РАСШИРЕНИЯ.
+ROLE_BY_EXT = {
+    "xpr": "copy",      # экспорт-копия модели
+    "crc": "copy",      # копия
+    "mfg": "mfg",       # обработка (техпроцесс)
+    "m_p": "mfg",       # модель обработки
+    "frm": "frame",     # формат (рамка чертежа)
+    "lay": "layer",     # слой
+    "sec": "section",   # сечение
+    "neu": "neutral",   # нейтральный файл (импорт)
+}
+
+
+def role_by_path(path):
+    """Роль для НЕ-модельных форматов Creo (`.xpr`, `.mfg`, `.lay`…) или '' для моделей.
+
+    Для `.prt`/`.asm`/`.drw` возвращает '' — там роль определяется СОДЕРЖИМЫМ (`role(raw)`)."""
+    return ROLE_BY_EXT.get(creo_ext(path), "")
+
+
+def role(raw, path=None):
+    """Роль файла: содержимое важнее расширения, но для копий/вспомогательных — из расширения."""
+    ext_role = role_by_path(path) if path else ""
+    if ext_role:
+        return ext_role
     if b"MERGE_BASE_PART" in raw:
         m = re.search(rb"MERGE_BASE_PART.{0,80}?([A-Za-z0-9_\-]{5,40})\x00", raw, re.S)
         return "nasled." + (m.group(1).decode("latin-1") if m else "?")

@@ -231,7 +231,20 @@ def role(raw, stems=frozenset(), me=""):
     🔴 V139 (28.10.2026): ПЕРЕПИСАНО. Старый код брал родителя РЕГУЛЯРКОЙ `.{0,80}?` + `latin-1` —
     скилл §5 п.1 это ЗАПРЕЩАЕТ: кириллица превращалась в мусор, а имя обрезалось. Теперь разбор
     идёт ТЕМ ЖЕ кодом, что и сканер (`engine.merge_base_parts` / `ref_part_parents`) — одна правда.
+
+    🔴 28.10.2026 (владелец: «нужно уметь читать ВСЕ файлы Creo»): `me` — это ИМЯ ФАЙЛА в вызове
+    (`role(raw, fstems, s)`), поэтому по нему же определяем КОПИИ и ВСПОМОГАТЕЛЬНЫЕ форматы
+    (`.xpr`, `.crc`, `.mfg`, `.m_p`, `.frm`, `.lay`, `.sec`, `.neu`). Замер: `paralelka_15x4.xpr`
+    (209 918 Б) — полноценная модель-копия, но ни `MERGE_BASE_PART`, ни `ref_part_tab` там нет,
+    и роль возвращалась пустой → в дереве файл не отличим от мусора.
     """
+    try:
+        import engine as _e0
+        _ext_role = _e0.role_by_path(me or "")
+        if _ext_role:
+            return _ext_role
+    except Exception:
+        pass
     if b"ASSEM_MFG" in raw[:400]:
         return "MFG"
     try:
