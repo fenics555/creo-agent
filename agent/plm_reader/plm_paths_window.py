@@ -7,6 +7,12 @@ from plm_reader import (
 )
 
 
+def _split_list(s):
+    """Разбор строки «список имён» в список: запятая ИЛИ точка с запятой — разделитель.
+    Копия правил из `plm_toolwin.split_list` (импортировать оттуда нельзя — циклический импорт)."""
+    return [x.strip() for x in (s or "").replace(";", ",").split(",") if x.strip()]
+
+
 class PathsWindow:
     """Окно «НАСТРОЙКИ»: папки сканирования, папки-исключения и ГДЕ ЖИВЁТ БАЗА.
 
@@ -16,6 +22,7 @@ class PathsWindow:
     def __init__(self, parent, settings, tk, ttk, filedialog, on_save=None):
         self.tk, self.ttk, self.filedialog = tk, ttk, filedialog
         self.settings = settings
+        self.spec = []            # реестр настроек (SETTINGS_SPEC) — нужен и в `save()`
         self.on_save = on_save
         self.win = tk.Toplevel(parent)
         self.win.title("НАСТРОЙКИ")
@@ -113,6 +120,7 @@ class PathsWindow:
         # Этот раздел строится АВТОМАТИЧЕСКИ из реестра — тот же список, что и в панели «НАСТРОЙКИ»
         # HTML-страницы. Добавил параметр в реестр → он появился и здесь, и в HTML.
         import plm_settings as _ps
+        self.spec = list(_ps.SETTINGS_SPEC)
         ttk.Label(box, text="ПАРАМЕТРЫ (единый список — тот же, что в HTML-кнопке «⚙ НАСТРОЙКИ»):",
                   font=("", 10, "bold")).pack(anchor="w", pady=(16, 0))
         ttk.Label(box, text="Файл настроек: settings\\settings.json. Значения применяются к окну, "
@@ -147,6 +155,17 @@ class PathsWindow:
                 ent.insert(0, str(settings.get(key, "") or ""))
                 ent.grid(row=_row, column=1, sticky="w", pady=1)
                 self.gvars[key] = ent
+            elif typ == "list":
+                # 🔴 БАГ C эстафеты V137: тип `list` попадал в `else` (числовая крутилка) — ввести
+                # список имён было НЕВОЗМОЖНО, а при сохранении `int(float("4орлорпро"))` падал и ключ
+                # терялся молча. Здесь — обычная строка через запятую, разбор при сохранении.
+                ent = ttk.Entry(_gbox, width=46)
+                _lv = settings.get(key, None)
+                if isinstance(_lv, str):
+                    _lv = [x.strip() for x in _lv.split(",") if x.strip()]
+                ent.insert(0, ", ".join(str(x) for x in (_lv or [])))
+                ent.grid(row=_row, column=1, sticky="w", pady=1)
+                self.gvars[key] = ent
             else:                                   # int
                 sp = ttk.Spinbox(_gbox, from_=(lo or 0), to=(hi or 10 ** 9), width=10)
                 sp.set(str(settings.get(key, "")))
@@ -165,8 +184,6 @@ class PathsWindow:
             self.add_row("folders", p)
         for p in (settings.get("exclude") or []):
             self.add_row("exclude", p)
-        for p in (settings.get("template_folders") or []):     # совместимость: старый список
-            self.add_row("template_folders", p)
         for p in (settings.get("db_mirror") or []):
             self.add_row("db_mirror", p)
         for m in (settings.get("service_models") or []):
@@ -175,8 +192,6 @@ class PathsWindow:
             self.add_row("folders", "")
         if not self.rows["exclude"]:
             self.add_row("exclude", "")
-        if not self.rows["template_folders"]:
-            pass                    # блок «ШАБЛОНЫ» убран (заменён `config.pro`) — строку не создаём
         if not self.rows["db_mirror"]:
             self.add_row("db_mirror", "")
         if not self.rows["service_models"]:
@@ -194,8 +209,7 @@ class PathsWindow:
     def add_row(self, key, path):
         holder = {"folders": self.sec_scan, "exclude": self.sec_exc,
                   "db_mirror": self.sec_mir,
-                  "service_models": self.sec_svc,
-                  "template_folders": self.sec_scan}.get(key, self.sec_scan)
+                  "service_models": self.sec_svc}.get(key, self.sec_scan)
         line = self.ttk.Frame(holder)
         line.pack(fill="x", pady=1)
         ent = self.ttk.Entry(line)
@@ -234,7 +248,7 @@ class PathsWindow:
         """Списки путей: пустые строки и дубли (без учёта регистра) отбрасываются.
         Служебные модели — ИМЕНА стволов (верхний регистр), а не пути."""
         out = {}
-        for key in ("folders", "exclude", "template_folders", "db_mirror"):
+        for key in ("folders", "exclude", "db_mirror"):
             seen, vals = set(), []
             for _line, ent in self.rows[key]:
                 v = norm_path(ent.get())
@@ -278,12 +292,19 @@ class PathsWindow:
         _cp = (self.e_cfgpro.get() or "").strip().strip('"').strip("'").strip()
         _cp = _cp.replace("/", "\\")
         self.settings["config_pro"] = _cp
+        # 🔴 БАГ A эстафеты V137 — ПРИЧИНА НАЙДЕНА ПРОБОЙ 28.10.2026:
+        # `config_pro` живёт В РЕЕСТРЕ (`SETTINGS_SPEC`, тип `text`), и цикл ниже перезаписывал
+        # его значением поля из раздела «ПАРАМЕТРЫ». Если это поле пустое, настройка затиралась
+        # в пустоту, хотя в своём поле `e_cfgpro` путь ЕСТЬ. Лечение: поле `e_cfgpro` — ГЛАВНОЕ,
+        # пишем его ПОСЛЕ цикла (см. ниже).
         _cp_warn = ""
         if self.settings["config_pro"] and not os.path.isfile(self.settings["config_pro"]):
             _cp_warn = " · ⚠ config.pro НЕ найден: %s" % self.settings["config_pro"]
         self.settings["folders"] = d["folders"]
         self.settings["exclude"] = d["exclude"]
-        self.settings["template_folders"] = d["template_folders"]
+        # 🔴 28.10.2026: НАСТРОЙКА «ШАБЛОНЫ» УБРАНА ПОЛНОСТЬЮ (заменена `config.pro` выше).
+        # Здесь её больше НЕ пишем: раньше строка `self.settings["template_folders"] = ...` возвращала
+        # мёртвую строку в секцию ПАПОК СКАНИРОВАНИЯ (баг B эстафеты V137).
         self.settings["db_dir"] = norm_path(self.e_db_dir.get())
         self.settings["db_mirror"] = d["db_mirror"]
         self.settings["purge_backup_dir"] = norm_path(self.e_purge_dir.get())   # V99
@@ -294,6 +315,7 @@ class PathsWindow:
             self.settings["mirror_keep"] = 3
         self.settings["mirror_full_only"] = bool(self.var_mfull.get())
         # V107: ВСЕ настройки из ЕДИНОГО реестра — пишем ровно то, что видно в окне.
+        _typ = {k: t for (_g, k, _l, t, _lo, _hi) in self.spec}
         saved_g = 0
         for key, var in getattr(self, "gbools", {}).items():
             self.settings[key] = bool(var.get())
@@ -301,15 +323,26 @@ class PathsWindow:
         for key, var in getattr(self, "gchoice", {}).items():
             self.settings[key] = var.get()
             saved_g += 1
+        _lst_bad = []
         for key, wdg in getattr(self, "gvars", {}).items():
             try:
-                if isinstance(wdg, self.ttk.Entry):        # текст (пути)
+                if _typ.get(key) == "list":
+                    # 🔴 БАГ C: список имён — строка через запятую; к числу НЕ приводим.
+                    _txt = (wdg.get() or "").strip()
+                    self.settings[key] = _split_list(_txt)
+                elif isinstance(wdg, self.ttk.Entry):      # текст (пути)
                     self.settings[key] = norm_path(wdg.get()) if "dir" in key else wdg.get().strip()
                 else:                                      # число
                     self.settings[key] = int(float(str(wdg.get()).replace(",", ".") or 0))
                 saved_g += 1
-            except Exception:
-                pass
+            except Exception as ex:
+                # 🔴 грабля §83: НЕ молчать — иначе настройка «исчезает» без объяснения.
+                _lst_bad.append("%s (%s)" % (key, ex))
+        if _lst_bad:
+            self.msg.config(text="НЕ сохранено: " + "; ".join(_lst_bad))
+        # 🔴 ЛЕЧЕНИЕ БАГа A: поле `config.pro` — ГЛАВНОЕ, пишем его ПОСЛЕ цикла реестра,
+        # чтобы «параметрический» двойник не затирал путь пустотой.
+        self.settings["config_pro"] = _cp
         save_settings_file(self.settings)
         try:
             import engine as _e
@@ -321,9 +354,9 @@ class PathsWindow:
         if new_dir != old_dir:
             # папка базы поменялась — предупреждаем честно: подхватка только при перезапуске окна
             tail = " · база переедет на %s — ПЕРЕЗАПУСТИ окно" % (new_dir or "папку db\\")
-        self.msg.config(text="сохранено: папок %d, исключений %d, шаблонов %d, зеркал %d, "
+        self.msg.config(text="сохранено: папок %d, исключений %d, зеркал %d, "
                              "служебных %d, настроек графа %d%s%s"
-                             % (len(d["folders"]), len(d["exclude"]), len(d["template_folders"]),
+                             % (len(d["folders"]), len(d["exclude"]),
                                 len(d["db_mirror"]), len(d["service_models"]), saved_g, tail, _cp_warn))
         if self.on_save:
             try:
