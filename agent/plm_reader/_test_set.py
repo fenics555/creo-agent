@@ -28,6 +28,10 @@ if hasattr(sys.stdout, "reconfigure"):
 
 LIB = r"Z:\PTC\CREO-START\Libraries\Библиотека_стандартных_изделий\Болты_винты"
 KIT = r"Z:\PTC\Work\001_15 ЦТКД Электон"
+# Литейное производство: мастер-модель, верх/низ, знаки, ящики знаков (слово владельца)
+LIT = r"Z:\PTC\Work\000_03 401-LIT Литейное производство\000_5 401-LIT-MO Модельная оснастка для литья"
+L170 = os.path.join(LIT, "170meta Держатель форм", "170meta-1")
+L171 = os.path.join(LIT, "171meta держатель форм")
 
 # ── ОЖИДАНИЯ СЕТА ───────────────────────────────────────────────────────────
 #   role        — ожидаемая роль ('' = законно пустая)
@@ -66,6 +70,43 @@ SET = [
          path=os.path.join(KIT, r"ЦТКД 437.001 Корпус", "цткд_437_001-psb-02.asm.1"),
          role="MFG", min_parts=0, must_parts=(),
          forbidden=("SBORKA_MFG", "INLBS_MFG_NC", "MM_PART", "MFG_NC"), min_refs=0),
+
+    # ── Л. ЛИТЕЙНОЕ ПРОИЗВОДСТВО: наследование и булевы операции ──────────────
+    # Мастер-модель: родитель — ОТЛИВКА (модель), а не свойство PTC_MASTER_MATERIAL.
+    dict(tag="L1 мастер 170meta",
+         path=os.path.join(L170, "170meta-1-master.prt.1"),
+         role="nasled.23-170GR1-META-01-OTLIVKA", min_parts=0, must_parts=(), forbidden=(), min_refs=0),
+    dict(tag="L2 мастер 171meta",
+         path=os.path.join(L171, "171meta-1-master.prt.1"),
+         role="nasled.23-171GR1-META-1-OTLIVKA", min_parts=0, must_parts=(), forbidden=(), min_refs=0),
+    # Знак → ящик знака: наследование от ЗНАКА, а не от свойства «DISTORTION ENERGY».
+    dict(tag="L3 знак1 низ-ящик 170",
+         path=os.path.join(L170, "170meta-1-знак1-низ-ящик.prt.1"),
+         role="nasled.170META-1-ЗНАК1-НИЗ", min_parts=0, must_parts=(), forbidden=(), min_refs=0),
+    dict(tag="L4 знак1 верх-ящик 171",
+         path=os.path.join(L171, "171meta-1-знак1-верх-ящик.prt.1"),
+         role="nasled.171META-1-ЗНАК1-ВЕРХ", min_parts=0, must_parts=(), forbidden=(), min_refs=0),
+    dict(tag="L5 знак2 верх-ящик 171",
+         path=os.path.join(L171, "171meta-1-знак2-верх-ящик.prt.1"),
+         role="nasled.171META-1-ЗНАК2-ВЕРХ", min_parts=0, must_parts=(), forbidden=(), min_refs=0),
+    # Заготовка «_z» — производная от модели.
+    dict(tag="L6 заготовка модель-верха 170",
+         path=os.path.join(L170, "170meta-1-модель-верха_z.prt.1"),
+         role="proizv.170META-1-МОДЕЛЬ-ВЕРХА", min_parts=0, must_parts=(), forbidden=(), min_refs=0),
+    # Ящик низа (сборка) — состав из 6 компонентов.
+    dict(tag="L7 ящик-низ-sb 170 (состав)",
+         path=os.path.join(L170, "170meta-1-02-ящик-низ-sb.asm.1"),
+         role="", min_parts=6,
+         must_parts=("170META-1-МОДЕЛЬ-НИЗА", "170META-1-ЗНАК1-НИЗ"), forbidden=(), min_refs=0),
+    dict(tag="L8 ящик-верх-sb 171 (состав)",
+         path=os.path.join(L171, "171meta-1-03-ящик-верх-sb.asm.1"),
+         role="", min_parts=5,
+         must_parts=("171META-1-МОДЕЛЬ-ВЕРХА",), forbidden=(), min_refs=0),
+    # «для копирования» — мастер-сборка всей оснастки.
+    dict(tag="L9 для_копирования 170",
+         path=os.path.join(L170, "170meta-1-000-для_копирования.asm.1"),
+         role="", min_parts=6,
+         must_parts=("170META-1-MASTER", "170META-1-01-ЯЩИК-ОСНОВНАЯ"), forbidden=(), min_refs=0),
 ]
 
 
@@ -142,6 +183,7 @@ def run(negative=False):
               % ("❌" if local else "✅", tag, role, len(parts), len(refs)))
         if parts:
             print("       состав: %s" % ", ".join(parts[:8]))
+    fails += _check_rules(eng, negative)
     print("-" * 78)
     print("проверок: %d | провалов: %d" % (checks, len(fails)))
     if fails:
@@ -152,6 +194,48 @@ def run(negative=False):
         return 1
     print("СЕТ: ЗЕЛЁНЫЙ")
     return 0
+
+
+# ── ПРАВИЛО «СВОЙСТВО ≠ РОДИТЕЛЬ-МОДЕЛЬ»: проверка ОБЕИХ сторон ─────────────
+# Первая половина — имена, которые ОБЯЗАНЫ считаться свойством (иначе роль снова
+# возьмёт материал вместо модели). Вторая — имена-МОДЕЛИ, которые свойством считать
+# НЕЛЬЗЯ (иначе связь потеряется — ДОГМА: лучше собрать больше, чем потерять).
+MUST_BE_PROPERTY = [
+    "PTC_MASTER_MATERIAL", "PTC_SYSTEM_MTRL_PROPS", "PRO_MP_CSYS", "NONE", "LINEAR",
+    "DISTORTION ENERGY (VON MISES)", "CHUGUN_VCH50", "STEEL_45", "Z_SHRINK_FACTOR",
+    "mat_name_ptr", "NEUT_SPEC_1", "RESTRICT_TABLE",
+]
+MUST_BE_MODEL = [
+    "23-170GR1-META-01-OTLIVKA", "23-171GR1-META-1-OTLIVKA", "170META-1-ЗНАК1-НИЗ",
+    "171META-1-ЗНАК2-ВЕРХ", "170META-1-МОДЕЛЬ-НИЗА", "ЦТКД_437_001_Z", "DIN912",
+    "500-55-500-MODEL-MASTER", "MO-STP-PROBNIK", "1013-M2-1-ЗНАК1-ВЕРХ",
+]
+
+
+def _check_rules(eng, negative=False):
+    """Полная проверка признаков. Возвращает список провалов."""
+    bad = []
+    for nm in MUST_BE_PROPERTY:
+        got = bool(eng.is_property_name(nm))
+        if negative:
+            got = not got                   # негатив: ожидание перевёрнуто -> обязан упасть
+        if not got:
+            bad.append("свойство не распознано: %r" % nm)
+    for nm in MUST_BE_MODEL:
+        got = bool(eng.is_property_name(nm))
+        if got:
+            bad.append("МОДЕЛЬ ошибочно принята за свойство: %r" % nm)
+    first = eng.first_model_name(["PTC_MASTER_MATERIAL", "CHUGUN_VCH50",
+                                  "23-170GR1-META-01-OTLIVKA"])
+    if first != "23-170GR1-META-01-OTLIVKA":
+        bad.append("first_model_name: ждали отливку, получили %r" % first)
+    only_props = eng.first_model_name(["PTC_MASTER_MATERIAL", "NONE"])
+    if only_props != "":
+        bad.append("first_model_name: при одних свойствах должна быть пустая строка, дала %r"
+                   % only_props)
+    print("  %s правило свойство/модель: свойств %d, моделей %d, first_model_name=%r"
+          % ("❌" if bad else "✅", len(MUST_BE_PROPERTY), len(MUST_BE_MODEL), first))
+    return bad
 
 
 def _load():

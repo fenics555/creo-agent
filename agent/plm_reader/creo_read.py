@@ -261,7 +261,15 @@ def role(raw, stems=frozenset(), me=""):
                 if s2:
                     mb = [(s2, "наследование")]
     if mb:
+        # 🔴 28.10.2026 (замер литейки): первый элемент бывает СВОЙСТВОМ (`PTC_MASTER_MATERIAL`,
+        # `DISTORTION ENERGY (VON MISES)`, `CHUGUN_VCH50`), а не моделью. Роль строим по ПЕРВОЙ
+        # МОДЕЛИ; свойства не теряются — они идут каналом `prop` (`derived_all`/`props_all`).
         base = mb[0][0]
+        try:
+            import engine as _eng1
+            base = _eng1.first_model_name([m[0] for m in mb]) or base
+        except Exception:
+            pass
         if base and base.upper() not in ("MM_ASSY", "MM_PART", "SBORKA_MM", "SBORKA_MFG", "MFG_NC"):
             return "nasled." + base
     try:

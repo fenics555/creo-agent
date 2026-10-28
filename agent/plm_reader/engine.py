@@ -422,13 +422,59 @@ PROP_KEYS = (b"mat_name_ptr", b"PTC_ASSIGNED_MATERIAL_NAME", b"Z_SHRINK_FACTOR",
              b"THREAD_SERIES", b"PRO_MP_MASS")
 
 
+# 🔴 ЗАМЕР 28.10.2026 (литейка `000_5 401-LIT-MO`, 96 файлов prt): в `merge_base_parts`
+# рядом с настоящей моделью лежат СВОЙСТВА — `PTC_MASTER_MATERIAL`, `CHUGUN_VCH50`,
+# `DISTORTION ENERGY (VON MISES)`, `NONE`, `LINEAR`. Родителей-МОДЕЛЕЙ 38, свойств 36,
+# и `creo_read.role` брала ПЕРВОЕ имя → роль мастера 170meta выходила `nasled.PTC_MASTER_MATERIAL`
+# вместо `nasled.23-170GR1-META-01-OTLIVKA`. Признак ниже — ЕДИНЫЙ для всего инструмента
+# (полный, с группами), чтобы роль, канал `prop` и достройка судили одинаково.
+PROP_EXACT = {
+    "NONE", "NULL", "LINEAR", "RESTRICT_TABLE", "P_SET_DATA_ARR", "Z_SHRINK_FACTOR",
+    "LAYERS", "PTC_MASTER_MATERIAL", "PTC_SYSTEM_MTRL_PROPS", "PRO_MP_CSYS",
+}
+# группы признаков (проверяются ЦЕЛИКОМ, а не по одному токену): материал, свойство, анализ
+PROP_TOKENS = (
+    "DISTORTION", "VON MISES", "STRESS", "STRAIN", "ENERGY", "MATERIAL", "MAT_NAME",
+    "DENSITY", "SHRINK", "MASS PROP", "PRO_MP_", "MEASURE", "INERTIA", "VOLUME",
+    "SURFACE AREA", "TEMPERATURE", "PRESSURE", "FLOW", "FILL TIME", "COOLING",
+)
+
+
 def is_property_name(nm):
-    """Имя похоже на СВОЙСТВО, а не на модель? (схемные `PTC_*` — это формат базы PLM, но знать о них надо)."""
-    up = (nm or "").upper()
+    """Имя — СВОЙСТВО/СЛУЖЕБНОЕ, а не модель? ПОЛНАЯ проверка (точные + группы).
+
+    Владелец: «имена задаёт человек» (ДОГМА §М.1г). Но здесь решается НЕ «похоже ли имя
+    на модель», а «это запись ПАРАМЕТРА, а не родителя-модели» — признак структурный:
+    `PTC_*`/`PRO_*` — схемы базы, `DISTORTION ENERGY (VON MISES)` — результат анализа,
+    `CHUGUN_VCH50` — материал. Такие имена остаются в базе (канал `prop`), но родителем
+    в роли НЕ становятся.
+    """
+    up = (nm or "").strip().upper()
     if not up:
         return False
-    return up.startswith(("PTC_", "PRO_")) or up in ("LAYERS", "RESTRICT_TABLE",
-                                                     "P_SET_DATA_ARR", "Z_SHRINK_FACTOR")
+    if up in PROP_EXACT:
+        return True
+    if up.startswith(("PTC_", "PRO_", "NEUT_SPEC_", "MAT_NAME_")):
+        return True
+    if any(t in up for t in PROP_TOKENS):
+        return True
+    # материал Creo: `CHUGUN_VCH50`, `STEEL_45`, `STAL_12H18N9T` — по СЕМЕЙСТВУ имени, не по цифре
+    head = up.split("_")[0].split("-")[0]
+    if "_" in up and head in ("CHUGUN", "STEEL", "STAL", "ALU", "LATUN", "BRONZA",
+                             "TITAN", "PLASTIK", "NERZH"):
+        return True
+    return False
+
+
+def first_model_name(names):
+    """ПЕРВАЯ запись, которая является МОДЕЛЬЮ (не свойство) — для роли `nasled.<родитель>`.
+
+    Возвращает '' если моделей нет (тогда роль законно пустая: наследуется только свойство).
+    """
+    for nm in names or ():
+        if nm and not is_property_name(nm):
+            return nm
+    return ""
 
 
 def inherited_properties(raw):
