@@ -8,7 +8,7 @@
 ```
 на диске:  engine.py (CREO_EXTS 167-170, role_by_path 707/719, _base_dir 1113), creo_read.py (role by ext 224/243),
            STRATEGY_PLM.md §2.2+§2.3+§2.4 (276), AGENTS.md правила 5-6, version.json V140/22 (замер RESULT: OK)
-в git:     tools master 282eac6 (впереди origin на 6 коммитов, push не делал) + repo 352354c (GRABLI 102-105, карта);
+в git:     tools master 1801c42 (впереди origin на 7 коммитов, push не делал) + repo 352354c (GRABLI 102-105, карта);
            git status чист, кроме ?? _s.txt — per-run вывод смоука, НАМЕРЕННО вне git
 работает:  скан склада 3.6 с (new/skip/errors в результате), публикация в папку active_db(), роли по расширению,
            приёмка _smoke_v87.py → SMOKE OK + «ЦЕЛОСТНОСТЬ ПОСТАВКИ» (22 файла, все SHA256)
