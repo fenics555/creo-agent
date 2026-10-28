@@ -1947,15 +1947,26 @@ def scan_to_base(roots, max_mb=8, limit=120, depth=None, progress_cb=None, stop_
         # правила параметров изменились → принудительно ПЕРЕЧИТАТЬ всё и запомнить подпись
         sig = json.dumps(param_cfg or {}, sort_keys=True, ensure_ascii=False) + "|" + PARSER_TAG
         eff_full = bool(full)
+        sig_changed = False
         try:
             c0 = connect(db=draft)
             try:
                 r0 = c0.execute("SELECT v FROM meta WHERE k='param_sig'").fetchone()
             except Exception:
                 r0 = None
+            # 🔴 28.10.2026 (владелец: «ОПЯТЬ СКАН НА ПОЛ ЧАСА»): РАНЬШЕ здесь стояло
+            # `eff_full = True` — любое расхождение подписи правил параметров ФОРСИРОВАЛО ПОЛНЫЙ
+            # скан, то есть перечитывание ВСЕХ 40 883 файлов (18 минут) БЕЗ ВЕДОМА владельца.
+            # Живой факт: в логе `param_sig changed → полный скан` 4 раза за сутки, каждый скан
+            # 1080-1136 с, тогда как обычный проход — 1.5-2.4 с.
+            # ТЕПЕРЬ: расхождение только СООБЩАЕТСЯ (лог + поле `sig_changed` в результате) —
+            # окно показывает предупреждение и предлагает нажать «перечитать всё».
+            # ПОЛНЫЙ СКАН — ТОЛЬКО ПО ГАЛОЧКЕ `full=True`, как и просил владелец (§96.3.2:
+            # режимы задаются галочками, а не вторым кодом).
             if (r0[0] if r0 else None) != sig:
-                eff_full = True
-                log("param_sig changed → полный скан")
+                sig_changed = True
+                log("param_sig changed → правила параметров другие (полный скан НЕ форсируется; "
+                    "нужна галочка «перечитать всё»)")
             c0.execute("CREATE TABLE IF NOT EXISTS meta (k TEXT PRIMARY KEY, v TEXT)")
             c0.execute("INSERT OR REPLACE INTO meta VALUES ('param_sig', ?)", (sig,))
             c0.commit()
@@ -1965,6 +1976,10 @@ def scan_to_base(roots, max_mb=8, limit=120, depth=None, progress_cb=None, stop_
         res = do_scan(roots, max_mb, limit, depth, progress_cb, stop_cb, eff_full, db=draft,
                       param_cfg=param_cfg, exclude=exclude, recurse=recurse, latest_only=latest_only,
                       media_dir=_media_dir, media_mode=_media_mode, remember=remember)
+        try:
+            res["sig_changed"] = sig_changed      # окно покажет: «правила параметров изменились»
+        except Exception:
+            pass
         _publish(draft, to_mirror=(eff_full or not mirror_full_only()))
         published = True
         res["published"] = True
