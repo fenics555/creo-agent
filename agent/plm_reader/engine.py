@@ -222,7 +222,10 @@ def _app_version():
 
 
 VERSION = _app_version()
-PARSER_TAG = "p23"      # меняй при ЛЮБОМ изменении правил разбора — форсирует полный пересчёт
+PARSER_TAG = "p24"      # меняй при ЛЮБОМ изменении правил разбора — форсирует полный пересчёт
+                        # V135 (28.10.2026): p23 → p24. Таблица семейства пишется ТОЛЬКО деталям
+                        # (.prt), состав (.asm_comp) — ТОЛЬКО не-чертежам; в базу ушли 15 937 + 11 490
+                        # ложных исполнений и 25 977 ложных связей чертежей — нужен ПОЛНЫЙ перескан.
 # p23 (23.10.2026): + связи из СТРУКТУРЫ файла (`asm_components`, каскад трёх каналов по версии
 # Creo, источник в базе `asm_comp`): состав сборки, .asm-обработки → деталь/заготовка/отливка/
 # инструмент/ОСНАСТКА. До этого состав брался по вхождению имени в байты, оснастки в базе не было.
@@ -547,7 +550,7 @@ def scan_item(s, path, stems, fstems=frozenset(), pdes=None, pname=None, pmat=No
     # Владелец: «все же что за ПЛМ, которая хранит не все параметры?»; «исполнения могут
     # иметь СВОИ параметры, управляемые через уравнения или таблицу семейства».
     cparams = creo_params(raw)
-    fam = family_of(raw, s)
+    fam = family_of(raw, s, path)      # V135: таблица семейства — ТОЛЬКО у ДЕТАЛИ (.prt)
     hist2 = creo_history(raw)          # V126: кто/когда правил (компьютер + юзер + Creo)
     h = last_hist(raw) or ("", "", "")
     hm = HISTRE.findall(raw)
@@ -559,7 +562,9 @@ def scan_item(s, path, stems, fstems=frozenset(), pdes=None, pname=None, pmat=No
     # отливка/инструмент/ОСНАСТКА). Берутся только имена, которые есть на складе (`stems`),
     # иначе в состав лезли бы посторонние записи Creo. Отсюда в базу идёт «связь → оснастка»,
     # которой раньше в базе не было вовсе (ЭТАП 1.7 / 2.6).
-    parts = asm_components(raw, s, stems) if ".asm" in path.lower() else []
+    # V135: состав берём у СБОРОК (.asm); чертёж (.drw) составом не обладает вообще — `asm_components`
+    # вернёт [] по проверке типа, но и разбирать его байты незачем.
+    parts = asm_components(raw, s, stems, path) if not is_drawing_file(path) else []
     return {"model": s, "path": path, "size": len(raw), "mtime": os.path.getmtime(path),
             "volume": vol or 0.0, "material": mat,
             "name": nmv,
@@ -622,6 +627,13 @@ CREATE INDEX IF NOT EXISTS ix_history_path ON history(path);
 CREATE INDEX IF NOT EXISTS ix_history_comp ON history(computer);
 CREATE TABLE IF NOT EXISTS folders (path TEXT PRIMARY KEY, parent TEXT, depth INTEGER,
   models INTEGER, files INTEGER, seen TEXT);
+-- V135: ЗДОРОВЬЕ ФАЙЛА — вынесено ИЗ `try` (грабля 28.10.2026: таблица создавалась внутри
+-- `try/except`, исключение гасилось, и в боевой базе таблицы `health` НЕ БЫЛО — «no such table:
+-- health», история/здоровье файлов не выводились). Теперь создаётся здесь, в `connect()`.
+-- Владелец: «Нужно знать историю и ЗДОРОВЬЕ файлов крео».
+CREATE TABLE IF NOT EXISTS health (path TEXT PRIMARY KEY, model TEXT, regen TEXT,
+  reg_status TEXT, inactive INTEGER, geom_rev TEXT);
+CREATE INDEX IF NOT EXISTS ix_health_model ON health(model);
 """
 
 
@@ -845,7 +857,7 @@ def creo_params(raw):
 _RX_INST = re.compile(rb"user_instances|user_visible_name|drv_tbl_ptr")
 
 
-def family_of(raw, model=""):
+def family_of(raw, model="", path=""):
     """ТАБЛИЦА СЕМЕЙСТВА из файла ГЕНЕРИКА: [(исполнение, родитель)] — с МНОГОУРОВНЕВОСТЬЮ.
 
     Читается по блоку `instances_data` / `user_instances` (проверено на DIN912, DIN931, DIN7991,
@@ -853,8 +865,19 @@ def family_of(raw, model=""):
     (`drv_tbl_ptr`), поэтому таблица бывает **многоуровневой**: `DIN912-M2_5X4` → `DIN912-M2_5`
     → `DIN912`. Пустой список = модель НЕ генерик (обычная деталь).
 
+    🔴 ГРАБЛЯ 28.10.2026 (стоп-лист эстафеты п.2): исполнения пишутся СБОРКАМ (15 937) и
+    ЧЕРТЕЖАМ (11 490). Исполнение — это ВИРТУАЛЬНЫЙ вариант ВНУТРИ файла генерика; таблица
+    семейства живёт во `.prt` (скилл `SKILL_creo_read_family.md` §5: настоящие модели семейств —
+    590 `.prt.1` / 31 `.asm.1` / 4 `.drw.1`, но исполнения библиотечного крепежа — детали).
+    Причина ошибки — та же, что в грабле 3: имя модели-генерика ВСТРЕЧАЕТСЯ в байтах блока
+    `instances_data` чужого файла, и `re.finditer` по всему `raw` ловил совпадение. Проверка типа
+    файла закрывает канал: НЕ деталь (`.prt`) → таблицы семейства не пишем.
+    `path` пуст (старые вызовы/пробники) → проверку не применяем, поведение прежнее.
+
     Возвращает [(instance, parent)]: parent = '' для верхнего уровня.
     """
+    if path and not is_part_file(path):
+        return []
     if not model or not _RX_INST.search(raw):
         return []
     # 1) собираем пары «имя → родитель» из блока instances_data.
@@ -1709,7 +1732,20 @@ def do_scan(roots, max_mb, limit, depth=None, progress_cb=None, stop_cb=None, fu
         for _pn, _pt, _pv in cp:
             con.execute("INSERT INTO params (path,model,name,type,value) VALUES (?,?,?,?,?)",
                         (path, s, _pn, _pt, _pv))
+        # ── V135: ЧЕРТЁЖ СТАРЫХ БАЗ ЧИСТИМ, ХОТЯ ПАРТС ПУСТ ────────────────────────────────────
+        # Грабля 28.10.2026: в базе уже лежат 25 977 `asm_comp` с родителем-ЧЕРТЕЖОМ (и 11 490
+        # `family` у чертежей/сборок). Правило: если файл — НЕ сборка, а в базе у него есть
+        # `asm_comp` — снести (иначе мусор живёт вечно: старые строки никуда не исчезают сами).
+        if is_drawing_file(path):
+            con.execute("DELETE FROM links WHERE parent=? AND source IN ('asm_comp','plm_tree')", (s,))
         fam = it.get("family") or []
+        # V135: таблица семейства — ТОЛЬКО у ДЕТАЛИ. У сборок/чертежей сносим и СТАРЫЕ строки
+        # (в базе их 15 937 + 11 490), иначе мусор переживёт перескан: DELETE срабатывает даже
+        # при пустом `fam`, а запись — только когда `fam` непустой И файл деталь.
+        if not is_part_file(path):
+            con.execute("DELETE FROM family WHERE generic=?", (s,))
+            con.execute("DELETE FROM links WHERE parent=? AND source='family'", (s,))
+            fam = []
         con.execute("DELETE FROM family WHERE generic=?", (s,))
         for _item in fam:
             # V127: family теперь пары (исполнение, РОДИТЕЛЬ) — таблица бывает МНОГОУРОВНЕВОЙ.
@@ -1730,10 +1766,12 @@ def do_scan(roots, max_mb, limit, depth=None, progress_cb=None, stop_cb=None, fu
                          _h.get("creo", ""), _h.get("rev", ""), _h.get("action", "")))
         # ── V127: ЗДОРОВЬЕ ФАЙЛА (регенерация/статус/неактивная геометрия) ────────────────────
         # Владелец: «Нужно знать историю и ЗДОРОВЬЕ файлов крео». Пишем в meta (одна строка на путь).
+        # ── V127: ЗДОРОВЬЕ ФАЙЛА (регенерация/статус/неактивная геометрия) ────────────────────
+        # Владелец: «Нужно знать историю и ЗДОРОВЬЕ файлов крео». V135: таблица создаётся в
+        # `SCHEMA` (в `connect()`), здесь только ЗАПИСЬ — `CREATE` внутри `try` глотал исключение
+        # и таблицы в боевой базе не было вовсе.
         try:
             _hl = creo_health(raw)
-            con.execute("CREATE TABLE IF NOT EXISTS health (path TEXT PRIMARY KEY, model TEXT, "
-                        "regen TEXT, reg_status TEXT, inactive INTEGER, geom_rev TEXT)")
             con.execute("INSERT OR REPLACE INTO health (path,model,regen,reg_status,inactive,geom_rev) "
                         "VALUES (?,?,?,?,?,?)",
                         (path, s, _hl.get("regen", ""), _hl.get("reg_status", ""),
@@ -2254,6 +2292,26 @@ ROW_SQL = ("path,model,volume,material,name,designation,rev,author,revdate,role,
            "mtime,created")
 
 
+def is_drawing_file(path):
+    """ЧЕРТЁЖ ли это (`.drw`) — по ПУТИ файла.
+
+    Нужна для проверки типа ПЕРЕД записью связей (грабля 28.10.2026): чертёж не содержит
+    компонентов, поэтому `asm_components()` для него обязан вернуть [] ещё до разбора байтов.
+    """
+    p = (path or "").lower()
+    return ".drw." in p or p.endswith(".drw")
+
+
+def is_part_file(path):
+    """ДЕТАЛЬ ли это (`.prt`) — по ПУТИ файла.
+
+    Таблица семейства есть только у деталей-генериков, поэтому `family_of()` для сборок и
+    чертежей обязан вернуть [] ещё до разбора байтов.
+    """
+    p = (path or "").lower()
+    return ".prt." in p or p.endswith(".prt")
+
+
 def _kind_of(path, role):
     """V111: ТИП ФАЙЛА для окна, с РАЗДЕЛЕНИЕМ сборки и мануфактуринга.
     Было: `"Тип": ""` — пусто, и владелец видел «всё — сборка» (в окнах, графах, связях).
@@ -2425,7 +2483,7 @@ ASM_SERVICE = {"SBORKA_MFG", "SBORKA_MM", "MFG_NC", "MFG_NC_ASM", "INLBS_MFG_NC"
                "MM_ASSY", "MM_ASM", "MOLD_ASM", "MFG_ASM", "MASTER_MFG_ASM"}
 
 
-def asm_components(raw, own="", stems=None):
+def asm_components(raw, own="", stems=None, path=""):
     """Состав сборки/обработки ИЗ СТРУКТУРЫ ФАЙЛА: [(имя, роль, сколько раз)] — НЕ по вхождению байтов.
 
     Каскад каналов (по версии Creo, см. комментарий выше): фраза «компонент id» → «d N (имя)» →
@@ -2435,7 +2493,14 @@ def asm_components(raw, own="", stems=None):
       44 деталях ЦТКД живой пробой, STRATEGY §2.6).
     `stems` — если задано, посторонние имена берём ТОЛЬКО из этого множества (имена склада),
     иначе в состав попадал бы мусор из служебных записей Creo.
+
+    🔴 ГРАБЛЯ 28.10.2026 (стоп-лист эстафеты п.3): `asm_comp` пишется ЧЕРТЕЖАМ — 25 977 связей.
+    Чертёж НЕ содержит компонентов: у него есть вид/виды с указателями на модели, и имя модели
+    попадает в байты (`d N (ИМЯ.PRT)` встречается в записях видов). Проверка типа закрывает канал.
+    `path` пуст (старые вызовы/пробники) → проверку не применяем, поведение прежнее.
     """
+    if path and is_drawing_file(path):
+        return []
     m = P_ASM_COMP.search(raw[:400])
     inter = (m.group(1) == b"/" or b"ASSEM_MFG" in raw[:400] or b"ASSEMBLY/CAST" in raw[:400]) \
         if m else (b"ASSEM_MFG" in raw[:400])

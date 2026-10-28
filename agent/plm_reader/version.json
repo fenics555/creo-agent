@@ -1,11 +1,11 @@
 {
- "version": "V134",
- "version_num": 134,
+ "version": "V135",
+ "version_num": 135,
  "date": "28.10.2026",
- "notes": "V134: ISPOLNENIYA OTDELNO + lozhnye svyazi otseany VO VSEH MESTAH (okno, graf, HTML, CLI). (1) Ispolneniya (tablica semejstva) - SVOY razdel v okne 'Derevo svyazej' ('ispolneniya: 1375') i kanal 'ispolnenie' v grafe (21703 rebra). Bylo: 1375 ispolneniy DIN912 shli kak obyknovennye DETALI v sostave. (2) Svyazi po VHOZHDENIYU IMENI V BAJTY - tolko dlya SBOROK (.asm). U detalej/chertezhej - istochnik 'mentions', v sostav/vhodimost/graf/derevo NE idut. DOKAZANO: v din931.prt.1 (3MB) est DIN912-UNC kak ZNACHENIE PARAMETRA tablicy semejstva -> lozhnaya svyaz DIN931->DIN912; iz 5 svyazej DIN912 realna ODNA (sborka SCREWS_VZ). Otseivaetsya 45% svyazej (34727 iz 76491). Ispravleno 8 mest: plm_edges, 3x build_html, plm_tree_data, tree_text_rows, do_where, do_tree, do_rename_plan, _is_physical.",
+ "notes": "V135: family ONLY for .prt (15937 assembly + 11490 drawing false instances removed); asm_comp ONLY for non-drawings (25977 false drawing links); family_of/asm_components type check + do_scan second barrier that also purges STALE rows; health table moved to SCHEMA (was never created); PARSER_TAG p23->p24 full rescan required. Proved live: din912.prt.1 = 1375 instances kept, assembly ST-30-35Y_XT 362 children kept.",
  "files": {
-  "engine.py": "99b22d01342fe2c92df98f46d99e89fefed356aac84a012fb36bf946e22dabbf",
-  "plm_reader.py": "da47d89a7b3ac5d49a3114d3120cb6f63706281ea9517a2c34b7e40dab5e6d8a",
+  "engine.py": "f6d177aa6625223c02c591af02fb10eabd03aa24c3705ff62099c8cfbc322d1e",
+  "plm_reader.py": "bf649d91e3de156f33842bfab4a717910d230e68b9412e70586d3d1badab7462",
   "plm_toolwin.py": "6f80974a327dce64649e15b11d1e88eee377335c58589b7c7b410efe44bac4d4",
   "plm_history.py": "0e8a1b414f3ad7c67175251fb4192e26431b0e9760bcce6ba6d9faf03ada8c77",
   "plm_parse.py": "c6bb33a412b6b606ad402e3eb78cd49246b77738b69d82be1b6218a1358c0312",
