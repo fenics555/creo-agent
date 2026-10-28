@@ -2,7 +2,7 @@
  "version": "V140",
  "version_num": 140,
  "date": "28.10.2026",
- "notes": "V145.4: AGENTS.md rules 5-6 added - STATE.md as live state, hashes only via make_version_json, clean git is not a whole delivery",
+ "notes": "V145.5: STRATEGY 2.5 - the CHECK SET (owner: test on a few files, not the whole 40K base)",
  "files": {
   "engine.py": "8e2e7e19dde9c9b8c8407f854b1cded65163ab963ef3d5fdedf1dc9655c23cce",
   "plm_reader.py": "266dc685aa8da4f10752c4244a6740ecc914177c5902993514d8ff9cd8c9b818",
