@@ -32,6 +32,9 @@ KIT = r"Z:\PTC\Work\001_15 ЦТКД Электон"
 LIT = r"Z:\PTC\Work\000_03 401-LIT Литейное производство\000_5 401-LIT-MO Модельная оснастка для литья"
 L170 = os.path.join(LIT, "170meta Держатель форм", "170meta-1")
 L171 = os.path.join(LIT, "171meta держатель форм")
+# Турновер: таблица семейства у СБОРКИ + взаимозамены компонентов (слово владельца)
+TURN = (r"Z:\PTC\Work\000_14 MP Механизм переворота\000_2 MP-T Турноверы"
+        r"\ПТР-401-МТ-01 Турновер")
 
 # ── ОЖИДАНИЯ СЕТА ───────────────────────────────────────────────────────────
 #   role        — ожидаемая роль ('' = законно пустая)
@@ -107,6 +110,18 @@ SET = [
          path=os.path.join(L170, "170meta-1-000-для_копирования.asm.1"),
          role="", min_parts=6,
          must_parts=("170META-1-MASTER", "170META-1-01-ЯЩИК-ОСНОВНАЯ"), forbidden=(), min_refs=0),
+
+    # ── Т. ТУРНОВЕР: таблица семейства у СБОРКИ + взаимозамены компонентов ────
+    # Владелец: «есть сборки, у которых через таблицу семейства + взаимозамены меняются
+    # разные компоненты в исполнениях». До 28.10.2026 скан отдавал по ним НОЛЬ.
+    dict(tag="T1 турновер: исполнения сборки",
+         path=os.path.join(TURN, "птр-401-мт-01r-00-t01.asm.1"),
+         role="", min_parts=0, must_parts=(), forbidden=(), min_refs=0,
+         min_family=5, must_instances=("ПТР-401-МТ-01R-00-T01_ISP-AL", "ПТР-401-МТ-01R-00-T01_ISP-BDF")),
+    dict(tag="T2 турновер: вторая сборка",
+         path=os.path.join(TURN, "птр-401-мт-01-00-t01.asm.1"),
+         role="", min_parts=0, must_parts=(), forbidden=(), min_refs=0,
+         min_family=5, must_instances=("ПТР-401-МТ-01-00-T01_ISP-AL",)),
 ]
 
 
@@ -179,6 +194,17 @@ def run(negative=False):
             chk(f.upper() not in parts, "состав: ШАБЛОН попал в состав: %s" % f)
         chk(len(refs) >= case["min_refs"],
             "refs: ждали >=%d, получили %d" % (case["min_refs"], len(refs)))
+        # ИСПОЛНЕНИЯ (таблица семейства) — в т.ч. у СБОРОК (турновер)
+        if case.get("min_family"):
+            try:
+                fam = eng.family_of(raw, name, p)
+            except Exception:                   # noqa: BLE001
+                fam = []
+            inst = {str(x[0]).upper() for x in fam if x}
+            chk(len(inst) >= case["min_family"],
+                "исполнения: ждали >=%d, получили %d" % (case["min_family"], len(inst)))
+            for want in case.get("must_instances", ()):
+                chk(want.upper() in inst, "исполнения: НЕТ %s" % want)
         print("  %s %-32s role=%-34r состав=%d refs=%d"
               % ("❌" if local else "✅", tag, role, len(parts), len(refs)))
         if parts:

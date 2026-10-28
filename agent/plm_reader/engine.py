@@ -1431,8 +1431,16 @@ def family_of(raw, model="", path=""):
 
     Возвращает [(instance, parent)]: parent = '' для верхнего уровня.
     """
-    if path and not is_part_file(path):
-        return []
+    # 🔴 28.10.2026 (слово владельца + замер турновера): таблица семейства БЫВАЕТ У СБОРКИ —
+    # «есть сборки, у которых через таблицу семейства + сборку взаимозамены меняются компоненты
+    # в исполнениях». Замер `птр-401-мт-01r-00-t01.asm.1`: instances_data 3, user_visible_name 3,
+    # dim_tab_file 3, values_xar 3, param_val 3, исполнение `R-00-T01_ISP-AL` — а прежняя проверка
+    # `not is_part_file` отдавала НОЛЬ. Теперь разрешены ДЕТАЛЬ и СБОРКА; чертёж (`.drw`) — нет
+    # (у чертежа таблицы семейства не бывает; там же ловилась чужая запись — грабля V135).
+    if path:
+        _p = path.lower()
+        if not (".prt." in _p or _p.endswith(".prt") or ".asm." in _p or _p.endswith(".asm")):
+            return []
     if not model or not _RX_INST.search(raw):
         return []
     # 1) собираем пары «имя → родитель» из блока instances_data.
