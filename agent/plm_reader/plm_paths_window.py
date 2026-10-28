@@ -133,6 +133,12 @@ class PathsWindow:
         _cur_group = None
         _row = 0
         for (grp, key, label, typ, lo, hi) in _ps.SETTINGS_SPEC:
+            # 🔴 `special` — настройка с ОТДЕЛЬНЫМ полем (см. `e_cfgpro` выше). В общем цикле
+            # НЕ рисуем НИ подписи, НИ поля: иначе в окне ДВА поля одного ключа (баг владельца
+            # 28.10.2026: «ещё раз спрашивают конфиг.про!!!»). Пропуск — ДО отрисовки группы,
+            # чтобы не создать пустой заголовок.
+            if typ == "special":
+                continue
             if grp != _cur_group:
                 _cur_group = grp
                 ttk.Label(_gbox, text=grp, font=("", 9, "bold"),
@@ -340,8 +346,10 @@ class PathsWindow:
                 _lst_bad.append("%s (%s)" % (key, ex))
         if _lst_bad:
             self.msg.config(text="НЕ сохранено: " + "; ".join(_lst_bad))
-        # 🔴 ЛЕЧЕНИЕ БАГа A: поле `config.pro` — ГЛАВНОЕ, пишем его ПОСЛЕ цикла реестра,
-        # чтобы «параметрический» двойник не затирал путь пустотой.
+        # 🔴 БАГ A (28.10.2026, «ещё раз спрашивают конфиг.про!!!»): причина была в ДВУХ полях
+        # одного ключа — общий реестр SETTINGS_SPEC давал второе поле `config_pro`, и цикл выше
+        # затирал путь пустотой. Лечение: ключ помечен типом `special` (отдельное поле `e_cfgpro`,
+        # в общий цикл НЕ входит) — строку ниже оставляю как СТРАХОВКУ на случай старых настроек.
         self.settings["config_pro"] = _cp
         save_settings_file(self.settings)
         try:

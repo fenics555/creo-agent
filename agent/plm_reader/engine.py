@@ -1882,9 +1882,13 @@ def scan_to_base(roots, max_mb=8, limit=120, depth=None, progress_cb=None, stop_
         latest_only = bool(_cfg.get("latest_only", True))
     # ПРЕВЬЮ СОБИРАЕТ СКАНЕР (V140, §96.1.1). Галочка — СУЩЕСТВУЮЩАЯ `graph_media`
     # (новых настроек НЕ заводим, §96.3.2). Кириллица в ключах настроек не нужна.
+    # 🔴 ЖИВОЙ БАГ (28.10.2026, найден владельцем: «сканер не работает НИ в обычном, НИ в
+    # "перечитать всё"»): здесь стояло `media_dir_for(db)`, но переменной `db` в `scan_to_base`
+    # НЕТ → NameError на КАЖДОМ скане. Лечение: `media_dir_for()` без аргумента — она сама
+    # берёт активную базу через `active_db()`.
     _want_media = bool(_cfg.get("graph_media", True))
     _media_mode = str(_cfg.get("graph_image_mode") or "auto")
-    _media_dir = media_dir_for(db) if _want_media else None
+    _media_dir = media_dir_for() if _want_media else None
     ok, info = lock_acquire()
     if not ok:
         return {"error": info, "busy": True}          # окно покажет «Занято: …»
