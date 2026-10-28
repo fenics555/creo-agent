@@ -952,8 +952,9 @@ CREATE TABLE IF NOT EXISTS changes (
 --
 -- `origin` = 'real'  — связь ПРОЧИТАНА из файла (работа СКАНЕРА; неверно — правим сканер);
 -- `origin` = 'built' — связь ДОСТРОЕНА из базы (работа ДОСТРОИТЕЛЯ; неверно — правим достроитель).
--- Миграция колонки — в `connect()` по образцу дома (`PRAGMA table_info`): `ALTER` в SCHEMA упал бы
--- на втором запуске («duplicate column name») — грабля §83 (исключение внутри `try` глотается).
+-- Миграция колонки — в `connect()` ПОСЛЕ `executescript(SCHEMA)` (на новой базе таблиц ещё нет —
+-- живой прогон 28.10.2026 дал `no such table: main.links`, если миграция шла раньше).
+CREATE TABLE IF NOT EXISTS links (parent TEXT, child TEXT, qty INTEGER, source TEXT);
 CREATE INDEX IF NOT EXISTS ix_links_child ON links(child);
 CREATE TABLE IF NOT EXISTS derived (child TEXT, base TEXT, kind TEXT, source TEXT);
 CREATE INDEX IF NOT EXISTS ix_derived_child ON derived(child);
@@ -1142,22 +1143,6 @@ def connect(ro=False, db=None):
             con.commit()
     except Exception:
         pass
-    # 🔴 V140: ПРИЗНАК ПРОИСХОЖДЕНИЯ СВЯЗИ — 'real' (прочитана из файла) / 'built' (достроена по базе).
-    # Владелец: «ГЛАВНОЕ: либо одно править, либо другое!» — если связь неверна, по `origin` видно,
-    # ЧТО править: сканер ('real') или достроитель ('built').
-    # Миграция — по образцу дома: колонка добавляется ТОЛЬКО если её нет (иначе `duplicate column`).
-    try:
-        for _tbl, _col in (("links", "origin"), ("derived", "origin")):
-            _c = [r[1] for r in con.execute("PRAGMA table_info(%s)" % _tbl)]
-            if _c and _col not in _c:
-                con.execute("ALTER TABLE %s ADD COLUMN %s TEXT DEFAULT 'real'" % (_tbl, _col))
-                con.commit()
-    except Exception as _e:
-        # грабля §83: НЕ молчать — иначе признак «исчезнет» без объяснения
-        try:
-            log("origin: миграция не удалась: %s" % _e)
-        except Exception:
-            pass
     con.executescript(SCHEMA)
     con.commit()
     # 🔴 V140: ПРИЗНАК ПРОИСХОЖДЕНИЯ СВЯЗИ — 'real' (прочитана из файла) / 'built' (достроена по базе).
