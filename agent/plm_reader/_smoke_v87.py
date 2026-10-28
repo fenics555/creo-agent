@@ -202,4 +202,17 @@ _miss_mod = [m for m in _imports
 assert not _miss_mod, "engine импортирует, но не в поставке: %s" % ", ".join(_miss_mod)
 print("импорты engine: %d модулей из поставки — OK" % len(_imports))
 
+# --- СЕТ НА ПРОВЕРКУ (STRATEGY_PLM §2.5, GRABLI §106) -----------------------
+# Закон владельца: «пробуй не на всей базе 40К, а на нескольких файлах».
+# Сет мерит БОЕВЫМ путём (engine.scan_item) на эталонных файлах. Файлы только читаются,
+# база не открывается, на шару Z: ничего не пишется. Если склада нет (нет шары) — сет
+# ПРОПУСКАЕТСЯ с явной строкой, а не молча (молчание = ложное «зелено»).
+try:
+    import _test_set as _SET
+    _set_ok = not _SET.run(negative=False)
+except Exception as _ex_set:                    # noqa: BLE001
+    _set_ok = False
+    print("сет: НЕ ЗАПУСТИЛСЯ: %r" % (_ex_set,))
+assert _set_ok, "СЕТ НА ПРОВЕРКУ КРАСНЫЙ — см. вывод выше (STRATEGY_PLM §2.5)"
+
 print("SMOKE OK")
