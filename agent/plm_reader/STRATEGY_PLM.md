@@ -273,6 +273,53 @@
 
 ---
 
+### 🔴 §2.4. ТАБЛИЦА СЕМЕЙСТВА: ЧИТАЕТСЯ ИЗ ФАЙЛА (уточнение скилла, 28.10.2026)
+
+Разбор `gost18829-73.prt.1` (35 МБ) — схема блока таблицы семейства (по порядку полей):
+
+```
+FamilyInf → Sld_FamilyInfo
+    drv_tbl_ptr · prt_type · gen_objname · object_type · name · simpl_rep ·
+    inherit_rep · p_foreign_source · ext · long_name · model_type
+  instances_data → user_instances
+      user_visible_name → 14-GOST18829-73      ← ИМЯ ИСПОЛНЕНИЯ
+      ptc_common_name   → GOST18829-73
+  dim_tab_file
+      type · info_items · id · owner_id · name · invisible · ui_col_width ·
+      revnum · ui_mdl_name_width · generic_revnum · version ·
+      famtab_acc_retr_mtm_rec_id · rec_id · uniq_family_id
+    values_xar → attr · gval · sym_val · type
+      value(s_val) · objname · param_val · value(l_val) · value(d_val)
+  attributes → gen_mass_prop → mass_prop
+      type · density · init_dens · rel_density · init_rel_dens · aver_density ·
+      vrevnum · volume · cg · inertia · eps          ← МАССА / ПЛОТНОСТЬ / ОБЪЁМ
+```
+
+**Координаты блока (байты файла):** `FamilyInf` @1976198; `drv_tbl_ptr` @1976228/@1976481;
+`user_visible_name` @1976417; `dim_tab_file` @1976733; `info_values` @1977489; `gen_mass_prop` @1977734.
+
+**ФАКТЫ, поправляющие скилл `SKILL_creo_read_family.md`:**
+
+1. **Исполнений 24, а не «13 629 строк»** — 13 629 это ВСЕ записи; исполнения:
+   `36-1-0-GOST18829-73` … `36-2-8-GOST18829-73`, каждое повторяется 110 раз.
+2. **Секция `FamilyInf` — шапка (567 Б)**, таблица — ОТДЕЛЬНЫЙ БЛОК рядом
+   (`drv_tbl_ptr` + `dim_tab_file` + `user_visible_name` + `instance` + `family`).
+3. **`value(s_val/l_val/d_val)` / `param_val` = 0** в `din912`, `din933`, `pin_split`, `g11371`
+   → числовых значений таблицы в этих файлах НЕТ (только имена исполнений).
+4. **`gen_mass_prop → mass_prop`** — масса, 4 плотности, объём, ЦМ, инерция — ЕСТЬ в файле
+   (но значения закодированы и из байтов пока не разобраны → сверять J-Link-ом, §2.2).
+5. **ПАРАМЕТРЫ vs РАЗМЕРЫ — два разных класса** (слово владельца):
+   - **ПАРАМЕТРЫ** (`NAME_1`, `МАТЕРИАЛ`, `ТИП`) — имена **задаёт человек**, произвольные;
+   - **РАЗМЕРЫ** (`d3`, `d9`, `d25`, до `d99999`) — имена **задаёт Creo**; замер: `din912` — **37**,
+     `pin_split` — **75**; стоят в **элементах построения** (`items`, рядом с `PRO_MP_CSYS`).
+6. **`dim_val` / `dimension` в файле — НЕ размеры модели**, а **настройки оформления чертежа**
+   (`min_ang_dim_value`, `dim_lead_len_ratio`, `clip_diam_dims`, `bom_balloons_*`). Попытка читать
+   оттуда значения дала мусор (`d2 → -93288.06`, `-598.69`).
+7. **Значения размеров из байтов НЕ читаются** (`SKILL_creo_read_feat.md` §6: «IEEE-754 не хранится,
+   `null` — окончательное решение»). Значит — только J-Link (§2.2).
+
+---
+
 ## 3. КАНОН ДОМА (инварианты инструмента, собранные живым чтением 23.10.2026)
 
 Нарушать нельзя — иначе ломается переносимость, автообновление или правило дисков.
