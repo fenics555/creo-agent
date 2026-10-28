@@ -1409,7 +1409,10 @@ def creo_params(raw):
 
 
 # таблица семейства: имена исполнений выглядят как <генерик>[-_]<размер>
-_RX_INST = re.compile(rb"user_instances|user_visible_name|drv_tbl_ptr")
+# 🔴 28.10.2026: к трём прежним маркерам добавлены `FamilyInf` / `Sld_FamilyInfo` —
+# на файлах старого поколения (`g22033.prt.1`, 2019) `instances_data` НЕ пишется вовсе,
+# а таблица лежит внутри `FamilyInf` (573 590 Б). Раньше такой файл отбрасывался на входе.
+_RX_INST = re.compile(rb"user_instances|user_visible_name|drv_tbl_ptr|FamilyInf|Sld_FamilyInfo")
 
 
 def family_of(raw, model="", path=""):
@@ -1448,26 +1451,48 @@ def family_of(raw, model="", path=""):
     #   user_visible_name\x00…<ИМЯ>\x00\xe1\xe1\xe1\xe1\xe1…<РОДИТЕЛЬ>\x00
     # имена идут парами: `DIN912-M2_5` → `DIN912-M`, `DIN912-M2_5X4` → `DIN912-M2_5`
     # (то есть таблица МНОГОУРОВНЕВАЯ). Имя и родитель разделены `\xe1\xe1\xe1\xe1\xe1`.
+    # 🔴 28.10.2026 (ЗАКОН ВЛАДЕЛЬЦА + замер байт на ДВУХ поколениях):
+    #   «имя инстанса — ЛЮБОЕ, его назначает человек; то спереди, то сзади — это я так захотел».
+    #   Значит разбирать имя по частям (`<модель>[-_]…`) ЗАПРЕЩЕНО — так терялись
+    #   `M10_G22033` (модель в КОНЦЕ) на `g22033.prt.1` (2019) при том, что таблица занимает
+    #   573 590 Б. Признак — ТОЛЬКО структура записи, одинаковая в обоих поколениях:
+    #       <префикс> \xe3\x02 <ИМЯ ИСПОЛНЕНИЯ> \x00 \xe1\xe1\xe1\xe1\xe1
+    #                 \xf7\x0f\x00 \xe3\x1f\xe3\x02 <ИМЯ РОДИТЕЛЯ> \x00 \xe1\xe1\xe1\xe1\xe1 \xf7\x0c\x02
+    #   Замер: din912 `\xf7\x0e\xfb\xe3\xf7\x0f\xe3\x02DIN912-M2_5X4\x00…` (префикс с \xfb),
+    #          g22033 `\xf4\x04\xf7\r\xe3\xe3\x02M10_G22033\x00…` (без \xfb) — маркеры \xe3\x02,
+    #          разделитель \xe1×5, маркер родителя, конец записи — ОДНИ И ТЕ ЖЕ.
     pairs = {}
+    # блок таблицы: от instances_data, а если его нет (старое поколение) — от FamilyInf
     blk = raw
     i = raw.find(b"instances_data")
+    if i < 0:
+        i = raw.find(b"FamilyInf")
+    if i < 0:
+        i = raw.find(b"Sld_FamilyInfo")
     if i >= 0:
         blk = raw[i:i + 400000]          # блок таблицы (дальше уже геометрия)
-    base = re.escape(model.encode("utf-8", "replace"))
-    for m in re.finditer(rb"\xe3\x02(" + base + rb"[-_][A-Za-z0-9_\-\.]{1,30})\x00"
-                         rb"\xe1\xe1\xe1\xe1\xe1"           # разделитель «имя | родитель»
-                         rb".{0,20}?\xe3\x02(" + base + rb"[-_A-Za-z0-9\.]{1,30})\x00", blk, re.S):
+    for m in re.finditer(rb"\xe3\x02([\x20-\x7e\xc0-\xff]{2,64}?)\x00"       # ИМЯ исполнения
+                         rb"\xe1\xe1\xe1\xe1\xe1"                            # разделитель
+                         rb".{0,24}?\xe3\x1f\xe3\x02([\x20-\x7e\xc0-\xff]{2,64}?)\x00",  # РОДИТЕЛЬ
+                         blk, re.S):
         nm = _creo_clean(m.group(1).decode("utf-8", "replace"))
         par = _creo_clean(m.group(2).decode("utf-8", "replace"))
-        if nm and nm != model:
-            pairs[nm] = par
-    # 2) все имена (на случай, если иерархию не разобрали) — родитель = генерик
+        if nm and len(nm) >= 2 and nm != model:
+            pairs.setdefault(nm, par or model)
+    # 2) имена, найденные структурой, — этого достаточно. Если структура не дала ничего,
+    #    ВТОРОЙ канал: все имена вида `<имя файла>-<суффикс>` (старые файлы, где таблица
+    #    писалась иначе). ЗАПАСНОЙ, не основной: вид имени — не признак (закон владельца).
     seen, out = set(), []
-    for m in re.finditer(base + rb"[-_][A-Za-z0-9_\-\.]{1,30}", raw):
-        s = _creo_clean(m.group(0).decode("utf-8", "replace"))
-        if s and s != model and s not in seen:
-            seen.add(s)
-            out.append((s, pairs.get(s, model)))
+    for nm, par in pairs.items():
+        seen.add(nm)
+        out.append((nm, par))
+    if not out:
+        base = re.escape(model.encode("utf-8", "replace"))
+        for m in re.finditer(base + rb"[-_][A-Za-z0-9_\-\.]{1,30}", raw):
+            s = _creo_clean(m.group(0).decode("utf-8", "replace"))
+            if s and s != model and s not in seen:
+                seen.add(s)
+                out.append((s, model))
     return out
 
 
