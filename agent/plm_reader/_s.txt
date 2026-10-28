@@ -14,8 +14,6 @@ purge: папка бэкапа настраивается («⚙ НАСТРОЙ�
   секция OK: ▲ КУДА ВХОДИТ (сборки): 0
   секция OK: ⧏ ИСТОРИЯ ФАЙЛОВ: файлов 3
 GenealogyWindow: Tk-проба OK (5 секций, повтор = поднять)
-Traceback (most recent call last):
-  File "D:\AI\tools\agent\plm_reader\_smoke_v87.py", line 193, in <module>
-    assert not _bad, "SHA256 �� ������ (�������� ������� � ���������� make_version_json): %s" % ", ".join(_bad)
-           ^^^^^^^^
-AssertionError: SHA256 �� ������ (�������� ������� � ���������� make_version_json): engine.py, plm_paths_window.py, plm_settings.py
+поставка: манифест V140 (22 файлов), версия и ВСЕ SHA256 совпадают — OK
+импорты engine: 3 модулей из поставки — OK
+SMOKE OK
