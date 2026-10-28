@@ -1160,6 +1160,23 @@ def connect(ro=False, db=None):
             pass
     con.executescript(SCHEMA)
     con.commit()
+    # 🔴 V140: ПРИЗНАК ПРОИСХОЖДЕНИЯ СВЯЗИ — 'real' (прочитана из файла) / 'built' (достроена по базе).
+    # Владелец: «ГЛАВНОЕ: либо одно править, либо другое!» — если связь неверна, по `origin` видно,
+    # ЧТО править: сканер ('real') или достроитель ('built').
+    # ⚠️ МИГРАЦИЯ СТОИТ ПОСЛЕ `executescript(SCHEMA)`: на новой базе таблиц ещё НЕТ, и `ALTER`
+    # падал с `no such table: main.links` (живой прогон 28.10.2026). Добавляем, только если нет колонки.
+    try:
+        for _tbl, _col in (("links", "origin"), ("derived", "origin")):
+            _c = [r[1] for r in con.execute("PRAGMA table_info(%s)" % _tbl)]
+            if _c and _col not in _c:
+                con.execute("ALTER TABLE %s ADD COLUMN %s TEXT DEFAULT 'real'" % (_tbl, _col))
+                con.commit()
+    except Exception as _e:
+        # грабля §83: НЕ молчать — иначе признак «исчезнет» без объяснения
+        try:
+            log("origin: миграция не удалась: %s" % _e)
+        except Exception:
+            pass
     return con
 
 

@@ -1,0 +1,11 @@
+ТЕСТОВАЯ БАЗА (боевая НЕ тронута): D:\PTC\CREO-LOCAL-SETUP\TEMP\plm_v137_scfokrhp\test137.db
+
+Traceback (most recent call last):
+  File "D:\AI\tools\agent\plm_reader\_probe_scan137.py", line 32, in <module>
+    res = E.do_scan(FOLDERS, 24, 0, None, None, None, True, db=db)
+  File "D:\AI\tools\agent\plm_reader\engine.py", line 1972, in do_scan
+    con = connect(db=db)
+  File "D:\AI\tools\agent\plm_reader\engine.py", line 1161, in connect
+    con.executescript(SCHEMA)
+    ~~~~~~~~~~~~~~~~~^^^^^^^^
+sqlite3.OperationalError: no such table: main.links
