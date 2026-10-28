@@ -158,4 +158,48 @@ try:
 except ImportError:
     print("tkinter недоступен — Tk-проба пропущена (логика класса проверена выше)")
 
+# --- V140: ОТВЕТСТВЕННАЯ ПРОВЕРКА — ЦЕЛОСТНОСТЬ ПОСТАВКИ --------------------
+# Повод (живая авария 28.10.2026): модули plm_queries/plm_links/plm_build_links были
+# вынесены из engine.py, но НЕ попали в CODE_FILES -> version.json их не содержал.
+# На шаре Z: код оказался V140, а манифест V134: пользователь получил бы новый
+# engine.py БЕЗ plm_queries.py -> ImportError. Этот блок ловит такой разрыв.
+import json
+import make_version_json as MVJ
+
+_here = os.path.dirname(os.path.abspath(__file__))
+_manifest_path = os.path.join(_here, "version.json")
+assert os.path.isfile(_manifest_path), "version.json отсутствует — манифест не собран"
+with open(_manifest_path, encoding="utf-8") as f:
+    man = json.load(f)
+
+# 1) версия манифеста обязана совпадать с APP_VERSION (иначе шара «не видит» обновлений)
+import plm_reader as PR
+assert man.get("version") == PR.APP_VERSION, \
+    "манифест %s != APP_VERSION %s — шара не увидит обновление" % (man.get("version"), PR.APP_VERSION)
+
+# 2) все файлы поставки обязаны ЛЕЖАТЬ НА ДИСКЕ (CODE_FILES — источник истины)
+_missing = [n for n in MVJ.CODE_FILES if not os.path.isfile(os.path.join(_here, n))]
+assert not _missing, "файлы поставки отсутствуют на диске: %s" % ", ".join(_missing)
+
+# 3) манифест обязан содержать РОВНО файлы поставки (ни больше, ни меньше)
+_in_man = set(man.get("files") or {})
+_in_code = set(n for n in MVJ.CODE_FILES if os.path.isfile(os.path.join(_here, n)))
+assert _in_man == _in_code, \
+    "манифест расходится с поставкой: нет в манифесте=%s, лишние=%s" \
+    % (sorted(_in_code - _in_man), sorted(_in_man - _in_code))
+
+# 4) хеши обязаны совпадать с содержимым (иначе обновление подменит файл молча)
+_bad = [n for n in sorted(_in_code) if MVJ.sha256(os.path.join(_here, n)).lower() != str(man["files"][n]).lower()]
+assert not _bad, "SHA256 не совпал (манифест устарел — пересобери make_version_json): %s" % ", ".join(_bad)
+print("поставка: манифест %s (%d файлов), версия и ВСЕ SHA256 совпадают — OK"
+      % (man.get("version"), len(_in_code)))
+
+# 5) модули, которые engine.py импортирует, обязаны входить в поставку
+#    (иначе приезд нового engine.py ломает инструмент на импорте)
+_imports = ("plm_queries", "plm_links", "plm_build_links")
+_miss_mod = [m for m in _imports
+             if m + ".py" not in _in_code and ("import " + m) in inspect.getsource(engine)]
+assert not _miss_mod, "engine импортирует, но не в поставке: %s" % ", ".join(_miss_mod)
+print("импорты engine: %d модулей из поставки — OK" % len(_imports))
+
 print("SMOKE OK")

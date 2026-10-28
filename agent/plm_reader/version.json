@@ -2,7 +2,7 @@
  "version": "V140",
  "version_num": 140,
  "date": "28.10.2026",
- "notes": "V140_scanner_cleaned_of_builders_plus_BUILDER_of_reverse_links_plus_origin_real-built._CRITICAL:_plm_queries_plm_links_and_plm_build_links_are_now_IN_the_manifest_-_without_them_the_new_engine_would_fail_on_arrival._Preview_to_be_collected_by_the_scanner_per_STRATEGY_PLM_2.1",
+ "notes": "V140_plus_acceptance_checks_for_the_whole_delivery._Smoke_now_verifies_manifest_version_vs_APP_VERSION_full_CODE_FILES_list_on_disk_exact_manifest-set_match_and_SHA256_of_every_file_plus_that_modules_imported_by_engine_are_shipped._Rule_99_of_GRABLI_written_in",
  "files": {
   "engine.py": "7aac921125732e5187b2929e032eabc0d2cd085eee00ed36f08c9bacea1999d2",
   "plm_reader.py": "266dc685aa8da4f10752c4244a6740ecc914177c5902993514d8ff9cd8c9b818",
@@ -14,7 +14,7 @@
   "plm_scan.py": "e32d610e33932afaee4c952cb0b4564801508f0568d4360d7d039ffacb856f48",
   "plm_paths_window.py": "30d717f66a1bd17b20bb28c1a99d512946993a326415b6072d94286a42589879",
   "creo_read.py": "b938592ae4515aedf00fd46a3eb61391c6d9e6bc280ca4b0338fe2f1579bae3d",
-  "README.md": "ec60185108b8b07f0387522857fda9b9d3a2fc71e4db9eb7cf1371a631bf8d64",
+  "README.md": "5f17718fac890a95b02aeb05a8f454fc9a2886633ed55d3dbc41f99254620d19",
   "SHARE_copy.bat": "4eccb549a17251392337aeabbc3ef76233dfa3072beadff9d158cd6e932622ee",
   "plm_reader.bat": "bdd125397db3ac7e7432dbdb078a6a811ed4913fca02b062edb27907032fca3d",
   "plm_reader_gui.bat": "9f695898d5db6431e840784b9587c75304ca9e526b06f79d4b44ab026663bd20",
