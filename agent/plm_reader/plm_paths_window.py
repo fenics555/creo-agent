@@ -36,7 +36,7 @@ class PathsWindow:
 
         for _w in (self.cv,):
             _w.bind("<MouseWheel>", _wheel)
-        self.rows = {"folders": [], "exclude": [], "template_folders": [], "db_mirror": [],
+        self.rows = {"folders": [], "exclude": [], "db_mirror": [],
                      "service_models": []}
         box = ttk.Frame(self.cv, padding=10)
         self.cv.create_window((0, 0), window=box, anchor="nw")
@@ -45,8 +45,23 @@ class PathsWindow:
         ttk.Label(box, text="Папки сканирования (одна строка = один путь):",
                   font=("", 10, "bold")).pack(anchor="w")
         self.sec_scan = self._section(box, "folders")
-        ttk.Label(box, text="ШАБЛОНЫ:", font=("", 10, "bold")).pack(anchor="w", pady=(14, 0))
-        self.sec_tpl = self._section(box, "template_folders")
+        # 🔴 28.10.2026 (решение владельца): НАСТРОЙКА «ШАБЛОНЫ» УБРАНА — её заменил `config.pro`.
+        # Причина: `config.pro` УЖЕ содержит `start_model_dir` (папка шаблонов) и `template_*`
+        # (файлы шаблонов), плюс `pro_library_dir` (библиотека стандартных изделий), форматы,
+        # каталог, UDF. Держать «ШАБЛОНЫ» отдельно = дублирование.
+        ttk.Label(box, text="CONFIG.PRO Creo — источник шаблонов и библиотек:",
+                  font=("", 10, "bold")).pack(anchor="w", pady=(14, 0))
+        ttk.Label(box, text="Отсюда берутся: start_model_dir и template_* (шаблоны — родителями связей "
+                            "быть не могут), pro_library_dir (библиотека), форматы, каталог, UDF. "
+                            "Пусто = настройка выключена (работает ручной список служебных стволов ниже).",
+                  foreground="#555", wraplength=760, justify="left").pack(anchor="w")
+        cp_line = ttk.Frame(box)
+        cp_line.pack(fill="x", pady=(2, 0))
+        self.e_cfgpro = ttk.Entry(cp_line)
+        self.e_cfgpro.insert(0, str(settings.get("config_pro", "") or ""))
+        self.e_cfgpro.pack(side="left", fill="x", expand=True)
+        ttk.Button(cp_line, text="Выбрать…", width=10,
+                   command=self._pick_cfgpro).pack(side="left", padx=4)
         ttk.Label(box, text="Папки исключений — НЕ читать вовсе (одна строка = один путь):",
                   font=("", 10, "bold")).pack(anchor="w", pady=(14, 0))
         self.sec_exc = self._section(box, "exclude")
@@ -150,7 +165,7 @@ class PathsWindow:
             self.add_row("folders", p)
         for p in (settings.get("exclude") or []):
             self.add_row("exclude", p)
-        for p in (settings.get("template_folders") or []):
+        for p in (settings.get("template_folders") or []):     # совместимость: старый список
             self.add_row("template_folders", p)
         for p in (settings.get("db_mirror") or []):
             self.add_row("db_mirror", p)
@@ -161,7 +176,7 @@ class PathsWindow:
         if not self.rows["exclude"]:
             self.add_row("exclude", "")
         if not self.rows["template_folders"]:
-            self.add_row("template_folders", "")
+            pass                    # блок «ШАБЛОНЫ» убран (заменён `config.pro`) — строку не создаём
         if not self.rows["db_mirror"]:
             self.add_row("db_mirror", "")
         if not self.rows["service_models"]:
@@ -178,8 +193,9 @@ class PathsWindow:
 
     def add_row(self, key, path):
         holder = {"folders": self.sec_scan, "exclude": self.sec_exc,
-                  "template_folders": self.sec_tpl, "db_mirror": self.sec_mir,
-                  "service_models": self.sec_svc}.get(key, self.sec_scan)
+                  "db_mirror": self.sec_mir,
+                  "service_models": self.sec_svc,
+                  "template_folders": self.sec_scan}.get(key, self.sec_scan)
         line = self.ttk.Frame(holder)
         line.pack(fill="x", pady=1)
         ent = self.ttk.Entry(line)
@@ -201,6 +217,18 @@ class PathsWindow:
         if d:
             ent.delete(0, "end")
             ent.insert(0, d.replace("/", "\\"))
+
+    def _pick_cfgpro(self):
+        """ВЫБОР `config.pro` — это ФАЙЛ, а не папка (в отличие от остальных полей)."""
+        cur = self.e_cfgpro.get().strip()
+        init = os.path.dirname(cur) if (cur and os.path.isfile(cur)) else (
+            cur or "Z:\\PTC\\CREO-START")
+        f = self.filedialog.askopenfilename(
+            title="Выбери config.pro Creo", initialdir=init,
+            filetypes=[("config.pro", "config.pro"), ("Все файлы", "*.*")])
+        if f:
+            self.e_cfgpro.delete(0, "end")
+            self.e_cfgpro.insert(0, f.replace("/", "\\"))
 
     def collect(self):
         """Списки путей: пустые строки и дубли (без учёта регистра) отбрасываются.
@@ -244,6 +272,15 @@ class PathsWindow:
     def save(self):
         d = self.collect()
         old_dir = (self.settings.get("db_dir") or "").strip()
+        # 🔴 28.10.2026: `config.pro` — ЗАМЕНА настройки «ШАБЛОНЫ». Путь ФАЙЛА (не папки).
+        # Проверяем существование: указан не тот файл — сообщаем, но НЕ молчим (грабля §83:
+        # пустой `except: pass` заставляет настройку «исчезнуть» без объяснения).
+        _cp = (self.e_cfgpro.get() or "").strip().strip('"').strip("'").strip()
+        _cp = _cp.replace("/", "\\")
+        self.settings["config_pro"] = _cp
+        _cp_warn = ""
+        if self.settings["config_pro"] and not os.path.isfile(self.settings["config_pro"]):
+            _cp_warn = " · ⚠ config.pro НЕ найден: %s" % self.settings["config_pro"]
         self.settings["folders"] = d["folders"]
         self.settings["exclude"] = d["exclude"]
         self.settings["template_folders"] = d["template_folders"]
@@ -285,9 +322,9 @@ class PathsWindow:
             # папка базы поменялась — предупреждаем честно: подхватка только при перезапуске окна
             tail = " · база переедет на %s — ПЕРЕЗАПУСТИ окно" % (new_dir or "папку db\\")
         self.msg.config(text="сохранено: папок %d, исключений %d, шаблонов %d, зеркал %d, "
-                             "служебных %d, настроек графа %d%s"
+                             "служебных %d, настроек графа %d%s%s"
                              % (len(d["folders"]), len(d["exclude"]), len(d["template_folders"]),
-                                len(d["db_mirror"]), len(d["service_models"]), saved_g, tail))
+                                len(d["db_mirror"]), len(d["service_models"]), saved_g, tail, _cp_warn))
         if self.on_save:
             try:
                 self.on_save()

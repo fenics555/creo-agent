@@ -2778,6 +2778,80 @@ def reset_service_cache():
     _SERVICE_STEMS = None
 
 
+def config_pro_dirs(path=None):
+    """ПАПКИ ИЗ `config.pro` Creo — ЕДИНЫЙ источник «служебности» (решение владельца 28.10.2026).
+
+    Владелец: «Давай через конфиг.про тогда работать, но его нужно тогда указать через настройки,
+    вместо как раз "Шаблоны" (они уже будут лишними)».
+
+    Читаем опции (замер живого файла `Z:\\PTC\\CREO-START\\START-STD\\config.pro`: 385 строк,
+    243 опции, UTF-8 BOM, CRLF):
+      * `start_model_dir`  — ПАПКА шаблонов           ⇒ модели служебные;
+      * `template_*` (9 опций) — конкретные ФАЙЛЫ шаблонов ⇒ их модели служебные;
+      * `pro_library_dir`  — БИБЛИОТЕКА стандартных изделий ⇒ НЕ служебная сама по себе
+        (там НАСТОЯЩИЕ модели: крепёж, втулки, кольца), отсеиваются лишь её шаблоны `MM_*`;
+      * `pro_format_dir`, `pro_catalog_dir`, `pro_group_dir`, `pro_mf_*_dir` — служебные папки.
+
+    Возвращает (папки_служебные, файлы_шаблонов, папки_библиотек) — списки в нижнем регистре.
+    Пусто/нет файла → ([], [], []) — не падаем (грабля §83: не глотать, а сообщить в лог).
+    """
+    if path is None:
+        path = str((_settings_json() or {}).get("config_pro") or "").strip()
+    dirs, tpl_files, libs = [], [], []
+    if not path or not os.path.isfile(path):
+        if path:
+            log("config.pro: файл не найден по пути %s — работаю без него" % path)
+        return dirs, tpl_files, libs
+    raw = b""
+    try:
+        raw = open(path, "rb").read()
+    except Exception as e:                          # noqa: BLE001
+        log("config.pro: чтение не удалось (%s)" % e)
+        return dirs, tpl_files, libs
+    try:
+        if raw[:3] == b"\xef\xbb\xbf":              # UTF-8 BOM (у живого файла он есть)
+            raw = raw[3:]
+        text = raw.decode("utf-8", "replace")
+    except Exception:                               # noqa: BLE001
+        text = raw.decode("cp1251", "replace")
+    # Опция = первое слово строки; значение — остаток (пути Creo пишет с прямыми слэшами).
+    for line in text.splitlines():
+        s = line.strip()
+        if not s or s.startswith("!"):              # `!` — комментарий config.pro
+            continue
+        parts = s.split(None, 1)
+        if len(parts) < 2:
+            continue
+        key, val = parts[0].strip().lower(), parts[1].strip().strip('"')
+        if not val:
+            continue
+        v = val.replace("/", "\\").rstrip("\\")
+        low = v.lower()
+        if key == "start_model_dir":
+            dirs.append(low)
+        elif key.startswith("template_") or key.startswith("mfg_template_dir") or \
+                key.startswith("mfg_process_template_dir") or \
+                key.startswith("simulation_process_template_dir"):
+            tpl_files.append(low)                   # это ФАЙЛ шаблона — отсеиваем по имени файла
+            d = os.path.dirname(low)
+            if d:
+                dirs.append(d)
+        elif key == "pro_library_dir":
+            libs.append(low)                        # библиотека: модели НАСТОЯЩИЕ — не отсеиваем
+        elif key.startswith("pro_format_dir") or key.startswith("pro_catalog_dir") or \
+                key.startswith("pro_group_dir") or key.startswith("pro_mf_") or \
+                key.startswith("pro_plot_config_dir") or key.startswith("pro_texture"):
+            dirs.append(low)
+    # Дедупликация с сохранением порядка (одна папка приходит от нескольких опций `template_*`).
+    seen = set()
+    dirs = [d for d in dirs if not (d in seen or seen.add(d))]
+    seen = set()
+    tpl_files = [t for t in tpl_files if not (t in seen or seen.add(t))]
+    seen = set()
+    libs = [l for l in libs if not (l in seen or seen.add(l))]
+    return dirs, tpl_files, libs
+
+
 def service_stems():
     """Стволы СЛУЖЕБНЫХ моделей (шаблоны/библиотеки: папки НАСТРОЙКИ\\ШАБЛОНЫ, TEMPLATE).
 
@@ -2787,22 +2861,42 @@ def service_stems():
     if _SERVICE_STEMS is not None:
         return _SERVICE_STEMS
     cfg = _settings_json()
-    tf = [str(x).strip().lower().replace("/", "\\").rstrip("\\")
+    tf = [str(x).strip().lower().replace("/", "\\\\").rstrip("\\")
           for x in (cfg.get("template_folders") or []) if str(x).strip()]
+    # 🔴 28.10.2026 (владелец): ГЛАВНЫЙ источник служебных папок — `config.pro` (настройка
+    # `config_pro`). Он заменяет настройку «ШАБЛОНЫ»: у Creo там и папка шаблонов, и файлы
+    # шаблонов, и библиотека, и форматы/каталог/UDF. Если `config.pro` задан — он ГЛАВНЫЙ,
+    # старый список `template_folders` добавляется к нему (совместимость).
+    cp_dirs, cp_tpl_files, cp_libs = config_pro_dirs()
+    for d in cp_dirs:
+        if d not in tf:
+            tf.append(d)
     out = {(str(x)).strip().upper() for x in (cfg.get("service_models") or []) if str(x).strip()}
     try:
         con = connect()
         for m, p in con.execute("SELECT DISTINCT model, path FROM snapshots"):
             nm = (m or "").upper()
             pl = (p or "").lower().replace("/", "\\")
-            if tf:
+            lib = any(pl == l or pl.startswith(l + "\\") for l in cp_libs)   # библиотека — НЕ служебная
+            if tf and not lib:
                 if any(pl == f or pl.startswith(f + "\\") for f in tf):
                     out.add(nm)
-            elif "шаблон" in pl or "template" in pl:
-                out.add(nm)
+            elif not tf and not lib:
+                if "шаблон" in pl or "template" in pl:
+                    out.add(nm)
+            # ФАЙЛЫ шаблонов из config.pro (template_solidpart и т.п.) — служебные ПО ИМЕНИ ФАЙЛА,
+            # даже если лежат не в папке шаблонов.
+            if not lib:
+                for t in cp_tpl_files:
+                    if pl == t or pl == t + ".1" or pl.startswith(t + "."):
+                        out.add(nm)
+                        break
         con.close()
     except Exception:
         pass
+    if cp_dirs or cp_tpl_files:
+        log("config.pro: служебных папок %d, файлов шаблонов %d, библиотек %d"
+            % (len(cp_dirs), len(cp_tpl_files), len(cp_libs)))
     _SERVICE_STEMS = out
     return out
 
