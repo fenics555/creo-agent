@@ -1870,8 +1870,14 @@ def _publish(draft, to_mirror=True):
 
 
 def scan_to_base(roots, max_mb=8, limit=120, depth=None, progress_cb=None, stop_cb=None, full=False,
-                 param_cfg=None, exclude=None, recurse=None, latest_only=None):
+                 param_cfg=None, exclude=None, recurse=None, latest_only=None, remember=False):
     """СКАН С ЗАЩИТОЙ: замок → скан в ЛОКАЛЬНЫЙ черновик → публикация (бэкап + подмена).
+
+    🔴 `remember=False` ПО УМОЛЧАНИЮ (28.10.2026): корни скана (`meta.roots`) пишет ТОЛЬКО окно.
+    Было так: `do_scan(remember=True)` по умолчанию, а `scan_to_base` этот флаг НЕ пробрасывал,
+    поэтому ЛЮБАЯ проба/CLI, звавшая `scan_to_base`, затирала `meta.roots` техническими путями.
+    Живой след в боевой базе: `["Z:\\PTC\\CREO-START\\plm_reader\\db"]` вместо корней владельца —
+    и окно после этого сканировало папку с базой («0 моделей, ничего нет»).
 
     Боевая база не меняется до успешного завершения; при любом сбое остаётся прежней.
     recurse/latest_only=None → берутся из settings\\settings.json (настройки работают и в CLI).
@@ -1958,7 +1964,7 @@ def scan_to_base(roots, max_mb=8, limit=120, depth=None, progress_cb=None, stop_
             pass
         res = do_scan(roots, max_mb, limit, depth, progress_cb, stop_cb, eff_full, db=draft,
                       param_cfg=param_cfg, exclude=exclude, recurse=recurse, latest_only=latest_only,
-                      media_dir=_media_dir, media_mode=_media_mode)
+                      media_dir=_media_dir, media_mode=_media_mode, remember=remember)
         _publish(draft, to_mirror=(eff_full or not mirror_full_only()))
         published = True
         res["published"] = True

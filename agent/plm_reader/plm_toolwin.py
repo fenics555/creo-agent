@@ -4634,6 +4634,8 @@ def run_gui():
             q.put(("prog", n, total, "", 0, 0))
 
         try:
+            # 🔴 `remember=True` — ТОЛЬКО окно имеет право записывать корни скана в базу
+            # (`meta.roots`). Пробы/CLI зовут `scan_to_base` без этого флага и корни не портят.
             res = eng.scan_to_base(roots, float(opts.get("max_size_mb", 24)), 3600.0,   # V86: «or 8» убивал 0
                                    (int(e_depth.get() or 0) or None),
                                    progress_cb=pc,
@@ -4641,6 +4643,7 @@ def run_gui():
                                    full=bool(opts.get("full")),
                                    recurse=bool(opts.get("recurse", True)),
                                    latest_only=bool(opts.get("latest_only", True)),
+                                   remember=True,
                                    param_cfg={"pdes": settings.get("param_designation"),
                                               "pname": settings.get("param_name"),
                                               "pmat": settings.get("param_material")},
