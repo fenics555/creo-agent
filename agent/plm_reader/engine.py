@@ -1951,7 +1951,8 @@ def scan_to_base(roots, max_mb=8, limit=120, depth=None, progress_cb=None, stop_
         except Exception:
             pass
         res = do_scan(roots, max_mb, limit, depth, progress_cb, stop_cb, eff_full, db=draft,
-                      param_cfg=param_cfg, exclude=exclude, recurse=recurse, latest_only=latest_only)
+                      param_cfg=param_cfg, exclude=exclude, recurse=recurse, latest_only=latest_only,
+                      media_dir=_media_dir, media_mode=_media_mode)
         _publish(draft, to_mirror=(eff_full or not mirror_full_only()))
         published = True
         res["published"] = True
@@ -2023,9 +2024,19 @@ def inventory(roots, max_mb=8, store=True, max_depth=None):
 
 
 def do_scan(roots, max_mb, limit, depth=None, progress_cb=None, stop_cb=None, full=False, db=None,
-            param_cfg=None, exclude=None, recurse=True, latest_only=True):
+            param_cfg=None, exclude=None, recurse=True, latest_only=True,
+            media_dir=None, media_mode="auto"):
     """Скан в базу `db` (по умолчанию боевая). Обычно зовётся через scan_to_base — в черновик.
-    recurse/latest_only — настройки «с подпапками» и «только последние версии» (работают в главном скане)."""
+    recurse/latest_only — настройки «с подпапками» и «только последние версии» (работают в главном скане).
+
+    🔴 28.10.2026 (владелец: «опять сканер не работает»): `media_dir`/`media_mode` — ФИКСИРОВАННЫЕ
+    ПАРАМЕТРЫ, а не имена из чужой области видимости. Было так: в `scan_to_base` заводились
+    `_media_dir`/`_media_mode`, а использовались здесь, в `do_scan` — РАЗНЫЕ функции, имя не видно →
+    `NameError: name '_media_dir' is not defined` на КАЖДОМ новом/изменённом файле. `new=0, mod=0`
+    (скан «не работает»), а причина молча уходила в лог строкой `ERROR <path>: name '_media_dir' is
+    not defined`. `py_compile` и смоук этого НЕ видят: имя, отсутствующее в области видимости,
+    ловится только ВЫЗОВОМ. Значения по умолчанию (None/auto) сохраняют старое поведение CLI.
+    """
     t0 = time.time()
     roots = as_roots(roots)               # строка-корень = ОДИН корень (иначе обход всего диска)
     lim = float("inf") if (limit or 0) <= 0 else limit      # --limit 0 = без предела по времени
@@ -2049,6 +2060,9 @@ def do_scan(roots, max_mb, limit, depth=None, progress_cb=None, stop_cb=None, fu
     seen_prop = set()         # модели, у которых свойства уже почищены (V139, канал prop)
     seen_propp = set()        # тройки (изделие, свойство, значение) — без дублей
     n = 0
+    n_err = 0                 # 🔴 28.10.2026: сколько файлов НЕ прочитано (scan_item упал).
+    # Без этого счётчика поломка разбора невидима: скан возвращал `new=0, mod=0`, окно писало
+    # «готов», а причина уходила в лог. Живой случай: `NameError: _media_dir` на 2728 файлах.
     stopped = False
     for path, size, mtime, ctime in files_stat:
         if time.time() - t0 > lim:
@@ -2073,9 +2087,10 @@ def do_scan(roots, max_mb, limit, depth=None, progress_cb=None, stop_cb=None, fu
             # V140: превью собирает СКАНЕР из тех же байтов (`media`), файл второй раз НЕ читается.
             # `media_dir` берётся от ПАПКИ базы; если превью не нужны — см. настройку `graph_media`.
             it = scan_item(s, path, codes, fstems.get(os.path.dirname(path), set()),
-                           media_dir=_media_dir, media_mode=_media_mode,
+                           media_dir=media_dir, media_mode=media_mode,
                            **(param_cfg or {}))
         except Exception as e:
+            n_err += 1
             log("ERROR %s: %s" % (path, e))
             continue
         diffs = []
@@ -2305,11 +2320,13 @@ def do_scan(roots, max_mb, limit, depth=None, progress_cb=None, stop_cb=None, fu
     con.commit()
     con.close()
     dt = time.time() - t0
-    log("scan: файлов %d, новых %d, изменённых %d, пропущено %d, за %.1f с"
-        % (done, new, mod, skipped, dt))
-    print("scan: обработано %d из %d | новых %d | изменённых %d | пропущено (без изменений) %d | за %.1f с%s | база %s"
-          % (done, total, new, mod, skipped, dt, " | ОСТАНОВЛЕНО" if stopped else "", db or DB))
-    return {"done": done, "total": total, "new": new, "mod": mod, "skipped": skipped, "stopped": stopped, "secs": round(dt, 1), "gone": 0, "purged": 0, "excluded": purged_excl, "need": False, "verdict": ""}
+    log("scan: файлов %d, новых %d, изменённых %d, пропущено %d, ОШИБОК %d, за %.1f с"
+        % (done, new, mod, skipped, n_err, dt))
+    print("scan: обработано %d из %d | новых %d | изменённых %d | пропущено (без изменений) %d "
+          "| ОШИБОК ЧТЕНИЯ %d | за %.1f с%s | база %s"
+          % (done, total, new, mod, skipped, n_err, dt,
+             " | ОСТАНОВЛЕНО" if stopped else "", db or DB))
+    return {"done": done, "total": total, "new": new, "mod": mod, "skipped": skipped, "stopped": stopped, "secs": round(dt, 1), "gone": 0, "purged": 0, "excluded": purged_excl, "need": False, "verdict": "", "errors": n_err}
 
 
 def summary():
