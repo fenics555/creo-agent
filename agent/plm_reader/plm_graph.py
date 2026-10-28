@@ -560,85 +560,20 @@ PAT_TYPE = re.compile(rb"#UGC:\d+\s+([A-Z/_]+)")
 PAT_NAME = re.compile(rb"([A-Za-z0-9][A-Za-z0-9_\-\.]{3,47}\.(?:PRT|ASM))", re.I)
 RE_CREO = re.compile(rb"#Creo\s+TM\s+([0-9]+(?:\.[0-9]+)?)")
 RE_PROE = re.compile(rb"[Pp]ro/?[Ee]ngineer", re.I)
-_SOF = [bytes([0xFF, c]) for c in (0xC0, 0xC1, 0xC2, 0xC3, 0xC5, 0xC6, 0xC7,
-                                   0xC9, 0xCA, 0xCB, 0xCD, 0xCE, 0xCF)]
+# --- ПРЕВЬЮ: ПЕРЕЕХАЛО В `creo_read.py` (V140, 28.10.2026) -------------------
+# Владелец: «Скан же должен и превью собирать, если оно читается в лоб???»
+# Правило §96.1: ПОКАЗ не читает файлы Creo. Вырезка превью читает файл → её место
+# в общем модуле чтения `creo_read.py`, а собирает её СКАНЕР.
+# Здесь оставлены ТОНКИЕ ПРОКСИ (§М.13.2 «выносить, а не удалять»), чтобы все прежние
+# потребители (`collect_by_path`, `collect_from_db`, `collect_from_snapshots`) работали
+# без правок. Удалять прокси можно, когда в них пропадёт нужда.
+import creo_read as _CR_MEDIA
 
-
-def jpeg_size(d):
-    """(ширина, высота) JPEG по SOF. (0,0) — не валидный JPEG (мусор)."""
-    i, n = 2, len(d)
-    while i < n - 9:
-        if d[i] != 0xFF:
-            i += 1
-            continue
-        mk = d[i:i + 2]
-        if mk in _SOF:
-            return int.from_bytes(d[i + 7:i + 9], "big"), int.from_bytes(d[i + 5:i + 7], "big")
-        if mk == b"\xff\xd8" or 0xD0 <= d[i + 1] <= 0xD9:
-            i += 2
-            continue
-        ln = int.from_bytes(d[i + 2:i + 4], "big")
-        if ln < 2:
-            return 0, 0
-        i += 2 + ln
-    return 0, 0
-
-
-def _find_jpg(raw):
-    """Первый ВАЛИДНЫЙ JPEG (сигнатура + проверка маркера SOF). (bytes,'jpg')|(b'','')."""
-    j = -1
-    while True:
-        j = raw.find(b"\xff\xd8\xff", j + 1)
-        if j < 0:
-            return b"", ""
-        e = raw.find(b"\xff\xd9", j + 3)
-        if e <= 0:
-            continue
-        cand = raw[j:e + 2]
-        if len(cand) < 2048:
-            continue
-        w, h = jpeg_size(cand)
-        if w and h and 16 <= w <= 4096 and 16 <= h <= 4096:
-            return cand, "jpg"
-
-
-def _find_bmp(raw):
-    """Первый ВАЛИДНЫЙ BMP (размер и WxH из заголовка). (bytes,'bmp')|(b'','')."""
-    b = -1
-    while True:
-        b = raw.find(b"BM", b + 1)
-        if b < 0 or b + 26 > len(raw):
-            return b"", ""
-        size = int.from_bytes(raw[b + 2:b + 6], "little")
-        w = int.from_bytes(raw[b + 18:b + 22], "little", signed=True)
-        h = int.from_bytes(raw[b + 22:b + 26], "little", signed=True)
-        if 1024 <= size <= len(raw) - b and 16 <= abs(w) <= 4096 and 16 <= abs(h) <= 4096:
-            return raw[b:b + size], "bmp"
-
-
-def cut_preview(raw, want="both"):
-    """Превью из файла: ПО СИГНАТУРЕ (TOC-офсет DwgData НЕ ведёт к картинке!).
-
-    want: "both" — что найдётся (важно: в файлах бывает ТОЛЬКО JPEG, даже у .drw);
-          "jpg" | "bmp" — строго этот формат; "all" — вернуть список ВСЕХ найденных.
-    Возвращает (bytes, 'jpg'|'bmp') или (b'', ''); для "all" — [(bytes, ext), …].
-    """
-    if want == "all":
-        out = []
-        j, e = _find_jpg(raw)
-        if j:
-            out.append((j, e))
-        b, e = _find_bmp(raw)
-        if b:
-            out.append((b, e))
-        return out
-    j, e1 = _find_jpg(raw)
-    b, e2 = _find_bmp(raw)
-    if want == "jpg":
-        return (j, e1)
-    if want == "bmp":
-        return (b, e2)
-    return (j, e1) if j else (b, e2)
+_SOF = _CR_MEDIA._SOF
+jpeg_size = _CR_MEDIA.jpeg_size
+_find_jpg = _CR_MEDIA._find_jpg
+_find_bmp = _CR_MEDIA._find_bmp
+cut_preview = _CR_MEDIA.cut_preview
 
 
 def collect_from_snapshots(media_dir=None):

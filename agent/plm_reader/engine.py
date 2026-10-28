@@ -863,7 +863,59 @@ def _des_from_rel(raw):
     return False
 
 
-def scan_item(s, path, stems, fstems=frozenset(), pdes=None, pname=None, pmat=None):
+# --- ПРЕВЬЮ: СОБИРАЕТ СКАНЕР (V140, 28.10.2026) ------------------------------
+# Владелец: «Скан же должен и превью собирать, если оно читается в лоб???»
+# Правило §96.1: читает ФАЙЛЫ только СКАНЕР. Раз он уже держит `raw`, превью для него —
+# побочный продукт ТОГО ЖЕ чтения (граф больше не перечитывает файлы ради картинок).
+# Вырезка — в общем модуле чтения `creo_read.cut_preview` (перенесена из plm_graph).
+import hashlib as _hashlib_media
+
+MEDIA_SUBDIR = "media"          # папка картинок рядом с базой: <db>\media
+
+
+def media_dir_for(db_path=None):
+    """Папка превью: <папка базы>\\media. Без создания (создаёт `save_media`)."""
+    base = os.path.dirname(db_path or active_db() or DB)
+    return os.path.join(base, MEDIA_SUBDIR)
+
+
+def save_media(raw, media_dir, want="all", mode="auto", limit=2):
+    """Вырезать превью из УЖЕ ПРОЧИТАННЫХ байтов и положить файлами в `media_dir`.
+
+    Возвращает список имён файлов (img, img2, …) — они идут в индекс превью.
+    Имя = SHA-256 содержимого (одна картинка на много моделей — один файл, без дублей).
+    """
+    if not media_dir or not raw:
+        return []
+    try:
+        found = cut_preview(raw, want)
+        if mode == "pict":
+            found = [f for f in found if f[1] == "jpg"]
+        elif mode == "draw":
+            found = [f for f in found if f[1] == "bmp"]
+        out = []
+        made = False
+        for item in found[:max(0, int(limit))]:
+            if not item or not item[0]:
+                continue
+            blob, ex = item
+            fname = _hashlib_media.sha256(blob).hexdigest()[:20] + "." + ex
+            if not made:
+                if not os.path.isdir(media_dir):
+                    os.makedirs(media_dir)
+                made = True
+            dstp = os.path.join(media_dir, fname)
+            if not os.path.exists(dstp):
+                with open(dstp, "wb") as f:
+                    f.write(blob)
+            out.append(fname)
+        return out
+    except OSError:
+        return []
+
+
+def scan_item(s, path, stems, fstems=frozenset(), pdes=None, pname=None, pmat=None,
+              media_dir=None, media_mode="auto"):
     raw = open(path, "rb").read()
     vol = real(raw, "volume") or real(raw, "mtrl_volume")
     des = _by_rules(raw, pdes or _PARAM_DES)
@@ -905,6 +957,9 @@ def scan_item(s, path, stems, fstems=frozenset(), pdes=None, pname=None, pmat=No
     # V135: состав берём у СБОРОК (.asm); чертёж (.drw) составом не обладает вообще — `asm_components`
     # вернёт [] по проверке типа, но и разбирать его байты незачем.
     parts = asm_components(raw, s, stems, path) if not is_drawing_file(path) else []
+    # V140: ПРЕВЬЮ ИЗ ТЕХ ЖЕ БАЙТОВ — файл второй раз НЕ читаем (§96.1.1, «один файл — одно чтение»).
+    # `media` пуст, если превью не просили (`media_dir=None`) или картинки в файле нет.
+    media = save_media(raw, media_dir, mode=media_mode) if media_dir else []
     return {"model": s, "path": path, "size": len(raw), "mtime": os.path.getmtime(path),
             "volume": vol or 0.0, "material": mat,
             "name": nmv,
@@ -913,7 +968,7 @@ def scan_item(s, path, stems, fstems=frozenset(), pdes=None, pname=None, pmat=No
             "hist": len(hm), "creo": (hm[-1][3].decode("latin-1") if hm else ""),
             "base": base, "dkind": dkind, "copy_from": cf, "parts": parts,
             "derived_all": derived_all, "props_all": props_all,
-            "cparams": cparams, "family": fam, "hist2": hist2}
+            "cparams": cparams, "family": fam, "hist2": hist2, "media": media}
 
 
 # --- ЕДИНЫЙ ЧИТАТЕЛЬ: своя вложенная копия creo_read (папка самодостаточна) ---
@@ -933,6 +988,7 @@ last_hist = _CR.last_hist
 names = _CR.names
 param = _CR.param
 compose = _CR.compose
+cut_preview = _CR.cut_preview      # V140: вырезка превью — в creo_read (сканер её и вызывает)
 
 SCHEMA = """
 CREATE TABLE IF NOT EXISTS snapshots (
@@ -1817,12 +1873,18 @@ def scan_to_base(roots, max_mb=8, limit=120, depth=None, progress_cb=None, stop_
     import shutil
     import tempfile
     import threading
-    if recurse is None or latest_only is None:
-        _cfg = _settings_json()
-        if recurse is None:
-            recurse = bool(_cfg.get("recurse", True))
-        if latest_only is None:
-            latest_only = bool(_cfg.get("latest_only", True))
+    # V140: настройки читаем ВСЕГДА (раньше `_cfg` создавался только внутри `if` — медиа-параметры
+    # ниже упали бы с NameError, если `recurse`/`latest_only` переданы явно).
+    _cfg = _settings_json()
+    if recurse is None:
+        recurse = bool(_cfg.get("recurse", True))
+    if latest_only is None:
+        latest_only = bool(_cfg.get("latest_only", True))
+    # ПРЕВЬЮ СОБИРАЕТ СКАНЕР (V140, §96.1.1). Галочка — СУЩЕСТВУЮЩАЯ `graph_media`
+    # (новых настроек НЕ заводим, §96.3.2). Кириллица в ключах настроек не нужна.
+    _want_media = bool(_cfg.get("graph_media", True))
+    _media_mode = str(_cfg.get("graph_image_mode") or "auto")
+    _media_dir = media_dir_for(db) if _want_media else None
     ok, info = lock_acquire()
     if not ok:
         return {"error": info, "busy": True}          # окно покажет «Занято: …»
@@ -2004,7 +2066,10 @@ def do_scan(roots, max_mb, limit, depth=None, progress_cb=None, stop_cb=None, fu
                 progress_cb(n, total)
             continue
         try:
+            # V140: превью собирает СКАНЕР из тех же байтов (`media`), файл второй раз НЕ читается.
+            # `media_dir` берётся от ПАПКИ базы; если превью не нужны — см. настройку `graph_media`.
             it = scan_item(s, path, codes, fstems.get(os.path.dirname(path), set()),
+                           media_dir=_media_dir, media_mode=_media_mode,
                            **(param_cfg or {}))
         except Exception as e:
             log("ERROR %s: %s" % (path, e))
