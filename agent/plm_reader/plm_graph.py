@@ -116,71 +116,22 @@ def _save_media_cache(cache):
 
 
 def plm_edges():
-    """V128: ЕДИНЫЙ ИСТОЧНИК СВЯЗЕЙ — ОДНИ связи для ВСЕХ окон (HTML, граф, отчёты).
+    """V136: ЕДИНЫЙ ИСТОЧНИК СВЯЗЕЙ — ТЕПЕРЬ ПРОКСИ НА `plm_links.edges()` (ДОГМА §4/§5).
 
-    Владелец: «разве могут быть несколько графов и связей в одной плм-ридере?» —
-    «база одна, граф один, связи одни и те же». Поэтому связи строятся ЗДЕСЬ, ОДИН РАЗ:
+    Владелец: «разве могут быть несколько графов и связей в одной плм-ридере?» — «база одна,
+    граф один, связи одни и те же»; 28.10.2026: «ВЕЗДЕ ВСЁ РАЗНОЕ. НО ТАКОГО НЕ МОЖЕТ БЫТЬ В ПЛМ».
 
-      * `links`   → состав/входимость, канал `db`      (ФИЗИЧЕСКАЯ связь из файла);
-      * `derived` → база наследования, канал `inherit` (НЕ состав!);
-      * служебные базы (`MM_ASSY`, `SBORKA_MM`, `MM_PART`) — отсекаются;
-      * СВЯЗЬ = ПАРА ИМЁН; путь — только для выбора узла-представителя.
-
-    Раньше связи раскладывались по ВСЕМ путям имени (V104), и одна физическая связь
-    превращалась в ×3.9 рёбер (24 297 пар → 95 116 рёбер) — «граф не тот».
-    Возвращает список {from, to, type, qty, channel} ПО ИМЕНАМ (`_norm`).
+    Раньше связь строилась ЗДЕСЬ своей реализацией, а рядом — ещё шесть чужих (`build_html`,
+    `collect_by_path`, `collect_from_db`, окно, dbview). Теперь построение ОДНО — в `plm_links.py`;
+    эта функция только переводит его в прежний формат {from,to,type,qty,channel}, чтобы не
+    ломать существующих потребителей.
     """
-    if engine is None:
-        return []
     try:
-        con = engine.connect(ro=True)
+        import plm_links as _L
     except Exception:                  # noqa: BLE001
         return []
-    out = {}
-    try:
-        # V134: ИСТОЧНИК РАЗЛИЧАЕМ. Грабля (владелец: «у дин912 связей 5, не показывает связи
-        # исполнений»): `links` читалась ОДНОЙ кучей, и `source` терялся — 1375 ИСПОЛНЕНИЙ DIN912
-        # (источник `family`) шли как обычные «деталь» вместе с физическим составом (`plm_tree`,
-        # `asm_comp`). Теперь канал зависит от источника:
-        #   family   → «исполнение» (таблица семейства: генерик → исполнение);
-        #   asm_comp → «структура»  (состав, прочитанный из СТРУКТУРЫ файла сборки);
-        #   plm_tree → «деталь»     (физическая связь по вхождению имени).
-        # `source` может быть NULL (старые базы) — считаем «деталь», как раньше.
-        for r in con.execute("SELECT parent, child, qty, source FROM links"):
-            a, b = _norm(r[0]), _norm(r[1])
-            if not a or not b or a == b or _is_service(a) or _is_service(b):
-                continue
-            src = (r[3] or "").strip().lower()
-            if src == "mentions":
-                # V134: УПОМИНАНИЕ имени в байтах детали/чертежа — НЕ связь.
-                # ДОКАЗАНО: `din931.prt.1` содержит `DIN912-UNC` как ЗНАЧЕНИЕ ПАРАМЕТРА таблицы
-                # семейства → рождалась ложная «связь» DIN931 → DIN912. В граф НЕ пускаем
-                # (в базе остаётся источником `mentions` — видно в SQL, но состав не мусорит).
-                continue
-            if src == "family":
-                k = (a, b, "исполнение", "family")
-            elif src == "asm_comp":
-                k = (a, b, "структура", "db")
-            else:
-                k = (a, b, "деталь", "db")
-            out[k] = out.get(k, 0) + int(r[2] or 1)
-        for r in con.execute("SELECT child, base, kind FROM derived"):
-            a, b = _norm(r[0]), _norm(r[1])
-            if not a or not b or a == b or _is_service(a) or _is_service(b):
-                continue
-            k0 = (r[2] or "").lower()
-            typ = "копия" if "коп" in k0 else ("исполнение" if "наслед" in k0 else "производная")
-            k = (a, b, typ, "inherit")
-            out[k] = out.get(k, 0) + 1
-    except Exception:                  # noqa: BLE001
-        return []
-    finally:
-        try:
-            con.close()
-        except Exception:              # noqa: BLE001
-            pass
-    return [{"from": a, "to": b, "type": t, "qty": q, "channel": ch}
-            for (a, b, t, ch), q in out.items()]
+    return _L.edges(engine)
+
 
 
 def collect_by_path(media_dir=None):
