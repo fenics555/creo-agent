@@ -2289,7 +2289,14 @@ def do_scan(roots, max_mb, limit, depth=None, progress_cb=None, stop_cb=None, fu
         else:
             # деталь/чертёж: вхождение имени — не состав. Пишем отдельным источником `mentions`,
             # чтобы данные НЕ терялись (видно в SQL), но в состав/граф по умолчанию не попадали.
+            # 🔴 28.10.2026 (владелец: «ММ-ПАРТ — это шаблон либо действующий либо прошлый, я его
+            # могу внести в настройки исключений»): ШАБЛОНЫ в `mentions` НЕ пишем. Замер:
+            # `127_53_01.prt.1` дал ЧЕТЫРЕ строки `-> MM_PART [mentions]` — это шаблонная деталь,
+            # стоит в каждом файле, связью не является. Список — общий `_NOT_PARENTS` (там же
+            # `MM_ASSY`, `SBORKA_MM/MFG`, `MFG_NC`), чтобы правило было ОДНО на весь движок.
             for child, qty in it["refs"].items():
+                if str(child).upper() in _NOT_PARENTS:
+                    continue
                 if (s, child) in seen:
                     continue
                 seen.add((s, child))
@@ -2366,6 +2373,13 @@ def do_scan(roots, max_mb, limit, depth=None, progress_cb=None, stop_cb=None, fu
             con.execute("DELETE FROM links WHERE parent=? AND source='family'", (s,))
             for _item in fam:
                 _inst = _item[0] if isinstance(_item, (tuple, list)) else _item
+                # 🔴 28.10.2026: КОПИИ-ЭКЗЕМПЛЯРЫ в связи НЕ пишем. Владелец: «Копии экземпляра —
+                # это ускорители family-table, но они много занимают места и не всегда нужны,
+                # поэтому чтение только из файла». Замер: `.xpr` в базе 14 809 шт. (200–700 КБ).
+                # Если такой файл (или имя с расширением) — в `links` ему не место.
+                if is_copy_file(str(_inst)) or is_copy_file(path) \
+                        or str(_inst).upper() in _NOT_PARENTS:
+                    continue
                 con.execute("INSERT INTO links (parent,child,qty,source) VALUES (?,?,?,?)",
                             (s, _inst, 1, "family"))
         done += 1
