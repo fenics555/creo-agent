@@ -1,0 +1,20 @@
+
+D:\AI\tools\agent\creo_export>rem ============================================================================ 
+
+D:\AI\tools\agent\creo_export>rem  MASS PROBE (JLINK) - MassProperty of a model from a RUNNING Creo. No CREOSON. 
+
+D:\AI\tools\agent\creo_export>rem  usage: mass_probe.bat MODEL.prt [MODEL2.prt ...] 
+
+D:\AI\tools\agent\creo_export>rem  prints:  NAME   MASS=.17g   AREA=.17g 
+
+D:\AI\tools\agent\creo_export>rem  Creo must be running. Creo stays alive after the run (Disconnect only). 
+
+D:\AI\tools\agent\creo_export>rem  Paths come from settings\creo_export_settings.json via ..\creo_pdf\creo_pdf_env.py 
+
+D:\AI\tools\agent\creo_export>rem ============================================================================ 
+WARNING: A restricted method in java.lang.System has been called
+WARNING: java.lang.System::loadLibrary has been called by MassProbe in an unnamed module (file:/D:/AI/tools/agent/creo_export/)
+WARNING: Use --enable-native-access=ALL-UNNAMED to avoid a warning for callers in this module
+WARNING: Restricted methods will be blocked in a future release unless native access is enabled
+
+ERR: com.ptc.pfc.Implementation.pfcExceptions$XToolkitAmbiguous

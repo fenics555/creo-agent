@@ -27,7 +27,12 @@ public class MassProbe {
           File mf = new File(model);
           String pdir = mf.getParent();
           if (pdir != null && new File(pdir).isDirectory()) s.ChangeDirectory(pdir);
-          Model m = s.RetrieveModel(pfcModel.ModelDescriptor_CreateFromFileName(model));
+          // 🔴 29.10.2026: Creo ждёт имя БЕЗ номера версии (`x.prt`, а не `x.prt.1`) — XUnknownModelExtension
+          String fname = mf.getName();
+          if (fname.matches("(?i).+\\.(prt|asm|drw)\\.\\d+$")) {
+            fname = fname.replaceFirst("(?i)(\\.(?:prt|asm|drw))\\.\\d+$", "$1");
+          }
+          Model m = s.RetrieveModel(pfcModel.ModelDescriptor_CreateFromFileName(fname));
           System.out.println("#MODEL " + mf.getName());
           try {
             Solid sol = (Solid) m;
