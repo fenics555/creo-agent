@@ -165,6 +165,118 @@ C API (справка, компилятора НЕТ): `ProMfgProctableVisit` ·
            `PTC_TOOLPATH_REV_NUM`18 · `CONSIDER_TOOL_LENGTH`10) · ЭКЗЕМПЛЯР `0x34793..0x370BD`
            (`TOOL_CENTER`/`HOLDER_DIAMETER`/`HOLDER_LENGTH`) · CL-ПАРАМЕТРЫ(11) `0x8905..0xB136`.
            🚦 РЕГИСТР ЗНАЧИМ: `TOOL_ID`(19, список) ≠ `tool_id`(2, структура). → §144-§146.
+📋 ПОЛНЫЙ ПЕРЕЧЕНЬ ТИПОВ ФАЙЛОВ CREO (29.10.2026, фаза 22, ЗАМЕР 97 226 файлов + библиотека 16 960):
+           ПОДТВЕРЖДЕНО: `.prt`21270 · `.xpr`14815(копия детали) · `.drw`12413 · `.asm`11227 ·
+           `.lay`2144 · `.m_p`841 · `.mfg`422 · `.sec`73 · `.frm`36 · `.crc`32 · `.neu`5 ·
+           `.rep`2 · `.cem`1.
+           🔴 НАЙДЕНО ЗАНОВО (нет ни в §102, ни в списке владельца):
+           **`.xas`1206 = КОПИЯ СБОРКИ (★ «сборка взаимозамены», пара к `.xpr`!)** ·
+           **`.mtl`2607 (материалы, новый формат)** · **`.tph`1779 (ТЕХПРОЦЕСС)** ·
+           **`.dsn`1306 (design/компоновка)** · **`.stk`931 (stock/заготовка)** · `.tst`831 ·
+           `.idx`722 · `.mnu`580 · **`.tls`561 (TOOLS)** · **`.tp`503 (TOOL/ТП)** · `.sym`391 ·
+           `.gph`356 · **`.tpm`284 (параметры инструмента)** · `.m3d`220 · `.mat`208 · `.tbl`144 ·
+           `.lsl`148 · `.mrd`59 · `.acc`17 · `.pro`23 · `.dtl`2.
+           БИБЛИОТЕКА `CREO-START\Libraries` (16 960): `.lay`2144 · `.prt`1259 · `.txt`67 ·
+           `.asm`63 · `.gph`32 · `.mnu`24 · `.sec`22 · `.drw`15 · `.lsl`14 · `.tbl`9 · `.inf`7 ·
+           **`.ctg`2 (★ CATALOG)** · **`.bnd`1 (★ BUNDLE)**.
+           ❌ НЕТ НИГДЕ: `.blk`0 · `.skl`0 · `.dgm`0 · `.mrk`0 · `.module`0 · `.confasm`0.
+           ⇒ РОЛЬ (заготовка/приспособление/родитель/мастер-модель) — ТОЛЬКО ИЗ СОДЕРЖИМОГО файла,
+           НЕ из расширения (§М.1г). ⇒ В `engine.CREO_EXTS` добавить: `.xas`(copy!) · `.mtl`/`.mat` ·
+           `.tph` · `.dsn` · `.stk` · `.tls`/`.tp`/`.tpm` · `.idx` · `.mnu` · `.sym` · `.gph` ·
+           `.tbl` · `.m3d` · `.ctg` · `.bnd` · `.lsl` · `.inf`. → `SKILL_GRABLI` §148.
+🏆🏆 ТИП ФАЙЛА — В ЗАГОЛОВКЕ `#UGC:2 <ТИП>`, НЕ В РАСШИРЕНИИ (29.10.2026, фаза 23, §149):
+           ЗАМЕР 441 файла `D:\РАБОЧАЯ ПАПКА\sergei\UCHASTOK-S-DOMOM`:
+             `PART` 217 · `ASSEMBLY` 42 · `DRAWING` 34 · **`INST_PART` 10 (это `.xpr`!)** ·
+             **`PART/SKEL_MODEL` 6 (★ СКЕЛЕТОН)** · **`ASSEMBLY/ASSEM_MFG` 4** ·
+             **`MFG_TOOL_PATH` 4 (★ `.tph` = ТРАЕКТОРИЯ)** · **`PART/BULK` 1 (★ «BLK»!)**
+           НАЙДЕНО ТО, ЧТО ИСКАЛ ВЛАДЕЛЕЦ:
+             «BLK» = `#UGC:2 PART/BULK` → `besedka-kirpich.prt.1` (52 880 Б)
+             СКЕЛЕТОН = `#UGC:2 PART/SKEL_MODEL` + суффикс `_skel` → `besedka-000-sb_skel0001.prt.1`
+             ТРАЕКТОРИЯ = `#UGC:2 MFG_TOOL_PATH` → `КЛЕММА-14.tph.1` (573 163 Б)
+           🎁 `.tp` = `Pro/CLfile Version 10.0` — ТЕКСТОВЫЙ CL-ФАЙЛ (БЕЗ байтового разбора!):
+             `OP010.tp` 476 КБ / 8 962 строки: `MFGNO` · `PARTNO` · `FEATNO` · `MACHIN` ·
+             `PPRINT / OPERATION NAME : OP010` · `NC SEQUENCE NAME : CHERN` · `DATE TIME : 13-JUN-24` ·
+             `TOOL_TYPE : END MILL` · `CUTTER DIAMETER, 20.000` · `SPINDL / RPM, 2864, CLW` ·
+             `FEDRAT / 6014, MMPM` · `LOADTL` · `CUTTER` · `GOTO`/`CIRCLE`/`RAPID`.
+             ⇒ ВСЯ ТЕХНОЛОГИЯ ТЕКСТОМ — ответ на «время/установы/инструмент» БЕЗ J-Link!
+           🔴 ИСПРАВЛЕНО: `.stk`/`.dsn` = `VERICUT-model Version-3.0` — НЕ Creo!
+           🔴 ИСПРАВЛЕНО: `.xpr` = `INST_PART` (самостоятельный тип), не «копия family-table» (§102.2).
+           🔊 ГРАБЛЯ (3× за смену): `editor` с `old_text` = заголовок соседней секции ТЕРЯЕТ её.
+           ЛЕЧЕНИЕ: вставлять новой секцией через `insert_line`, НЕ заменой; после — проверять нумерацию.
+🏆🏆🏆 СВЯЗИ РАСКРЫТЫ (29.10.2026, фаза 24, §150): задача владельца «Деталь/сборка/мануфактуринг + СВЯЗИ».
+           🔴 ГРАБЛЯ №6 — В ФАЙЛЕ **ДВЕ КАРТЫ `#UGC_TOC`**: #1 @0x31F (18 зап.) и #2 @0x61556 (18 зап., В КОНЦЕ).
+           СКЛЕЙКА карт → адреса ушли ЗА границу файла (0x6D604 > 0x62075) → читалось ПУСТО.
+           ПРАВИЛО: парсить карты РАЗДЕЛЬНО; адрес обязан быть `< размера файла`.
+           ★★★ ТАБЛИЦЫ СВЯЗЕЙ (адреса точные):
+             `FeatDefsCmp` @0x55BC8 (3305 Б, 79 полей) — КОМПОНЕНТЫ: symbol_key · model_type ·
+               local_sys · **own_ref_id** · orient · offset · **geometry1_id/geometry2_id** ·
+               memb_num1/2 · **sel_assem_pnt/sel_comp_pnt/_uvparam** · **trf_arr**.
+             `FeatDefsDtm` @0x54FBF (3079 Б) — ДАТУМЫ: то же + transf · plcm_revnum · comment.
+             `IdsGenAllRepsDb` @0x53DB8 (4613 Б) — МОСТ: **geom_id · geom_type · feat_id** ·
+               boundary_type · outline · topol_ref_data · owner_feat_revnum +
+               `all_reps_items: owner_item · owner_id · db_type · revnum_item` ← КОРЕНЬ СВЯЗЕЙ ПЛМ.
+             `ModelView#N` @0x58071 (1181 Б) — РАСПОЛОЖЕНИЕ: matrix · world_matrix_ptr · geom_id ·
+               **model_name · unrep_model_name · position · model_cosm_rev_num(РЕВИЗИЯ)**.
+           📊 MFG vs PART (TOC): `AllFeatur` 99 Б (PART!) vs 13 006 Б (MFG) · `FullMData` 6703/8350 ·
+             `FeatDefs*` только у MFG · `SldRegenRevInfo` (ИСТОРИЯ) только у MFG · `ModelView` 2/8 ·
+             `MechanicaData` 315 477 (только MFG). → §150.
+           ❓ У ДЕТАЛИ `AllFeatur` ПУСТО (99 Б) — дерево элементов детали лежит в другом месте
+             (`BasicData`/`MdlStatus`/`LargeText`) — ПРОВЕРИТЬ следующей ноге. → §151.
+🏆🏆🏆 СВЯЗИ И СТАТУС — В `AllFeatur`! (29.10.2026, фаза 25, §152) — C API НЕ НУЖЕН.
+           🔴 ГРАБЛЯ №6 РАСШИРЕНА: карт `#UGC_TOC` ОТ 2 ДО 3 у КАЖДОГО файла (замер 8 файлов):
+             PART/BULK 3 (`0x314`/`0xC6A8`/`0xCD91`) · PART/SKEL 3 · PART ЦТКД 3 ·
+             ASSEM_MFG 2 · ASSEMBLY 2 · INST_PART 2 · PART PSB 2.
+             ПРАВИЛА: (1) карт 2–3, парсить РАЗДЕЛЬНО; (2) адрес `< размера файла`;
+             (3) ДЕДУП по (имя, offset) — `SldRegenRevInfo` иначе считается ДВАЖДЫ.
+           ★★★ `AllFeatur` = КАРТА ЭЛЕМЕНТА + СВЯЗИ. Формат `AllFeatur` детали @0x27D15
+             (35 107 Б, 107 полей; SKEL 20 994/75; MFG 13 006):
+               `table_id · type · feattype_key · form · attributes · placement · intersection`
+               `blend_choice · depth_choice · angle_choice · pat_choice · round_choice`
+               MFG-блок СВЯЗЕЙ: `dtm_id_tab → dtm_id · dim_id` + `info(geom_item_rev_info) →
+               **parents_checksum · num_parents · is_item_alive** + `mdl_geom_rev` + `extnd_revnum_data`
+               + **`ref_models_data` (ГРАФ СВЯЗЕЙ!)** + `info_arr → id_tab · has_complex_ref · checksum`.
+             ⇒ ЭТО ЗАКРЫВАЕТ ТО, ЧТО J-Link НЕ ДАВАЛ: `num_parents` (= ProFeatureParentsGet=0!),
+               `is_item_alive` (= FEAT_SUPPRESSED), `extnd_revnum_data` (ревизии), `ref_models_data`.
+             ⇒ **C API / MSVC НЕ НУЖЕН — связи и статус лежат В ФАЙЛЕ.**
+           📊 СВЯЗИ У ВСЕХ ТИПОВ: `FeatDefsDtm` есть у детали (2257/26) и скелетона (4971/31);
+             `FeatDefsCmp` — ТОЛЬКО у сборок (3305/79); `MdlRefInfo` — только у сборок.
+🏆🏆🏆 `feat_defs_<N>` = ТИПЫ ЭЛЕМЕНТОВ, `feattype_key` = ОПИСАНИЕ (29.10.2026, фаза 25, §153):
+           ФОРМАТ ЗАПИСИ ПОЛЯ: `<ЗНАЧЕНИЕ> E0 <тип-маркер> <ИМЯ> 00`, напр.
+             `f6 e0 01 "type" 00` · `83 9b e0 0a "feattype_key" 00` · `00 e0 01 "blend_choice" 00`.
+             `E0` = «далее имя»; маркер: 01=простое, 0a=сложное/ключ; `f6`/`e1` = ссылки, `00` = число.
+           СТРУКТУРА: `feattype_key` = 1 раз (ОПИСАНИЕ) · `feat_defs_<N>` = 6 раз:
+             **911 · 916 · 917 · 923 · 926 · 979 = 6 ТИПОВ ЭЛЕМЕНТОВ этой детали!**
+           ⇒ `b` из `names_table` = ИНДЕКС/ССЫЛКА в список типов (НЕ «съеденный байт», не код вида).
+           ⇒ Вид = СВЯЗКА `feat_defs_<N>` ↔ `names_table` ↔ `AllFeatur` (ТРИ секции, не одно поле) —
+             ровно то, о чём говорил владелец («извлекать контекст»).
+           ⚠️ Связь `feat_defs_<N>` ↔ `TYPENUM` Creo НЕ проверена (нужен прогон Creo).
+🏆🏆🏆 КОДЫ ТИПОВ ЭЛЕМЕНТОВ (29.10.2026, фаза 26, §154): `feat_defs_<N>` — УСТОЙЧИВЫЕ коды!
+           PART ЦТКД: 911·916·917·923·926·979 · ЛИТЕЙКА 052401: 913·916·917·923·927·1031·1238·1306 ·
+           MFG КЛЕММА-14: 923·939·940·949·979·1000·1007·1008·1232·1234 ·
+           SKEL беседка: 923·926·949·950·979·1234.
+           ПОВТОРЯЮТСЯ: **923 у ВСЕХ 4** (базовый) · 979 у 4 · 916/917 у 2 · 926/949/1234 у 2.
+           **`1000` = КОМПОНЕНТ** (`FeatDefsCmp → feat_defs_1000`). ⇒ ЭТО И ЕСТЬ «КОД ВИДА»!
+🏆🏆🏆 ФОРМАТ ЧИСЕЛ РАЗГАДАН (29.10.2026, фаза 26, §155) — `F8 <len> <байты>` / `F4` / `F1`:
+           `f8 14 <14Б>` = МАССИВ/ХЕШ · `f8 01 1e` = 30 · прямой байт = число (`0b`=11) ·
+           `f4 05`=5 · `f1 1b`=27 · 2 байта (`8c 06`=1676) · **`e1`/`e2`/`e3`/`f6` = МАРКЕРЫ ССЫЛОК**.
+           ⇒ `num_parents` литейки = **0x0B = 11** (РОДИТЕЛИ ЕСТЬ!) · `is_item_alive`=01 · `type`=03 ·
+             `rev_cnt`=0x38=56 · `version`=5 · `revnum`=0x1B=27 (снова 27!).
+           🔴 ГРАБЛЯ №7: ЗНАЧЕНИЕ ЧИТАТЬ **ПЕРЕД** `E0` (а я читал после) + `e1`/`e2` = ссылки, не значения.
+           📍 РОДИТЕЛИ (`num_parents`/`parents_checksum`) — в **`VisibGeom`** (`info(geom_item_rev_info)`),
+             а НЕ в `AllFeatur`! Литейка `052401-model-master.prt` @0xAD19C/@0xAD1C9.
+           📍 ИМЯ СОБСТВЕННОЙ МОДЕЛИ: `<0><КОД><имя>` — `013ctkd_015_23_001.prt` · `01bbesedka-...` ·
+             `017052401-model-master.prt` · `014170meta-1-master.prt` · `013клемма-14.asm` (коды 13/14/17/1b).
+           📊 `AllFeatur` у ЛИТЕЙКИ огромен: 550 379 (052401) · 1 348 653 (170meta-1) · 302 174 (052402).
+🏆🏆🏆 СЛОВАРЬ ТИПОВ СОШЁЛСЯ: `feat_defs_<N>` = `pfcFEATTYPE` **+ 910** (29.10.2026, фаза 27, §156):
+           Владелец напомнил: словарь уже был записан (`SKILL_GRABLI` 2223-2227, `SKILL_creo_read_feat` 47/106).
+           Источник (живой): `D:\PTC\CREO13\...\otk_cpp\include\pfcFeature.h` (20 038 Б, enum 314 имён, FEATTYPE=280).
+           ★★★ ФОРМУЛА: **тип = feat_defs_<N> − 910** (проверено на 30 кодах, 16 совпали СО СМЫСЛОМ):
+             911→HOLE · 913→ROUND · 916→CUT · 917→PROTRUSION · 923→DATUM_PLANE (у ВСЕХ 4 файлов!)
+             926→DATUM_AXIS · **927→DRAFT (у литейки 21 уклон — ИДЕАЛЬНО)** · 939→MILL · 940→DRILL
+             949→CURVE · 979→CHANNEL · 1000→MFGMERGE · **1007→WORKCELL (совпало с MILLTURN01!)** · 1008→CUT_MOTION.
+           ⚠️ ГРАНИЦА: 1232/1234/1238/1306 — ВНЕ таблицы (индексы 322+) ⇒ ДРУГОЙ источник.
+           ⚠️ НЕ СРАВНЕНО с `TYPENUM` Creo (TYPE_13/TYPE_30) — отдельная шкала (§131).
+           📌 ТРИ ШКАЛЫ: `pfcFEATTYPE` 0…279 (API) · `feat_defs_<N>` 911…1031 (ФАЙЛ, −910) · `TYPENUM` 10…100 (Creo).
 
 ```
 
