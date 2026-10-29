@@ -1,0 +1,22 @@
+
+D:\AI\tools\agent\creo_export>rem ============================================================================ 
+
+D:\AI\tools\agent\creo_export>rem  TREE PROBE (JLINK) - model feature tree from a LIVE Creo. Reference for bytes. 
+
+D:\AI\tools\agent\creo_export>rem  usage: tree_probe.bat MODEL.prt [MODEL2.prt ...] 
+
+D:\AI\tools\agent\creo_export>rem  prints: #MODEL / #FEAT n id type name suppressed / #DIM feat dN value 
+
+D:\AI\tools\agent\creo_export>rem          / #PARAM name value / #ERR ... 
+
+D:\AI\tools\agent\creo_export>rem  Creo is started by the probe; Disconnect at the end, Creo keeps running. 
+
+D:\AI\tools\agent\creo_export>rem  NOTE: this file is ASCII ONLY - Cyrillic in a .bat without BOM breaks the parser. 
+
+D:\AI\tools\agent\creo_export>rem ============================================================================ 
+WARNING: A restricted method in java.lang.System has been called
+WARNING: java.lang.System::loadLibrary has been called by TreeProbe in an unnamed module (file:/D:/AI/tools/agent/creo_export/)
+WARNING: Use --enable-native-access=ALL-UNNAMED to avoid a warning for callers in this module
+WARNING: Restricted methods will be blocked in a future release unless native access is enabled
+
+#ERR fatal: com.ptc.pfc.Implementation.pfcExceptions$XToolkitAmbiguous

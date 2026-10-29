@@ -1,0 +1,30 @@
+
+D:\AI\tools\agent\creo_export>rem ============================================================================ 
+
+D:\AI\tools\agent\creo_export>rem  MASS PROBE (JLINK) - MassProperty of a model from a RUNNING Creo. No CREOSON. 
+
+D:\AI\tools\agent\creo_export>rem  usage: mass_probe.bat MODEL.prt [MODEL2.prt ...] 
+
+D:\AI\tools\agent\creo_export>rem  prints:  NAME   MASS=.17g   AREA=.17g 
+
+D:\AI\tools\agent\creo_export>rem  Creo must be running. Creo stays alive after the run (Disconnect only). 
+
+D:\AI\tools\agent\creo_export>rem  Paths come from settings\creo_export_settings.json via ..\creo_pdf\creo_pdf_env.py 
+
+D:\AI\tools\agent\creo_export>rem ============================================================================ 
+WARNING: A restricted method in java.lang.System has been called
+WARNING: java.lang.System::loadLibrary has been called by MassProbe in an unnamed module (file:/D:/AI/tools/agent/creo_export/)
+WARNING: Use --enable-native-access=ALL-UNNAMED to avoid a warning for callers in this module
+WARNING: Restricted methods will be blocked in a future release unless native access is enabled
+
+# cwd=Z:\PTC\CREO-START\Libraries\Библиотека_стандартных_изделий\Болты_винты\
+#MODEL din912.prt.1
+#MASS MASS=0,028944382443404644 VOLUME=3618,0478054255805 AREA=1824,6746105320483
+#BBOX N/A — в этом API габарит не отдаётся
+#MODEL g22033.prt.1
+#MASS MASS=0,014921140138664956 VOLUME=1900,7821832694212 AREA=1036,1554748811390
+#BBOX N/A — в этом API габарит не отдаётся
+#MODEL ctkd_015_23_001.prt.1
+#MASS MASS=0,023440876460236400 VOLUME=23440,876460236403 AREA=8963,5603244365500
+#BBOX N/A — в этом API габарит не отдаётся
+# done, failures=0

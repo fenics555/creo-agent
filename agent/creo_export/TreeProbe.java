@@ -115,7 +115,24 @@ public class TreeProbe {
         String fname = "";
         try { fname = f.GetName(); } catch (Throwable ignored) {}
         String ftype = featTypeName(f);
-        System.out.println("#FEAT " + i + " " + id + " " + ftype + " " + fname);
+        // СТАТУС: FeatureStatus — FEAT_SUPPRESSED / FEAT_FAMILY_TABLE_SUPPRESSED /
+        // FEAT_SIMP_REP_SUPPRESSED / FEAT_PROGRAM_SUPPRESSED (точные имена из pfcasync.jar).
+        // Плюс GetIsVisible/GetIsReadonly и статусы группы (GetGroupStatus).
+        String fstat = "";
+        try {
+          Object st = f.GetStatus();
+          if (st != null) {
+            String sv = String.valueOf(st);
+            int at = sv.indexOf('@');
+            fstat = at > 0 ? sv.substring(0, at) : sv;
+            try { Object v = st.getClass().getMethod("getValue").invoke(st);
+                  if (v != null) fstat = fstat + "(" + v + ")"; } catch (Throwable ignored) {}
+          }
+        } catch (Throwable ignored) {}
+        String vis = "";
+        try { vis = String.valueOf(f.GetIsVisible()); } catch (Throwable ignored) {}
+        System.out.println("#FEAT " + i + " " + id + " " + ftype + " " + fname
+                           + " status=" + fstat + " visible=" + vis);
         // РАЗМЕРЫ: у Feature НЕТ ModelItemOwner (проверено: ClassCastException), поэтому
         // берём размеры МОДЕЛИ и фильтруем по владельцу — `GetOwner()`/`GetFeatId`.
         if (modelDims != null) {

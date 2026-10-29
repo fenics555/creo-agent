@@ -1,0 +1,292 @@
+
+D:\AI\tools\agent\creo_export>rem ============================================================================ 
+
+D:\AI\tools\agent\creo_export>rem  TREE PROBE (JLINK) - model feature tree from a LIVE Creo. Reference for bytes. 
+
+D:\AI\tools\agent\creo_export>rem  usage: tree_probe.bat MODEL.prt [MODEL2.prt ...] 
+
+D:\AI\tools\agent\creo_export>rem  prints: #MODEL / #FEAT n id type name suppressed / #DIM feat dN value 
+
+D:\AI\tools\agent\creo_export>rem          / #PARAM name value / #ERR ... 
+
+D:\AI\tools\agent\creo_export>rem  Creo is started by the probe; Disconnect at the end, Creo keeps running. 
+
+D:\AI\tools\agent\creo_export>rem  NOTE: this file is ASCII ONLY - Cyrillic in a .bat without BOM breaks the parser. 
+
+D:\AI\tools\agent\creo_export>rem ============================================================================ 
+WARNING: A restricted method in java.lang.System has been called
+WARNING: java.lang.System::loadLibrary has been called by TreeProbe in an unnamed module (file:/D:/AI/tools/agent/creo_export/)
+WARNING: Use --enable-native-access=ALL-UNNAMED to avoid a warning for callers in this module
+WARNING: Restricted methods will be blocked in a future release unless native access is enabled
+
+# cwd=Z:\PTC\Work\001_15 ЦТКД Электон\ЦТКД 015.23.001 клемма32\
+#MODEL птр-401-мт-01r-00-t01.asm.1
+#FEAT-COUNT 17
+#DIM-COUNT 13
+#FEAT 0 1 TYPE_13 ASM_RIGHT status=com.ptc.pfc.pfcFeature.FeatureStatus(0) visible=true
+#DIM feat=1 sym=d31 dimid=31 dtype=TYPE_1 val=2.0 tol=DimTolISODIN
+#DIM feat=1 sym=d32 dimid=32 dtype=TYPE_1 val=2.0 tol=DimTolISODIN
+#DIM feat=1 sym=d80 dimid=80 dtype=TYPE_0 val=0.0 tol=DimTolISODIN
+#DIM feat=1 sym=d81 dimid=81 dtype=TYPE_0 val=43.3074 tol=DimTolISODIN
+#DIM feat=1 sym=d82 dimid=82 dtype=TYPE_0 val=0.0 tol=DimTolISODIN
+#DIM feat=1 sym=d83 dimid=83 dtype=TYPE_3 val=0.0 tol=
+#DIM feat=1 sym=d84 dimid=84 dtype=TYPE_0 val=86.6147 tol=DimTolISODIN
+#DIM feat=1 sym=d85 dimid=85 dtype=TYPE_3 val=180.0 tol=
+#DIM feat=1 sym=d86 dimid=86 dtype=TYPE_0 val=43.3074 tol=DimTolISODIN
+#DIM feat=1 sym=d87 dimid=87 dtype=TYPE_3 val=360.0 tol=
+#DIM feat=1 sym=p88 dimid=88 dtype= val=2.0 tol=
+#DIM feat=1 sym=p89 dimid=89 dtype= val=1.0 tol=
+#DIM feat=1 sym=d90 dimid=90 dtype=TYPE_0 val=0.0 tol=DimTolISODIN
+#FEAT 1 3 TYPE_13 ASM_TOP status=com.ptc.pfc.pfcFeature.FeatureStatus(0) visible=true
+#DIM feat=3 sym=d31 dimid=31 dtype=TYPE_1 val=2.0 tol=DimTolISODIN
+#DIM feat=3 sym=d32 dimid=32 dtype=TYPE_1 val=2.0 tol=DimTolISODIN
+#DIM feat=3 sym=d80 dimid=80 dtype=TYPE_0 val=0.0 tol=DimTolISODIN
+#DIM feat=3 sym=d81 dimid=81 dtype=TYPE_0 val=43.3074 tol=DimTolISODIN
+#DIM feat=3 sym=d82 dimid=82 dtype=TYPE_0 val=0.0 tol=DimTolISODIN
+#DIM feat=3 sym=d83 dimid=83 dtype=TYPE_3 val=0.0 tol=
+#DIM feat=3 sym=d84 dimid=84 dtype=TYPE_0 val=86.6147 tol=DimTolISODIN
+#DIM feat=3 sym=d85 dimid=85 dtype=TYPE_3 val=180.0 tol=
+#DIM feat=3 sym=d86 dimid=86 dtype=TYPE_0 val=43.3074 tol=DimTolISODIN
+#DIM feat=3 sym=d87 dimid=87 dtype=TYPE_3 val=360.0 tol=
+#DIM feat=3 sym=p88 dimid=88 dtype= val=2.0 tol=
+#DIM feat=3 sym=p89 dimid=89 dtype= val=1.0 tol=
+#DIM feat=3 sym=d90 dimid=90 dtype=TYPE_0 val=0.0 tol=DimTolISODIN
+#FEAT 2 5 TYPE_13 ASM_FRONT status=com.ptc.pfc.pfcFeature.FeatureStatus(0) visible=true
+#DIM feat=5 sym=d31 dimid=31 dtype=TYPE_1 val=2.0 tol=DimTolISODIN
+#DIM feat=5 sym=d32 dimid=32 dtype=TYPE_1 val=2.0 tol=DimTolISODIN
+#DIM feat=5 sym=d80 dimid=80 dtype=TYPE_0 val=0.0 tol=DimTolISODIN
+#DIM feat=5 sym=d81 dimid=81 dtype=TYPE_0 val=43.3074 tol=DimTolISODIN
+#DIM feat=5 sym=d82 dimid=82 dtype=TYPE_0 val=0.0 tol=DimTolISODIN
+#DIM feat=5 sym=d83 dimid=83 dtype=TYPE_3 val=0.0 tol=
+#DIM feat=5 sym=d84 dimid=84 dtype=TYPE_0 val=86.6147 tol=DimTolISODIN
+#DIM feat=5 sym=d85 dimid=85 dtype=TYPE_3 val=180.0 tol=
+#DIM feat=5 sym=d86 dimid=86 dtype=TYPE_0 val=43.3074 tol=DimTolISODIN
+#DIM feat=5 sym=d87 dimid=87 dtype=TYPE_3 val=360.0 tol=
+#DIM feat=5 sym=p88 dimid=88 dtype= val=2.0 tol=
+#DIM feat=5 sym=p89 dimid=89 dtype= val=1.0 tol=
+#DIM feat=5 sym=d90 dimid=90 dtype=TYPE_0 val=0.0 tol=DimTolISODIN
+#FEAT 3 7 TYPE_68 ASM_DEF_CSYS status=com.ptc.pfc.pfcFeature.FeatureStatus(0) visible=true
+#DIM feat=7 sym=d31 dimid=31 dtype=TYPE_1 val=2.0 tol=DimTolISODIN
+#DIM feat=7 sym=d32 dimid=32 dtype=TYPE_1 val=2.0 tol=DimTolISODIN
+#DIM feat=7 sym=d80 dimid=80 dtype=TYPE_0 val=0.0 tol=DimTolISODIN
+#DIM feat=7 sym=d81 dimid=81 dtype=TYPE_0 val=43.3074 tol=DimTolISODIN
+#DIM feat=7 sym=d82 dimid=82 dtype=TYPE_0 val=0.0 tol=DimTolISODIN
+#DIM feat=7 sym=d83 dimid=83 dtype=TYPE_3 val=0.0 tol=
+#DIM feat=7 sym=d84 dimid=84 dtype=TYPE_0 val=86.6147 tol=DimTolISODIN
+#DIM feat=7 sym=d85 dimid=85 dtype=TYPE_3 val=180.0 tol=
+#DIM feat=7 sym=d86 dimid=86 dtype=TYPE_0 val=43.3074 tol=DimTolISODIN
+#DIM feat=7 sym=d87 dimid=87 dtype=TYPE_3 val=360.0 tol=
+#DIM feat=7 sym=p88 dimid=88 dtype= val=2.0 tol=
+#DIM feat=7 sym=p89 dimid=89 dtype= val=1.0 tol=
+#DIM feat=7 sym=d90 dimid=90 dtype=TYPE_0 val=0.0 tol=DimTolISODIN
+#FEAT 4 67 TYPE_89 null status=com.ptc.pfc.pfcFeature.FeatureStatus(0) visible=true
+#DIM feat=67 sym=d31 dimid=31 dtype=TYPE_1 val=2.0 tol=DimTolISODIN
+#DIM feat=67 sym=d32 dimid=32 dtype=TYPE_1 val=2.0 tol=DimTolISODIN
+#DIM feat=67 sym=d80 dimid=80 dtype=TYPE_0 val=0.0 tol=DimTolISODIN
+#DIM feat=67 sym=d81 dimid=81 dtype=TYPE_0 val=43.3074 tol=DimTolISODIN
+#DIM feat=67 sym=d82 dimid=82 dtype=TYPE_0 val=0.0 tol=DimTolISODIN
+#DIM feat=67 sym=d83 dimid=83 dtype=TYPE_3 val=0.0 tol=
+#DIM feat=67 sym=d84 dimid=84 dtype=TYPE_0 val=86.6147 tol=DimTolISODIN
+#DIM feat=67 sym=d85 dimid=85 dtype=TYPE_3 val=180.0 tol=
+#DIM feat=67 sym=d86 dimid=86 dtype=TYPE_0 val=43.3074 tol=DimTolISODIN
+#DIM feat=67 sym=d87 dimid=87 dtype=TYPE_3 val=360.0 tol=
+#DIM feat=67 sym=p88 dimid=88 dtype= val=2.0 tol=
+#DIM feat=67 sym=p89 dimid=89 dtype= val=1.0 tol=
+#DIM feat=67 sym=d90 dimid=90 dtype=TYPE_0 val=0.0 tol=DimTolISODIN
+#FEAT 5 17692 TYPE_233 null status=com.ptc.pfc.pfcFeature.FeatureStatus(0) visible=true
+#DIM feat=17692 sym=d31 dimid=31 dtype=TYPE_1 val=2.0 tol=DimTolISODIN
+#DIM feat=17692 sym=d32 dimid=32 dtype=TYPE_1 val=2.0 tol=DimTolISODIN
+#DIM feat=17692 sym=d80 dimid=80 dtype=TYPE_0 val=0.0 tol=DimTolISODIN
+#DIM feat=17692 sym=d81 dimid=81 dtype=TYPE_0 val=43.3074 tol=DimTolISODIN
+#DIM feat=17692 sym=d82 dimid=82 dtype=TYPE_0 val=0.0 tol=DimTolISODIN
+#DIM feat=17692 sym=d83 dimid=83 dtype=TYPE_3 val=0.0 tol=
+#DIM feat=17692 sym=d84 dimid=84 dtype=TYPE_0 val=86.6147 tol=DimTolISODIN
+#DIM feat=17692 sym=d85 dimid=85 dtype=TYPE_3 val=180.0 tol=
+#DIM feat=17692 sym=d86 dimid=86 dtype=TYPE_0 val=43.3074 tol=DimTolISODIN
+#DIM feat=17692 sym=d87 dimid=87 dtype=TYPE_3 val=360.0 tol=
+#DIM feat=17692 sym=p88 dimid=88 dtype= val=2.0 tol=
+#DIM feat=17692 sym=p89 dimid=89 dtype= val=1.0 tol=
+#DIM feat=17692 sym=d90 dimid=90 dtype=TYPE_0 val=0.0 tol=DimTolISODIN
+#FEAT 6 17691 TYPE_89 null status=com.ptc.pfc.pfcFeature.FeatureStatus(0) visible=true
+#DIM feat=17691 sym=d31 dimid=31 dtype=TYPE_1 val=2.0 tol=DimTolISODIN
+#DIM feat=17691 sym=d32 dimid=32 dtype=TYPE_1 val=2.0 tol=DimTolISODIN
+#DIM feat=17691 sym=d80 dimid=80 dtype=TYPE_0 val=0.0 tol=DimTolISODIN
+#DIM feat=17691 sym=d81 dimid=81 dtype=TYPE_0 val=43.3074 tol=DimTolISODIN
+#DIM feat=17691 sym=d82 dimid=82 dtype=TYPE_0 val=0.0 tol=DimTolISODIN
+#DIM feat=17691 sym=d83 dimid=83 dtype=TYPE_3 val=0.0 tol=
+#DIM feat=17691 sym=d84 dimid=84 dtype=TYPE_0 val=86.6147 tol=DimTolISODIN
+#DIM feat=17691 sym=d85 dimid=85 dtype=TYPE_3 val=180.0 tol=
+#DIM feat=17691 sym=d86 dimid=86 dtype=TYPE_0 val=43.3074 tol=DimTolISODIN
+#DIM feat=17691 sym=d87 dimid=87 dtype=TYPE_3 val=360.0 tol=
+#DIM feat=17691 sym=p88 dimid=88 dtype= val=2.0 tol=
+#DIM feat=17691 sym=p89 dimid=89 dtype= val=1.0 tol=
+#DIM feat=17691 sym=d90 dimid=90 dtype=TYPE_0 val=0.0 tol=DimTolISODIN
+#FEAT 7 17693 TYPE_89 null status=com.ptc.pfc.pfcFeature.FeatureStatus(0) visible=true
+#DIM feat=17693 sym=d31 dimid=31 dtype=TYPE_1 val=2.0 tol=DimTolISODIN
+#DIM feat=17693 sym=d32 dimid=32 dtype=TYPE_1 val=2.0 tol=DimTolISODIN
+#DIM feat=17693 sym=d80 dimid=80 dtype=TYPE_0 val=0.0 tol=DimTolISODIN
+#DIM feat=17693 sym=d81 dimid=81 dtype=TYPE_0 val=43.3074 tol=DimTolISODIN
+#DIM feat=17693 sym=d82 dimid=82 dtype=TYPE_0 val=0.0 tol=DimTolISODIN
+#DIM feat=17693 sym=d83 dimid=83 dtype=TYPE_3 val=0.0 tol=
+#DIM feat=17693 sym=d84 dimid=84 dtype=TYPE_0 val=86.6147 tol=DimTolISODIN
+#DIM feat=17693 sym=d85 dimid=85 dtype=TYPE_3 val=180.0 tol=
+#DIM feat=17693 sym=d86 dimid=86 dtype=TYPE_0 val=43.3074 tol=DimTolISODIN
+#DIM feat=17693 sym=d87 dimid=87 dtype=TYPE_3 val=360.0 tol=
+#DIM feat=17693 sym=p88 dimid=88 dtype= val=2.0 tol=
+#DIM feat=17693 sym=p89 dimid=89 dtype= val=1.0 tol=
+#DIM feat=17693 sym=d90 dimid=90 dtype=TYPE_0 val=0.0 tol=DimTolISODIN
+#FEAT 8 44328 TYPE_89 null status=com.ptc.pfc.pfcFeature.FeatureStatus(0) visible=true
+#DIM feat=44328 sym=d31 dimid=31 dtype=TYPE_1 val=2.0 tol=DimTolISODIN
+#DIM feat=44328 sym=d32 dimid=32 dtype=TYPE_1 val=2.0 tol=DimTolISODIN
+#DIM feat=44328 sym=d80 dimid=80 dtype=TYPE_0 val=0.0 tol=DimTolISODIN
+#DIM feat=44328 sym=d81 dimid=81 dtype=TYPE_0 val=43.3074 tol=DimTolISODIN
+#DIM feat=44328 sym=d82 dimid=82 dtype=TYPE_0 val=0.0 tol=DimTolISODIN
+#DIM feat=44328 sym=d83 dimid=83 dtype=TYPE_3 val=0.0 tol=
+#DIM feat=44328 sym=d84 dimid=84 dtype=TYPE_0 val=86.6147 tol=DimTolISODIN
+#DIM feat=44328 sym=d85 dimid=85 dtype=TYPE_3 val=180.0 tol=
+#DIM feat=44328 sym=d86 dimid=86 dtype=TYPE_0 val=43.3074 tol=DimTolISODIN
+#DIM feat=44328 sym=d87 dimid=87 dtype=TYPE_3 val=360.0 tol=
+#DIM feat=44328 sym=p88 dimid=88 dtype= val=2.0 tol=
+#DIM feat=44328 sym=p89 dimid=89 dtype= val=1.0 tol=
+#DIM feat=44328 sym=d90 dimid=90 dtype=TYPE_0 val=0.0 tol=DimTolISODIN
+#FEAT 9 1321 TYPE_137 СВАРКА status=com.ptc.pfc.pfcFeature.FeatureStatus(0) visible=true
+#DIM feat=1321 sym=d31 dimid=31 dtype=TYPE_1 val=2.0 tol=DimTolISODIN
+#DIM feat=1321 sym=d32 dimid=32 dtype=TYPE_1 val=2.0 tol=DimTolISODIN
+#DIM feat=1321 sym=d80 dimid=80 dtype=TYPE_0 val=0.0 tol=DimTolISODIN
+#DIM feat=1321 sym=d81 dimid=81 dtype=TYPE_0 val=43.3074 tol=DimTolISODIN
+#DIM feat=1321 sym=d82 dimid=82 dtype=TYPE_0 val=0.0 tol=DimTolISODIN
+#DIM feat=1321 sym=d83 dimid=83 dtype=TYPE_3 val=0.0 tol=
+#DIM feat=1321 sym=d84 dimid=84 dtype=TYPE_0 val=86.6147 tol=DimTolISODIN
+#DIM feat=1321 sym=d85 dimid=85 dtype=TYPE_3 val=180.0 tol=
+#DIM feat=1321 sym=d86 dimid=86 dtype=TYPE_0 val=43.3074 tol=DimTolISODIN
+#DIM feat=1321 sym=d87 dimid=87 dtype=TYPE_3 val=360.0 tol=
+#DIM feat=1321 sym=p88 dimid=88 dtype= val=2.0 tol=
+#DIM feat=1321 sym=p89 dimid=89 dtype= val=1.0 tol=
+#DIM feat=1321 sym=d90 dimid=90 dtype=TYPE_0 val=0.0 tol=DimTolISODIN
+#FEAT 10 110 TYPE_138 null status=com.ptc.pfc.pfcFeature.FeatureStatus(0) visible=true
+#DIM feat=110 sym=d31 dimid=31 dtype=TYPE_1 val=2.0 tol=DimTolISODIN
+#DIM feat=110 sym=d32 dimid=32 dtype=TYPE_1 val=2.0 tol=DimTolISODIN
+#DIM feat=110 sym=d80 dimid=80 dtype=TYPE_0 val=0.0 tol=DimTolISODIN
+#DIM feat=110 sym=d81 dimid=81 dtype=TYPE_0 val=43.3074 tol=DimTolISODIN
+#DIM feat=110 sym=d82 dimid=82 dtype=TYPE_0 val=0.0 tol=DimTolISODIN
+#DIM feat=110 sym=d83 dimid=83 dtype=TYPE_3 val=0.0 tol=
+#DIM feat=110 sym=d84 dimid=84 dtype=TYPE_0 val=86.6147 tol=DimTolISODIN
+#DIM feat=110 sym=d85 dimid=85 dtype=TYPE_3 val=180.0 tol=
+#DIM feat=110 sym=d86 dimid=86 dtype=TYPE_0 val=43.3074 tol=DimTolISODIN
+#DIM feat=110 sym=d87 dimid=87 dtype=TYPE_3 val=360.0 tol=
+#DIM feat=110 sym=p88 dimid=88 dtype= val=2.0 tol=
+#DIM feat=110 sym=p89 dimid=89 dtype= val=1.0 tol=
+#DIM feat=110 sym=d90 dimid=90 dtype=TYPE_0 val=0.0 tol=DimTolISODIN
+#FEAT 11 1324 TYPE_138 null status=com.ptc.pfc.pfcFeature.FeatureStatus(0) visible=true
+#DIM feat=1324 sym=d31 dimid=31 dtype=TYPE_1 val=2.0 tol=DimTolISODIN
+#DIM feat=1324 sym=d32 dimid=32 dtype=TYPE_1 val=2.0 tol=DimTolISODIN
+#DIM feat=1324 sym=d80 dimid=80 dtype=TYPE_0 val=0.0 tol=DimTolISODIN
+#DIM feat=1324 sym=d81 dimid=81 dtype=TYPE_0 val=43.3074 tol=DimTolISODIN
+#DIM feat=1324 sym=d82 dimid=82 dtype=TYPE_0 val=0.0 tol=DimTolISODIN
+#DIM feat=1324 sym=d83 dimid=83 dtype=TYPE_3 val=0.0 tol=
+#DIM feat=1324 sym=d84 dimid=84 dtype=TYPE_0 val=86.6147 tol=DimTolISODIN
+#DIM feat=1324 sym=d85 dimid=85 dtype=TYPE_3 val=180.0 tol=
+#DIM feat=1324 sym=d86 dimid=86 dtype=TYPE_0 val=43.3074 tol=DimTolISODIN
+#DIM feat=1324 sym=d87 dimid=87 dtype=TYPE_3 val=360.0 tol=
+#DIM feat=1324 sym=p88 dimid=88 dtype= val=2.0 tol=
+#DIM feat=1324 sym=p89 dimid=89 dtype= val=1.0 tol=
+#DIM feat=1324 sym=d90 dimid=90 dtype=TYPE_0 val=0.0 tol=DimTolISODIN
+#FEAT 12 18277 TYPE_16 AA_1 status=com.ptc.pfc.pfcFeature.FeatureStatus(0) visible=true
+#DIM feat=18277 sym=d31 dimid=31 dtype=TYPE_1 val=2.0 tol=DimTolISODIN
+#DIM feat=18277 sym=d32 dimid=32 dtype=TYPE_1 val=2.0 tol=DimTolISODIN
+#DIM feat=18277 sym=d80 dimid=80 dtype=TYPE_0 val=0.0 tol=DimTolISODIN
+#DIM feat=18277 sym=d81 dimid=81 dtype=TYPE_0 val=43.3074 tol=DimTolISODIN
+#DIM feat=18277 sym=d82 dimid=82 dtype=TYPE_0 val=0.0 tol=DimTolISODIN
+#DIM feat=18277 sym=d83 dimid=83 dtype=TYPE_3 val=0.0 tol=
+#DIM feat=18277 sym=d84 dimid=84 dtype=TYPE_0 val=86.6147 tol=DimTolISODIN
+#DIM feat=18277 sym=d85 dimid=85 dtype=TYPE_3 val=180.0 tol=
+#DIM feat=18277 sym=d86 dimid=86 dtype=TYPE_0 val=43.3074 tol=DimTolISODIN
+#DIM feat=18277 sym=d87 dimid=87 dtype=TYPE_3 val=360.0 tol=
+#DIM feat=18277 sym=p88 dimid=88 dtype= val=2.0 tol=
+#DIM feat=18277 sym=p89 dimid=89 dtype= val=1.0 tol=
+#DIM feat=18277 sym=d90 dimid=90 dtype=TYPE_0 val=0.0 tol=DimTolISODIN
+#FEAT 13 18281 TYPE_16 AA_2 status=com.ptc.pfc.pfcFeature.FeatureStatus(0) visible=true
+#DIM feat=18281 sym=d31 dimid=31 dtype=TYPE_1 val=2.0 tol=DimTolISODIN
+#DIM feat=18281 sym=d32 dimid=32 dtype=TYPE_1 val=2.0 tol=DimTolISODIN
+#DIM feat=18281 sym=d80 dimid=80 dtype=TYPE_0 val=0.0 tol=DimTolISODIN
+#DIM feat=18281 sym=d81 dimid=81 dtype=TYPE_0 val=43.3074 tol=DimTolISODIN
+#DIM feat=18281 sym=d82 dimid=82 dtype=TYPE_0 val=0.0 tol=DimTolISODIN
+#DIM feat=18281 sym=d83 dimid=83 dtype=TYPE_3 val=0.0 tol=
+#DIM feat=18281 sym=d84 dimid=84 dtype=TYPE_0 val=86.6147 tol=DimTolISODIN
+#DIM feat=18281 sym=d85 dimid=85 dtype=TYPE_3 val=180.0 tol=
+#DIM feat=18281 sym=d86 dimid=86 dtype=TYPE_0 val=43.3074 tol=DimTolISODIN
+#DIM feat=18281 sym=d87 dimid=87 dtype=TYPE_3 val=360.0 tol=
+#DIM feat=18281 sym=p88 dimid=88 dtype= val=2.0 tol=
+#DIM feat=18281 sym=p89 dimid=89 dtype= val=1.0 tol=
+#DIM feat=18281 sym=d90 dimid=90 dtype=TYPE_0 val=0.0 tol=DimTolISODIN
+#FEAT 14 13903 TYPE_136 A status=com.ptc.pfc.pfcFeature.FeatureStatus(0) visible=true
+#DIM feat=13903 sym=d31 dimid=31 dtype=TYPE_1 val=2.0 tol=DimTolISODIN
+#DIM feat=13903 sym=d32 dimid=32 dtype=TYPE_1 val=2.0 tol=DimTolISODIN
+#DIM feat=13903 sym=d80 dimid=80 dtype=TYPE_0 val=0.0 tol=DimTolISODIN
+#DIM feat=13903 sym=d81 dimid=81 dtype=TYPE_0 val=43.3074 tol=DimTolISODIN
+#DIM feat=13903 sym=d82 dimid=82 dtype=TYPE_0 val=0.0 tol=DimTolISODIN
+#DIM feat=13903 sym=d83 dimid=83 dtype=TYPE_3 val=0.0 tol=
+#DIM feat=13903 sym=d84 dimid=84 dtype=TYPE_0 val=86.6147 tol=DimTolISODIN
+#DIM feat=13903 sym=d85 dimid=85 dtype=TYPE_3 val=180.0 tol=
+#DIM feat=13903 sym=d86 dimid=86 dtype=TYPE_0 val=43.3074 tol=DimTolISODIN
+#DIM feat=13903 sym=d87 dimid=87 dtype=TYPE_3 val=360.0 tol=
+#DIM feat=13903 sym=p88 dimid=88 dtype= val=2.0 tol=
+#DIM feat=13903 sym=p89 dimid=89 dtype= val=1.0 tol=
+#DIM feat=13903 sym=d90 dimid=90 dtype=TYPE_0 val=0.0 tol=DimTolISODIN
+#FEAT 15 15163 TYPE_136 Б status=com.ptc.pfc.pfcFeature.FeatureStatus(0) visible=true
+#DIM feat=15163 sym=d31 dimid=31 dtype=TYPE_1 val=2.0 tol=DimTolISODIN
+#DIM feat=15163 sym=d32 dimid=32 dtype=TYPE_1 val=2.0 tol=DimTolISODIN
+#DIM feat=15163 sym=d80 dimid=80 dtype=TYPE_0 val=0.0 tol=DimTolISODIN
+#DIM feat=15163 sym=d81 dimid=81 dtype=TYPE_0 val=43.3074 tol=DimTolISODIN
+#DIM feat=15163 sym=d82 dimid=82 dtype=TYPE_0 val=0.0 tol=DimTolISODIN
+#DIM feat=15163 sym=d83 dimid=83 dtype=TYPE_3 val=0.0 tol=
+#DIM feat=15163 sym=d84 dimid=84 dtype=TYPE_0 val=86.6147 tol=DimTolISODIN
+#DIM feat=15163 sym=d85 dimid=85 dtype=TYPE_3 val=180.0 tol=
+#DIM feat=15163 sym=d86 dimid=86 dtype=TYPE_0 val=43.3074 tol=DimTolISODIN
+#DIM feat=15163 sym=d87 dimid=87 dtype=TYPE_3 val=360.0 tol=
+#DIM feat=15163 sym=p88 dimid=88 dtype= val=2.0 tol=
+#DIM feat=15163 sym=p89 dimid=89 dtype= val=1.0 tol=
+#DIM feat=15163 sym=d90 dimid=90 dtype=TYPE_0 val=0.0 tol=DimTolISODIN
+#FEAT 16 17852 TYPE_136 В status=com.ptc.pfc.pfcFeature.FeatureStatus(0) visible=true
+#DIM feat=17852 sym=d31 dimid=31 dtype=TYPE_1 val=2.0 tol=DimTolISODIN
+#DIM feat=17852 sym=d32 dimid=32 dtype=TYPE_1 val=2.0 tol=DimTolISODIN
+#DIM feat=17852 sym=d80 dimid=80 dtype=TYPE_0 val=0.0 tol=DimTolISODIN
+#DIM feat=17852 sym=d81 dimid=81 dtype=TYPE_0 val=43.3074 tol=DimTolISODIN
+#DIM feat=17852 sym=d82 dimid=82 dtype=TYPE_0 val=0.0 tol=DimTolISODIN
+#DIM feat=17852 sym=d83 dimid=83 dtype=TYPE_3 val=0.0 tol=
+#DIM feat=17852 sym=d84 dimid=84 dtype=TYPE_0 val=86.6147 tol=DimTolISODIN
+#DIM feat=17852 sym=d85 dimid=85 dtype=TYPE_3 val=180.0 tol=
+#DIM feat=17852 sym=d86 dimid=86 dtype=TYPE_0 val=43.3074 tol=DimTolISODIN
+#DIM feat=17852 sym=d87 dimid=87 dtype=TYPE_3 val=360.0 tol=
+#DIM feat=17852 sym=p88 dimid=88 dtype= val=2.0 tol=
+#DIM feat=17852 sym=p89 dimid=89 dtype= val=1.0 tol=
+#DIM feat=17852 sym=d90 dimid=90 dtype=TYPE_0 val=0.0 tol=DimTolISODIN
+#PARAM DIR 
+#PARAM ОБОЗНАЧЕНИЕ ПТР-401-МТ-01R-00-T01
+#PARAM НАИМЕНОВАНИЕ Вал турновера в сборе
+#PARAM НАИМЕНОВАНИЕ1 с зубчатым колесом.
+#PARAM НАИМЕНОВАНИЕ2 
+#PARAM ТИП Сборка
+#PARAM ТИП2  
+#PARAM GROUP no
+#PARAM ФОРМАТ А3
+#PARAM РАЗРАБОТАЛ 
+#PARAM ПРОВЕРИЛ 
+#PARAM ТЕХ_КОНТРОЛЬ 
+#PARAM НАЧ_ОТДЕЛА 
+#PARAM НОРМО_КОНТРОЛЬ 
+#PARAM УТВЕРДИЛ 
+#PARAM ПЕРВ_ПРИМЕН 
+#PARAM СПРАВ_№ 
+#PARAM MASS 19.29137874636093
+#PARAM СТАНДАРТ 
+#PARAM ПРЕДПРИЯТИЕ ООО "ПТО"
+#PARAM ПРИМЕЧАНИЕ 
+#PARAM МАШИНА 
+#PARAM PTC_COMMON_NAME птр-401-мт-01r-01-sb.asm
+#PARAM PTC_UNITS_LENGTH mm
+#PARAM PTC_UNITS_MASS kg
+#PARAM PTC_UNITS_FORCE mm kg / sec^2
+#PARAM PTC_UNITS_TIME sec
+#PARAM PTC_UNITS_TEMPERATURE C
+#PARAM PTC_UNITS_SYSTEM_TYPE Mass length time (MLT)
