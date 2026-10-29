@@ -60,6 +60,20 @@ public class TreeProbe {
     }
   }
 
+  /** Имя константы FeatureStatus по числу (точные имена из pfcasync.jar). */
+  static String featStatusName(int v) {
+    switch (v) {
+      case 0: return "FEAT_ACTIVE";
+      case 1: return "FEAT_INACTIVE";
+      case 2: return "FEAT_FAMILY_TABLE_SUPPRESSED";
+      case 3: return "FEAT_SIMP_REP_SUPPRESSED";
+      case 4: return "FEAT_PROGRAM_SUPPRESSED";
+      case 5: return "FEAT_SUPPRESSED";
+      case 6: return "FEAT_UNREGENERATED";
+      default: return "";
+    }
+  }
+
   /** Тип элемента ЧИТАЕМО: enum -> имя константы (FEAT_PROTRUSION, FEAT_REVOLVE, FEAT_CUT ...). */
   static String featTypeName(Feature f) {
     try {
@@ -144,9 +158,46 @@ public class TreeProbe {
         } catch (Throwable ignored) {}
         String vis = "";
         try { vis = String.valueOf(f.GetIsVisible()); } catch (Throwable ignored) {}
+        // НОМЕР в последовательности регенерации (НЕ равно feat_id!): null у подавленных.
+        String num = "";
+        try { Object fnum = f.GetNumber(); num = (fnum == null) ? "null" : String.valueOf(fnum); }
+        catch (Throwable ignored) {}
+        // РОДИТЕЛИ / ДЕТИ — граф зависимостей (подсказка: ListParents / ListChildren).
+        String par = "", chi = "";
+        try {
+          com.ptc.pfc.pfcFeature.Features ps = f.ListParents();
+          if (ps != null) {
+            StringBuilder sb = new StringBuilder();
+            for (int k = 0; k < ps.getarraysize(); k++) {
+              try {
+                Object p = ps.get(k);
+                Object pid = p.getClass().getMethod("GetId").invoke(p);
+                if (sb.length() > 0) sb.append(",");
+                sb.append(pid);
+              } catch (Throwable ignored) {}
+            }
+            par = sb.toString();
+          }
+        } catch (Throwable ignored) {}
+        try {
+          com.ptc.pfc.pfcFeature.Features cs = f.ListChildren();
+          if (cs != null) {
+            StringBuilder sb = new StringBuilder();
+            for (int k = 0; k < cs.getarraysize(); k++) {
+              try {
+                Object c = cs.get(k);
+                Object cid = c.getClass().getMethod("GetId").invoke(c);
+                if (sb.length() > 0) sb.append(",");
+                sb.append(cid);
+              } catch (Throwable ignored) {}
+            }
+            chi = sb.toString();
+          }
+        } catch (Throwable ignored) {}
         System.out.println("#FEAT " + i + " " + id + " TYPENAME=" + ftypeName + " SUB=" + fsub
                            + " TYPENUM=" + ftypeNum + " NAME=" + fname
-                           + " status=" + fstat + " visible=" + vis);
+                           + " status=" + fstat + " visible=" + vis
+                           + " number=" + num + " parents=[" + par + "] children=[" + chi + "]");
         // РАЗМЕРЫ: у Feature НЕТ ModelItemOwner (проверено: ClassCastException), поэтому
         // берём размеры МОДЕЛИ и фильтруем по владельцу — `GetOwner()`/`GetFeatId`.
         if (modelDims != null) {
