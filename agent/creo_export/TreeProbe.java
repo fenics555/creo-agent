@@ -114,7 +114,13 @@ public class TreeProbe {
         int id = f.GetId();
         String fname = "";
         try { fname = f.GetName(); } catch (Throwable ignored) {}
-        String ftype = featTypeName(f);
+        // 🔴 ТИП: у Feature есть ГОТОВОЕ ИМЯ ТИПА (GetFeatTypeName) и ПОДТИП (GetFeatSubType).
+        // Числовой GetFeatType — НЕ печатать как основу: вид берётся строкой от Creo.
+        String ftypeNum = featTypeName(f);          // числовой код (справочно)
+        String ftypeName = "";
+        try { ftypeName = String.valueOf(f.GetFeatTypeName()); } catch (Throwable ignored) {}
+        String fsub = "";
+        try { fsub = String.valueOf(f.GetFeatSubType()); } catch (Throwable ignored) {}   // GetFeatSubType
         // СТАТУС: FeatureStatus — FEAT_SUPPRESSED / FEAT_FAMILY_TABLE_SUPPRESSED /
         // FEAT_SIMP_REP_SUPPRESSED / FEAT_PROGRAM_SUPPRESSED (точные имена из pfcasync.jar).
         // Плюс GetIsVisible/GetIsReadonly и статусы группы (GetGroupStatus).
@@ -131,7 +137,8 @@ public class TreeProbe {
         } catch (Throwable ignored) {}
         String vis = "";
         try { vis = String.valueOf(f.GetIsVisible()); } catch (Throwable ignored) {}
-        System.out.println("#FEAT " + i + " " + id + " " + ftype + " " + fname
+        System.out.println("#FEAT " + i + " " + id + " TYPENAME=" + ftypeName + " SUB=" + fsub
+                           + " TYPENUM=" + ftypeNum + " NAME=" + fname
                            + " status=" + fstat + " visible=" + vis);
         // РАЗМЕРЫ: у Feature НЕТ ModelItemOwner (проверено: ClassCastException), поэтому
         // берём размеры МОДЕЛИ и фильтруем по владельцу — `GetOwner()`/`GetFeatId`.
