@@ -124,15 +124,22 @@ public class TreeProbe {
         // СТАТУС: FeatureStatus — FEAT_SUPPRESSED / FEAT_FAMILY_TABLE_SUPPRESSED /
         // FEAT_SIMP_REP_SUPPRESSED / FEAT_PROGRAM_SUPPRESSED (точные имена из pfcasync.jar).
         // Плюс GetIsVisible/GetIsReadonly и статусы группы (GetGroupStatus).
+        // СТАТУС: печатаем ИМЯ константы FeatureStatus + число.
+        // Точные константы (javap pfcasync.jar): FEAT_ACTIVE(0) · FEAT_INACTIVE(1) ·
+        // FEAT_FAMILY_TABLE_SUPPRESSED(2) · FEAT_SIMP_REP_SUPPRESSED(3) ·
+        // FEAT_PROGRAM_SUPPRESSED(4) · FEAT_SUPPRESSED(5) · FEAT_UNREGENERATED(6).
+        // ВАЖНО: подавленные фичеры надо ОТЛИЧАТЬ от активных — иначе дерево содержит мёртвые узлы.
         String fstat = "";
         try {
           Object st = f.GetStatus();
           if (st != null) {
+            int v = -1;
+            try { Object g = st.getClass().getMethod("getValue").invoke(st);
+                  if (g != null) v = Integer.parseInt(String.valueOf(g)); } catch (Throwable ignored) {}
+            String nm = featStatusName(v);
             String sv = String.valueOf(st);
             int at = sv.indexOf('@');
-            fstat = at > 0 ? sv.substring(0, at) : sv;
-            try { Object v = st.getClass().getMethod("getValue").invoke(st);
-                  if (v != null) fstat = fstat + "(" + v + ")"; } catch (Throwable ignored) {}
+            fstat = (nm.isEmpty() ? (at > 0 ? sv.substring(0, at) : sv) : nm) + "(" + v + ")";
           }
         } catch (Throwable ignored) {}
         String vis = "";
