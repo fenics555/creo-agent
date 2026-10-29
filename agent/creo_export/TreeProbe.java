@@ -131,8 +131,42 @@ public class TreeProbe {
               try { sym = d.GetSymbol(); } catch (Throwable ignored) {}   // "d12" — имя размера в Creo
               try { did = ((com.ptc.pfc.pfcModelItem.ModelItem) d).GetId(); } catch (Throwable ignored) {}
               try { val = d.GetDimValue(); } catch (Throwable ignored) {}
-              System.out.println("#DIM feat=" + id + " sym=" + sym + " name=" + dname
-                                 + " dimid=" + did + " val=" + val);
+              // ДОПУСК/КВАЛИТЕТ: класс DimTolISODIN (ISO-квалитет). Берём имя таблицы и колонку —
+              // это и есть обозначение посадки (H7, 6g, f7). В файле оно лежит ТЕКСТОМ.
+              String tol = "";
+              try {
+                Object tv = d.GetTolerance();
+                if (tv != null) {
+                  String tn = "", tc = "";
+                  try { Object r = tv.getClass().getMethod("GetTableName").invoke(tv);
+                        if (r != null) tn = String.valueOf(r); } catch (Throwable ignored) {}
+                  try { Object r = tv.getClass().getMethod("GetTableColumn").invoke(tv);
+                        if (r != null) tc = String.valueOf(r); } catch (Throwable ignored) {}
+                  tol = ("table=" + tn + " col=" + tc).trim();
+                  if (tol.equals("table= col=")) tol = tv.getClass().getSimpleName();
+                }
+              } catch (Throwable ignored) {}
+              // ТИП размера: линейный / радиус / диаметр / угол / дуга.
+              // ФАКТ: у enum DimensionType нет toString -> номер берём reflective (как у FeatureType).
+              String dtype = "";
+              try {
+                Object dt = d.GetDimType();
+                if (dt != null) {
+                  for (String meth : new String[]{"getValue", "__Value", "name"}) {
+                    try {
+                      Object v = dt.getClass().getMethod(meth).invoke(dt);
+                      if (v != null) { dtype = "TYPE_" + v; break; }
+                    } catch (Throwable ignored) {}
+                  }
+                  if (dtype.isEmpty()) {
+                    String sdt = dt.toString();
+                    int at = sdt.indexOf('@');
+                    dtype = at > 0 ? sdt.substring(0, at) : sdt;
+                  }
+                }
+              } catch (Throwable ignored) {}
+              System.out.println("#DIM feat=" + id + " sym=" + sym + " dimid=" + did
+                                 + " dtype=" + dtype + " val=" + val + " tol=" + tol);
             } catch (Throwable t) {
               System.out.println("#DIMERR feat=" + id + " : " + t);
             }
