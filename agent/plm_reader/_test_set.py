@@ -241,25 +241,9 @@ MUST_BE_MODEL = [
 def _check_rules(eng, negative=False):
     """Полная проверка признаков. Возвращает список провалов."""
     bad = []
-    # НОМИНАЛЫ ИЗ ИМЕНИ ИСПОЛНЕНИЯ (замер: 331/344 шпилек, 102/106 винтов)
-    # (имя, ожидаемый диаметр, ожидаемая длина|None, ожидаемый шаг|None)
-    NOM_CASES = [
-        ("M3X12_G22033", 3.0, 12.0, None),
-        ("M10X1P25_G22033", 10.0, None, 1.25),
-        ("DIN912-M2_5X4", 2.5, 4.0, None),
-        ("DIN912-M10X150", 10.0, 150.0, None),
-        ("DIN912-M2_5", 2.5, None, None),      # родительский типоразмер — это НОРМА
-    ]
-    for nm, dia, ln, pit in NOM_CASES:
-        got = eng.instance_nominals(nm)
-        if negative:
-            got = {}                         # негатив: разбор "сломан" -> обязан упасть
-        ok_d = abs((got.get("диаметр") or -1) - dia) < 1e-6
-        ok_l = (ln is None and "длина" not in got) or (ln is not None and abs((got.get("длина") or -1) - ln) < 1e-6)
-        ok_p = (pit is None and "шаг" not in got) or (pit is not None and abs((got.get("шаг") or -1) - pit) < 1e-6)
-        if not (ok_d and ok_l and ok_p):
-            bad.append("номиналы %s: ждали ⌀%s/L%s/шаг%s, получили %s" % (nm, dia, ln, pit, got))
-    print("  %s номиналы из имени: %d случаев проверено" % ("❌" if bad else "✅", len(NOM_CASES) + 1))
+    # 🔴 29.10.2026 (ЗАКОН АВТОРА): проверки «разбора имени на номиналы» ЗДЕСЬ БОЛЬШЕ НЕТ —
+    # этой эвристики в продукте нет вовсе: имя исполнения задаёт человек, оно может быть любым
+    # (`401-10534_спец_исполнение`). Осталась ЦИФРОВАЯ ГРАНЬ: Creo-свойство vs модель.
     for nm in MUST_BE_PROPERTY:
         got = bool(eng.is_property_name(nm))
         if negative:
