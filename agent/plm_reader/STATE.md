@@ -3,7 +3,7 @@
 > Правило: «Сессия смертна. Всё, что не в файле — потеряно». Три строки, дата замера,
 > источник каждого утверждения. Версия формата — 28.10.2026 (предложение эстафеты, §3 «чего не хватает»).
 
-**Обновлено:** 29.10.2026, фаза 15 · нога Cline (НАЙДЕНА КАРТА ПОЛЕЙ в файле + карта мануфактуринга `F8..F7 16`)
+**Обновлено:** 29.10.2026, фаза 21 · нога Cline (ЗАКОН МЕТОДА: читать ВСЁ через `#UGC_TOC`)
 
 ```
 на диске:  engine.py (CREO_EXTS 167-170, role_by_path 707/719, _base_dir 1113), creo_read.py (role by ext 224/243),
@@ -110,6 +110,20 @@ C-КОМПИЛЯТОР — В СИСТЕМЕ НЕТ (замер 29.10.2026): `cl
 🏆 МАНУФАКТУРИНГ В ФАЙЛЕ (29.10.2026, фаза 15): точка входа `F8 <КОД> F7 16 FB E3 F7 17` (22 шт).
            Имена только в ЧПУ: `PTC_MFG_PRM_CL_FILE`(38) · `PTC_TOOLPATH_REV_NUM`(18) · `mpoint`(14) ·
            `mp_source`/`mp_struct_attr`/`mp_checksum` · `NC_ASM_*` · `PRO_MP_ALT_*` (MASS/VOLUME/AREA/COG/I).
+🏆 ПОЛЕ `type` РАЗОБРАНО (29.10.2026, фаза 16): карта блока фичера = 14 полей (адреса `0x003D63..0x003E30`):
+           `revnum · dep_id · attributes · feat_id · appl_id · ref_id_user · ref_id ·
+           ref_id_coll_flags · ref_id_strength · use_feats_tab · id · **type** · coll_flags · strength`.
+           ТИП поля: `01`=скаляр · `09`=со структурой (перед ним `F8 <N> C8 00 <M> 00`) · `00`=ссылка.
+           ⇒ **`type` — ЭТО КОД ВИДА** (искали фазы 6–8); поле `parent` — в блоке `0x0041FE`.
+           ⚠️ НЕ СВЕРЕНО с `TYPENUM` Creo — следующий шаг. → `SKILL_GRABLI` §140.
+🏆 `MACHINING_TIME` ЧИТАЕТСЯ — 10 из 10 (29.10.2026, фаза 16): `val = struct.unpack('>f', bytes[1:5])[0]`
+           от 8 байт сразу после `E3 32`. Даёт минуты 2.63…3.50 (порядок совпал с графиком).
+           🔴 ГРАБЛЯ №5: 8 байт начинаются с `F7 40` ⇒ все парсят как double → `6.02e-08` (мусор).
+           `F7 40` — ЗАГОЛОВОК, значение — float32 BE из байт 1..5.
+           ДОГАДКА владельца «время не срегенерировано» — ОПРОВЕРГНУТА (9 разных значений из 10).
+           ⚠️ НЕ ЗАКРЫТО: `SPINDLE_SPEED`/`CUT_FEED`/`CUTTER_DIAM`/`NOSE_RADIUS`/`STEP_DEPTH`/`CLEAR_DIST` —
+           у них значение 3 БАЙТА (без `F7 40`), формула не разгадана; подбор ЗАПРЕЩЁН (3 промаха, §5.1).
+           Ход: решать ОБРАТНУЮ задачу от известного числа (`23-16508.asm`: FR50 → 30.7 мм / 4.2 мин).
            Параметры операции: `DESCRIPTION` · `MACHINING_TIME` · `SPINDLE_SPEED` · `CUTTER_DIAM` ·
            `CUT_FEED` · `STEP_DEPTH` · `CLEAR_DIST` · `TOOL_WIDTH` · `NOSE_RADIUS` · `NUMBER_OF_TEETH` ·
            `POINT_ANGLE` · `SHANK_DIAMETER` · `HOLDER_NAME` · `HEAD_NO` (= КОЛОНКИ таблицы процесса).
@@ -120,6 +134,37 @@ C API (справка, компилятора НЕТ): `ProMfgProctableVisit` ·
            PRO_MFGPROP_ACTUAL_MACHINING_TIME, ...)` · `ProMfgprocitemElemtreeGet` (ИНСТРУМЕНТ) ·
            `ProMfgprocitemSubtype {STEP, OPERATION, WORKCELL}` · `promfgproctable_h.html` (56 КБ) в
            `D:\PTC\CREO13\...\protoolkit\online_help\creo_toolkit\api\dita\`.
+🔴🔴 ЗАКОН МЕТОДА (29.10.2026, фаза 21, ПОРУЧЕНИЕ ВЛАДЕЛЬЦА): «**с верхней главной карты нужно и ВСЁ
+           ДРУГОЕ прочитать/разобрать, строение скорее всего примерно одинаковое**».
+           ⇒ ЧИТАТЬ ЛЮБОЙ ФАЙЛ CREO ТОЛЬКО ЧЕРЕЗ `#UGC_TOC`: (1) заголовок `#UGC:2 <ТИП> <ВЕРСИЯ>`;
+           (2) записи `<ИМЯ> <off> <len> <len-10> <ВЕРСИЯ ИЗ ЗАГОЛОВКА> <flag> <-1> <a4> <b4>`;
+           (3) цепочка `NEXT_TOC_ENTRY <off> <len>`; (4) полная карта; (5) читать секцию ПО АДРЕСУ.
+           🚦 ГРАБЛЯ: НЕ хардкодить число версии — PRT `1873` · MFG `2350` · вложенные `2149`.
+           Зашил 2350 → на `.prt` получил 0 записей. → `SKILL_GRABLI` §147.
+           РАЗОБРАТЬ ТАК ЖЕ: `AllFeatur` · `FeatDefs` · `MdlStatus` · `NeuAsmSld` · `LargeText` ·
+           `MdlRefInfo` · `FeatRefData` · `BasicData/Text` · `Geomlists/Depen` · `DispCntrl` ·
+           `ModelView#N` · `FamilyInf` · `SldRegenRevInfo` · `*AltIdMgr0`.
+🏆🏆 КОРНЕВАЯ КАРТА ФАЙЛА — `#UGC_TOC` (29.10.2026, фаза 20, совет владельца): ЗАГОЛОВОК
+           `#UGC:2 ASSEMBLY/ASSEM_MFG …`; ЗАПИСЬ = `<ИМЯ> <offset_hex> <len_hex> <len-10> 2350 <flag> <-1> <a4> <b4>`;
+           цепочка через `NEXT_TOC_ENTRY <offset> <len>`; терминатора нет. 52 записи. Ключевые:
+           `AllFeatur 0x120B6/0x10483` · **`FullMData 0x267DC/0x6852` (★ ВЕСЬ МАНУФАКТУРИНГ)** ·
+           **`LargeText 0x68BE/0x7977` (★ параметры CL: ВРЕМЯ/режимы)** · `FeatDefs 0x3F80E/0x22AC8` ·
+           `MdlStatus 0x377F0/0x7F7E` · `NeuAsmSld 0x2D05B/0xA793` · `VisibGeom 0xE85D/0x1A90` ·
+           `SolidPrimdata 0x27A1/0x1006` (тесселяция, НЕ точная геометрия).
+           ПРОВЕРКА: `0x68BE+0x7977=0xE235` ⇒ `MACHINING_TIME@0x8905` ВНУТРИ `LargeText` ✅;
+           `0x267DC+0x6852=0x2D02E` ⇒ `tool_array@0x26E81` ВНУТРИ `FullMData` ✅.
+           ⇒ АДРЕС ИСКАТЬ ЧЕРЕЗ TOC, а не перебором файла. → `SKILL_GRABLI` §145.
+🏆 ИЕРАРХИЯ МАНУФАКТУРИНГА (фаза 19-20, подтверждена замером 605 имён FullMData в ПОРЯДКЕ):
+           `mfg_ptr → tool_array(ПАРК: tool_id=\"SVERLO_D18\"/tool_params) → tool_ref_id→adapter_ref_id
+           (SVERLO_D14_5 · ZENKOVKA · METCHIK_M16/M8 · REZBOFREZA · CNMG · T0001/0003) →
+           SET_NAME(УСТАНОВКА) → OPERATION_NAME/NC_SEQUENCE_NAME(ПЕРЕХОД) →
+           SPINDLE_SPEED/CUT_FEEDRATE/PLUNGE_FEEDRATE(РЕЖИМЫ) → MACHINING_TIME(ВРЕМЯ) →
+           TOOL_NAME/TOOL_TYPE/TOOL_POSITION_NUMBER → CUTTER_DIAM/DRILL_DIAMETER/NOSE_RADIUS`.
+           Смещения блоков: ПАРК `0x26E81..0x2903C` · ПЕРЕХОДЫ(19) `0x2D890..0x2E002`
+           (`TOOL_ID`19 · `PRE_/POST_MACHINING_FILE`19 · `MACH_COLLISION_STATUS`18 · `MACHINE_CSYS`18 ·
+           `PTC_TOOLPATH_REV_NUM`18 · `CONSIDER_TOOL_LENGTH`10) · ЭКЗЕМПЛЯР `0x34793..0x370BD`
+           (`TOOL_CENTER`/`HOLDER_DIAMETER`/`HOLDER_LENGTH`) · CL-ПАРАМЕТРЫ(11) `0x8905..0xB136`.
+           🚦 РЕГИСТР ЗНАЧИМ: `TOOL_ID`(19, список) ≠ `tool_id`(2, структура). → §144-§146.
 
 ```
 
