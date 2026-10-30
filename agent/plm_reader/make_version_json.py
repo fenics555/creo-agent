@@ -25,6 +25,12 @@ CODE_FILES = [
     "plm_queries.py",                            # 19 построителей запросов (вынесены из engine)
     "plm_links.py",                              # единый источник связей (пока не внедрён)
     "plm_build_links.py",                        # ДОСТРОИТЕЛЬ: links(built) по базе
+    # V142: БОЕВЫЕ модули сканера БЕРУТСЯ В МАНИФЕСТ. Они лежали в debug/ (=.gitignore),
+    # поэтому физически не попадали ни в git, ни на шару — import падал молча,
+    # таблицы bodies/materials/items были ПУСТЫ, а окно писало «готов» (грабля ноги 30.10).
+    "scanner_plm.py",                            # НОВЫЙ сканер: scan_item_new (16 ящиков)
+    "scanner_write.py",                          # запись ящиков нового сканера в базу
+    "plm_database.py",                           # Database: stats/check/validate/publish/indexes/vacuum/backup
 ]
 
 

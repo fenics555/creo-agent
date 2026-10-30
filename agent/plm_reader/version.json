@@ -2,11 +2,11 @@
  "version": "V142",
  "version_num": 142,
  "date": "30.10.2026",
- "notes": "V142: scanner_plm/scanner_write/plm_database В КОРНЕ + прогресс обхода",
+ "notes": "V142: файлы сканера В КОРНЕ (были в debug=gitignore) + модули в манифест + прогресс обхода + счётчики скана не перетираются",
  "files": {
   "engine.py": "c079a6dad3afd6b847315918b19178fd3800c0c653e373bf806dae95e83b94e3",
   "plm_reader.py": "29e184729c3b3a2b370aa832942024789fddb302b91f2e99994128b824585fbc",
-  "plm_toolwin.py": "47a113b506998d09fd7f6aa73d8906b5bb1f1204f583703b850f502af39b02c4",
+  "plm_toolwin.py": "87f9cd6f1df3d92ab16e81a001dbcbfb0275d468d9b38b6cd73a80f3b2aa3c99",
   "plm_history.py": "0e8a1b414f3ad7c67175251fb4192e26431b0e9760bcce6ba6d9faf03ada8c77",
   "plm_parse.py": "c6bb33a412b6b606ad402e3eb78cd49246b77738b69d82be1b6218a1358c0312",
   "plm_dbview.py": "65ba08ed8e5444eb962e3607ab890d4bb9a67934571372ad3aa1d67b53198fc3",
@@ -18,13 +18,16 @@
   "SHARE_copy.bat": "4eccb549a17251392337aeabbc3ef76233dfa3072beadff9d158cd6e932622ee",
   "plm_reader.bat": "bdd125397db3ac7e7432dbdb078a6a811ed4913fca02b062edb27907032fca3d",
   "plm_reader_gui.bat": "9f695898d5db6431e840784b9587c75304ca9e526b06f79d4b44ab026663bd20",
-  "make_version_json.py": "33dea23b84809d9d7d61db29dd1eef51fe77e3590d9c7e46180901158917e78e",
+  "make_version_json.py": "e6b994bea49a34854935e46ec10c563ead55197e7280a1b16e870f477d858b04",
   ".gitignore": "d5ab84e66a4192509472cfb1b1fcabefb2c5c783189c4af025769048666ef103",
   "AGENTS.md": "fdb656d93c9cfc1a69a7ee0f39261aaed704fa587c65c76dac1a1f369107ec92",
   "plm_graph.py": "126a87fb2f25414d6c1a058e6f13610f607c91cb97ac67d9d3cd6c1db94500a4",
   "plm_graph_page.html": "ab5bfbad3b2a3f058c7b8cbbb5859c5ea57c7318c9ec5e50fcd22973f91c47ac",
   "plm_queries.py": "3fa963038b75cc5551bb7d7bbc3ced5760c03188fe77d47d393c145c390f1977",
   "plm_links.py": "5dfdf093d6ca1685e2cfc8ce0e8d3035e63471db366ce960a8af5c05d2c06c1e",
-  "plm_build_links.py": "6fda7f67f48226548720abba11a0b100ec54ffec3abe4c55d63584985b0f319f"
+  "plm_build_links.py": "6fda7f67f48226548720abba11a0b100ec54ffec3abe4c55d63584985b0f319f",
+  "scanner_plm.py": "5624f2b001dd108f9c3fc0db7693181e9357979c361334240e191131cc0fefd3",
+  "scanner_write.py": "44d2e9853286fbfc6515942b9feb8d55de1f5bf1abadb8093a4a5aec6d7e5d51",
+  "plm_database.py": "8568d33fa8c8bea8b5eb888efaf2d6f5cded3871cc545ab9f7227ee2cc502d3a"
  }
 }
