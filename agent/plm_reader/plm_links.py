@@ -292,8 +292,39 @@ def edges(engine_mod=None):
 
     Тип выводится ЕДИНООБРАЗНО (`kind_code`), `mentions` в граф НЕ идёт НИКОГДА.
     """
+    # 🔴🔴 V146 (владелец: «в окне "что использует" разные всякие сборки, что-то не то выводит»):
+    # В СВЯЗИ попадают МАТЕРИАЛЫ и СВОЙСТВА — они не модели!
+    # Живой замер `PSB`: `PTC_MASTER_MATERIAL`, `STEEL_40X`, `STEEL_45`, `LINEAR` шли как «родители».
+    # Скилл дома (`SKILL_creo_read_roles.md` §7): «в `merge_base_parts` рядом с настоящей моделью
+    # лежат СВОЙСТВА — это наследование СВОЙСТВА, а НЕ модели». Такие имена в граф связей НЕ идут
+    # (они видны в своих таблицах: `materials`/`master_mat`/`params`).
+    _junk = ("PTC_MASTER_MATERIAL", "PTC_MATERIAL_NAME", "PTC_MATERIAL_DESCRIPTION",
+             "PTC_SYSTEM_MTRL_PROPS", "PTC_ASSIGNED_MATERIAL_NAME", "NONE", "NULL",
+             "LINEAR", "RESTRICT_TABLE", "P_SET_DATA_ARR", "Z_SHRINK_FACTOR", "LAYERS",
+             "PRO_MP_MASS", "PRO_MP_CSYS", "MAT_NAME_PTR")
+    _junk_re = re.compile(r"^(STEEL|STAL|CHUGUN|AL|ALUMIN|BRONZA|LATUN|TITAN|BRASS|"
+                          r"CAST_IRON|MATERIAL|MAT)([-_][0-9A-ZА-Я]*)+$", re.I)
+    _an_junk_rx = re.compile(
+        r"^(DISTORTION|VON MISES|STRESS|STRAIN|ENERGY|MATERIAL|MAT_NAME|DENSITY|SHRINK|"
+        r"MASS PROP|PRO_MP_|MEASURE|INERTIA|VOLUME|SURFACE AREA|TEMPERATURE|PRESSURE|"
+        r"FLOW|FILL TIME|COOLING)", re.I)
+
+    def _is_junk_model(name):
+        """Не модель, а МАТЕРИАЛ/СВОЙСТВО/служебное — в граф связей не пускаем."""
+        n = (name or "").strip()
+        if not n:
+            return True
+        if n.upper() in _junk:
+            return True
+        if _junk_re.match(n) or _an_junk_rx.match(n):
+            return True
+        return False
+
     agg = {}
     for e in load(engine_mod, channels=("db", "family", "inherit")):
+        # 🔴 фильтр «не модель» — ДО построения ребра
+        if _is_junk_model(e["parent"]) or _is_junk_model(e["child"]):
+            continue
         ch = e["channel"]
         src = (e["source"] or "")
         k = kind_code(src, ch)
@@ -306,7 +337,6 @@ def edges(engine_mod=None):
             d = "up"                       # достроенная обратная входимость
         else:
             d = "down"
-        info = kind_info(k)
         key = (e["parent"], e["child"], k, d)
         agg[key] = agg.get(key, 0) + e["qty"]
     out = []
