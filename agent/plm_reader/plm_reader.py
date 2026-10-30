@@ -41,7 +41,7 @@ if __name__ == "__main__":
     import sys as _sys
     _sys.modules.setdefault("plm_reader", _sys.modules["__main__"])
 
-APP_VERSION = "V147"      # V147: HTML ЗАРАБОТАЛ — убран дубль `const cols` (SyntaxError → пустая страница); связи чистые (материалы/свойства STEEL/LINEAR/PTC_MASTER_MATERIAL убраны); зум+панор; страница в корень склада. См. STATE.md фаза 46.
+APP_VERSION = "V148"      # V148: ГРАФ КАК БЫЛО (28.10) — 6 цветов связей + СТРЕЛКИ, обычный СКРОЛЛ (зум/панор убраны); связи чистые; HTML выпускается. См. STATE.md фаза 47.
 APP_TITLE = "PLM Reader " + APP_VERSION          # версия ОДНА: заголовок берёт её из константы
 DATA_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "db")          # данные — в подпапке db\
 SETTINGS_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "settings")  # настройки — в подпапке settings\

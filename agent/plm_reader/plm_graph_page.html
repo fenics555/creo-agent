@@ -715,25 +715,21 @@ function show(m){
     el.addEventListener("click", () => show(el.dataset.m)));
   draw(m);
 }
-// ЦВЕТА И СТИЛИ СВЯЗЕЙ (30.10.2026 — РАЗБОРЧИВЫЕ ВИДЫ):
+// ЦВЕТА СВЯЗЕЙ — КАК БЫЛО 28.10.2026 (владелец: «нравилось то решение», «стрелки были»):
 //  main-down   основные ОТ выбранного (прямые дети)      — зелёный
 //  main-up     основные К выбранному (прямые родители)   — голубой
 //  deep-down   связи ВНИЗ (транзитные потомки)           — тёмно-зелёный
 //  deep-up     связи ВВЕРХ (транзитные предки)           — тёмно-синий
-//  inherit     ОСНОВА (наследование/зеркало)             — фиолетовый, пунктир
-//  derive      ПРОИЗВОДНАЯ (заготовка/отливка)           — оранжевый, штрих-точка
-//  copy        копия (from_mdl_name)                     — зелёный-бирюза, штрих-точка
-//  variant     исполнение семейства                      — розовый, точка
-// «d» — стиль линии (штрихи), чтобы вид читался и БЕЗ цвета (ч/б, дальтоник).
+//  inherit     БАЗА НАСЛЕДОВАНИЯ (MERGE_BASE_PART)       — жёлтый
+//  copy        копия (from_mdl_name)                     — фиолетовый
+// ⚠️ `d` (штрихи) УБРАНЫ из показа — владелец выбрал «как было» (сплошные линии + СТРЕЛКИ).
 const CLR = {
   "main-down": {"s": "#4ec97a", "t": "основные от выбранного", "d": ""},
   "main-up":   {"s": "#4ea8e0", "t": "основные к выбранному", "d": ""},
-  "deep-down": {"s": "#2f7a4a", "t": "связи вниз (через узел)", "d": "6 3"},
-  "deep-up":   {"s": "#2f5a8a", "t": "связи вверх (через узел)", "d": "6 3"},
-  "inherit":   {"s": "#b07cd9", "t": "основа · наследование", "d": "7 4"},
-  "derive":    {"s": "#e0a030", "t": "производная · заготовка/отливка", "d": "2 3 7 3"},
-  "copy":      {"s": "#4fb884", "t": "копия модели", "d": "1 3"},
-  "variant":   {"s": "#d97a9b", "t": "исполнение семейства", "d": "1 4"}
+  "deep-down": {"s": "#2f7a4a", "t": "связи вниз (через узел)", "d": ""},
+  "deep-up":   {"s": "#2f5a8a", "t": "связи вверх (через узел)", "d": ""},
+  "inherit":   {"s": "#d8b74a", "t": "база наследования (из файла)", "d": ""},
+  "copy":      {"s": "#a97cd8", "t": "копия модели", "d": ""}
 };
 
 function edgeKind(from, to){
@@ -969,54 +965,24 @@ function draw(root){
     el.addEventListener("click", () => show(el.dataset.m)));
 }
 
-// 🔴 V145: ЗУМ ГРАФА — колесо мыши + кнопки +/−/сброс (владелец: «не уменьшает граф»).
-// Владелец: «если на линии боковые и нижние окна — то ДВИГАТЬ окно» → добавлено ПАНОРАМИРОВАНИЕ
-// (тянуть мышью по пустому месту / средней кнопкой), оно не мешает клику по узлу.
+// 🔴 V147 (владелец: «нравилось то решение» — вернул СКРОЛЛ как было 28.10):
+// обычное колесо = скролл (штатный `overflow:auto` у #graph), БЕЗ зума и БЕЗ панорамирования
+// мышью. Оставлены только кнопки масштаба — они не мешают привычному скроллу.
 const GZ = {k: 1, x: 0, y: 0};
 function applyZoom(){
   const w = document.getElementById("gwrap");
-  if (w) w.style.transform = "translate(" + GZ.x + "px," + GZ.y + "px) scale(" + GZ.k + ")";
-  const lb = document.getElementById("zval");
-  if (lb) lb.textContent = Math.round(GZ.k * 100) + "%";
+  if (w) w.style.transform = "scale(" + GZ.k + ")";
 }
 function bindZoom(){
-  const gb = document.getElementById("graph");
-  if (!gb || gb.dataset.zb) { applyZoom(); return; }
-  gb.dataset.zb = "1";
-  // ЗУМ: Ctrl+колесо (обычное колесо остаётся СКРОЛЛОМ — привычно)
-  gb.addEventListener("wheel", function(ev){
-    if (!ev.ctrlKey && !ev.shiftKey && !ev.altKey) return;   // обычный скролл не трогаем
-    ev.preventDefault();
-    GZ.k = Math.max(0.2, Math.min(4, GZ.k * (ev.deltaY < 0 ? 1.12 : 1 / 1.12)));
-    applyZoom();
-  }, {passive:false});
-  // КНОПКИ +/−/сброс
   document.querySelectorAll("#graph .zb").forEach(function(b){
     b.addEventListener("click", function(){
       const v = b.dataset.z;
-      if (v === "+") GZ.k = Math.min(4, GZ.k * 1.2);
-      else if (v === "-") GZ.k = Math.max(0.2, GZ.k / 1.2);
-      else { GZ.k = 1; GZ.x = 0; GZ.y = 0; }        // сброс — и масштаб, и сдвиг
+      if (v === "+") GZ.k = Math.min(3, GZ.k * 1.2);
+      else if (v === "-") GZ.k = Math.max(0.3, GZ.k / 1.2);
+      else GZ.k = 1;
       applyZoom();
     });
   });
-  // ПАНОРАМИРОВАНИЕ: тянуть мышью (левая по пустому месту ИЛИ средняя кнопка) — «двигать окно».
-  let pan = null;
-  gb.addEventListener("mousedown", function(ev){
-    const onNode = ev.target && (ev.target.closest ? ev.target.closest(".nd") : null);
-    if (ev.button === 0 && onNode) return;                 // по узлу — это КЛИК, не сдвиг
-    pan = {x: ev.clientX - GZ.x, y: ev.clientY - GZ.y, bx: ev.clientX, by: ev.clientY, moved: false};
-    gb.style.cursor = "grabbing";
-    ev.preventDefault();
-  });
-  window.addEventListener("mousemove", function(ev){
-    if (!pan) return;
-    GZ.x = ev.clientX - pan.x;
-    GZ.y = ev.clientY - pan.y;
-    if (Math.abs(ev.clientX - pan.bx) + Math.abs(ev.clientY - pan.by) > 3) pan.moved = true;
-    applyZoom();
-  });
-  window.addEventListener("mouseup", function(){ pan = null; gb.style.cursor = ""; });
   applyZoom();
 }
 
