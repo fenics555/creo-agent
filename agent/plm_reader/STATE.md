@@ -350,3 +350,55 @@ cd D:\AI\tools; git status --short; git diff HEAD --stat -- agent/plm_reader
 - шара `Z:\PTC\CREO-START\plm_reader` — **агент не касается** (GRABLI §82, SKILL_plm_reader_sync);
 - боевая база (она на шаре) — пробы только на **копии**;
 - одна база / связи по структуре файла, не по имени (GRABLI §85, §95).
+
+## 30.10.2026 (фаза 34) — СЛОВАРЬ ТИПОВ НАЙДЕН (ИМЯ ЧИТАЕТСЯ ИЗ ФАЙЛА)
+
+**Открытие:** `feat_defs_<N> − 910` = индекс в `enum pfcFeatureType` (**314 значения**)
+из `D:\PTC\CREO13\Creo 13.4.1.0\Common Files\otk\otk_cpp\include\pfcFeature.h`.
+**Подтверждено 7/7** J-Link: 1=HOLE/ОТВЕРСТИЕ · 3=ROUND/СКРУГЛЕНИЕ · 6=CUT/ВЫРЕЗ · 7=PROTRUSION/ВЫСТУП ·
+13=DATUM_PLANE/ПЛОСКОСТЬ · 16=DATUM_AXIS/ОСЬ · 17=DRAFT/УКЛОН.
+**⇒ §160 уточнён: русский текст в файле НЕ лежит, АНГЛИЙСКОЕ имя — ЧИТАЕТСЯ.**
+
+**Инструмент:** `tools\agent\plm_reader\plm_feattype.py` (`load_dict()` · `read_tree()`).
+**Скилл:** `repo\Creo\READ\SKILL_creo_feattype_dict.md` (§171) · индекс стр.99.
+
+**API-заголовки Creo 13 (источник enum):** `D:\PTC\CREO13\...\otk_cpp\include\` —
+`pfcFeature.h` · `pfcDetail.h` · `pfcComponentFeat.h` · `pfcDatumPlaneFeat.h` …
+Методы: `GetFeatType()` · **`GetFeatTypeName()`** · `GetStatus()`→`pfcFeatureStatus`.
+
+**ОТКРЫТО (задачи владельца):**
+- **ДЕРЕВО ПОСТРОЕНИЯ**: схема `#AllFeatur→Sld_Features→first_feat_ptr→id/feat_type_ptr` найдена;
+  СПИСОК всех элементов НЕ собран (в замере 6 записей на ~20 элементов — это объявления типов).
+- **`health` без Creo**: план — `GetStatus()` + файловые `is_item_alive`/`num_parents`/`parents_checksum` (§157).
+- **ДОЛГИ БАЗЫ**: `PRO_MP_AREA`=0 · COG/инерция · `.drw`→модель в `links` · **квалитеты** `tol_class`.
+- **Отслеживание изменений размеров и квалитетов** (`arch_dims`+`arch_dim_ch`+`dim_array`).
+
+## 30.10.2026 (фаза 35) — НОМИНАЛЫ РАЗГАДАНЫ · РЕВИЗИЯ СКАНЕРА
+
+### 🏆🏆🏆 НОМИНАЛ РАЗМЕРА ЧИТАЕТСЯ ИЗ ФАЙЛА (§173, скилл `SKILL_creo_dim_nominal.md`)
+```
+В ФАЙЛЕ:  2F <B1> <B2>  →  DOUBLE: 40 <B1> <B2> 00 00 00 00 00   (B1<0x40 → lead 0x3F)
+2F 4A 00 = 52.0 (= J-Link d9 val=52.0!) · 2F 40 00 = 32.0 · 2F 32 00 = 18.0
+2F 2D 00 = 14.5 · 2F 76 80 = 360.0 · 2F 20 00 = 8.0
+ЛИТЕЙКА: 1.3975 · 22.0 · 30.0 · 224.75 · 381.0
+```
+Секция `#BasFullData → Sld_BasFullData → dim_array`. **`feat_id` = привязка размера к элементу**
+(⇒ отслеживание изменений). **`tol_class` = КВАЛИТЕТ**, `tol_type`, `bound` — всё в файле.
+Число ТОЧНОЕ, без округления (§165).
+
+### 🏆 РЕВИЗИЯ СКАНЕРА (§172, скилл `SKILL_creo_scanner_engine.md`)
+Главный движок: `tools\agent\plm_reader\engine.py` (**227 КБ**). Пишет **11 таблиц** за 1 чтение:
+`snapshots` · `params` · `history` · **`health`** · `links` · `derived` · `props` · `family` · `folders` ·
+`changes` · `meta` + **ПРЕВЬЮ** (`save_media`).
+Готовые функции: `scan_item` · `creo_params` · `family_of` · `creo_history` · **`creo_health`** ·
+`merge_base_parts` · `ref_part_parents` · `inherited_properties` · `copy_from_of` · `asm_components` · `save_media`.
+**`creo_health` РАБОТАЕТ (замер): `{'regen':'требует регенерации','reg_status':'102','inactive':1}`**
+⇒ задача «health без Creo» — ФУНКЦИЯ УЖЕ ЕСТЬ; база пуста, т.к. скан после V135 не проходил.
+
+### 🔴 ВЫВОД ПО ВОПРОСУ ВЛАДЕЛЬЦА
+«Почему сканер не пишет всё сам?» → **ОН ПИШЕТ.** Мои `plm_import_mass.py` / `plm_feattype.py` —
+ОТЛАДКА нового канала. **ПРАВИЛО ДОМА: новый канал = НОВАЯ ФУНКЦИЯ В `engine.py`, не отдельный скрипт.**
+
+### 🆕 СКИЛЛЫ (3 новых)
+`READ\SKILL_creo_feattype_dict.md` (§171, словарь 314) · `READ\SKILL_creo_dim_nominal.md` (§173, номиналы) ·
+`READ\SKILL_creo_scanner_engine.md` (§172, ревизия сканера).
