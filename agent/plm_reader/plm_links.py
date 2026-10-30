@@ -296,21 +296,28 @@ def edges(engine_mod=None):
     # В СВЯЗИ попадают МАТЕРИАЛЫ и СВОЙСТВА — они не модели!
     # Живой замер `PSB`: `PTC_MASTER_MATERIAL`, `STEEL_40X`, `STEEL_45`, `LINEAR` шли как «родители».
     # Скилл дома (`SKILL_creo_read_roles.md` §7): «в `merge_base_parts` рядом с настоящей моделью
-    # лежат СВОЙСТВА — это наследование СВОЙСТВА, а НЕ модели». Такие имена в граф связей НЕ идут
-    # (они видны в своих таблицах: `materials`/`master_mat`/`params`).
+    # лежат СВОЙСТВА — это наследование СВОЙСТВА, а НЕ модели».
+    # ✅ ДОКАЗАНО ЗАМЕРОМ (30.10.2026): `STEEL`/`MMKGS_PART_SOLID` — 0 файлов на складе (материалы),
+    #   а `450_0145_00_001` — 3 файла (НАСТОЯЩЕЕ изделие, его НЕ трогаем!).
+    # ПРАВИЛО: убираем ТОЛЬКО «чистые» материалы/свойства (короткое имя без номера-префикса);
+    # имена вида `450_0145_00_001_steel` — это ИЗДЕЛИЯ, оставляем.
     _junk = ("PTC_MASTER_MATERIAL", "PTC_MATERIAL_NAME", "PTC_MATERIAL_DESCRIPTION",
              "PTC_SYSTEM_MTRL_PROPS", "PTC_ASSIGNED_MATERIAL_NAME", "NONE", "NULL",
              "LINEAR", "RESTRICT_TABLE", "P_SET_DATA_ARR", "Z_SHRINK_FACTOR", "LAYERS",
-             "PRO_MP_MASS", "PRO_MP_CSYS", "MAT_NAME_PTR")
+             "PRO_MP_MASS", "PRO_MP_CSYS", "MAT_NAME_PTR", "MMKGS_PART_SOLID", "MM_PART_SOLID")
     _junk_re = re.compile(r"^(STEEL|STAL|CHUGUN|AL|ALUMIN|BRONZA|LATUN|TITAN|BRASS|"
-                          r"CAST_IRON|MATERIAL|MAT)([-_][0-9A-ZА-Я]*)+$", re.I)
+                          r"CAST_IRON|MATERIAL|MAT)([-_][0-9A-ZА-Я]*)*$", re.I)
     _an_junk_rx = re.compile(
         r"^(DISTORTION|VON MISES|STRESS|STRAIN|ENERGY|MATERIAL|MAT_NAME|DENSITY|SHRINK|"
         r"MASS PROP|PRO_MP_|MEASURE|INERTIA|VOLUME|SURFACE AREA|TEMPERATURE|PRESSURE|"
         r"FLOW|FILL TIME|COOLING)", re.I)
 
     def _is_junk_model(name):
-        """Не модель, а МАТЕРИАЛ/СВОЙСТВО/служебное — в граф связей не пускаем."""
+        """Не модель, а МАТЕРИАЛ/СВОЙСТВО/служебное — в граф связей не пускаем.
+
+        ⚠️ Критерий «чистое имя без номера-префикса»: `STEEL` — материал, а `450_0145_00_001_steel`
+        — ИЗДЕЛИЕ (в имени есть номер-префикс до `_steel`). Поэтому длинные составные имена не режем.
+        """
         n = (name or "").strip()
         if not n:
             return True
