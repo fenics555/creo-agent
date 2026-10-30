@@ -820,6 +820,13 @@ function draw(root){
     return (v === "col") ? "col" : "row";
   }
   const cols = Object.keys(rows).sort((a, b) => Number(a) - Number(b));
+  // 🔴 V146 (владелец: «граф начинается очень далеко от края окна»): ПУСТЫЕ УРОВНИ СЖИМАЕМ.
+  // Причина: уровни нумеруются от `-N` (вверх) до `+N` (вниз), и если у модели нет предков
+  // (level −3, −2, −1 пусты), колонки ВСЁ РАВНО создавались → граф уезжал на 3 колонки вправо
+  // от края (владелец видел пустую область слева). Теперь рисуем ТОЛЬКО непустые уровни.
+  const colsAll = Object.keys(rows).sort((a, b) => Number(a) - Number(b));
+  const cols = colsAll.filter(c => (rows[c] || []).length > 0);
+  if (!cols.length) cols.push(...colsAll.slice(0, 1));
   const CW = 250, RH = 24, pos = {};
   const GL = graphLayout();
   // V116: ВЕРТИКАЛЬНЫЙ ГРАФ ОБРЕЗАЛ ОКНО. Владелец: «вертикально — обрезает окно». Причина:
