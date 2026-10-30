@@ -3365,12 +3365,30 @@ def run_gui():
                 pass
 
     def _graph_data(model, ddown=4, dup=3):
-        """V85: узлы/рёбра «Графа»: корень (level 0), состав вниз, входимость вверх, из чего сделана."""
+        """V85: узлы/рёбра «Графа»: корень (level 0), состав вниз, входимость вверх, из чего сделана.
+
+        🔴 V144 (владелец: «графа построение тут тоже нет», «связи должны быть разборчивыми»):
+        ВИД КАЖДОЙ СВЯЗИ берём из ГОТОВЫХ таблиц GRAPH (`graph_edges.kind`), которые строит
+        `plm_graph_build.py`: structure · inherit · derive · copy · variant. Раньше окно знало
+        только «down/up/der» — вид наследования/копии/производной терялся, и линии были однотипны.
+        """
         root = eng.stem(model or "")
         nodes, edges = {}, []
         if not root:
             return nodes, edges
-        nodes[root] = {"kind": "root", "level": 0}
+        # КАРТА ВИДОВ из готового графа: (a,b) → kind (structure/inherit/derive/copy/variant)
+        kinds = {}
+        try:
+            import plm_links as _L
+            for e in _L.edges(eng):
+                kinds[(e["from"].lower(), e["to"].lower())] = e["kind"]
+        except Exception:
+            kinds = {}
+
+        def _vid(a, b, default):
+            return kinds.get((str(a).lower(), str(b).lower()), default)
+
+        nodes[root] = {"kind": "root", "level": 0, "vid": ""}
         down = eng.plm_down_data(root, ddown)
         up = eng.plm_up_data(root, dup)
         level, frontier = 0, [root]                   # вниз: BFS по уровням
@@ -4132,13 +4150,29 @@ def run_gui():
     # V106: фильтр по базе идёт В ФОНЕ — иначе на большой базе окно «вешало» на время запроса.
     _flt = {"seq": 0}
 
+    def _show_val(r, c):
+        """Значение ячейки для ПОКАЗА (V144): колонку «Файл» расшифровываем, если имя кодами.
+
+        🔴 Владелец: «вместо имени файла выводит не понять что» — литейщики назвали файлы
+        UTF-16-кодами (`_x2_043304300439043a0430_x0__x` = `_X2_гайка_X0__X`). В БАЗЕ имя верное,
+        показываем «Код → Расшифровка» (данные не подменяем).
+        """
+        v = r.get(c, "")
+        if c == "Файл" or c == "Модель":
+            try:
+                import plm_links as _L
+                return _L.pretty_name(v)
+            except Exception:
+                return v
+        return v
+
     def _fill_rows(rows, tail, keep):
         """Вставка строк в таблицу (в главном потоке — Tk не любит чужие потоки)."""
         rows.sort(key=lambda r: sort_key(r, sort_state["col"]), reverse=sort_state["desc"])
         shown[:] = rows
         tree.delete(*tree.get_children())
         for r in rows:
-            tree.insert("", "end", iid=row_uid(r), values=[r.get(c, "") for c in cols])
+            tree.insert("", "end", iid=row_uid(r), values=[_show_val(r, c) for c in cols])
         for c in cols:
             mark = "  ▼" if (sort_state["col"] == c and sort_state["desc"]) else \
                    ("  ▲" if sort_state["col"] == c else "")
@@ -4574,7 +4608,7 @@ def run_gui():
                     rows_all.append(r)
                     pat = e_filter.get().strip()
                     if match_filter(r, cols, pat):
-                        tree.insert("", "end", iid=row_uid(r), values=[r.get(c, "") for c in cols])
+                        tree.insert("", "end", iid=row_uid(r), values=[_show_val(r, c) for c in cols])
                 elif msg[0] == "walk":
                     _secs = time.time() - getattr(root, "_plm_t0", time.time())
                     # V107: индикатор — обход склада (процент неизвестен → крутилка)

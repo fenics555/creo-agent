@@ -101,20 +101,28 @@ def build(check_only=False, engine_mod=None):
         con.execute("DELETE FROM %s" % EDGES)
         con.execute("DELETE FROM %s" % METRICS)
 
-        # признак превью — по файлам в папке media (быстро, без чтения моделей)
-        media_names = set()
+        # 🔴 V144: признак превью — ИЗ ИНДЕКСА `media_cache.json` (путь файла → имена картинок).
+        # Было: сверяли имя Creo-файла с именами в папке media — но там SHA-имена
+        # (`8b83e68bb2c0243833c5.jpg`), поэтому у ВСЕХ 24 266 узлов стало `has_media=0`
+        # (владелец: «у многих файлов нет картинки»). Кэш лежит РЯДОМ С АКТИВНОЙ БАЗОЙ.
+        media_paths = set()
         try:
-            media_dir = eng.media_dir_for()
-            if media_dir and os.path.isdir(media_dir):
-                media_names = {f.lower() for f in os.listdir(media_dir)}
+            _p = os.path.join(os.path.dirname(eng.active_db() or eng.DB), "media_cache.json")
+            if os.path.isfile(_p):
+                import json as _json
+                with open(_p, encoding="utf-8") as _f:
+                    _mc = _json.load(_f)
+                for _k, _v in _mc.items():
+                    if _v and (_v[0] or (len(_v) > 1 and _v[1])):
+                        media_paths.add(str(_k).lower())
         except Exception:
-            media_names = set()
+            media_paths = set()
 
         nrows, n_kinds = [], {}
         for m, (mm, path, folder, size, vol, mat, creo, rev) in nodes.items():
             kind = _kind_of_model(mm, path)
             n_kinds[kind] = n_kinds.get(kind, 0) + 1
-            has_media = 1 if (path and os.path.basename(path).lower() in media_names) else 0
+            has_media = 1 if (path and path.lower() in media_paths) else 0
             nrows.append((mm, kind, folder, path, size, vol, mat, creo, rev,
                           down.get(mm, 0), up.get(mm, 0), has_media))
         con.executemany(

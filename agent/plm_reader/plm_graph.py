@@ -1182,7 +1182,13 @@ def collect_from_graph_db(media_dir=None):
                 if _m in _base:
                     _ext = _m[1:]
                     break
-            nodes[m] = {"nm": m, "k": _ext,
+            # 🔴 V144: имя для ПОКАЗА — расшифровка «имя кодами» (`_x2_0433...` → `_X2_гайка…`).
+            try:
+                import plm_links as _Lnk
+                _nm_show = _Lnk.pretty_name(m)
+            except Exception:
+                _nm_show = m
+            nodes[m] = {"nm": _nm_show, "k": _ext,
                         "t": kind or "", "p": path or "", "d": folder or "",
                         "s": size or 0, "v": vol or 0, "c": creo or "", "r": rev or "",
                         "i": img, "i2": img2, "o": [], "n": []}
