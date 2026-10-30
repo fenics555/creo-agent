@@ -947,12 +947,71 @@ function draw(root){
   document.getElementById("graph").innerHTML =
     '<div style="padding:8px 12px;color:#8fa0b3;font-size:11px;border-bottom:1px solid #20262c">' +
     'граф: ' + Object.keys(N).length + ' узлов · ' + L.length +
-    ' связей (клик по узлу — перейти)' +
+    ' связей (клик по узлу — перейти; колесо — приблизить)' +
+    '<span style="margin-left:10px">' +
+    '<button class="zb" data-z="+" style="cursor:pointer">+</button>' +
+    '<button class="zb" data-z="-" style="cursor:pointer;margin-left:3px">−</button>' +
+    '<button class="zb" data-z="0" style="cursor:pointer;margin-left:3px">сброс</button></span>' +
     '<div style="margin-top:5px">' + tleg + '</div>' +
     '<div style="margin-top:5px">' + leg + '</div></div>' +
-    '<svg width="' + W + '" height="' + H + '">' + svg + '</svg>';
+    // 🔴 V145: ЗУМ. Владелец: «скрол в окне ХТМЛ не работает, не уменьшает граф».
+    // Обёртка с transform: scale — колесо мыши масштабирует, кнопки +/−/сброс.
+    '<div id="gwrap" style="transform-origin:0 0"><svg width="' + W + '" height="' + H + '">' +
+    svg + '</svg></div>';
+  bindZoom();
   document.querySelectorAll("#graph .nd").forEach(el =>
     el.addEventListener("click", () => show(el.dataset.m)));
+}
+
+// 🔴 V145: ЗУМ ГРАФА — колесо мыши + кнопки +/−/сброс (владелец: «не уменьшает граф»).
+// Владелец: «если на линии боковые и нижние окна — то ДВИГАТЬ окно» → добавлено ПАНОРАМИРОВАНИЕ
+// (тянуть мышью по пустому месту / средней кнопкой), оно не мешает клику по узлу.
+const GZ = {k: 1, x: 0, y: 0};
+function applyZoom(){
+  const w = document.getElementById("gwrap");
+  if (w) w.style.transform = "translate(" + GZ.x + "px," + GZ.y + "px) scale(" + GZ.k + ")";
+  const lb = document.getElementById("zval");
+  if (lb) lb.textContent = Math.round(GZ.k * 100) + "%";
+}
+function bindZoom(){
+  const gb = document.getElementById("graph");
+  if (!gb || gb.dataset.zb) { applyZoom(); return; }
+  gb.dataset.zb = "1";
+  // ЗУМ: Ctrl+колесо (обычное колесо остаётся СКРОЛЛОМ — привычно)
+  gb.addEventListener("wheel", function(ev){
+    if (!ev.ctrlKey && !ev.shiftKey && !ev.altKey) return;   // обычный скролл не трогаем
+    ev.preventDefault();
+    GZ.k = Math.max(0.2, Math.min(4, GZ.k * (ev.deltaY < 0 ? 1.12 : 1 / 1.12)));
+    applyZoom();
+  }, {passive:false});
+  // КНОПКИ +/−/сброс
+  document.querySelectorAll("#graph .zb").forEach(function(b){
+    b.addEventListener("click", function(){
+      const v = b.dataset.z;
+      if (v === "+") GZ.k = Math.min(4, GZ.k * 1.2);
+      else if (v === "-") GZ.k = Math.max(0.2, GZ.k / 1.2);
+      else { GZ.k = 1; GZ.x = 0; GZ.y = 0; }        // сброс — и масштаб, и сдвиг
+      applyZoom();
+    });
+  });
+  // ПАНОРАМИРОВАНИЕ: тянуть мышью (левая по пустому месту ИЛИ средняя кнопка) — «двигать окно».
+  let pan = null;
+  gb.addEventListener("mousedown", function(ev){
+    const onNode = ev.target && (ev.target.closest ? ev.target.closest(".nd") : null);
+    if (ev.button === 0 && onNode) return;                 // по узлу — это КЛИК, не сдвиг
+    pan = {x: ev.clientX - GZ.x, y: ev.clientY - GZ.y, bx: ev.clientX, by: ev.clientY, moved: false};
+    gb.style.cursor = "grabbing";
+    ev.preventDefault();
+  });
+  window.addEventListener("mousemove", function(ev){
+    if (!pan) return;
+    GZ.x = ev.clientX - pan.x;
+    GZ.y = ev.clientY - pan.y;
+    if (Math.abs(ev.clientX - pan.bx) + Math.abs(ev.clientY - pan.by) > 3) pan.moved = true;
+    applyZoom();
+  });
+  window.addEventListener("mouseup", function(){ pan = null; gb.style.cursor = ""; });
+  applyZoom();
 }
 
 render();
