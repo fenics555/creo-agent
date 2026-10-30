@@ -880,9 +880,13 @@ def excluded(path, excl):
     return False
 
 
-def collect(roots, max_mb, max_depth=None, exclude=None, recurse=True):
+def collect(roots, max_mb, max_depth=None, exclude=None, recurse=True, walk_cb=None):
     """ВСЕ файлы моделей рекурсивно (ключ — путь). max_depth — предел вложенности (None = без предела).
-    recurse=False («с подпапками» снят) — только файлы верхней папки, в подпапки не заходим."""
+    recurse=False («с подпапками» снят) — только файлы верхней папки, в подпапки не заходим.
+
+    🔴 walk_cb добавлен в СИГНАТУРУ (30.10.2026): тело звало `walk_cb(...)`, а параметра не было —
+    скрытый NameError, который виден только вызовом (py_compile его НЕ ловит, §грабля).
+    """
     files = []
     for root in as_roots(roots):
         root = os.path.abspath(root)
@@ -1243,6 +1247,24 @@ CREATE TABLE IF NOT EXISTS matrices (path TEXT, model TEXT, field TEXT, dims TEX
 CREATE TABLE IF NOT EXISTS drawing (path TEXT PRIMARY KEY, model TEXT, source_models TEXT,
   states TEXT, uniq_name TEXT, sheet_size TEXT);
 CREATE TABLE IF NOT EXISTS components (path TEXT, model TEXT, comp TEXT, count INTEGER, kind TEXT);
+
+-- 🔴🔴 V142 (30.10.2026, слово владельца): ГРАФ-ПОСТРОИТЕЛЬ — СВОИ ТАБЛИЦЫ.
+-- «ГРАФ-построитель по единой базе по системе ЧИТАЕТ ВСЁ, ПИШЕТ ТОЛЬКО В СВОЁ. Делает полный
+--  граф связей всей базы. Далее ХТМЛ окно подключить к этой базе». Раньше граф СОБИРАЛСЯ НА ЛЕТУ
+-- (`collect_by_path` — с чтением файлов Creo!), поэтому HTML «строил заново» и работал минуты.
+-- Теперь: граф ОДИН РАЗ строится в эти таблицы (`plm_graph_build.py`), а показ только ЧИТАЕТ.
+-- Виды и направления — из единого словаря `plm_links.KINDS/DIRS` (structure/inherit/derive/copy/variant).
+CREATE TABLE IF NOT EXISTS graph_nodes (model TEXT PRIMARY KEY, kind TEXT, folder TEXT,
+  path TEXT, size INTEGER, volume REAL, material TEXT, creo TEXT, rev TEXT,
+  n_down INTEGER, n_up INTEGER, has_media INTEGER);
+CREATE INDEX IF NOT EXISTS ix_gn_kind ON graph_nodes(kind);
+CREATE INDEX IF NOT EXISTS ix_gn_folder ON graph_nodes(folder);
+CREATE TABLE IF NOT EXISTS graph_edges ("from" TEXT, "to" TEXT, kind TEXT, dir TEXT,
+  origin TEXT, qty INTEGER, channel TEXT);
+CREATE INDEX IF NOT EXISTS ix_ge_from ON graph_edges("from");
+CREATE INDEX IF NOT EXISTS ix_ge_to ON graph_edges("to");
+CREATE INDEX IF NOT EXISTS ix_ge_kind ON graph_edges(kind);
+CREATE TABLE IF NOT EXISTS graph_metrics (k TEXT PRIMARY KEY, v TEXT);
 """
 
 
@@ -2283,8 +2305,14 @@ def _publish(draft, to_mirror=True):
 
 
 def scan_to_base(roots, max_mb=8, limit=120, depth=None, progress_cb=None, stop_cb=None, full=False,
-                 param_cfg=None, exclude=None, recurse=None, latest_only=None, remember=False):
+                 param_cfg=None, exclude=None, recurse=None, latest_only=None, remember=False,
+                 walk_cb=None):
     """СКАН С ЗАЩИТОЙ: замок → скан в ЛОКАЛЬНЫЙ черновик → публикация (бэкап + подмена).
+
+    🔴 `walk_cb(n_found, dp)` (30.10.2026) — ПРОГРЕСС ОБХОДА СКЛАДА. Без него окно вешало
+    «ищу файлы…» на ВСЁ время обхода (70 000 файлов — минуты), и владелец не видел, что скан жив.
+    Врезано сквозной нитью: worker(окно) → scan_to_base → do_scan → collect_stat.
+    Раньше `scan_to_base` его не принимал ВООБЩЕ ⇒ сигнал `walk` не шёл никогда.
 
     🔴 `remember=False` ПО УМОЛЧАНИЮ (28.10.2026): корни скана (`meta.roots`) пишет ТОЛЬКО окно.
     Было так: `do_scan(remember=True)` по умолчанию, а `scan_to_base` этот флаг НЕ пробрасывал,
@@ -2387,6 +2415,7 @@ def scan_to_base(roots, max_mb=8, limit=120, depth=None, progress_cb=None, stop_
         except Exception:
             pass
         res = do_scan(roots, max_mb, limit, depth, progress_cb, stop_cb, eff_full, db=draft,
+                      walk_cb=walk_cb,
                       param_cfg=param_cfg, exclude=exclude, recurse=recurse, latest_only=latest_only,
                       media_dir=_media_dir, media_mode=_media_mode, remember=remember)
         try:
@@ -2396,6 +2425,32 @@ def scan_to_base(roots, max_mb=8, limit=120, depth=None, progress_cb=None, stop_
         _publish(draft, to_mirror=(eff_full or not mirror_full_only()))
         published = True
         res["published"] = True
+        # 🔴🔴 V142 (30.10.2026, владелец: «нужен способ обновлять после скана и связи, и
+        # графсвязи»): ПОСЛЕ публикации базы АВТОМАТИЧЕСКИ обновляем производные:
+        #   ② достройка обратных связей (plm_build_links) → links/derived (origin='built')
+        #   ③ граф-построитель (plm_graph_build)          → graph_nodes/graph_edges/graph_metrics
+        # Это НЕ скан (сканер ничего не строит) — отдельные ноги конвейера, запускаются по порядку.
+        # Ошибка любой ноги НЕ роняет скан: база уже опубликована, пишем в лог.
+        try:
+            _cfg2 = _settings_json()
+            if bool(_cfg2.get("post_scan_build_links", True)):
+                import plm_build_links as _BL
+                _r1 = _BL.build()
+                res["built_links"] = sum((_r1.get("by_kind") or {}).values())
+                log("после скана: достройка связей → %s" % (_r1.get("by_kind") or {}))
+        except Exception as e:
+            log("после скана: достройка связей FAIL: %s" % e)
+        try:
+            _cfg3 = _settings_json()
+            if bool(_cfg3.get("post_scan_build_graph", True)):
+                import plm_graph_build as _GB
+                _r2 = _GB.build()
+                res["graph_nodes"] = _r2.get("nodes", 0)
+                res["graph_edges"] = _r2.get("edges", 0)
+                log("после скана: граф → узлов %d, рёбер %d за %.2f с"
+                    % (_r2.get("nodes", 0), _r2.get("edges", 0), _r2.get("secs", 0.0)))
+        except Exception as e:
+            log("после скана: граф FAIL: %s" % e)
         return res
     except Exception as e:
         log("scan_to_base ERROR: %s" % e)

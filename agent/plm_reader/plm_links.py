@@ -32,6 +32,67 @@ CHANNELS = ("db", "family", "inherit", "mentions")   # 4 канала, боль�
 PHYSICAL = ("db",)                                   # «физический состав»
 
 
+# ═══════════════════════════════════════════════════════════════════════════════════════
+# СЛОВАРЬ ВИДОВ СВЯЗЕЙ — ЕДИНЫЙ ИСТОЧНИК ПОДПИСЕЙ, ЗНАКОВ И ЦВЕТОВ (30.10.2026)
+# Владелец: «связи должны быть разборчивыми: зеркальное отражение / булевые операции /
+# наследование… ну может только более понятно» + «предложи ХОРОШИЕ варианты, чтобы было
+# понятно, эстетично, красиво».
+#
+# ТРИ ОСИ (независимые): НАПРАВЛЕНИЕ · ВИД · ПРОИСХОЖДЕНИЕ.
+# Вид берётся из ФАКТА базы (не выдуман): `derived.kind` (наследование/производная/копия)
+# и `links.source` (asm_comp/family/plm_tree/built_*). См. замер в STATE.md (фаза 40).
+# ═══════════════════════════════════════════════════════════════════════════════════════
+
+# код вида → {подпись, знак, цвет, стиль линии, что значит}
+KINDS = {
+    "structure": {"label": "структура",   "sign": "⬛", "color": "#4a90d9", "dash": "solid",
+                  "about": "сборка → деталь (физическое вхождение)"},
+    "inherit":   {"label": "наследование", "sign": "◉", "color": "#b07cd9", "dash": "dash",
+                  "about": "построена на базе / зеркало (MERGE_BASE_PART)"},
+    "derive":    {"label": "производная",  "sign": "⬡", "color": "#e0a030", "dash": "dashdot",
+                  "about": "заготовка / отливка (ref_part_tab)"},
+    "copy":      {"label": "копия",        "sign": "⧉", "color": "#4fb884", "dash": "double",
+                  "about": "пересохранена из другой модели (from_mdl_name)"},
+    "variant":   {"label": "исполнение",   "sign": "⬢", "color": "#d97a9b", "dash": "dot",
+                  "about": "вариант семейства (generic → instance)"},
+    "mention":   {"label": "упоминание",   "sign": "⋯", "color": "#6f8499", "dash": "dotted",
+                  "about": "только текст в байтах — НЕ связь (в граф не идёт)"},
+}
+
+# НАПРАВЛЕНИЕ (куда читать связь) → подпись и стрелка
+DIRS = {
+    "down": {"label": "состав",     "arrow": "⬇", "about": "из чего состоит"},
+    "up":   {"label": "входит в",   "arrow": "⬆", "about": "куда входит (достроено)"},
+    "base": {"label": "основа",     "arrow": "↺", "about": "на чём построена"},
+}
+
+
+def kind_code(source, channel):
+    """ЕДИНЫЙ код вида связи — из `source` (базы) и канала. ОДНО правило на весь инструмент.
+
+    Коды Creo не выносим в показ: `asm_comp`/`plm_tree` → `structure`, `family` → `variant`,
+    `built_in` → `structure` (достроено), `обратное наследование` → `inherit` и т.д.
+    """
+    s = (source or "").strip().lower()
+    if channel == "mention" or s == "mentions":
+        return "mention"
+    if channel == "variant" or s == "family":
+        return "variant"
+    if channel == "inherit":
+        if "коп" in s:
+            return "copy"
+        if "производ" in s or "загот" in s or "отлив" in s:
+            return "derive"
+        return "inherit"
+    # канал db (физический состав, включая достроенную входимость)
+    return "structure"
+
+
+def kind_info(code):
+    """Описание вида для показа (подпись, знак, цвет, стиль). Неизвестный код — `structure`."""
+    return KINDS.get(code) or KINDS["structure"]
+
+
 def is_service(name):
     """Служебная модель (шаблон/внутренняя база) — в связях не участвует."""
     return bool(_SVC_RX.match((name or "").strip()))
@@ -170,26 +231,43 @@ def instances(model, engine_mod=None):
 
 
 def edges(engine_mod=None):
-    """СВЯЗИ В ВИДЕ РЁБЕР ГРАФА: [{from,to,type,qty,channel}] — ОДИН ГРАФ (ДОГМА §5).
+    """СВЯЗИ В ВИДЕ РЁБЕР ГРАФА — ОДИН ГРАФ (ДОГМА §5).
 
-    Тип ребра выводится из канала ЕДИНООБРАЗНО:
-        db → «структура» (asm_comp) / «деталь»;  family → «исполнение»;
-        inherit → «копия» / «производная» / «исполнение» (по `kind` из `derived`).
-    `mentions` в граф НЕ идёт НИКОГДА.
+    Формат ребра (30.10.2026 — РАЗБОРЧИВЫЕ ВИДЫ):
+        {from, to, type, kind, dir, origin, qty, channel}
+      * `kind`   — КОД вида: structure / inherit / derive / copy / variant  (единый словарь KINDS);
+      * `type`   — ЧЕЛОВЕЧЕСКАЯ ПОДПИСЬ вида («структура», «наследование», …) — для совместимости;
+      * `dir`    — НАПРАВЛЕНИЕ: down (состав) · up (достроенная входимость) · base (основа);
+      * `origin` — real (прочитано из файла) / built (достроено из базы);
+      * `sign`/`color`/`dash` — готовые к показу знак/цвет/стиль линии.
+
+    Тип выводится ЕДИНООБРАЗНО (`kind_code`), `mentions` в граф НЕ идёт НИКОГДА.
     """
     agg = {}
     for e in load(engine_mod, channels=("db", "family", "inherit")):
-        if e["channel"] == "db":
-            typ = "структура" if (e["source"] or "").lower() == "asm_comp" else "деталь"
-        elif e["channel"] == "family":
-            typ = "исполнение"
+        ch = e["channel"]
+        src = (e["source"] or "")
+        k = kind_code(src, ch)
+        if k == "mention":
+            continue                       # упоминание — не связь (не должно прийти, страховка)
+        # направление: inherit-канал читается как «основа»; достроенное — «вверх»
+        if ch == "inherit":
+            d = "base"
+        elif src.strip().lower().startswith("built"):
+            d = "up"                       # достроенная обратная входимость
         else:
-            k = (e["source"] or "").lower()
-            typ = "копия" if "коп" in k else ("исполнение" if "наслед" in k else "производная")
-        key = (e["parent"], e["child"], typ, e["channel"])
+            d = "down"
+        info = kind_info(k)
+        key = (e["parent"], e["child"], k, d)
         agg[key] = agg.get(key, 0) + e["qty"]
-    return [{"from": a, "to": b, "type": t, "qty": q, "channel": ch}
-            for (a, b, t, ch), q in sorted(agg.items())]
+    out = []
+    for (a, b, k, d), q in sorted(agg.items()):
+        info = kind_info(k)
+        out.append({"from": a, "to": b, "type": info["label"], "kind": k, "dir": d,
+                    "origin": "built" if d == "up" else "real",
+                    "sign": info["sign"], "color": info["color"], "dash": info["dash"],
+                    "qty": q, "channel": ("inherit" if d == "base" else "db")})
+    return out
 
 
 def stats(engine_mod=None):

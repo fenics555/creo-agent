@@ -51,46 +51,112 @@ def _pairs(con, table, a_col, b_col, origin=None, source_like=None):
     return con.execute(sql, args).fetchall()
 
 
+def _pairs_kind(con, table, a_col, b_col, kind_like):
+    """Пары с `kind` (для `derived`): [(a, b, kind)] — ВИД связи сохраняется РАЗБОРЧИВО.
+
+    Владелец (30.10.2026): «связи должны быть разборчивыми: зеркальное отражение / булевые
+    операции / наследование… ну может только более понятно». Поэтому вид НЕ теряется:
+    `наследование` · `производная` · `копия` — каждый достраивается СВОИМ обратным видом.
+    """
+    return con.execute(
+        "SELECT %s, %s, %s FROM %s WHERE %s!='' AND %s!=''"
+        % (a_col, b_col, kind_like, table, a_col, b_col)).fetchall()
+
+
+# 🔴 ОБРАТНЫЕ ВИДЫ (догма владельца 30.10.2026): у КАЖДОГО вида связи есть своя обратная сторона.
+# Вид читаем из базы, а не выдумываем: сканер кладёт их в `derived.kind` (проверено на базе:
+# `наследование` 3 386 · `производная` 5 719 · `копия` 16 637) и в `links.source`
+# (`asm_comp` 5 749 — состав сборки · `family` 15 497 — исполнения · `plm_tree` 3 606).
+BACK_INHERIT = {
+    "наследование": "обратное наследование",
+    "производная": "обратная производная",
+    "копия": "обратная копия",
+    "наследование свойства": "обратное наследование свойства",
+}
+BACK_LINKS = {
+    "asm_comp": "входимость",          # компонент знает? нет → достраиваем «в какую сборку входит»
+    "family": "обратное исполнение",   # исполнение → «в какой генерик входит»
+    "plm_tree": "обратное дерево PLM",
+}
+
+
 def build(check_only=False, engine_mod=None):
-    """ДОСТРОИТЬ СВЯЗИ ПО БАЗЕ. Возвращает словарь со счётчиками (для отчёта и приёмки)."""
+    """ДОСТРОИТЬ СВЯЗИ ПО БАЗЕ. Возвращает словарь со счётчиками (для отчёта и приёмки).
+
+    🔴 РАСШИРЕНО 30.10.2026 (слово владельца): достраиваются ВСЕ недостающие связи ВВЕРХ и ВНИЗ,
+    причём КАЖДЫЙ ВИД — СВОИМ обратным видом (`BACK_INHERIT` / `BACK_LINKS`), чтобы связь была
+    РАЗБОРЧИВОЙ («зеркальное отражение / булевы операции / наследование…»). Раньше строились
+    только два вида (состав + наследование) — остальные (производная, копия, исполнение, дерево PLM)
+    оставались ОДНОСТОРОННИМИ, и в графе «вверх» у них не было входимости.
+
+    Идемпотентно: если обратная пара уже есть (в любом `origin`) — не дублируем.
+    Пишет ТОЛЬКО `origin='built'`; реальные строки не трогает (догма «либо одно, либо другое»).
+    """
     eng = engine_mod or engine
     con = eng.connect()
-    res = {"inherit_back": 0, "asm_back": 0, "already": 0, "real_total": 0, "built_total": 0}
+    # счётчики на КАЖДЫЙ вид (разборчивость — видно, что именно достроено)
+    res = {"by_kind": {}, "real_total": 0, "built_total": 0, "already": 0}
     try:
-        # ── 1. НАСЛЕДОВАНИЕ: есть ли уже обратная пара?
-        inh = set()
-        for ch, base in _pairs(con, "derived", "child", "base"):
+        # ── 1. НАСЛЕДОВАНИЕ/ПРОИЗВОДНАЯ/КОПИЯ: пары из `derived` с СОХРАНЕНИЕМ ВИДА.
+        #    обратная пара = (base, child) с тем же видом → чтобы не путать «копия» и «наследование».
+        inh = {}          # (a_low, b_low) -> kind   (child → base)
+        bidir = set()     # виды, которые уже имеют встречную пару (не дублируем)
+        for ch, base, kind in _pairs_kind(con, "derived", "child", "base", "kind"):
             a, b = (ch or "").strip(), (base or "").strip()
+            k = (kind or "наследование").strip()
             if a and b and a.lower() != b.lower():
-                inh.add((a.lower(), b.lower()))
+                inh[(a.lower(), b.lower())] = k
         res["real_total"] = len(inh)
-        # ── 2. СОСТАВ: пары parent->child
-        asm = set()
-        for par, ch in _pairs(con, "links", "parent", "child", source_like="mentions"):
+
+        # ── 2. СОСТАВ: пары parent->child (кроме `built`, `mentions` — это не связь состава).
+        asm = {}          # (parent_low, child_low) -> source
+        for par, ch, src in con.execute(
+                "SELECT parent, child, source FROM links WHERE parent!='' AND child!=''"):
             a, b = (par or "").strip(), (ch or "").strip()
+            s = (src or "").strip().lower()
+            if s in ("mentions",) or s.startswith("built"):
+                continue                     # упоминание — не связь; built — уже достройка
             if a and b and a.lower() != b.lower():
-                asm.add((a.lower(), b.lower()))
+                asm[(a.lower(), b.lower())] = s or "asm_comp"
+        # какие обратные пары УЖЕ есть (реальные или достроенные)
+        for (a, b) in list(asm.keys()):
+            if (b, a) in asm:
+                bidir.add((a, b))
+        for (a, b) in list(inh.keys()):
+            if (b, a) in inh:
+                bidir.add((a, b))
+
         if check_only:
-            back_inh = sum(1 for (a, b) in inh if (b, a) in inh)
-            back_asm = sum(1 for (a, b) in asm if (b, a) in asm)
-            res["inherit_back"] = len(inh) - back_inh
-            res["asm_back"] = len(asm) - back_asm
-            res["already"] = back_inh + back_asm
+            # сколько ПАР осталось односторонними по каждому виду (без записи)
+            for (a, b), k in inh.items():
+                if (b, a) not in inh:
+                    res["by_kind"][BACK_INHERIT.get(k, "обратное " + k)] = \
+                        res["by_kind"].get(BACK_INHERIT.get(k, "обратное " + k), 0) + 1
+            for (a, b), s in asm.items():
+                if (b, a) not in asm:
+                    t = BACK_LINKS.get(s, "входимость")
+                    res["by_kind"][t] = res["by_kind"].get(t, 0) + 1
+            res["already"] = len(bidir)
             return res
 
         # ── ДОСТРОЙКА (пишем ТОЛЬКО 'built'; реальные строки не трогаем)
+        #    ВИД сохраняем: `derived.kind` = обратный вид; `links.source` = обратный вид связи.
         for (a, b) in sorted(inh):
-            if (b, a) in inh:
-                continue                    # реальная/уже достроенная встречная — не дублируем
+            if (b, a) in inh or (a, b) in bidir:
+                continue                     # встречная уже есть — не дублируем
+            k = inh[(a, b)]
+            back = BACK_INHERIT.get(k, "обратное " + k)
             con.execute("INSERT INTO derived (child,base,kind,source,origin) VALUES (?,?,?,?,?)",
-                        (b, a, "обратное наследование", "built", BUILT))
-            res["inherit_back"] += 1
+                        (b, a, back, "built", BUILT))
+            res["by_kind"][back] = res["by_kind"].get(back, 0) + 1
         for (a, b) in sorted(asm):
-            if (b, a) in asm:
+            if (b, a) in asm or (a, b) in bidir:
                 continue
+            s = asm[(a, b)]
+            back = BACK_LINKS.get(s, "входимость")
             con.execute("INSERT INTO links (parent,child,qty,source,origin) VALUES (?,?,?,?,?)",
-                        (b, a, 1, "built_in", BUILT))
-            res["asm_back"] += 1
+                        (b, a, 1, back, BUILT))
+            res["by_kind"][back] = res["by_kind"].get(back, 0) + 1
         con.commit()
         res["built_total"] = con.execute(
             "SELECT COUNT(*) FROM links WHERE origin=?", (BUILT,)).fetchone()[0] + \
@@ -107,8 +173,11 @@ def report(res, check_only=False):
     mode = "ПРОВЕРКА (ничего не записано)" if check_only else "ДОСТРОЕНО"
     print("=== ДОСТРОИТЕЛЬ СВЯЗЕЙ — %s ===" % mode)
     print("реальных пар в базе :", res.get("real_total", 0))
-    print("достроено обратных наследования :", res.get("inherit_back", 0))
-    print("достроено обратных входимости   :", res.get("asm_back", 0))
+    bk = res.get("by_kind") or {}
+    if bk:
+        print("по видам (обратные связи):")
+        for k in sorted(bk):
+            print("   %-34s %d" % (k, bk[k]))
     if not check_only:
         print("ВСЕГО связей 'built' в базе     :", res.get("built_total", 0))
     print()

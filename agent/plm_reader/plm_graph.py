@@ -84,6 +84,22 @@ def _kind_by_path(path):
 
 
 def _media_cache_path():
+    """Путь к `media_cache.json` — РЯДОМ С АКТИВНОЙ БАЗОЙ (V142).
+
+    🔴 Раньше: всегда `<папка инструмента>\\db\\media_cache.json`. Но превью и база живут
+    на ШАРЕ (`Z:\\PTC\\CREO-START\\plm_reader\\db\\`), а инструмент — на `D:`. Итог: HTML
+    показывал «узлов с превью: 0», хотя 33 725 превью лежали готовыми. Теперь кэш ищем
+    рядом с активной базой (`engine.active_db()`), с откатом на папку инструмента.
+    """
+    try:
+        import engine as _e
+        adb = _e.active_db()
+        if adb:
+            p = os.path.join(os.path.dirname(adb), "media_cache.json")
+            if os.path.isfile(p):
+                return p
+    except Exception:
+        pass
     return os.path.join(HERE, "db", "media_cache.json")
 
 
@@ -1080,6 +1096,104 @@ def load_page_template():
     return PAGE
 
 
+def collect_from_graph_db(media_dir=None):
+    """УЗЛЫ И РЁБРА ИЗ ТАБЛИЦ ГРАФА (`graph_nodes`/`graph_edges`) — БЫСТРЫЙ ПОКАЗ (V142).
+
+    🔴 ЗАКОН ВЛАДЕЛЬЦА (30.10.2026): «связи и графсвязи уже есть, единая база данных, иных
+    связей нет и быть не может. И ХТМЛ окно должно не заново всё строить, а с нужными
+    настройками просто выводить». Граф уже построен `plm_graph_build.py` — здесь ТОЛЬКО чтение.
+
+    Возвращает (nodes, edges) или (None, None), если таблиц/данных нет (тогда — старый путь).
+    Формат узлов/рёбер — как у `collect_by_path`, чтобы `build_html` не менялся.
+    Превью берём из папки `media` (по индексу `media_cache.json`), файлы Creo НЕ читаем.
+    """
+    if engine is None:
+        return None, None
+    try:
+        con = engine.connect(ro=True)
+    except Exception:                  # noqa: BLE001
+        return None, None
+    try:
+        n_total = con.execute("SELECT COUNT(*) FROM graph_nodes").fetchone()[0]
+        if not n_total:
+            return None, None
+    except Exception:                  # noqa: BLE001  (таблиц нет — старая база)
+        try:
+            con.close()
+        except Exception:
+            pass
+        return None, None
+    nodes, edges = {}, []
+    cache = _load_media_cache()        # путь → (превью1, превью2)
+    # ключи кэша могут отличаться регистром (Windows/сеть) — строим индекс в нижнем регистре
+    lcache = {}
+    by_stem = {}                       # ствол имени файла (без версии) → (превью1, превью2)
+    try:
+        for k, v in cache.items():
+            ks = str(k).lower()
+            lcache[ks] = v
+            # 🔴 30.10.2026: у модели много ВЕРСИЙ (`.1`/`.2`/`.4`), а превью в кэше может быть
+            # только у одной. Поэтому строим индекс по СТВОЛУ (имя без номера версии) — тогда
+            # узел находит превью ЛЮБОЙ версии (владелец: «вместо картинки 0»).
+            bn = os.path.basename(ks)
+            stem = bn
+            if bn[-1:].isdigit() and "." in bn:
+                stem = bn.rsplit(".", 1)[0]
+            if v and (v[0] or (len(v) > 1 and v[1])) and stem not in by_stem:
+                by_stem[stem] = v
+    except Exception:
+        lcache, by_stem = {}, {}
+    try:
+        for m, kind, folder, path, size, vol, creo, rev, n_down, n_up, has_media in con.execute(
+                "SELECT model,kind,folder,path,size,volume,creo,rev,n_down,n_up,has_media "
+                "FROM graph_nodes"):
+            m = _norm(m)
+            if not m:
+                continue
+            img, img2 = "", ""
+            c = lcache.get((path or "").lower())
+            if not c:
+                bn = os.path.basename((path or "").lower())
+                stem = bn.rsplit(".", 1)[0] if (bn[-1:].isdigit() and "." in bn) else bn
+                c = by_stem.get(stem)
+            if c:
+                img = c[0] if len(c) > 0 else ""
+                img2 = c[1] if len(c) > 1 else ""
+            # тип файла для бейджа Д/С/М/Ч: берём ЦЕЛОЕ имя (`.prt.4` → PRT, не «4»)
+            _base = (path or "").rsplit("\\", 1)[-1].upper()
+            _ext = ""
+            for _m in (".DRW", ".ASM", ".PRT", ".MFG", ".SEC", ".NEU"):
+                if _m in _base:
+                    _ext = _m[1:]
+                    break
+            nodes[m] = {"nm": m, "k": _ext,
+                        "t": kind or "", "p": path or "", "d": folder or "",
+                        "s": size or 0, "v": vol or 0, "c": creo or "", "r": rev or "",
+                        "i": img, "i2": img2, "o": [], "n": []}
+        for a, b, k, d, org, q in con.execute(
+                'SELECT "from","to",kind,dir,origin,qty FROM graph_edges'):
+            a, b = _norm(a), _norm(b)
+            if not a or not b:
+                continue
+            edges.append({"from": a, "to": b, "type": k, "kind": k, "dir": d,
+                          "origin": org, "qty": int(q or 1), "channel": ""})
+            na, nb = nodes.get(a), nodes.get(b)
+            if na is not None:
+                na["o"].append([b, k, int(q or 1)])
+            if nb is not None:
+                nb["n"].append([a, k, int(q or 1)])
+    except Exception:                  # noqa: BLE001
+        pass
+    finally:
+        try:
+            con.close()
+        except Exception:
+            pass
+    if not nodes:
+        return None, None
+    return nodes, edges
+
+
 def main():
     no_open = "--no-open" in sys.argv
     global _media_mode, _media_max, _scan_budget, count_media
@@ -1090,8 +1204,11 @@ def main():
     count_media = 0
     media = None if _media_mode == "none" or not cfg.get("graph_media") \
         else os.path.join(HERE, "db", "media")
-    nodes, edges = collect_by_path(media)      # КЛЮЧ = ПУТЬ (одноимённые — разные узлы)
-    src = "база (по путям)"
+    nodes, edges = collect_from_graph_db(media)   # V142: СНАЧАЛА готовый граф (быстро, без файлов!)
+    src = "граф (graph_nodes/graph_edges)"
+    if not nodes:
+        nodes, edges = collect_by_path(media)      # КЛЮЧ = ПУТЬ (одноимённые — разные узлы)
+        src = "база (по путям)"
     if not nodes:
         nodes, edges = collect_from_db(media)
         src = "база (по именам)"

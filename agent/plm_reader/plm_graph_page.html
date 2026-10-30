@@ -715,20 +715,25 @@ function show(m){
     el.addEventListener("click", () => show(el.dataset.m)));
   draw(m);
 }
-// ЦВЕТА СВЯЗЕЙ (4 основных + 2 редких):
+// ЦВЕТА И СТИЛИ СВЯЗЕЙ (30.10.2026 — РАЗБОРЧИВЫЕ ВИДЫ):
 //  main-down   основные ОТ выбранного (прямые дети)      — зелёный
 //  main-up     основные К выбранному (прямые родители)   — голубой
 //  deep-down   связи ВНИЗ (транзитные потомки)           — тёмно-зелёный
 //  deep-up     связи ВВЕРХ (транзитные предки)           — тёмно-синий
-//  inherit     БАЗА НАСЛЕДОВАНИЯ (MERGE_BASE_PART)       — жёлтый  (V121)
-//  copy        копия (from_mdl_name)                     — фиолетовый
+//  inherit     ОСНОВА (наследование/зеркало)             — фиолетовый, пунктир
+//  derive      ПРОИЗВОДНАЯ (заготовка/отливка)           — оранжевый, штрих-точка
+//  copy        копия (from_mdl_name)                     — зелёный-бирюза, штрих-точка
+//  variant     исполнение семейства                      — розовый, точка
+// «d» — стиль линии (штрихи), чтобы вид читался и БЕЗ цвета (ч/б, дальтоник).
 const CLR = {
-  "main-down": {"s": "#4ec97a", "t": "основные от выбранного"},
-  "main-up":   {"s": "#4ea8e0", "t": "основные к выбранному"},
-  "deep-down": {"s": "#2f7a4a", "t": "связи вниз (через узел)"},
-  "deep-up":   {"s": "#2f5a8a", "t": "связи вверх (через узел)"},
-  "inherit":   {"s": "#d8b74a", "t": "база наследования (из файла)"},
-  "copy":      {"s": "#a97cd8", "t": "копия модели"}
+  "main-down": {"s": "#4ec97a", "t": "основные от выбранного", "d": ""},
+  "main-up":   {"s": "#4ea8e0", "t": "основные к выбранному", "d": ""},
+  "deep-down": {"s": "#2f7a4a", "t": "связи вниз (через узел)", "d": "6 3"},
+  "deep-up":   {"s": "#2f5a8a", "t": "связи вверх (через узел)", "d": "6 3"},
+  "inherit":   {"s": "#b07cd9", "t": "основа · наследование", "d": "7 4"},
+  "derive":    {"s": "#e0a030", "t": "производная · заготовка/отливка", "d": "2 3 7 3"},
+  "copy":      {"s": "#4fb884", "t": "копия модели", "d": "1 3"},
+  "variant":   {"s": "#d97a9b", "t": "исполнение семейства", "d": "1 4"}
 };
 
 function edgeKind(from, to){
@@ -736,11 +741,15 @@ function edgeKind(from, to){
   // 🔴 ГРАБЛЯ 23.10.2026: индекс в связях — ЧИСЛО, а ключи ND — СТРОКИ. Сравнение `t[0] === to`
   // (число со строкой) никогда не совпадало → ни одно ребро не получало тип → ЛЕГЕНДА БЫЛА ПУСТА,
   // а роли заготовка/копия терялись. Сравниваем строкой.
+  // 🔴 30.10.2026: ВИДЫ РАЗВЕДЕНЫ ПО СТИЛЮ (владелец: «связи должны быть разборчивыми»):
+  //    наследование/зеркало → inherit · заготовка/отливка → derive · копия → copy · исполнение → variant
   const arr = (ND[from] && ND[from].o) || [];
   for (const t of arr){ if (String(t[0]) === String(to)) {
-    if (t[1] === "заготовка" || t[1] === "база/заготовка") return "inherit";
-    if (t[1] === "исполнение" || t[1] === "производная") return "inherit";
-    if (t[1] === "копия") return "copy";
+    const v = (t[1] || "").toLowerCase();
+    if (v.indexOf("коп") >= 0) return "copy";
+    if (v.indexOf("загот") >= 0 || v.indexOf("отлив") >= 0 || v.indexOf("производ") >= 0) return "derive";
+    if (v.indexOf("исполн") >= 0) return "variant";
+    if (v.indexOf("наслед") >= 0 || v.indexOf("база") >= 0 || v.indexOf("зеркал") >= 0) return "inherit";
     return "child";
   } }
   return "parent";
@@ -772,8 +781,9 @@ function draw(root){
           (N[lvl] = N[lvl] || []).push(nm);
           const role = edgeKind(dir === "d" ? m : nm, dir === "d" ? nm : m);
           const main = (depth === 1);
-          const k = (role === "inherit" || role === "copy") ? role
-                  : (main ? "main-" + dir : "deep-" + dir);
+          // 🔴 30.10.2026: содержательные виды связи идут СВОИМ ключом (свой цвет+стиль линии).
+          const SPECIAL = (role === "inherit" || role === "derive" || role === "copy" || role === "variant");
+          const k = SPECIAL ? role : (main ? "main-" + dir : "deep-" + dir);
           // ребро в данных ND всегда «родитель → ребёнок»:
           const eFrom = dir === "d" ? m : nm, eTo = dir === "d" ? nm : m;
           L.push([eFrom, eTo, k]);
@@ -887,11 +897,14 @@ function draw(root){
   for (const [a, b, k] of L){
     const p = pos[a], r = pos[b]; if (!p || !r) continue;
     const x1 = p[0] + 212, y1 = p[1] + 9, x2 = r[0], y2 = r[1] + 9;
-    const c = (CLR[k] || CLR["deep-down"]).s;
+    const ci = (CLR[k] || CLR["deep-down"]);
+    const c = ci.s;
+    // 🔴 30.10.2026: СТИЛЬ ЛИНИИ ПО ВИДУ СВЯЗИ (штрих/пунктир/точка) — вид читается и без цвета.
+    const dashAttr = ci.d ? ' stroke-dasharray="' + ci.d + '"' : '';
     svg += '<path d="M' + x1 + ' ' + y1 + ' C' + ((x1+x2)/2) + ' ' + y1 + ' ' +
            ((x1+x2)/2) + ' ' + y2 + ' ' + x2 + ' ' + y2 +
            '" stroke="' + c + '" stroke-width="' + (k.startsWith("main") ? "2" : "1.2") +
-           '" fill="none" marker-end="url(#ar-' + k + ')"/>';
+           '"' + dashAttr + ' fill="none" marker-end="url(#ar-' + k + ')"/>';
   }
   for (const m0 of Object.keys(pos)){
     const m = String(m0);                 // GRABLYA 23.10.2026: ключи могут быть числами
@@ -914,10 +927,12 @@ function draw(root){
   let leg = "";
   for (const k of Object.keys(CLR)){
     if (!used[k]) continue;
+    const ci = CLR[k];
+    const dashAttr = ci.d ? ' stroke-dasharray="' + ci.d + '"' : '';
     leg += '<span style="display:inline-flex;align-items:center;gap:5px;margin-right:14px">' +
            '<svg width="22" height="8"><line x1="0" y1="4" x2="22" y2="4" stroke="' +
-           CLR[k].s + '" stroke-width="' + (k.startsWith("main") ? "2.5" : "1.5") +
-           '"/></svg>' + CLR[k].t + ' <b style="color:#8fa0b3">(' + used[k] + ')</b></span>';
+           ci.s + '" stroke-width="' + (k.startsWith("main") ? "2.5" : "1.5") +
+           '"' + dashAttr + '/></svg>' + ci.t + ' <b style="color:#8fa0b3">(' + used[k] + ')</b></span>';
   }
   // V106: легенда ТИПОВ узлов (Д/С/М/Ч) — чтобы в графе было видно деталь/сборка/мануфактуринг
   const TYPES = [["Д", "#4ec97a", "деталь"], ["С", "#4ea8e0", "сборка"],

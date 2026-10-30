@@ -4643,12 +4643,19 @@ def run_gui():
         def pc(n, total):
             q.put(("prog", n, total, "", 0, 0))
 
+        def wc(n_found, dp):
+            # 🔴 30.10.2026: прогресс ОБХОДА склада (до чтения файлов). Без него окно висело
+            # «ищу файлы…» молча всё время обхода (70 000 файлов). Сигнал "walk" уже принимается
+            # в poll_scan (показывает «ищу файлы: найдено N (сек)»).
+            q.put(("walk", n_found, False, dp))
+
         try:
             # 🔴 `remember=True` — ТОЛЬКО окно имеет право записывать корни скана в базу
             # (`meta.roots`). Пробы/CLI зовут `scan_to_base` без этого флага и корни не портят.
             res = eng.scan_to_base(roots, float(opts.get("max_size_mb", 24)), 3600.0,   # V86: «or 8» убивал 0
                                    (int(e_depth.get() or 0) or None),
                                    progress_cb=pc,
+                                   walk_cb=wc,
                                    stop_cb=lambda: getattr(root, "_plm_stop", False),
                                    full=bool(opts.get("full")),
                                    recurse=bool(opts.get("recurse", True)),

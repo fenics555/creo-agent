@@ -31,6 +31,9 @@ CODE_FILES = [
     "scanner_plm.py",                            # НОВЫЙ сканер: scan_item_new (16 ящиков)
     "scanner_write.py",                          # запись ящиков нового сканера в базу
     "plm_database.py",                           # Database: stats/check/validate/publish/indexes/vacuum/backup
+    # V143: ГРАФ-ПОСТРОИТЕЛЬ — полный граф связей всей базы в свои таблицы
+    # (`graph_nodes`/`graph_edges`/`graph_metrics`). Показ (HTML/окно) только ЧИТАЕТ их.
+    "plm_graph_build.py",
 ]
 
 
