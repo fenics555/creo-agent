@@ -419,3 +419,31 @@ MASS·VOLUME·AREA·DENSITY·SOURCE·COGX/Y/Z·CSYS·INERTIA_ORIGIN·IXX/IXY/IXZ
 ### 🗂️ ПОРЯДОК В ФАЙЛАХ
 Создана `plm_reader\debug\` (9 отладочных файлов перенесено из корня).
 Обновлены `README.md` (раздел АРХИТЕКТУРА) и `STRATEGY_PLM.md` (§0.0).
+
+---
+
+### 30.10.2026 (фаза 37) — ТЕЛА · МАТЕРИАЛЫ · СБОРКИ · МАНУФАКТУРИНГ
+
+### 🏆 ОТКРЫТИЯ (скиллы)
+| Скилл | Что |
+|---|---|
+| `READ\SKILL_creo_toc_map.md` (§178) | **КАРТА `#UGC_TOC`** (24 секции PART) + **ЗАКОН «неизвестное ≠ мусор»** |
+| `READ\SKILL_creo_asm_mfg.md` (§179) | **СБОРКИ (31 секция)** + **МАНУФАКТУРИНГ** (`tool_array`·`tool_id`·`tool_params`) + `S2D000N` = виды |
+| `READ\SKILL_creo_bodies_materials.md` (§177) | **ТЕЛА** (`body_array`) + **МАТЕРИАЛЫ** (`material_arr`) + **МАСТЕР** |
+| `READ\SKILL_creo_mass_prop.md` (§175) | **МАССА = volume × density** (секция `mass_prop`) |
+| `READ\SKILL_creo_materials.md` (§176) | **`PTC_SYSTEM_MTRL_PROPS`** (внутренний, Creo 7.0+) |
+
+### 🔴 ГЛАВНЫЕ ФАКТЫ
+- **МАССА = `mass_prop.volume × mass_prop.density`** (сверено с J-Link **16/16**).
+- **ИМЯ МАТЕРИАЛА ЧИТАЕТСЯ**: `PTC_MASTER_MATERIAL  <4 байта> e3 33 <ИМЯ>` → `65G_MMKGS` (**сталь 65Г**).
+- **ТЕЛА**: `body_array f8 <N>` — у КАЖДОГО свои `gen_mass_prop_data` (свой объём/масса!).
+- **`PRO_MP_MASS` в файле — ССЫЛКА** (в Creo вычисляется); имя `65G_MMKGS` — **сталь, НЕ единицы**!
+- **`S2D000N`** = виды чертежа (Траектория/Сечение) — НЕ мусор.
+- **160 полей «НЕ ИЗУЧЕНО»** (собираются в `unknown_fields`, не отбрасываются).
+
+### 🔴 ДОЛГИ (закрыть)
+1. **Связь «тело → материал»** — НЕ найдена.
+2. **`SolidPrimdata`** (компоненты сборки) — карта есть, парсер не написан.
+3. **`tool_params`** (MFG) — поля найдены, значения не разобраны.
+4. **Сканер не читает карту** (`#UGC_TOC`) — работает «по всему файлу».
+5. **WRITE** — запись в базу (+`bodies`·`materials`·`unknown_fields`).
