@@ -1,4 +1,4 @@
-﻿# PLM Reader V140 — читаем изделия Creo «в лоб» (без Creo)
+﻿# PLM Reader V143 — читаем изделия Creo «в лоб» (без Creo)
 
 Автономная программа дома: читает файлы Creo (`.prt/.asm/.drw`) **напрямую**, собирает **свою базу**
 (паспорта, состав, входимость, происхождение, журнал правок) и показывает всё в одном окне.
@@ -84,9 +84,10 @@
 ```
 plm_reader/
   engine.py            ← SCANNER (главный движок чтения)
-  plm_graph.py         ← GRAPH BUILDER
-  plm_build_links.py   ← CONNECTION BUILDER
-  plm_database.py            ← Database (обслуживание базы)          [план]
+  plm_graph_build.py   ← ГРАФ-ПОСТРОИТЕЛЬ (пишет ТОЛЬКО в graph_*; V143)
+  plm_graph.py         ← GRAPH BUILDER (показ: читает graph_* / базу)
+  plm_build_links.py   ← CONNECTION BUILDER (достройка ВСЕХ видов связей)
+  plm_database.py      ← Database (обслуживание базы)
   debug/               ← ВСЕ отладочные скрипты (НЕ в корне!)
   _diag/               ← диагностика
   db/                  ← боевая база + backup/ + media/ (превью)

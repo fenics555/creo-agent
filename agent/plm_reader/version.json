@@ -2,7 +2,7 @@
  "version": "V143",
  "version_num": 143,
  "date": "30.10.2026",
- "notes": "V143: РАЗБОРЧИВЫЕ ВИДЫ СВЯЗЕЙ + ГРАФ-ПОСТРОИТЕЛЬ (graph_nodes/edges) + HTML читает готовый граф + автообновление после скана + прогресс обхода",
+ "notes": "V143: разборчивые виды связей + ГРАФ-ПОСТРОИТЕЛЬ + HTML читает готовый граф + автообновление после скана + прогресс обхода",
  "files": {
   "engine.py": "01492bfe8e9f67da36908c247d0598b8e166a3b8800450f7b140bde21fb8c9ef",
   "plm_reader.py": "8236758ba965ee47f777d4ed47438031e58ddfa14582359e01455cbfa0232b34",
@@ -14,7 +14,7 @@
   "plm_scan.py": "e32d610e33932afaee4c952cb0b4564801508f0568d4360d7d039ffacb856f48",
   "plm_paths_window.py": "c1bb60b36fbe7fe86e5213680978eab41ac1d1c722d7fd58fae4820155a3833a",
   "creo_read.py": "51717adc1c186dc557eda4892dd41a8ee51a1d88c53a5e7894568dd41a247c72",
-  "README.md": "b7753ae98ff01c6269b32e0df7c746ebf1e2d53904640b8bdca21c1f792671ef",
+  "README.md": "af22ec5e3a072b9a2c95ded9ce2320f1dff93ac921f2ca3efa85b01edd30f0cd",
   "SHARE_copy.bat": "4eccb549a17251392337aeabbc3ef76233dfa3072beadff9d158cd6e932622ee",
   "plm_reader.bat": "bdd125397db3ac7e7432dbdb078a6a811ed4913fca02b062edb27907032fca3d",
   "plm_reader_gui.bat": "9f695898d5db6431e840784b9587c75304ca9e526b06f79d4b44ab026663bd20",
