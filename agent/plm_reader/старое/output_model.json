@@ -1,0 +1,452 @@
+{
+    "file": "D:\\AI\\PROBA\\models\\00080-03.prt",
+    "features": [
+        {
+            "id": 7,
+            "type": "unknown",
+            "params": [
+                {
+                    "name": "feat_id",
+                    "value": 7,
+                    "type": "INT"
+                },
+                {
+                    "name": "entity(text)",
+                    "value": null,
+                    "type": "HEADER"
+                },
+                {
+                    "name": "text_type",
+                    "value": 34,
+                    "type": "INT"
+                },
+                {
+                    "name": "text_value",
+                    "value": null,
+                    "type": "UNKNOWN_0A"
+                },
+                {
+                    "name": "txt_attrib",
+                    "value": 1,
+                    "type": "INT"
+                },
+                {
+                    "name": "txt_attrib2",
+                    "value": "00",
+                    "type": "HEX_FALLBACK"
+                },
+                {
+                    "name": "coord",
+                    "value": "\u0003/`-y F\u0001J7",
+                    "type": "STRING"
+                },
+                {
+                    "name": "owner_id",
+                    "value": 8,
+                    "type": "INT"
+                },
+                {
+                    "name": "height",
+                    "value": "\u0010",
+                    "type": "STRING"
+                },
+                {
+                    "name": "width_factor",
+                    "value": "\u0010",
+                    "type": "STRING"
+                },
+                {
+                    "name": "format_info",
+                    "value": null,
+                    "type": "HEADER"
+                },
+                {
+                    "name": "thickness",
+                    "value": "\u0010\u0004#\n#AllFeatur",
+                    "type": "STRING"
+                },
+                {
+                    "name": "Sld_Features",
+                    "value": null,
+                    "type": "HEADER"
+                },
+                {
+                    "name": "first_feat_ptr",
+                    "value": null,
+                    "type": "HEADER"
+                },
+                {
+                    "name": "id",
+                    "value": 1,
+                    "type": "INT"
+                },
+                {
+                    "name": "indep_attributes_arr",
+                    "value": 26215928,
+                    "type": "INT"
+                },
+                {
+                    "name": "feat_type_ptr",
+                    "value": null,
+                    "type": "HEADER"
+                },
+                {
+                    "name": "table_id",
+                    "value": 246,
+                    "type": "INT"
+                },
+                {
+                    "name": "type",
+                    "value": 39811,
+                    "type": "INT"
+                },
+                {
+                    "name": "feattype_key",
+                    "value": null,
+                    "type": "UNKNOWN_0A"
+                },
+                {
+                    "name": "form",
+                    "value": "00",
+                    "type": "HEX_FALLBACK"
+                },
+                {
+                    "name": "attributes",
+                    "value": "f80c00e7071000e5",
+                    "type": "HEX_FALLBACK"
+                },
+                {
+                    "name": "placement",
+                    "value": "00",
+                    "type": "HEX_FALLBACK"
+                },
+                {
+                    "name": "intersection",
+                    "value": 246,
+                    "type": "INT"
+                },
+                {
+                    "name": "internal_udf_type",
+                    "value": 246,
+                    "type": "INT"
+                },
+                {
+                    "name": "param_choice_ptr",
+                    "value": null,
+                    "type": "HEADER"
+                },
+                {
+                    "name": "blend_choice",
+                    "value": "00",
+                    "type": "HEX_FALLBACK"
+                },
+                {
+                    "name": "depth_choice",
+                    "value": "00",
+                    "type": "HEX_FALLBACK"
+                },
+                {
+                    "name": "angle_choice",
+                    "value": "00",
+                    "type": "HEX_FALLBACK"
+                },
+                {
+                    "name": "pat_choice",
+                    "value": 246,
+                    "type": "INT"
+                },
+                {
+                    "name": "round_choice",
+                    "value": 246,
+                    "type": "INT"
+                },
+                {
+                    "name": "subsec_choice",
+                    "value": 246,
+                    "type": "INT"
+                },
+                {
+                    "name": "sweep_choice",
+                    "value": "00",
+                    "type": "HEX_FALLBACK"
+                },
+                {
+                    "name": "dome_choice",
+                    "value": "00",
+                    "type": "HEX_FALLBACK"
+                },
+                {
+                    "name": "draft_choice",
+                    "value": "00",
+                    "type": "HEX_FALLBACK"
+                },
+                {
+                    "name": "misc_choice",
+                    "value": "f80600e705",
+                    "type": "HEX_FALLBACK"
+                },
+                {
+                    "name": "assoc_type",
+                    "value": 241,
+                    "type": "INT"
+                },
+                {
+                    "name": "comp_like_type",
+                    "value": 246,
+                    "type": "INT"
+                },
+                {
+                    "name": "sect_name",
+                    "value": null,
+                    "type": "UNKNOWN_0A"
+                },
+                {
+                    "name": "idtab_ptr",
+                    "value": null,
+                    "type": "HEADER"
+                },
+                {
+                    "name": "srf_id_tab_ptr",
+                    "value": null,
+                    "type": "HEADER"
+                },
+                {
+                    "name": "fc_hist",
+                    "value": 132344,
+                    "type": "INT"
+                },
+                {
+                    "name": "save_geoms",
+                    "value": null,
+                    "type": "HEADER"
+                },
+                {
+                    "name": "cr_flags_xar",
+                    "value": "f88116f6e5f58801f6e4f5eb01000001f6f5d00001f6f5eb20000001f6f5eb43201881f502f5ea200021f5ea200201f6f5eb40000013f6e4f58101f5c3fc81f6f5c08001f6f5ea400001f6e4f5eb20000081f5eb04000001f6f5eb60000001f5c04001f6e5f5a001f6f5a001f502f58101f5d00001f5eb40000041f6f5eb40000001f5ea400001f6f5c08001f6f5eb04010001f5eb40000001f5c04001f602eb30000000f5eb20000000c4211feb3300000080802000e4eb0180000000c0600000e43800e6ea310014d00010eb030000000200e4c0c00000e6810000e58140c1000000e708eb08200040ead0000000e506eb1000000100c4000000ea20000000eb40800000ea28000000c2000000e4ea80000000c08000c400018200808200e705eb0400000000e6ea20000008008800ea20000000e620c0a008810000e4c2800000e70ea00000e50100eb2000000000e4eb1818000000ea30000000e706820000eac0000000eb0200000000e4a00000e4f5eb7000000040900000e706eb010000000200e70ec0400000e4c8000000c0800000880000e4c04000eb2000000000d0000000e5c20000000800c80000c41000810000e56000ea400000ea20000000e4880000e707eb10000000eb0400000000c0800000e706c06000eb10400000818002c0800000",
+                    "type": "HEX_FALLBACK"
+                },
+                {
+                    "name": "cvt_feat_dat",
+                    "value": null,
+                    "type": "HEADER"
+                },
+                {
+                    "name": "feat_dates_ptr",
+                    "value": null,
+                    "type": "HEADER"
+                },
+                {
+                    "name": "creat_date",
+                    "value": 7887811,
+                    "type": "INT"
+                },
+                {
+                    "name": "regen_date",
+                    "value": 4141253,
+                    "type": "INT"
+                },
+                {
+                    "name": "intrs_pairs_ptr",
+                    "value": null,
+                    "type": "HEADER"
+                },
+                {
+                    "name": "first_geom_id",
+                    "value": 753,
+                    "type": "INT"
+                },
+                {
+                    "name": "topology_increment",
+                    "value": null,
+                    "type": "HEADER"
+                },
+                {
+                    "name": "body_geom_hdr",
+                    "value": null,
+                    "type": "HEADER"
+                },
+                {
+                    "name": "h_body_geom",
+                    "value": null,
+                    "type": "HEADER"
+                },
+                {
+                    "name": "body_id",
+                    "value": 9606901,
+                    "type": "INT"
+                },
+                {
+                    "name": "first_geom_id",
+                    "value": 246,
+                    "type": "INT"
+                },
+                {
+                    "name": "first_hybrid_body_id",
+                    "value": 246,
+                    "type": "INT"
+                },
+                {
+                    "name": "ids_null_goem",
+                    "value": "f2f801f59692",
+                    "type": "HEX_FALLBACK"
+                },
+                {
+                    "name": "first_quilt",
+                    "value": 241,
+                    "type": "INT"
+                },
+                {
+                    "name": "first_lo",
+                    "value": "00",
+                    "type": "HEX_FALLBACK"
+                },
+                {
+                    "name": "outline",
+                    "value": "\u0002\u0003\u0018\u0005",
+                    "type": "STRING"
+                },
+                {
+                    "name": "max_part_size",
+                    "value": "\u0018",
+                    "type": "STRING"
+                },
+                {
+                    "name": "cur_max_size",
+                    "value": "\u0018",
+                    "type": "STRING"
+                },
+                {
+                    "name": "newobj_table",
+                    "value": null,
+                    "type": "HEADER"
+                },
+                {
+                    "name": "type",
+                    "value": 11,
+                    "type": "INT"
+                },
+                {
+                    "name": "data(body_db_state_topo_incr)",
+                    "value": null,
+                    "type": "HEADER"
+                },
+                {
+                    "name": "body_db_state_topo_incr",
+                    "value": null,
+                    "type": "HEADER"
+                },
+                {
+                    "name": "xform_increment",
+                    "value": null,
+                    "type": "HEADER"
+                },
+                {
+                    "name": "roll_back_id",
+                    "value": 246,
+                    "type": "INT"
+                },
+                {
+                    "name": "time_stamp",
+                    "value": null,
+                    "type": "HEADER"
+                },
+                {
+                    "name": "time",
+                    "value": "eb5c9915cd",
+                    "type": "HEX_FALLBACK"
+                },
+                {
+                    "name": "random_num",
+                    "value": "eb4065126f",
+                    "type": "HEX_FALLBACK"
+                },
+                {
+                    "name": "hostid",
+                    "value": "eb6a7c2a78",
+                    "type": "HEX_FALLBACK"
+                },
+                {
+                    "name": "topo_parents",
+                    "value": null,
+                    "type": "HEADER"
+                },
+                {
+                    "name": "quilt_diff",
+                    "value": null,
+                    "type": "HEADER"
+                },
+                {
+                    "name": "lo_diff",
+                    "value": null,
+                    "type": "HEADER"
+                },
+                {
+                    "name": "attributes",
+                    "value": 98504,
+                    "type": "INT"
+                },
+                {
+                    "name": "objs_affected",
+                    "value": null,
+                    "type": "HEADER"
+                },
+                {
+                    "name": "SpecTopolRefs",
+                    "value": null,
+                    "type": "HEADER"
+                },
+                {
+                    "name": "ActiveTopolRefs",
+                    "value": null,
+                    "type": "HEADER"
+                },
+                {
+                    "name": "revnum",
+                    "value": 497,
+                    "type": "INT"
+                },
+                {
+                    "name": "rev_rec",
+                    "value": null,
+                    "type": "HEADER"
+                },
+                {
+                    "name": "extnd_rev_tab",
+                    "value": null,
+                    "type": "HEADER"
+                },
+                {
+                    "name": "num_plins",
+                    "value": 1,
+                    "type": "INT"
+                },
+                {
+                    "name": "largest_prev_rev",
+                    "value": 1,
+                    "type": "INT"
+                },
+                {
+                    "name": "largest_prev_rev_delta",
+                    "value": "00",
+                    "type": "HEX_FALLBACK"
+                },
+                {
+                    "name": "revnum_cache_data",
+                    "value": null,
+                    "type": "HEADER"
+                },
+                {
+                    "name": "rev_flags",
+                    "value": "00",
+                    "type": "HEX_FALLBACK"
+                },
+                {
+                    "name": "next_feat_ptr",
+                    "value": null,
+                    "type": "HEADER"
+                }
+            ],
+            "geom_indices": []
+        }
+    ]
+}

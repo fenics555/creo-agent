@@ -1,0 +1,12 @@
+cd D:\AI\tools\agent\dev
+python doctor.py
+cd D:\AI\tools\agent
+.\AI_RESTART.bat
+.\GIT_SYNC.bat
+
+проверки:
+pyflakes D:\AI\tools\agent\agent.py
+python -m compileall -q D:\AI\tools\agent
+
+cd D:\AI\tools\agent
+python doctor.py

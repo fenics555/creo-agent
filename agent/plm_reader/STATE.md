@@ -402,3 +402,20 @@ cd D:\AI\tools; git status --short; git diff HEAD --stat -- agent/plm_reader
 ### 🆕 СКИЛЛЫ (3 новых)
 `READ\SKILL_creo_feattype_dict.md` (§171, словарь 314) · `READ\SKILL_creo_dim_nominal.md` (§173, номиналы) ·
 `READ\SKILL_creo_scanner_engine.md` (§172, ревизия сканера).
+
+## 30.10.2026 (фаза 36) — АРХИТЕКТУРА + ВНУТРЕННИЕ ПАРАМЕТРЫ
+
+### 🏛️ АРХИТЕКТУРА (слово владельца, `STRATEGY_PLM.md` §0.0)
+`BD_PLM (Database)` + `SCANNER (engine.py)` + `CONNECTION builder` + `GRAPH builder`.
+**ПРАВИЛО: каждый пишет ТОЛЬКО в свои таблицы; схему меняет ТОЛЬКО BD_PLM; файл — источник правды.**
+Нормализация `params` → `mass_props`·`dimensions`·`features`·`equations`·`materials`·`attributes`·`units`.
+Бесшовное обновление (GitHub): `schema_version` в meta + миграции + `settings.json` не перезаписывать.
+
+### 🔥 НАЙДЕНО: 42 внутренних `PRO_MP_*` (скилл `READ\SKILL_creo_internal_props.md` §174)
+MASS·VOLUME·AREA·DENSITY·SOURCE·COGX/Y/Z·CSYS·INERTIA_ORIGIN·IXX/IXY/IXZ/IYY/IYZ/IZZ·TRF_11…43·ALT_*.
+### 🔥 ОКНО ПОСТРЕГЕНЕРАЦИИ: `chg_param_arr → old_state(p_val) → new_state(p_val)`
+⇒ **что изменилось после регенерации — читается из файла.** ⚠️ слов relation/equation в файле **0**.
+
+### 🗂️ ПОРЯДОК В ФАЙЛАХ
+Создана `plm_reader\debug\` (9 отладочных файлов перенесено из корня).
+Обновлены `README.md` (раздел АРХИТЕКТУРА) и `STRATEGY_PLM.md` (§0.0).

@@ -23,3 +23,7 @@ pg_err.log
 # Архив прошлого окна (раскладка V53, настройки сверху). В git не идёт — но полностью
 # восстановим из истории: git show 04374db:agent/plm_reader/plm_reader.py
 plm_reader_OLD.py
+
+debug/
+# Отладочные скрипты (не в Git)
+

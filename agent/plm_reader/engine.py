@@ -1152,6 +1152,39 @@ CREATE TABLE IF NOT EXISTS folders (path TEXT PRIMARY KEY, parent TEXT, depth IN
 CREATE TABLE IF NOT EXISTS health (path TEXT PRIMARY KEY, model TEXT, regen TEXT,
   reg_status TEXT, inactive INTEGER, geom_rev TEXT);
 CREATE INDEX IF NOT EXISTS ix_health_model ON health(model);
+-- 🔴 V141 (30.10.2026, слово владельца): «каждый параметр — в своей ячейке». Нормализация по СУЩНОСТЯМ.
+-- Причина: `params` (1 135 928 строк) — «солянка»: обозначение, масса, единицы, материал в одной куче.
+-- Теперь: внутренние PRO_MP_* → mass_props; размеры → dimensions; дерево → features;
+-- уравнения (ДВА места) → equations; материал → materials. `params` остаётся для ПРОЧИХ
+-- (у каждого человека свои имена — правила в settings.json, НЕ в коде).
+-- Владелец — SCANNER (engine.py). Схему меняет только Database (plm_database.py).
+CREATE TABLE IF NOT EXISTS mass_props (path TEXT, model TEXT, name TEXT, value REAL);
+CREATE INDEX IF NOT EXISTS ix_mp_model ON mass_props(model);
+CREATE INDEX IF NOT EXISTS ix_mp_name ON mass_props(name);
+CREATE INDEX IF NOT EXISTS ix_mp_path ON mass_props(path);
+CREATE TABLE IF NOT EXISTS dimensions (path TEXT, model TEXT, feat_id INTEGER, dim_type INTEGER,
+  nominal REAL, tol_class INTEGER, tol_type INTEGER, bound INTEGER, dim_name TEXT);
+CREATE INDEX IF NOT EXISTS ix_dim_model ON dimensions(model);
+CREATE INDEX IF NOT EXISTS ix_dim_feat ON dimensions(feat_id);
+CREATE INDEX IF NOT EXISTS ix_dim_path ON dimensions(path);
+CREATE TABLE IF NOT EXISTS features (path TEXT, model TEXT, feat_id INTEGER, defs INTEGER,
+  typenum INTEGER, typename TEXT, symbol_key INTEGER, parent_id INTEGER, seq INTEGER);
+CREATE INDEX IF NOT EXISTS ix_feat_model ON features(model);
+CREATE INDEX IF NOT EXISTS ix_feat_id ON features(feat_id);
+CREATE INDEX IF NOT EXISTS ix_feat_path ON features(path);
+CREATE TABLE IF NOT EXISTS equations (path TEXT, model TEXT, kind TEXT, name TEXT,
+  expression TEXT, old_val TEXT, new_val TEXT, feat_id INTEGER);
+CREATE INDEX IF NOT EXISTS ix_eq_model ON equations(model);
+CREATE INDEX IF NOT EXISTS ix_eq_kind ON equations(kind);
+CREATE INDEX IF NOT EXISTS ix_eq_path ON equations(path);
+CREATE TABLE IF NOT EXISTS materials (path TEXT, model TEXT, name TEXT, description TEXT,
+  mtype TEXT, density REAL);
+CREATE INDEX IF NOT EXISTS ix_mat_model ON materials(model);
+CREATE INDEX IF NOT EXISTS ix_mat_name ON materials(name);
+CREATE INDEX IF NOT EXISTS ix_mat_path ON materials(path);
+-- V141: индекс на `changes` (569 225 строк БЕЗ индексов — любой запрос = скан всей таблицы).
+CREATE INDEX IF NOT EXISTS ix_changes_item ON changes(item);
+CREATE INDEX IF NOT EXISTS ix_changes_ts ON changes(ts);
 """
 
 
@@ -1764,6 +1797,161 @@ def who_edited(model, limit=50):
 # `MdlStatus`/`Sld_MdlStatus` (статус модели), `mdl_geom_rev` (ревизия геометрии),
 # `inactive_geom` («не использовать» — неактивная геометрия).
 _RX_REG = re.compile(rb"reg_status\x00(.)", re.S)
+
+
+# ═════════════════════════════════════════════════════════════════════════════
+# V141 (30.10.2026): 5 НОВЫХ ЧИТАТЕЛЕЙ — нормализация по СУЩНОСТЯМ
+#   Каноны: §167/§174 (масса) · §173 (номинал) · §171 (типы) · §174 (уравнения).
+#   Владелец: SCANNER (этот файл). Пишут в СВОИ таблицы: mass_props·dimensions·
+#   features·equations·materials. `params` — только для ПРОЧИХ параметров.
+# ═════════════════════════════════════════════════════════════════════════════
+_PRO_MP_NAMES = (
+    "PRO_MP_MASS", "PRO_MP_VOLUME", "PRO_MP_AREA", "PRO_MP_DENSITY", "PRO_MP_SOURCE",
+    "PRO_MP_COGX", "PRO_MP_COGY", "PRO_MP_COGZ", "PRO_MP_CSYS", "PRO_MP_INERTIA_ORIGIN",
+    "PRO_MP_IXX", "PRO_MP_IXY", "PRO_MP_IXZ", "PRO_MP_IYY", "PRO_MP_IYZ", "PRO_MP_IZZ",
+    *(f"PRO_MP_TRF_{a}{b}" for a in (1, 2, 3, 4) for b in (1, 2, 3)),
+    "PRO_MP_ALT_MASS", "PRO_MP_ALT_VOLUME", "PRO_MP_ALT_AREA",
+    "PRO_MP_ALT_COGX", "PRO_MP_ALT_COGY", "PRO_MP_ALT_COGZ", "PRO_MP_ALT_CSYS",
+    "PRO_MP_ALT_INERTIA_ORIGIN",
+    "PRO_MP_ALT_IXX", "PRO_MP_ALT_IXY", "PRO_MP_ALT_IXZ",
+    "PRO_MP_ALT_IYY", "PRO_MP_ALT_IYZ", "PRO_MP_ALT_IZZ",
+)
+_RX_E32 = re.compile(rb"\xe3\x32")
+
+
+def _e32_decode(body7):
+    """7 байт после `e3 32 [тип]` → список кандидатов (lead, значение). §167."""
+    out = []
+    for lead in (0x40, 0x41, 0x3F, 0x42, 0x3E, 0x43):
+        try:
+            v = struct.unpack(">d", bytes([lead]) + body7)[0]
+        except struct.error:
+            continue
+        if 1e-9 < abs(v) < 1e12:
+            out.append((lead, v))
+    return out
+
+
+def creo_mass_props(raw):
+    """{имя: значение} — масса/объём/плотность (валидация плотностью металла). §167/§174."""
+    out, vals = {}, []
+    for m in _RX_E32.finditer(raw):
+        s = m.end()
+        if s + 8 > len(raw):
+            continue
+        for lead, v in _e32_decode(raw[s + 1:s + 8]):
+            vals.append(v)
+    if not vals:
+        return out
+    masses = [v for v in vals if 1e-6 <= v <= 1e4]
+    vols = [v for v in vals if 1.0 <= v <= 1e8]
+    best = None
+    for mg in masses:
+        for vg in vols:
+            rho = mg / vg * 1e6
+            if 6.0 <= rho <= 9.5 and (best is None or abs(rho - 7.85) < best[0]):
+                best = (abs(rho - 7.85), mg, vg, rho)
+    if best:
+        out["PRO_MP_MASS"], out["PRO_MP_VOLUME"], out["PRO_MP_DENSITY"] = best[1], best[2], best[3]
+    return out
+
+
+_RX_DIM_ENTRY = re.compile(rb"dim_type\x00(.)\xe0\x01feat_id\x00(.)", re.S)
+
+
+def creo_dimensions(raw):
+    """[{feat_id,dim_type,nominal,tol_class,tol_type,bound}] — номинал `2F B1 B2`. §173."""
+    out = []
+    for m in _RX_DIM_ENTRY.finditer(raw):
+        seg = raw[m.end():m.end() + 400]
+        nom = None
+        for mm in re.finditer(rb"\x2f(.)(.)", seg):
+            b1, b2 = mm.group(1)[0], mm.group(2)[0]
+            lead = 0x40 if b1 >= 0x40 else 0x3F
+            try:
+                v = struct.unpack(">d", bytes([lead, b1, b2, 0, 0, 0, 0, 0]))[0]
+            except struct.error:
+                continue
+            if 0.01 <= v <= 1e6:
+                nom = round(v, 6)
+                break
+        mc = re.search(rb"tol_class\x00(.)", seg)
+        mt = re.search(rb"tol_type\x00(.)", seg)
+        mb = re.search(rb"bound\x00(.)", seg)
+        out.append({"feat_id": m.group(2)[0], "dim_type": m.group(1)[0], "nominal": nom,
+                    "tol_class": mc.group(1)[0] if mc else None,
+                    "tol_type": mt.group(1)[0] if mt else None,
+                    "bound": mb.group(1)[0] if mb else None})
+    return out
+
+
+def creo_features(raw, feat_dict=None):
+    """[{defs,typenum,typename,feat_id,symbol_key,seq}] — `feat_defs_<N> − 910`. §171."""
+    D = feat_dict if feat_dict is not None else _feattype_dict()
+    out = []
+    for seq, m in enumerate(re.finditer(rb"feat_defs_(\d+)", raw)):
+        n = int(m.group(1))
+        seg = raw[m.end():m.end() + 140]
+        mi = re.search(rb"id\x00(.)", seg)
+        ms = re.search(rb"symbol_key\x00(.)", seg)
+        out.append({"defs": n, "typenum": n - 910, "typename": D.get(n - 910, "?"),
+                    "feat_id": mi.group(1)[0] if mi else None,
+                    "symbol_key": ms.group(1)[0] if ms else None, "seq": seq})
+    return out
+
+
+_FEATTYPE_CACHE = None
+
+
+def _feattype_dict():
+    """Словарь `pfcFEATTYPE` (314) из заголовков Creo. §171. Кэшируется."""
+    global _FEATTYPE_CACHE
+    if _FEATTYPE_CACHE is not None:
+        return _FEATTYPE_CACHE
+    _FEATTYPE_CACHE = {}
+    for _p in (r"D:\PTC\CREO13\Creo 13.4.1.0\Common Files\otk\otk_cpp\include\pfcFeature.h",
+               r"D:\PTC\CREO12\Creo 12.4.2.0\Common Files\otk\otk_cpp\include\pfcFeature.h"):
+        try:
+            _t = open(_p, encoding="utf-8", errors="replace").read()
+        except OSError:
+            continue
+        _m = re.search(r"enum pfcFeatureType\s*\{(.*?)\}", _t, re.S)
+        if _m:
+            _items = [x.strip() for x in _m.group(1).split(",") if x.strip()]
+            _FEATTYPE_CACHE = {i: n.replace("pfcFEATTYPE_", "") for i, n in enumerate(_items)}
+            break
+    return _FEATTYPE_CACHE
+
+
+def creo_equations(raw):
+    """[{kind,name,old_val,new_val,feat_id}] — ДВА МЕСТА (§174): Relations + пострегенерация."""
+    out = []
+    for m in re.finditer(rb"chg_param_arr", raw):
+        seg = raw[m.end():m.end() + 3000]
+        for nm in re.finditer(rb"(PRO_MP_[A-Z_0-9]+)\x00", seg):
+            tail = seg[nm.end():nm.end() + 600]
+            mf = re.search(rb"feat_id\x00(.)", seg[:nm.start()] or seg)
+            out.append({"kind": "postregen", "name": nm.group(1).decode(),
+                        "old_val": "old_state(p_val)" if b"old_state" in tail else "",
+                        "new_val": "new_state(p_val)" if b"new_state" in tail else "",
+                        "feat_id": mf.group(1)[0] if mf else None})
+            break
+    for _ in re.finditer(rb"param_restr_entry", raw):
+        out.append({"kind": "relation", "name": "param_restr_entry",
+                    "old_val": "", "new_val": "", "feat_id": None})
+    return out
+
+
+def creo_materials(raw):
+    """{name, description, mtype} — материал модели."""
+    out = {}
+    for key, pat in (("name", rb"PTC_MASTER_MATERIAL\x00([\x20-\x7e\xc0-\xff]{1,60})\x00"),
+                     ("description", rb"PTC_MATERIAL_DESCRIPTION\x00([\x20-\x7e\xc0-\xff]{1,80})\x00"),
+                     ("mtype", rb"PTC_MATERIAL_TYPE\x00([\x20-\x7e]{1,40})\x00")):
+        m = re.search(pat, raw)
+        if m:
+            out[key] = m.group(1).decode("utf-8", "replace")
+    return out
 
 
 def creo_health(raw):
