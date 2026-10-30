@@ -21,7 +21,56 @@ from collections import Counter as _Counter
 from collections import defaultdict
 
 HERE = os.path.dirname(os.path.abspath(__file__))
-DST = os.path.join(HERE, "CREO_GRAPH.html")
+
+
+def _out_dir():
+    """Куда писать страницу: КОРЕНЬ ИНСТРУМЕНТА НА СКЛАДЕ (рядом с папкой `db`), иначе — `HERE`.
+
+    🔴 V145 (владелец: «в следующий раз окно ХТМЛ открыл — графа нет»): БЫЛО `DST` всегда
+    в папке ИНСТРУМЕНТА (`D:` при запуске из `D:\\AI\\tools\\...`). А окно/ярлык владельца
+    открывает страницу на ШАРЕ: `Z:\\PTC\\CREO-START\\plm_reader\\CREO_GRAPH.html` (проверено —
+    именно этот путь в браузере). Итог: свежая страница ложилась в `D:`, а открывалась СТАРАЯ с
+    шары («графа нет», «связи пустые»). Теперь пишем в КОРЕНЬ инструмента, найденный от активной
+    базы: `<папка базы>\\..` (база лежит в `<инструмент>\\db\\plm_reader*.db`).
+    """
+    try:
+        import engine as _e
+        adb = _e.active_db()
+        if adb:
+            root = os.path.dirname(os.path.dirname(adb))     # <инструмент>\db\файл.db → <инструмент>
+            if root and os.path.isdir(root) and os.path.basename(root).lower() != "db":
+                return root
+            # база лежит прямо в папке инструмента (не в db) — берём её папку
+            d = os.path.dirname(adb)
+            if d and os.path.isdir(d):
+                return d
+    except Exception:
+        pass
+    return HERE
+
+
+DST = os.path.join(HERE, "CREO_GRAPH.html")     # значение по умолчанию (папка инструмента)
+
+
+def dst_path():
+    """АКТУАЛЬНЫЙ путь страницы: корень инструмента НА СКЛАДЕ (см. `_out_dir`).
+
+    ⚠️ Считается В МОМЕНТ ВЫПУСКА, а не при импорте модуля: активная база становится
+    известна позже (и на другой машине папка иная). Иначе `DST` «залипал» на папку базы
+    (`…\\db\\`), и владелец снова не находил свежую страницу по своему ярлыку.
+    """
+    try:
+        return os.path.join(_out_dir(), "CREO_GRAPH.html")
+    except Exception:
+        return os.path.join(HERE, "CREO_GRAPH.html")
+
+
+def data_js_path():
+    """АКТУАЛЬНЫЙ путь порций данных (рядом со страницей)."""
+    try:
+        return os.path.join(_out_dir(), "CREO_GRAPH_data.js")
+    except Exception:
+        return os.path.join(HERE, "CREO_GRAPH_data.js")
 # Режим изображений из настроек (auto/pict/draw/none) — ставится в main/collect.
 _media_mode = "auto"
 # Предел чтения файлов и бюджет времени (сек) — из настроек; защита от зависания на сети Z:.
@@ -1070,7 +1119,7 @@ def build_html(nodes, edges, media_dir, stats_extra=None):
                 .replace("__MEDIA__", rel))
 
 
-DATA_JS = os.path.join(HERE, "CREO_GRAPH_data.js")
+DATA_JS = os.path.join(HERE, "CREO_GRAPH_data.js")     # по умолчанию; актуально — data_js_path()
 
 
 def _chunk_size():
@@ -1115,7 +1164,7 @@ def _write_chunks(nd, st):
         part = {k: nd[k] for k in keys[i:i + size]}
         chunks.append({"nodes": part, "stats": dict(st, nodes=len(part))})
     try:
-        with open(DATA_JS, "w", encoding="utf-8") as f:
+        with open(data_js_path(), "w", encoding="utf-8") as f:
             f.write("window.PLM_CHUNKS = ")
             json.dump(chunks, f, ensure_ascii=False, separators=(",", ":"))
             f.write(";\n")
@@ -1284,22 +1333,22 @@ def main():
         for e in errs:
             print("   -", e)
         return 1
-    with open(DST, "w", encoding="utf-8") as f:
+    with open(dst_path(), "w", encoding="utf-8") as f:
         f.write(html)
     n_chunks = 0
     try:
-        if os.path.isfile(DATA_JS):
-            n_chunks = os.path.getsize(DATA_JS)
+        if os.path.isfile(data_js_path()):
+            n_chunks = os.path.getsize(data_js_path())
     except Exception:
         pass
     print("источник: %s | узлов %d | рёбер %d | с превью %d"
           % (src, len(nodes), len(edges), sum(1 for v in nodes.values() if v.get("i"))))
     print("-> %s  (+ порции: %s, %d КБ — догружаются страницей)"
-          % (DST, os.path.basename(DATA_JS), n_chunks // 1024))
+          % (dst_path(), os.path.basename(data_js_path()), n_chunks // 1024))
     if not no_open and cfg.get("graph_open_browser", True):
         try:
             import webbrowser
-            webbrowser.open("file:///" + DST.replace("\\", "/"))
+            webbrowser.open("file:///" + dst_path().replace("\\", "/"))
         except Exception:              # noqa: BLE001
             pass
     return 0
