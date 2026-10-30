@@ -2494,9 +2494,26 @@ def do_scan(roots, max_mb, limit, depth=None, progress_cb=None, stop_cb=None, fu
         try:
             # V140: превью собирает СКАНЕР из тех же байтов (`media`), файл второй раз НЕ читается.
             # `media_dir` берётся от ПАПКИ базы; если превью не нужны — см. настройку `graph_media`.
-            it = scan_item(s, path, codes, fstems.get(os.path.dirname(path), set()),
-                           media_dir=media_dir, media_mode=media_mode,
-                           **(param_cfg or {}))
+            # ═══════════════════════════════════════════════════════════════════════
+            # [V141-ВРЕМЕННО] ПЕРЕКЛЮЧАТЕЛЬ СКАНЕРА (настройка `scanner_new`):
+            #   scanner_new = true  → НОВЫЙ сканер (`scanner_plm.scan_item_new_old`)
+            #   scanner_new = false → старый (`scan_item`, по умолчанию)
+            # УДАЛИТЬ, когда новый сканер станет основным (после проверки на складе).
+            # ═══════════════════════════════════════════════════════════════════════
+            _use_new = bool(_cfg.get("scanner_new", False))
+            if _use_new:
+                try:
+                    import scanner_plm as _SN
+                    it = _SN.scan_item_new_old(path)
+                except Exception as _e:
+                    log("scanner_new FAIL %s: %s — падаю на старый" % (path, _e))
+                    it = scan_item(s, path, codes, fstems.get(os.path.dirname(path), set()),
+                                   media_dir=media_dir, media_mode=media_mode,
+                                   **(param_cfg or {}))
+            else:
+                it = scan_item(s, path, codes, fstems.get(os.path.dirname(path), set()),
+                               media_dir=media_dir, media_mode=media_mode,
+                               **(param_cfg or {}))
         except Exception as e:
             n_err += 1
             log("ERROR %s: %s" % (path, e))
