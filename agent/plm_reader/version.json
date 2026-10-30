@@ -1,11 +1,11 @@
 {
- "version": "V146",
- "version_num": 146,
+ "version": "V147",
+ "version_num": 147,
  "date": "30.10.2026",
- "notes": "V147: HTML выпускается (дубль const cols убран); связи без мусора (STEEL/LINEAR/PTC_MASTER_MATERIAL убраны); проверка дублей const убрана из selfcheck (ложные)",
+ "notes": "V147: HTML заработал (дубль const cols); связи чистые; selfcheck без ложных проверок",
  "files": {
   "engine.py": "01492bfe8e9f67da36908c247d0598b8e166a3b8800450f7b140bde21fb8c9ef",
-  "plm_reader.py": "a4bbab9fc436502f41623aed112c8bbec1636ef156db4a320775ffa93bd21b0d",
+  "plm_reader.py": "e3847fb330bf58e4de5021d92fc16aeeccd4c31d9b6c7aec6efb0d901f7acd7a",
   "plm_toolwin.py": "a9ae004ba4b2ab0e1247158a2f681021ae910f9ee3eef15584b0e641f1100679",
   "plm_history.py": "0e8a1b414f3ad7c67175251fb4192e26431b0e9760bcce6ba6d9faf03ada8c77",
   "plm_parse.py": "c6bb33a412b6b606ad402e3eb78cd49246b77738b69d82be1b6218a1358c0312",
