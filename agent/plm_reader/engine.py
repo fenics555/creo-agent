@@ -646,8 +646,34 @@ def parser_tag_changed():
         return (not r) or (not str(r[0] or "").endswith("|" + PARSER_TAG))
     except Exception:
         return False
-BACKUP_KEEP = int(os.environ.get("PLM_BACKUP_KEEP") or 3)   # сколько бэкапов базы держать в db\backup\
-KEEP_MIRROR = int(os.environ.get("PLM_KEEP_MIRROR") or 3)   # сколько опубликованных баз держать в каждом зеркале
+# ═════════════════════════════════════════════════════════════════════════════
+# [V141-ВРЕМЕННО] ЗНАЧЕНИЯ ПО УМОЛЧАНИЮ — ЧИТАЮТСЯ ИЗ НАСТРОЕК (settings.json).
+#
+#   🔴 Слово владельца (30.10.2026): «бэкап (окно 3 шт) — это из настроек должно быть!!!»
+#      «Путь базы вычисляется хитро — есть настройки, ВСЁ оттуда!»
+#
+#   Настройки живут: `settings/settings.json`, реестр для окна — `plm_settings.SETTINGS_SPEC`
+#   (группа «БАЗА»). Эти константы — ТОЛЬКО ЗАПАСНОЙ путь, если настройки недоступны.
+#   Приоритет: settings.json → переменная окружения → эти числа.
+#
+#   УДАЛИТЬ при переходе на `plm_database.py` (владелец схемы и обслуживания базы).
+# ═════════════════════════════════════════════════════════════════════════════
+def _setting(key, fallback):
+    """Значение из настроек (settings.json) с запасным путём. Читает БЕЗ цикла импорта."""
+    try:
+        import json
+        _p = os.path.join(HERE, "settings", "settings.json")
+        with open(_p, encoding="utf-8") as _f:
+            _v = json.load(_f).get(key)
+        if _v not in (None, ""):
+            return _v
+    except Exception:                       # noqa: BLE001 — настройки не критичны для чтения
+        pass
+    return fallback
+
+
+BACKUP_KEEP = int(os.environ.get("PLM_BACKUP_KEEP") or _setting("backup_keep", 3))
+KEEP_MIRROR = int(os.environ.get("PLM_KEEP_MIRROR") or _setting("mirror_keep", 3))
 
 
 def log(msg):
