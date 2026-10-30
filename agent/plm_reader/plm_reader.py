@@ -41,7 +41,7 @@ if __name__ == "__main__":
     import sys as _sys
     _sys.modules.setdefault("plm_reader", _sys.modules["__main__"])
 
-APP_VERSION = "V145"      # V145: декодер имён-кодов (_x2_0433..._x0 → _X2_гайка_X0) в едином словаре + показ в окне и HTML; has_media из media_cache (18047 превью); вид связи в графе окна. См. STATE.md фаза 43.
+APP_VERSION = "V146"      # V146: HTML-граф — ЗУМ + ПАНОРАМИРОВАНИЕ + страница пишется в КОРЕНЬ инструмента на складе (была D: вместо Z: → «графа нет»); раскраска стрелок по видам связей. См. STATE.md фаза 45.
 APP_TITLE = "PLM Reader " + APP_VERSION          # версия ОДНА: заголовок берёт её из константы
 DATA_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "db")          # данные — в подпапке db\
 SETTINGS_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "settings")  # настройки — в подпапке settings\
