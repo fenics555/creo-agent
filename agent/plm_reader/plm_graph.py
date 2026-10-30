@@ -810,17 +810,30 @@ def build_html(nodes, edges, media_dir, stats_extra=None):
         return [{"key": v["idx"], "type": v["type"], "qty": v["qty"]} for v in res.values()]
 
     # V121: разделяем рёбра на ФИЗИЧЕСКИЕ и ПРОИЗВОДНЫЕ (наследование базы).
-    _phys = [e for e in edges if e.get("channel") != "inherit"]
+    # 🔴 V145 (владелец: «внизу должен строиться графсвязей, окна пустые»): РАНЬШЕ
+    # «Состав»/«Куда входит» строились ТОЛЬКО по `channel != "inherit"` — и у модели, где
+    # связи ЕСТЬ, но все они наследование/копия/производная (`0_005`: 6 рёбер), обе колонки
+    # были ПУСТЫ («0 связей»), хотя «БАЗА НАСЛЕДОВАНИЯ» показывала 4. Теперь СОСТАВ берём из
+    # ВСЕХ рёбер, а вид (structure/inherit/derive/copy/variant) показывается в самой строке.
+    _phys = [e for e in edges]                       # все рёбра → «Состав»/«Куда входит»
     _inh = [e for e in edges if e.get("channel") == "inherit"]
     out_, in_ = defaultdict(list), defaultdict(list)
     for e in edges:
         out_[e["from"]].append(e)
         in_[e["to"]].append(e)
-    # отдельные словари ТОЛЬКО для физических (в них идут «Состав»/«Куда входит»)
+    # 🔴 V145: НАПРАВЛЕНИЕ — по `dir`, а НЕ по `from/to`. Рёбра достройки (`dir="up"`) идут
+    # ОТ детали К сборке — по `from/to` они попали бы в «Состав» (перепутано!). Раскладываем:
+    #   dir="down"/"base" → ребро в «СОСТАВ» (из чего состоит / на чём построена);
+    #   dir="up"          → ребро в «КУДА ВХОДИТ» (достроенная обратная входимость).
     out_p, in_p = defaultdict(list), defaultdict(list)
     for e in _phys:
-        out_p[e["from"]].append(e)
-        in_p[e["to"]].append(e)
+        d = e.get("dir", "down")
+        if d == "up":
+            in_p[e["from"]].append(e)      # «куда входит» для УЗЛА-детали
+            out_p[e["to"]].append(e)       # обратная сторона: у сборки это состав
+        else:
+            out_p[e["from"]].append(e)
+            in_p[e["to"]].append(e)
     # и ТОЛЬКО для производных (блок «База наследования»)
     out_i, in_i = defaultdict(list), defaultdict(list)
     for e in _inh:
@@ -915,6 +928,15 @@ def build_html(nodes, edges, media_dir, stats_extra=None):
         for _r in con_pairs.execute("SELECT parent, child FROM links "
                                     "WHERE source IS NULL OR source NOT IN ('mentions','family')"):
             _phys_pairs.add((_norm(_r[0]), _norm(_r[1])))
+        # 🔴 V145 (владелец: «внизу должен строиться графсвязей, окна пустые»): БЫЛО — сверяли
+        # ТОЛЬКО с `links`, поэтому связи НАСЛЕДОВАНИЯ/КОПИИ/ПРОИЗВОДНОЙ (`derived`) считались
+        # «нефизическими» и отбрасывались: у модели `0_005` (6 рёбер: inherit/copy/derive) обе
+        # колонки были ПУСТЫ, хотя «База наследования» показывала 4. Теперь `derived` тоже
+        # признаётся законной связью (обе стороны — как в достройке).
+        for _r in con_pairs.execute("SELECT child, base FROM derived WHERE child!='' AND base!=''"):
+            _a, _b = _norm(_r[0]), _norm(_r[1])
+            _phys_pairs.add((_a, _b))
+            _phys_pairs.add((_b, _a))       # обратная сторона (достройка)
     except Exception:                  # noqa: BLE001
         _phys_pairs = None             # нет данных — не блокируем (страница важнее)
 
@@ -925,14 +947,19 @@ def build_html(nodes, edges, media_dir, stats_extra=None):
         return (fr_name, to_name) in _phys_pairs
 
     for m in keep:
-        _src = nodes[m].get("n") or ""
+        # 🔴🔴 V145 КРИТИЧНО: имя берём из `"nm"` (а НЕ из `"n"`!). Здесь стояло
+        # `nodes[m].get("n")` — но `"n"` в узле `collect_from_graph_db` НЕ создаётся, поэтому
+        # `_src` был ПУСТОЙ строкой, `_is_physical("", …)` давал False и ВСЕ связи «Состава»/
+        # «Куда входит» отбрасывались → окна ПУСТЫ («Состав (0)») при живых связях в базе
+        # (владелец: «внизу должен строиться графсвязей, окна пустые»).
+        _src = nodes[m].get("nm") or ""
         for e in out_m.get(m, []):
             t = remap(e["key"])
-            if t and t in idx and t != m and _is_physical(_src, nodes[t].get("n") or ""):
+            if t and t in idx and t != m and _is_physical(_src, nodes[t].get("nm") or ""):
                 out2[m].append({"key": t, "type": e["type"], "qty": e["qty"]})
         for e in in_m.get(m, []):
             f = remap(e["key"])
-            if f and f in idx and f != m and _is_physical(nodes[f].get("n") or "", _src):
+            if f and f in idx and f != m and _is_physical(nodes[f].get("nm") or "", _src):
                 in2[m].append({"key": f, "type": e["type"], "qty": e["qty"]})
         for e in out_h.get(m, []):
             t = remap(e["key"])
@@ -1191,7 +1218,11 @@ def collect_from_graph_db(media_dir=None):
             nodes[m] = {"nm": _nm_show, "k": _ext,
                         "t": kind or "", "p": path or "", "d": folder or "",
                         "s": size or 0, "v": vol or 0, "c": creo or "", "r": rev or "",
-                        "i": img, "i2": img2, "o": [], "n": []}
+                        "i": img, "i2": img2}
+            # 🔴🔴 V145 КРИТИЧНО: ключи `o`/`n` НЕ создаём! В `build_html` они означают НЕ соседей,
+            # а ИМЯ/ПАПКУ (`"n"` — имя модели, `"o"` — папка), и `_merge` читает `nodes[x]["n"]` как имя
+            # соседа. Раньше здесь стояли `"o": [], "n": []` → `_merge` получал ПУСТОЕ имя → все связи
+            # отбрасывались, и окна были ПУСТЫ («Состав (0)», «Куда входит (0)») при живых связях в базе.
         for a, b, k, d, org, q in con.execute(
                 'SELECT "from","to",kind,dir,origin,qty FROM graph_edges'):
             a, b = _norm(a), _norm(b)
