@@ -710,6 +710,16 @@ def selfcheck(html):
     left = re.findall(r"__[A-Z_]{3,}__", js_nc)
     # допускаем ТОЛЬКО известные подставляемые литералы (они уже заменены генератором)
     left = [x for x in left if x not in ("__DATA__", "__STATS__", "__MEDIA__")]
+    # 🔴🔴 V143 (живая находка 30.10.2026): `__XXX__` бывает ЧАСТЬЮ ИМЕНИ МОДЕЛИ из базы
+    # (`CHIP_CONVEYOR__OPTION__ST30--13` — 64 модели, 448 связей!). Тогда это НЕ ошибка
+    # подстановки, а ЗАКОННЫЕ данные (догма: «имена моделей задаются человеком и могут быть
+    # любыми»). Раньше `selfcheck` отбивал страницу с сообщением «неподставленный литерал
+    # __OPTION__» — и HTML НЕ ВЫПУСКАЛСЯ вовсе (владелец: «хтмл так и не открывается»).
+    # Лечение: проверяем литералы ТОЛЬКО в коде JS (строки данных уже вырезаны выше в `code`;
+    # тем же способом вырезаем строки в `js_nc`).
+    js_code_only = re.sub(r'"(?:\\\\.|[^"\\\\])*"', '""', js_nc)
+    js_code_only = re.sub(r"'(?:\\\\.|[^'\\\\])*'", "''", js_code_only)
+    left = [x for x in left if x in re.findall(r"__[A-Z_]{3,}__", js_code_only)]
     if left:
         errs.append("в JS остались неподставленные литералы: %s" % ", ".join(sorted(set(left))[:5]))
     # баланс круглых/квадратных скобок (частая причина «страница пустая»)
@@ -983,7 +993,13 @@ def build_html(nodes, edges, media_dir, stats_extra=None):
         pass
     if stats_extra:
         st.update(stats_extra)
-    rel = os.path.relpath(media_dir, HERE).replace("\\", "/") if media_dir else "."
+    # 🔴 V143: `media_dir` может быть на ДРУГОМ диске (превью на шаре `Z:`, инструмент на `D:`) —
+    # `os.path.relpath` между дисками падает (`ValueError: path is on mount 'Z:'`). Тогда
+    # показываем АБСОЛЮТНЫЙ путь (страница на той же машине — ссылка рабочая).
+    try:
+        rel = os.path.relpath(media_dir, HERE).replace("\\", "/") if media_dir else "."
+    except ValueError:
+        rel = (media_dir or ".").replace("\\", "/")
     cfg = load_settings()
     # ГРАБЛЯ 23.10.2026: страница «пустая», если она гигантская — браузер не парсит 46 МБ.
     # Поэтому связи пишем КОМПАКТНО (короткие ключи) + ограничиваем список узлов в странице.
@@ -1175,13 +1191,12 @@ def collect_from_graph_db(media_dir=None):
             a, b = _norm(a), _norm(b)
             if not a or not b:
                 continue
+            # ⚠️ `o`/`n` в узлах НЕ заполняем: `build_html` сам раскладывает связи из `edges`
+            # (`out_`/`in_` по `from`/`to`). Заполнение их кортежами ломало сборку страницы
+            # (`TypeError: cannot use 'list' as a dict key` — живая находка V143).
             edges.append({"from": a, "to": b, "type": k, "kind": k, "dir": d,
-                          "origin": org, "qty": int(q or 1), "channel": ""})
-            na, nb = nodes.get(a), nodes.get(b)
-            if na is not None:
-                na["o"].append([b, k, int(q or 1)])
-            if nb is not None:
-                nb["n"].append([a, k, int(q or 1)])
+                          "origin": org, "qty": int(q or 1),
+                          "channel": ("inherit" if d == "base" else "db")})
     except Exception:                  # noqa: BLE001
         pass
     finally:
@@ -1202,8 +1217,15 @@ def main():
     _media_max = int(cfg.get("graph_media_limit", 0))       # V107: 0 = без предела
     _scan_budget = float(cfg.get("graph_scan_budget", 600))
     count_media = 0
+    # 🔴 V143: папка превью — РЯДОМ С АКТИВНОЙ БАЗОЙ (шара Z:), а не в папке инструмента.
+    # Раньше бралось `HERE\db\media` (локальная пустая) → «с превью 0» и лишние чтения файлов.
+    try:
+        _adb = engine.active_db() if engine else None
+        _media_root = os.path.dirname(_adb) if _adb else os.path.join(HERE, "db")
+    except Exception:
+        _media_root = os.path.join(HERE, "db")
     media = None if _media_mode == "none" or not cfg.get("graph_media") \
-        else os.path.join(HERE, "db", "media")
+        else os.path.join(_media_root, "media")
     nodes, edges = collect_from_graph_db(media)   # V142: СНАЧАЛА готовый граф (быстро, без файлов!)
     src = "граф (graph_nodes/graph_edges)"
     if not nodes:
