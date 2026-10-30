@@ -908,12 +908,19 @@ def collect(roots, max_mb, max_depth=None, exclude=None, recurse=True):
                             files.append(p)
             except Exception:
                 pass
+            if walk_cb:
+                walk_cb(len(files), dp)          # 🔴 прогресс обхода (на каждой папке)
     return files
 
 
-def collect_stat(roots, max_mb, max_depth=None, exclude=None, recurse=True):
+def collect_stat(roots, max_mb, max_depth=None, exclude=None, recurse=True, walk_cb=None):
     """Файлы модели + их size/mtime ОДНИМ проходом (scandir/stat), без повторных stat.
-    recurse=False («с подпапками» снят) — только файлы верхней папки."""
+    recurse=False («с подпапками» снят) — только файлы верхней папки.
+
+    🔴 walk_cb(n_found, dp) — ПРОГРЕСС ОБХОДА (30.10.2026): владелец «нет понятия,
+    что работает, сколько файлов, сколько осталось». Вызывается на КАЖДОЙ папке
+    (не раз в 25 файлов!), поэтому видно, что скан жив, и сколько уже найдено.
+    """
     out = []
     lim = max_mb * 1_000_000
     for root in as_roots(roots):
@@ -930,6 +937,8 @@ def collect_stat(roots, max_mb, max_depth=None, exclude=None, recurse=True):
             if max_depth is not None and d > max_depth:
                 dirs[:] = []
                 continue
+            if walk_cb:
+                walk_cb(len(out), dp)        # 🔴 прогресс обхода (на каждой папке)
             try:
                 for f in fs:
                     if not MODEL.search(f):
@@ -2455,6 +2464,7 @@ def inventory(roots, max_mb=8, store=True, max_depth=None):
 
 
 def do_scan(roots, max_mb, limit, depth=None, progress_cb=None, stop_cb=None, full=False, db=None,
+            walk_cb=None,
             param_cfg=None, exclude=None, recurse=True, latest_only=True,
             media_dir=None, media_mode="auto", remember=True):
     """Скан в базу `db` (по умолчанию боевая). Обычно зовётся через scan_to_base — в черновик.
@@ -2471,7 +2481,7 @@ def do_scan(roots, max_mb, limit, depth=None, progress_cb=None, stop_cb=None, fu
     t0 = time.time()
     roots = as_roots(roots)               # строка-корень = ОДИН корень (иначе обход всего диска)
     lim = float("inf") if (limit or 0) <= 0 else limit      # --limit 0 = без предела по времени
-    files_stat = collect_stat(roots, max_mb, depth, exclude, recurse)
+    files_stat = collect_stat(roots, max_mb, depth, exclude, recurse, walk_cb=walk_cb)
     if latest_only:
         files_stat = _filter_latest(files_stat)
     total = len(files_stat)
