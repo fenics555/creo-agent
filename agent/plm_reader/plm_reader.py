@@ -41,7 +41,7 @@ if __name__ == "__main__":
     import sys as _sys
     _sys.modules.setdefault("plm_reader", _sys.modules["__main__"])
 
-APP_VERSION = "V148"      # V148: ГРАФ КАК БЫЛО (28.10) — 6 цветов связей + СТРЕЛКИ, обычный СКРОЛЛ (зум/панор убраны); связи чистые; HTML выпускается. См. STATE.md фаза 47.
+APP_VERSION = "V149"      # V149: ЦВЕТА И СТРЕЛКИ В ГРАФЕ ПОЧИНЕНЫ — edgeKind возвращает код вида из данных (structure/inherit/derive/copy/variant), они же ключи CLR. Было: серые линии БЕЗ стрелок. См. STATE.md фаза 48.
 APP_TITLE = "PLM Reader " + APP_VERSION          # версия ОДНА: заголовок берёт её из константы
 DATA_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "db")          # данные — в подпапке db\
 SETTINGS_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "settings")  # настройки — в подпапке settings\
