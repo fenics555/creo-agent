@@ -41,7 +41,7 @@ if __name__ == "__main__":
     import sys as _sys
     _sys.modules.setdefault("plm_reader", _sys.modules["__main__"])
 
-APP_VERSION = "V149"      # V149: ЦВЕТА И СТРЕЛКИ В ГРАФЕ ПОЧИНЕНЫ — edgeKind возвращает код вида из данных (structure/inherit/derive/copy/variant), они же ключи CLR. Было: серые линии БЕЗ стрелок. См. STATE.md фаза 48.
+APP_VERSION = "V150"      # V150: ЛИНИИ ГРАФА РАЗНЫХ ЦВЕТОВ — в `SPECIAL` не было `structure` (9623 ребра!) → все линии шли в main/deep (один цвет); теперь ЛЮБОЙ вид из CLR = свой цвет+стрелка. См. STATE.md фаза 49.
 APP_TITLE = "PLM Reader " + APP_VERSION          # версия ОДНА: заголовок берёт её из константы
 DATA_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "db")          # данные — в подпапке db\
 SETTINGS_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "settings")  # настройки — в подпапке settings\
