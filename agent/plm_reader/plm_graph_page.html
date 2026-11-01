@@ -784,9 +784,11 @@ function draw(root){
           (N[lvl] = N[lvl] || []).push(nm);
           const role = edgeKind(dir === "d" ? m : nm, dir === "d" ? nm : m);
           const main = (depth === 1);
-          // 🔴 30.10.2026: содержательные виды связи идут СВОИМ ключом (свой цвет+стиль линии).
-          const SPECIAL = (role === "inherit" || role === "derive" || role === "copy" || role === "variant");
-          const k = SPECIAL ? role : (main ? "main-" + dir : "deep-" + dir);
+          // 🔴🔴 V150 ЖИВОЙ БАГ (владелец: «линии одного цвета»): в `SPECIAL` НЕ БЫЛО
+          // `structure` — самого частого вида (9 623 ребра!). Такие рёбра уходили в
+          // `main-down`/`deep-up` (всего 4 цвета на 2 направления) → ЛИНИИ ОДНОГО ЦВЕТА.
+          // Теперь: ЛЮБОЙ вид, который знает CLR, идёт СВОИМ ключом (свой цвет).
+          const k = CLR[role] ? role : (main ? "main-" + dir : "deep-" + dir);
           // ребро в данных ND всегда «родитель → ребёнок»:
           const eFrom = dir === "d" ? m : nm, eTo = dir === "d" ? nm : m;
           L.push([eFrom, eTo, k]);
