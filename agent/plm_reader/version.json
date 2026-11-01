@@ -1,11 +1,11 @@
 {
- "version": "V148",
- "version_num": 148,
+ "version": "V149",
+ "version_num": 149,
  "date": "01.11.2026",
- "notes": "V149: ЦВЕТА И СТРЕЛКИ В ГРАФЕ ПОЧИНЕНЫ — виды из данных (structure/inherit/derive/copy/variant) теперь совпадают с CLR; было: edgeKind искал русские слова -> серые линии без стрелок",
+ "notes": "V149: цвета и стрелки графа починены (виды данных = ключи CLR)",
  "files": {
   "engine.py": "01492bfe8e9f67da36908c247d0598b8e166a3b8800450f7b140bde21fb8c9ef",
-  "plm_reader.py": "98dbccc6216deb22cf7d3e99b73faea0271f7ed606930ee619b5e6339bc486e4",
+  "plm_reader.py": "cc5ffdac86feb8f89dc15b16adf45fdeab31776a487a3edb767c1a58cfd8b55f",
   "plm_toolwin.py": "a9ae004ba4b2ab0e1247158a2f681021ae910f9ee3eef15584b0e641f1100679",
   "plm_history.py": "0e8a1b414f3ad7c67175251fb4192e26431b0e9760bcce6ba6d9faf03ada8c77",
   "plm_parse.py": "c6bb33a412b6b606ad402e3eb78cd49246b77738b69d82be1b6218a1358c0312",
