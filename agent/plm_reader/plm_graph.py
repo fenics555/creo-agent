@@ -879,8 +879,20 @@ def build_html(nodes, edges, media_dir, stats_extra=None):
     # Теперь:
     #   СОСТАВ / КУДА ВХОДИТ  ← structure (компоненты сборки) + inherit/derive/copy (наследование)
     #   ИСПОЛНЕНИЯ            ← variant (отдельной колонкой)
-    _phys = [e for e in edges if e.get("kind") != "variant"]
+    # 🔴🔴 V157 (владелец: «Состав (2090) и Куда входит (2090) — видно, что совсем не то!»):
+    # КОЛОНКИ ДУБЛИРОВАЛИ ДРУГ ДРУГА. Замер `O-RING` (6270 рёбер):
+    #   `structure/down` 2095 · `structure/up` 2090 → совпадающих ПАР 2090 (99.8%!)
+    #   пример: `O-RING → G18829-2017-VZ` лежит И в `down`, И в `up` (буквально одна пара дважды).
+    #   ⇒ «СОСТАВ» и «КУДА ВХОДИТ» показывали ОДНИХ И ТЕХ ЖЕ соседей.
+    # ⚠️ Это НЕ «встречные рёбра» (reversed) — это ПОВТОР одной пары (проверка `reversed` дала 5,
+    #   а совпадение — 2090). Поэтому убираем `up`, если ТА ЖЕ пара уже есть как `down`.
+    _down_pairs = set((_e["from"], _e["to"], _e.get("kind"))
+                      for _e in edges if _e.get("dir") == "down")
     _variant = [e for e in edges if e.get("kind") == "variant"]
+    _phys = [e for e in edges
+             if e.get("kind") != "variant"
+             and not (e.get("dir") == "up"
+                      and (e["from"], e["to"], e.get("kind")) in _down_pairs)]
     _inh = [e for e in edges if e.get("channel") == "inherit"]
     out_, in_ = defaultdict(list), defaultdict(list)
     for e in edges:
