@@ -41,7 +41,7 @@ if __name__ == "__main__":
     import sys as _sys
     _sys.modules.setdefault("plm_reader", _sys.modules["__main__"])
 
-APP_VERSION = "V152"      # V152: СВЯЗИ ИСПОЛНЕНИЙ ПОКАЗЫВАЮТСЯ (variant в данных 39→13 195): фильтр V134 отбивал `family` (исполнения); узлы-цели рёбер добавлены в граф (24 266→76 811); лимиты графа подняты. См. STATE.md фаза 51.
+APP_VERSION = "V153"      # V153: ПАРАМЕТРЫ МОДЕЛИ / ИЗМЕНЕНИЯ ПАРАМЕТРОВ / ИСТОРИЯ работают в HTML (collect_from_graph_db читает arch_dims/arch_dim_ch/changes: 10321/8850/21665); граф без мусора. См. STATE.md фаза 52.
 APP_TITLE = "PLM Reader " + APP_VERSION          # версия ОДНА: заголовок берёт её из константы
 DATA_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "db")          # данные — в подпапке db\
 SETTINGS_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "settings")  # настройки — в подпапке settings\
