@@ -1,11 +1,11 @@
 {
- "version": "V151",
- "version_num": 151,
+ "version": "V152",
+ "version_num": 152,
  "date": "02.11.2026",
- "notes": "V152: СВЯЗИ ИСПОЛНЕНИЙ ПОКАЗЫВАЮТСЯ (variant 39->13195) — фильтр V134 отбивал family; узлы-цели рёбер в графе (24266->76811)",
+ "notes": "V152: связи исполнений показываются (variant 39->13195); узлы-цели рёбер; лимиты графа",
  "files": {
   "engine.py": "01492bfe8e9f67da36908c247d0598b8e166a3b8800450f7b140bde21fb8c9ef",
-  "plm_reader.py": "ef4246456bd7a889246c05db932d491af38db90ef77ca635c99a004440460c83",
+  "plm_reader.py": "881c4d41805fe214ce8250b8166b67a5499ac4cd8aca96f1c7db3f1ac2ed6714",
   "plm_toolwin.py": "a9ae004ba4b2ab0e1247158a2f681021ae910f9ee3eef15584b0e641f1100679",
   "plm_history.py": "0e8a1b414f3ad7c67175251fb4192e26431b0e9760bcce6ba6d9faf03ada8c77",
   "plm_parse.py": "c6bb33a412b6b606ad402e3eb78cd49246b77738b69d82be1b6218a1358c0312",
