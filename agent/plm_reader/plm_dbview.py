@@ -324,8 +324,17 @@ def db_rows(folder=None, limit=2000, latest_only=False):
     try:
         c = db_conn()
         has = any(r[1] == "created" for r in c.execute("PRAGMA table_info(snapshots)"))
+        # 🔴🔴 V155 (владелец: «одноименная деталь + одноименная обработка + одноименный чертёж
+        # должны выводиться ВМЕСТЕ в дереве»): сортируем по ИМЕНИ БЕЗ расширения и версии —
+        # тогда `insert-stp-s1.prt` · `.asm` · `.drw` идут ПОДРЯД (замер: 5 745 моделей имеют
+        # и .prt, и .asm). Раньше порядок был `model, path`, но показывается «Файл» (с расширением),
+        # поэтому визуально одноимённые оказывались в разных местах списка.
+        # `CASE/REPLACE` — «грубый ключ имени»: отрезаем `.prt.1`/`.asm.2`/`.drw.5` и т.п.
+        _name_key = ("REPLACE(REPLACE(REPLACE(REPLACE(REPLACE(LOWER(COALESCE(model,'')),"
+                     "'.prt',''),'.asm',''),'.drw',''),'.mfg',''),'.xpr','')")
         sql = ("SELECT path,model,volume,material,name,designation,rev,author,revdate,role,hist,creo,"
-               "mtime%s FROM snapshots %%s ORDER BY model, path LIMIT ?" % (",created" if has else ""))
+               "mtime%s FROM snapshots %%s ORDER BY %s, model, path LIMIT ?"
+               % (",created" if has else "", _name_key))
         if roots:
             cond = "WHERE " + " OR ".join(["folder LIKE ?"] * len(roots))
             args = tuple(r.rstrip("\\") + "%" for r in roots)

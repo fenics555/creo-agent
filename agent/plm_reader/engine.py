@@ -2578,6 +2578,7 @@ def do_scan(roots, max_mb, limit, depth=None, progress_cb=None, stop_cb=None, fu
     # Без этого счётчика поломка разбора невидима: скан возвращал `new=0, mod=0`, окно писало
     # «готов», а причина уходила в лог. Живой случай: `NameError: _media_dir` на 2728 файлах.
     stopped = False
+    _last_commit = time.time()          # V155: коммит по ВРЕМЕНИ (не по счётчику) — сеть Z:
     for path, size, mtime, ctime in files_stat:
         if time.time() - t0 > lim:
             break
@@ -2854,10 +2855,18 @@ def do_scan(roots, max_mb, limit, depth=None, progress_cb=None, stop_cb=None, fu
         done += 1
         if progress_cb and n % 25 == 0:
             progress_cb(n, total)
-        if n % 500 == 0:
-            con.commit()            # частичный коммит: база не заперта на весь прогон
+        # 🔴🔴 V155 (владелец: «сколько раз сканируешь, всегда одно и то же вылетает:
+        # 43525 / 59185 · прочитано 0 · 3 с»): КОММИТ КАЖДЫЕ 500 ФАЙЛОВ НА СЕТЕВОЙ БАЗЕ.
+        # База лежит на ШАРЕ (`Z:`), и на 43 500+ накопленный журнал делал коммит ДОЛГИМ —
+        # окно «замирало» на одном числе (скан шёл, но прогресс не обновлялся).
+        # ТЕПЕРЬ: коммит по ВРЕМЕНИ (раз в 10 с) — ровный темп, без длинных пауз.
+        # Плюс `wal` на время скана (быстрая запись без блокировок, см. connect).
+        _now = time.time()
+        if _now - _last_commit > 10.0:
+            con.commit()
+            _last_commit = _now
             _p = "progress: %d/%d (%.0f%%), %.1f s, изменённых %d" % (
-                n, total, 100.0 * n / max(total, 1), time.time() - t0, mod)
+                n, total, 100.0 * n / max(total, 1), _now - t0, mod)
             print(_p, flush=True)
             log(_p)
     # --- ИСКЛЮЧЕНИЯ: строки исключённых папок из базы УБИРАЕМ (иначе «исключённое» видно в таблице) ---
