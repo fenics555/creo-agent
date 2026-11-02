@@ -871,7 +871,16 @@ def build_html(nodes, edges, media_dir, stats_extra=None):
     # связи ЕСТЬ, но все они наследование/копия/производная (`0_005`: 6 рёбер), обе колонки
     # были ПУСТЫ («0 связей»), хотя «БАЗА НАСЛЕДОВАНИЯ» показывала 4. Теперь СОСТАВ берём из
     # ВСЕХ рёбер, а вид (structure/inherit/derive/copy/variant) показывается в самой строке.
-    _phys = [e for e in edges]                       # все рёбра → «Состав»/«Куда входит»
+    # 🔴🔴 V156 (владелец: «в „состав“ выводит список исполнений, а должно быть: у детали —
+    # УНАСЛЕДОВАННЫЕ (заготовка/отливка), у сборки — подсборки и детали; в „куда входит“ —
+    # СБОРКИ + исполнения, а не только исполнения»): РАЗЛОЖЕНИЕ ПО СМЫСЛУ.
+    # Что было: `_phys = ВСЕ рёбра` ⇒ `variant` (ИСПОЛНЕНИЯ семейства, 197 шт у `DIN94`)
+    # попадали в «СОСТАВ». Это НЕ состав: исполнение — вариант семейства, а не компонент.
+    # Теперь:
+    #   СОСТАВ / КУДА ВХОДИТ  ← structure (компоненты сборки) + inherit/derive/copy (наследование)
+    #   ИСПОЛНЕНИЯ            ← variant (отдельной колонкой)
+    _phys = [e for e in edges if e.get("kind") != "variant"]
+    _variant = [e for e in edges if e.get("kind") == "variant"]
     _inh = [e for e in edges if e.get("channel") == "inherit"]
     out_, in_ = defaultdict(list), defaultdict(list)
     for e in edges:
@@ -901,6 +910,15 @@ def build_html(nodes, edges, media_dir, stats_extra=None):
     # V121: производность (MERGE_BASE_PART) — отдельными картами для блока «База наследования».
     out_h = {m: _merge(v, "to") for m, v in out_i.items()}
     in_h = {m: _merge(v, "from") for m, v in in_i.items()}
+    # 🔴 V156: ИСПОЛНЕНИЯ СЕМЕЙСТВА — ОТДЕЛЬНАЯ КОЛОНКА (`ov` — исполнения модели, `iv` — где
+    # она сама исполнение). Владелец: «в „куда входит“ должны быть СБОРКИ + исполнения», т.е.
+    # исполнения нужны, но СВОИМ блоком, а не вместо состава.
+    out_v, in_v = defaultdict(list), defaultdict(list)
+    for e in _variant:
+        out_v[e["from"]].append(e)
+        in_v[e["to"]].append(e)
+    out_iv = {m: _merge(v, "to") for m, v in out_v.items()}
+    in_iv = {m: _merge(v, "from") for m, v in in_v.items()}
     # КОМПАКТНО: в страницу идут только узлы, у которых ЕСТЬ связи или превью,
     # плюс ограничение объёма (иначе 46 МБ — браузер не отрисует).
     cfg0 = load_settings()
@@ -970,6 +988,7 @@ def build_html(nodes, edges, media_dir, stats_extra=None):
         return rep.get(nm)              # None, если имя не попало в страницу
     out2, in2 = defaultdict(list), defaultdict(list)
     outh2, inh2 = defaultdict(list), defaultdict(list)     # V121: производность (наследование)
+    out_v2, in_v2 = defaultdict(list), defaultdict(list)   # V156: ИСПОЛНЕНИЯ семейства
     # ── V122 ЖЕЛЕЗНАЯ ЗАЩИТА: «Состав / Куда входит» — ТОЛЬКО пары, ФИЗИЧЕСКИ записанные в `links`.
     # Владелец: «DIN912 — входит в 5 сборок ))), хотя физически — в 2». Причина: рёбра раскладываются
     # по ИМЕНАМ (`by_name`), у имени много путей, затем `remap` приводит к представителю — и на карточку
@@ -1025,6 +1044,15 @@ def build_html(nodes, edges, media_dir, stats_extra=None):
             f = remap(e["key"])
             if f and f in idx and f != m:
                 inh2[m].append({"key": f, "type": e["type"], "qty": e["qty"]})
+        # 🔴 V156: ИСПОЛНЕНИЯ СЕМЕЙСТВА (без сверки `_is_physical` — это их собственный канал).
+        for e in out_iv.get(m, []):
+            t = remap(e["key"])
+            if t and t in idx and t != m:
+                out_v2[m].append({"key": t, "type": e["type"], "qty": e["qty"]})
+        for e in in_iv.get(m, []):
+            f = remap(e["key"])
+            if f and f in idx and f != m:
+                in_v2[m].append({"key": f, "type": e["type"], "qty": e["qty"]})
     nd = {}
     for m in keep:
         v = nodes[m]
@@ -1046,6 +1074,10 @@ def build_html(nodes, edges, media_dir, stats_extra=None):
                       # oh — базы наследования этой модели; ih — кто наследует ОТ неё.
                       "oh": [[idx[e["key"]], e["type"], e["qty"]] for e in outh2.get(m, [])],
                       "ih": [[idx[e["key"]], e["type"], e["qty"]] for e in inh2.get(m, [])],
+                      # 🔴 V156: ИСПОЛНЕНИЯ СЕМЕЙСТВА — отдельные блоки (`ov` — исполнения модели,
+                      # `iv` — где она сама исполнение). Раньше попадали в «Состав» (неверно!).
+                      "ov": [[idx[e["key"]], e["type"], e["qty"]] for e in out_v2.get(m, [])],
+                      "iv": [[idx[e["key"]], e["type"], e["qty"]] for e in in_v2.get(m, [])],
                       # ── V130 ГЛАВНАЯ ГРАБЛЯ (владелец: «где мои параметры? висит твой паспорт»):
                       # узел УЖЕ нёс параметры (`dm`) и их историю (`dch`), но ЭТОТ словарь — то,
                       # что реально уходит в HTML, — их НЕ ПЕРЕНОСИЛ. Поэтому на странице были

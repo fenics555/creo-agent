@@ -603,6 +603,22 @@ function show(m){
       '<ul>' + li(ih) + '</ul></li>' +
       '</ul></div>';
   }
+  // 🔴 V156 (владелец: «в „куда входит“ должны быть СБОРКИ + исполнения, а там только
+  // исполнения; в „состав“ — у детали УНАСЛЕДОВАННЫЕ, у сборки подсборки/детали»):
+  // ИСПОЛНЕНИЯ СЕМЕЙСТВА — ОТДЕЛЬНЫЙ БЛОК (раньше падали в «Состав», что неверно).
+  const ov = n.ov || [], iv = n.iv || [];
+  let vcol = "";
+  if (ov.length || iv.length){
+    vcol = '<div class="hist"><h3>Исполнения семейства (' +
+           (ov.length + iv.length) + ')</h3><ul>' +
+      '<li style="color:#9fb0c2;list-style:none;margin-left:-14px">' +
+      '<span class="t">исполнения этой модели</span>:' +
+      '<ul>' + li(ov) + '</ul></li>' +
+      '<li style="color:#9fb0c2;list-style:none;margin-left:-14px">' +
+      '<span class="t">эта модель — исполнение от</span>:' +
+      '<ul>' + li(iv) + '</ul></li>' +
+      '</ul></div>';
+  }
   // V112: ИСТОРИЯ — ТАКОЙ ЖЕ БЛОК, как «Состав» и «Куда входит»: список с точками, тот же
   // шрифт и высота. Строка = «ДАТА ПРАВКИ · КОМП/ЮЗЕР · рев. N · ЧТО».
   const hist = n.h || [];
@@ -708,7 +724,7 @@ function show(m){
     '<div class="hist"><h3>Параметры модели (' + dmKeys.length + ')</h3>' + pcol + '</div>' +
     '<div class="hist"><h3>Изменения параметров (' + dch.length + ')</h3>' + pch + '</div>' +
     '<div class="hist"><h3>История изменений (' + hist.length + ')</h3>' + hcol + '</div>' +
-    inh + '</div>';
+    inh + vcol + '</div>';
   // V111: применить выбранный строй (row = в ряд / col = друг под другом)
   try { window.applyCardLayout(); } catch (e) {}
   document.querySelectorAll("#card li").forEach(el =>
