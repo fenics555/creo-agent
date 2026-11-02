@@ -2,7 +2,7 @@
  "version": "V151",
  "version_num": 151,
  "date": "02.11.2026",
- "notes": "V151: оттенки structure по глубине/направлению; одноцветность = один вид связи у модели",
+ "notes": "V152: СВЯЗИ ИСПОЛНЕНИЙ ПОКАЗЫВАЮТСЯ — узлы-цели рёбер добавлены в граф (variant 15422 связи были без узла); узлов 24266->76811",
  "files": {
   "engine.py": "01492bfe8e9f67da36908c247d0598b8e166a3b8800450f7b140bde21fb8c9ef",
   "plm_reader.py": "ef4246456bd7a889246c05db932d491af38db90ef77ca635c99a004440460c83",
@@ -29,6 +29,6 @@
   "scanner_plm.py": "5624f2b001dd108f9c3fc0db7693181e9357979c361334240e191131cc0fefd3",
   "scanner_write.py": "44d2e9853286fbfc6515942b9feb8d55de1f5bf1abadb8093a4a5aec6d7e5d51",
   "plm_database.py": "8568d33fa8c8bea8b5eb888efaf2d6f5cded3871cc545ab9f7227ee2cc502d3a",
-  "plm_graph_build.py": "0c2f79ca6c8e9744e7cf015cc103bb1e363a6250551a669771361521e1bb52aa"
+  "plm_graph_build.py": "6bfc3c39c5af2f3a991394fe73d59cbcdb92e521f17f19c5560151ad1f8038ba"
  }
 }

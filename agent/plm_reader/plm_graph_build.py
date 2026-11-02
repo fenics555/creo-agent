@@ -118,6 +118,18 @@ def build(check_only=False, engine_mod=None):
         except Exception:
             media_paths = set()
 
+        # 🔴🔴 V152 (владелец: «не показывает связи исполнений!»): УЗЛЫ-ЦЕЛИ РЁБЕР.
+        # Граф брал узлы ТОЛЬКО из `snapshots` (файлы на складе). Но ИСПОЛНЕНИЯ СЕМЕЙСТВА
+        # (`variant`: `DIN912 → DIN912-M4X20`) — ВИРТУАЛЬНЫЕ: файлов у них нет, в `snapshots`
+        # их нет ⇒ узла нет в графе ⇒ HTML не мог нарисовать 1375 связей (замер: у `DIN912`
+        # 1375 variant-рёбер, а узла `DIN912-M` в данных НЕТ). Теперь такие имена ДОБАВЛЯЕМ
+        # как узлы-«виртуальные» (файла нет, но связь есть) — «не терять ни одной связи».
+        for _e in edges_raw:
+            for _side in ("from", "to"):
+                _nm = _e[_side]
+                if _nm and _nm not in nodes and not L.is_service(_nm):
+                    nodes[_nm] = [_nm, "", "", 0, 0.0, "", "", ""]
+
         nrows, n_kinds = [], {}
         for m, (mm, path, folder, size, vol, mat, creo, rev) in nodes.items():
             kind = _kind_of_model(mm, path)
