@@ -898,8 +898,30 @@ function draw(root){
     svg += '<marker id="ar-' + k + '" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" ' +
            'markerHeight="6" orient="auto"><path d="M0 0 L10 5 L0 10 z" fill="' +
            CLR[k].s + '"/></marker>';
+    // 🔴 V154 ШАГ A (владелец: «делай все шаги»; идея из шаблона помощника):
+    // МАРКЕР ДВУСТОРОННЕЙ стрелки — для склеенных встречных рёбер (`down`+`up` одной пары).
+    // Вторая стрелка назад: тот же треугольник, но `auto-start-reverse` развернёт его на старте.
+    svg += '<marker id="arb-' + k + '" viewBox="0 0 10 10" refX="1" refY="5" markerWidth="6" ' +
+           'markerHeight="6" orient="auto"><path d="M10 0 L0 5 L10 10 z" fill="' +
+           CLR[k].s + '"/></marker>';
   }
   svg += "</defs>";
+  // 🔴🔴 V154 ШАГ A: СКЛЕЙКА ВСТРЕЧНЫХ РЁБЕР (замер: 20 787 пар `down`+`up` рисовались ДВАЖДЫ).
+  // Владелец видел «двойные линии». Склеиваем ТОЛЬКО одинаковый ВИД: ключ = (min, max, kind).
+  // ⚠️ Если ключ делать без `kind` (как в шаблоне помощника) — склеятся РАЗНЫЕ связи
+  // (`structure/down` + `inherit/base`), и ВИД СВЯЗИ потеряется. Поэтому `kind` в ключе.
+  const Lpair = {};                      // (min|max|kind) -> индекс в Lmerged
+  const Lmerged = [];
+  for (const [a, b, k] of L){
+    const lo = (a <= b) ? a : b, hi = (a <= b) ? b : a;
+    const key = lo + "\u0001" + hi + "\u0001" + k;
+    if (key in Lpair){
+      Lmerged[Lpair[key]][3] = true;      // помечаем: встречное ребро есть → двусторонняя
+    } else {
+      Lpair[key] = Lmerged.length;
+      Lmerged.push([a, b, k, false]);
+    }
+  }
   // V117: ПОЛОСЫ УРОВНЕЙ (только вертикальный строй) — видно, где какой уровень, «куча» исчезает.
   if (GL === "col"){
     for (const b of lvlBand){
@@ -911,17 +933,20 @@ function draw(root){
              'fill:#7fb0e0;letter-spacing:.5px">' + b.label + ' · узлов ' + b.n + '</text>';
     }
   }
-  for (const [a, b, k] of L){
+  for (const [a, b, k, both] of Lmerged){
     const p = pos[a], r = pos[b]; if (!p || !r) continue;
     const x1 = p[0] + 212, y1 = p[1] + 9, x2 = r[0], y2 = r[1] + 9;
     const ci = (CLR[k] || CLR["deep-down"]);
     const c = ci.s;
-    // 🔴 30.10.2026: СТИЛЬ ЛИНИИ ПО ВИДУ СВЯЗИ (штрих/пунктир/точка) — вид читается и без цвета.
+    // 🔴 V154: стиль линии по виду связи (штрихи, если заданы) — вид читается и без цвета.
     const dashAttr = ci.d ? ' stroke-dasharray="' + ci.d + '"' : '';
+    // 🔴 V154 ШАГ A: ДВУСТОРОННЯЯ стрелка — один наконечник в конце, второй в начале.
+    const markEnd = ' marker-end="url(#ar-' + k + ')"';
+    const markStart = both ? ' marker-start="url(#arb-' + k + ')"' : '';
     svg += '<path d="M' + x1 + ' ' + y1 + ' C' + ((x1+x2)/2) + ' ' + y1 + ' ' +
            ((x1+x2)/2) + ' ' + y2 + ' ' + x2 + ' ' + y2 +
            '" stroke="' + c + '" stroke-width="' + (k.startsWith("main") ? "2" : "1.2") +
-           '"' + dashAttr + ' fill="none" marker-end="url(#ar-' + k + ')"/>';
+           '"' + dashAttr + ' fill="none"' + markEnd + markStart + '/>';
   }
   for (const m0 of Object.keys(pos)){
     const m = String(m0);                 // GRABLYA 23.10.2026: ключи могут быть числами
