@@ -1224,6 +1224,49 @@ def collect_from_graph_db(media_dir=None):
         return None, None
     nodes, edges = {}, []
     cache = _load_media_cache()        # путь → (превью1, превью2)
+    # 🔴 V153 (владелец: «ПАРАМЕТРЫ МОДЕЛИ — ничего, ИЗМЕНЕНИЯ ПАРАМЕТРОВ — пусто»):
+    # параметры лежат в `arch_dims` (JSON {«d26»: 27.19}), история — в `arch_dim_ch`.
+    # В `collect_from_graph_db` (быстрый путь через `graph_nodes`) они НЕ читались ⇒
+    # обе колонки всегда пусты. Теперь читаем — формат как у `collect_by_path` (`dm`/`dch`).
+    dims_by_model = defaultdict(dict)
+    dimch_by_model = defaultdict(list)
+    hist = defaultdict(list)
+    try:
+        for _m, _dims in con.execute("SELECT model, dims FROM arch_dims "
+                                     "ORDER BY arch_date DESC LIMIT 300000"):
+            if not _m or not _dims:
+                continue
+            try:
+                _d = json.loads(_dims)
+            except Exception:
+                continue
+            if isinstance(_d, dict):
+                for _k, _v in _d.items():
+                    dims_by_model[_m].setdefault(str(_k), _v)
+    except Exception:
+        pass
+    try:
+        for _m, _dim, _ov, _nv, _kind in con.execute(
+                "SELECT model, dim, old_val, new_val, kind FROM arch_dim_ch "
+                "ORDER BY arch_date DESC LIMIT 300000"):
+            if _m and _dim:
+                _f = lambda x: "".join(ch for ch in str(x or "") if ch >= " " or ch == "\t")
+                dimch_by_model[_m].append([_f(_dim), _f(_ov), _f(_nv), _f(_kind)])
+    except Exception:
+        pass
+    # история изменений файла (журнал `changes`) — как в `collect_by_path`
+    try:
+        for _item, _rev, _kind, _descr, _who, _ts in con.execute(
+                "SELECT item,rev,kind,descr,who,ts FROM changes ORDER BY ts DESC LIMIT 200000"):
+            if _item:
+                _d = "".join(ch for ch in str(_descr or "") if ch >= " " or ch == "\t")
+                _m2 = re.search(r"revdate:\s*[^→]*→([^;]+)", _d)
+                hist[_item].append([(_m2.group(1).strip() if _m2 else (_ts or "")[:16]),
+                                    "".join(ch for ch in str(_who or "") if ch >= " "),
+                                    "".join(ch for ch in str(_rev or "") if ch >= " "),
+                                    re.sub(r"revdate:\s*[^→]*→[^;]*", "", _d).strip(" ;")])
+    except Exception:
+        pass
     # ключи кэша могут отличаться регистром (Windows/сеть) — строим индекс в нижнем регистре
     lcache = {}
     by_stem = {}                       # ствол имени файла (без версии) → (превью1, превью2)
@@ -1274,7 +1317,12 @@ def collect_from_graph_db(media_dir=None):
             nodes[m] = {"nm": _nm_show, "k": _ext,
                         "t": kind or "", "p": path or "", "d": folder or "",
                         "s": size or 0, "v": vol or 0, "c": creo or "", "r": rev or "",
-                        "i": img, "i2": img2}
+                        "i": img, "i2": img2,
+                        # 🔴 V153: ПАРАМЕТРЫ (`arch_dims`) · ИХ ИСТОРИЯ (`arch_dim_ch`) ·
+                        # ИСТОРИЯ ФАЙЛА (`changes`) — как в `collect_by_path`; иначе пусто.
+                        "dm": dims_by_model.get(m) or dims_by_model.get(_nm_show) or {},
+                        "dch": (dimch_by_model.get(m) or dimch_by_model.get(_nm_show) or [])[:40],
+                        "h": (hist.get(m) or hist.get(_nm_show) or [])[:40]}
             # 🔴🔴 V145 КРИТИЧНО: ключи `o`/`n` НЕ создаём! В `build_html` они означают НЕ соседей,
             # а ИМЯ/ПАПКУ (`"n"` — имя модели, `"o"` — папка), и `_merge` читает `nodes[x]["n"]` как имя
             # соседа. Раньше здесь стояли `"o": [], "n": []` → `_merge` получал ПУСТОЕ имя → все связи
