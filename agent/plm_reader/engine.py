@@ -1424,6 +1424,20 @@ def connect(ro=False, db=None):
         except Exception:
             pass
         return con
+    # 🔴🔴 V156 (владелец: «залипание небольшое на одном и том же месте»): PRAGMA ПО УМОЛЧАНИЮ
+    # были `journal_mode=delete` + `synchronous=FULL` + кэш 2 МБ — на СЕТЕВОЙ базе (`Z:`) каждый
+    # `commit` ЖДАЛ физической записи на шар ⇒ паузы в прогрессе скана. Замер: база 1366 МБ,
+    # journal=delete, synchronous=2, cache=-2000.
+    # ТЕПЕРЬ: WAL (запись в отдельный журнал, без блокировки читателей) + synchronous=NORMAL
+    # (не ждём fsync на каждый коммит) + кэш 64 МБ. Данные не теряем: WAL безопаснее `delete`,
+    # а `NORMAL` гарантирует целостность БАЗЫ (не только скорость).
+    try:
+        con.execute("PRAGMA journal_mode=WAL")
+        con.execute("PRAGMA synchronous=NORMAL")
+        con.execute("PRAGMA cache_size=-65536")     # 64 МБ
+        con.execute("PRAGMA temp_store=MEMORY")
+    except Exception:
+        pass                                     # не критично: PRAGMA — только ускорение
     # миграция 25.09.2026: старый ключ (model) → ключ по ПУТИ; старые snapshots/links пересоздаём
     try:
         cols = [r[1] for r in con.execute("PRAGMA table_info(snapshots)")]
