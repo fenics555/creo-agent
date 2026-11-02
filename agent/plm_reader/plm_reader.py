@@ -41,7 +41,7 @@ if __name__ == "__main__":
     import sys as _sys
     _sys.modules.setdefault("plm_reader", _sys.modules["__main__"])
 
-APP_VERSION = "V157"      # V157: СОСТАВ и КУДА ВХОДИТ больше НЕ ДУБЛИРУЮТСЯ — `up`-рёбра дублировали `down` (O-RING: пересечение 2090→5); + проверен НОВЫЙ СКАНЕР (20 файлов всех типов: bodies/materials/dim_all/matrices/tools/drawing). См. STATE.md фаза 56.
+APP_VERSION = "V158"      # V158: ИСПОЛНЕНИЯ больше НЕ в «Куда входит» (лежали в базе ДВАЖДЫ: family И structure) — DIN912: 4132→6 рёбер, ВХОДИТ 4 (сборки), ИСПОЛНЕНИЯ 1375 отдельно, пересечение 0. См. STATE.md фаза 57.
 APP_TITLE = "PLM Reader " + APP_VERSION          # версия ОДНА: заголовок берёт её из константы
 DATA_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "db")          # данные — в подпапке db\
 SETTINGS_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "settings")  # настройки — в подпапке settings\
