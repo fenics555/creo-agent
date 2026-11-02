@@ -41,7 +41,7 @@ if __name__ == "__main__":
     import sys as _sys
     _sys.modules.setdefault("plm_reader", _sys.modules["__main__"])
 
-APP_VERSION = "V156"      # V156: (1) СВЯЗИ РАЗЛОЖЕНЫ ПО СМЫСЛУ — исполнения (variant) ОТДЕЛЬНЫМ блоком (не в «Состав»); (2) PRAGMA WAL + synchronous=NORMAL + кэш 64 МБ — залипание скана (коммит ждал fsync на шаре Z:). См. STATE.md фаза 55.
+APP_VERSION = "V157"      # V157: СОСТАВ и КУДА ВХОДИТ больше НЕ ДУБЛИРУЮТСЯ — `up`-рёбра дублировали `down` (O-RING: пересечение 2090→5); + проверен НОВЫЙ СКАНЕР (20 файлов всех типов: bodies/materials/dim_all/matrices/tools/drawing). См. STATE.md фаза 56.
 APP_TITLE = "PLM Reader " + APP_VERSION          # версия ОДНА: заголовок берёт её из константы
 DATA_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "db")          # данные — в подпапке db\
 SETTINGS_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "settings")  # настройки — в подпапке settings\
