@@ -84,6 +84,9 @@ DEFAULT_SETTINGS = {
     #   post_scan_build_graph — граф-построитель (`plm_graph_build`) → graph_nodes/graph_edges/graph_metrics
     "post_scan_build_links": True,
     "post_scan_build_graph": True,
+    # 🔴 V154 ШАГ C: `mentions` (имя упомянуто в байтах детали/чертежа) — 44 871 строка = 39%
+    # базы, в граф НЕ идёт. TRUE — писать (как было), FALSE — не писать (база легче на 40%).
+    "write_mentions": True,
     "graph_open_browser": True,  # открывать страницу в браузере после сборки
     # V103 (24.10.2026) ЛЕНИВАЯ ЗАГРУЗКА:
     "lazy_first_chunk": 1500,    # сколько строк списка показать СРАЗУ (остальное — в фоне)
@@ -156,6 +159,7 @@ SETTINGS_SPEC = [
      None, None),
     ("СБОРКА", "post_scan_build_graph", "после скана: строить граф (graph_nodes/edges)", "bool",
      None, None),
+    ("СКАН", "write_mentions", "писать mentions (упоминания имён, 39% базы)", "bool", None, None),
     # --- группа: ПРЕВЬЮ ---
     ("ПРЕВЬЮ", "graph_media", "собирать превью (картинка+чертёж)", "bool", None, None),
     ("ПРЕВЬЮ", "graph_image_mode", "что показывать", "choice",

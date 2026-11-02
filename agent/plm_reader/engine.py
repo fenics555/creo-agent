@@ -2754,7 +2754,11 @@ def do_scan(roots, max_mb, limit, depth=None, progress_cb=None, stop_cb=None, fu
             # `127_53_01.prt.1` дал ЧЕТЫРЕ строки `-> MM_PART [mentions]` — это шаблонная деталь,
             # стоит в каждом файле, связью не является. Список — общий `_NOT_PARENTS` (там же
             # `MM_ASSY`, `SBORKA_MM/MFG`, `MFG_NC`), чтобы правило было ОДНО на весь движок.
-            for child, qty in it["refs"].items():
+            # 🔴 V154 ШАГ C (владелец: «делай все шаги»): `mentions` — 44 871 строка = 39% базы,
+            # в граф НЕ идёт (нагрузка на транзакции/бэкап). Настройка `write_mentions`
+            # (по умолчанию TRUE — поведение НЕ меняется; FALSE — шум не пишется).
+            _wment = bool(_cfg.get("write_mentions", True))
+            for child, qty in (it["refs"].items() if _wment else ()):
                 if str(child).upper() in _NOT_PARENTS:
                     continue
                 if (s, child) in seen:
