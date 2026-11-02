@@ -2,7 +2,7 @@
  "version": "V151",
  "version_num": 151,
  "date": "02.11.2026",
- "notes": "V152: СВЯЗИ ИСПОЛНЕНИЙ ПОКАЗЫВАЮТСЯ — узлы-цели рёбер добавлены в граф (variant 15422 связи были без узла); узлов 24266->76811",
+ "notes": "V152: СВЯЗИ ИСПОЛНЕНИЙ ПОКАЗЫВАЮТСЯ (variant 39->13195) — фильтр V134 отбивал family; узлы-цели рёбер в графе (24266->76811)",
  "files": {
   "engine.py": "01492bfe8e9f67da36908c247d0598b8e166a3b8800450f7b140bde21fb8c9ef",
   "plm_reader.py": "ef4246456bd7a889246c05db932d491af38db90ef77ca635c99a004440460c83",
@@ -21,7 +21,7 @@
   "make_version_json.py": "dc9676e826a515724731437e7681f26f393745393888aa58cf2cebe39d68e433",
   ".gitignore": "d5ab84e66a4192509472cfb1b1fcabefb2c5c783189c4af025769048666ef103",
   "AGENTS.md": "fdb656d93c9cfc1a69a7ee0f39261aaed704fa587c65c76dac1a1f369107ec92",
-  "plm_graph.py": "66d21155ff1a970d1a74aaeea62e18138de7120c05beaebbe36f6b0dca01d2cd",
+  "plm_graph.py": "387ca9219f15664c866858d45d4f6fe544e2fcd934ae334bb773e8972898264c",
   "plm_graph_page.html": "52931f6e7b3eea8843ad72f9b1633a17e5460a5e535c45d5e02fdfdf866101f2",
   "plm_queries.py": "3fa963038b75cc5551bb7d7bbc3ced5760c03188fe77d47d393c145c390f1977",
   "plm_links.py": "b1d1957df9043f3ebd8e0c9f0af346974f5299dab9be2e804c3ccf08fa108f72",
