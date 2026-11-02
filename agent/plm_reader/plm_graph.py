@@ -879,18 +879,24 @@ def build_html(nodes, edges, media_dir, stats_extra=None):
     # Теперь:
     #   СОСТАВ / КУДА ВХОДИТ  ← structure (компоненты сборки) + inherit/derive/copy (наследование)
     #   ИСПОЛНЕНИЯ            ← variant (отдельной колонкой)
-    # 🔴🔴 V157 (владелец: «Состав (2090) и Куда входит (2090) — видно, что совсем не то!»):
-    # КОЛОНКИ ДУБЛИРОВАЛИ ДРУГ ДРУГА. Замер `O-RING` (6270 рёбер):
-    #   `structure/down` 2095 · `structure/up` 2090 → совпадающих ПАР 2090 (99.8%!)
-    #   пример: `O-RING → G18829-2017-VZ` лежит И в `down`, И в `up` (буквально одна пара дважды).
-    #   ⇒ «СОСТАВ» и «КУДА ВХОДИТ» показывали ОДНИХ И ТЕХ ЖЕ соседей.
-    # ⚠️ Это НЕ «встречные рёбра» (reversed) — это ПОВТОР одной пары (проверка `reversed` дала 5,
-    #   а совпадение — 2090). Поэтому убираем `up`, если ТА ЖЕ пара уже есть как `down`.
+    # 🔴🔴 V158 (владелец: «„Куда входит“ должно выводить СБОРКИ + исполнения; а в „Исполнения
+    # семейства“ — только исполнения»): ИСПОЛНЕНИЯ ЛЕЗЛИ В «ВХОДИТ» ЧЕРЕЗ ВТОРОЙ КАНАЛ.
+    # ЗАМЕР `DIN912`: `structure/down` 1378 · `structure/up` 1377 · `variant/down` 1375 —
+    #   среди `structure` были ТЕ ЖЕ исполнения (`DIN912-M`, `DIN912-M10`…), т.е. одна связь
+    #   лежала в базе ДВАЖДЫ (как `family` И как `structure`) ⇒ «КУДА ВХОДИТ» показывал
+    #   исполнения вместо сборок.
+    # ЛЕЧЕНИЕ: пары, которые УЖЕ есть в `variant` (исполнения), исключаем из `_phys`.
+    _var_pairs = set()
+    for _e in edges:
+        if _e.get("kind") == "variant":
+            _var_pairs.add((_e["from"], _e["to"]))
+            _var_pairs.add((_e["to"], _e["from"]))     # обе стороны — это исполнение
     _down_pairs = set((_e["from"], _e["to"], _e.get("kind"))
                       for _e in edges if _e.get("dir") == "down")
     _variant = [e for e in edges if e.get("kind") == "variant"]
     _phys = [e for e in edges
              if e.get("kind") != "variant"
+             and (e["from"], e["to"]) not in _var_pairs
              and not (e.get("dir") == "up"
                       and (e["from"], e["to"], e.get("kind")) in _down_pairs)]
     _inh = [e for e in edges if e.get("channel") == "inherit"]
