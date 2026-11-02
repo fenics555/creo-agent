@@ -1,11 +1,11 @@
 {
- "version": "V155",
- "version_num": 155,
+ "version": "V156",
+ "version_num": 156,
  "date": "02.11.2026",
- "notes": "V156: исполнения отдельным блоком (не в составе); PRAGMA WAL+synchronous=NORMAL+cache 64МБ — коммиты на сетевой базе мгновенные",
+ "notes": "V156: связи по смыслу (исполнения отдельно); PRAGMA WAL+NORMAL+кэш — коммиты на шаре мгновенные",
  "files": {
   "engine.py": "074349e70c8ab9261237205a6aeea20e5d33db3eac2bfe6ef51bcb0077ae6b97",
-  "plm_reader.py": "56906527af637066f1cfec2eb49d2c86c8503fedf74885c6677a3968420cb84b",
+  "plm_reader.py": "5d999d5bdde58dd7a69cfd865312d8d5c7ee84345acccb2fc82fe4b30563046e",
   "plm_toolwin.py": "a9ae004ba4b2ab0e1247158a2f681021ae910f9ee3eef15584b0e641f1100679",
   "plm_history.py": "0e8a1b414f3ad7c67175251fb4192e26431b0e9760bcce6ba6d9faf03ada8c77",
   "plm_parse.py": "c6bb33a412b6b606ad402e3eb78cd49246b77738b69d82be1b6218a1358c0312",
