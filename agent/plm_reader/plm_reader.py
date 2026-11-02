@@ -41,7 +41,7 @@ if __name__ == "__main__":
     import sys as _sys
     _sys.modules.setdefault("plm_reader", _sys.modules["__main__"])
 
-APP_VERSION = "V154"      # V154: ШАГИ A-D — A: склейка встречных рёбер (20 787 дублей на экране) + двусторонняя стрелка; B: МАССА/ТЕЛА/МАТЕРИАЛЫ ЗАПИСЫВАЮТСЯ (scan_item_new звался без feat_dict → TypeError глотался) + ДВЕ materials в SCHEMA объединены; C: настройка write_mentions (39% базы); D: папка в карточке. См. STATE.md фаза 53.
+APP_VERSION = "V155"      # V155: (1) СКАН не застревает — коммит по ВРЕМЕНИ (10 с) вместо каждого 500-го файла (сетевая база Z:); (2) ОДНОИМЁННЫЕ .prt/.asm/.drw ПОДРЯД в списке (сортировка по имени без расширения, 5 745 моделей). См. STATE.md фаза 54.
 APP_TITLE = "PLM Reader " + APP_VERSION          # версия ОДНА: заголовок берёт её из константы
 DATA_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "db")          # данные — в подпапке db\
 SETTINGS_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "settings")  # настройки — в подпапке settings\
