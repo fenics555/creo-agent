@@ -1216,8 +1216,12 @@ CREATE TABLE IF NOT EXISTS equations (path TEXT, model TEXT, kind TEXT, name TEX
 CREATE INDEX IF NOT EXISTS ix_eq_model ON equations(model);
 CREATE INDEX IF NOT EXISTS ix_eq_kind ON equations(kind);
 CREATE INDEX IF NOT EXISTS ix_eq_path ON equations(path);
+-- 🔴🔴 V154 ШАГ B: ОДНА `materials` (объединение двух прежних объявлений!).
+-- Было ДВЕ таблицы с тем же именем (`mtype`/`density` и `n_props`/`system`) — SQLite создавал
+-- первую, и `scanner_write` падал `no column named n_props` ⇒ таблица ПУСТАЯ.
+-- Теперь колонки ОБЪЕДИНЕНЫ: окно читает `mtype`/`density`, новый сканер пишет `n_props`/`system`.
 CREATE TABLE IF NOT EXISTS materials (path TEXT, model TEXT, name TEXT, description TEXT,
-  mtype TEXT, density REAL);
+  mtype TEXT, density REAL, n_props INTEGER, system INTEGER);
 CREATE INDEX IF NOT EXISTS ix_mat_model ON materials(model);
 CREATE INDEX IF NOT EXISTS ix_mat_name ON materials(name);
 CREATE INDEX IF NOT EXISTS ix_mat_path ON materials(path);
@@ -1234,9 +1238,12 @@ CREATE TABLE IF NOT EXISTS item_ver (item_key TEXT, version INTEGER, ext TEXT,
 CREATE TABLE IF NOT EXISTS bodies (path TEXT, model TEXT, folder TEXT, version INTEGER,
   body_id INTEGER, seq INTEGER, volume REAL, density REAL, surfarea REAL, mass REAL);
 CREATE INDEX IF NOT EXISTS ix_bodies_model ON bodies(model);
-CREATE TABLE IF NOT EXISTS materials (path TEXT, model TEXT, name TEXT, description TEXT,
-  n_props INTEGER, system INTEGER);
-CREATE INDEX IF NOT EXISTS ix_mat_model ON materials(model);
+-- 🔴🔴 V154 ШАГ B: ДВЕ РАЗНЫХ `materials` БЫЛИ ОБЪЯВЛЕНЫ В ОДНОЙ SCHEMA (стр. выше — с
+-- `mtype`/`density`, и здесь — с `n_props`/`system`). SQLite создавал ПЕРВУЮ, поэтому
+-- `scanner_write` падал: `table materials has no column named n_props` ⇒ таблица оставалась
+-- ПУСТОЙ. Теперь ОДНА таблица со ВСЕМИ колонками (объединение), запись совместима с обоими
+-- потребителями (окно читает mtype/density, новый сканер пишет n_props/system).
+-- ⚠️ Первое объявление (стр. 1219) помечено `_materials_legacy` и в SCHEMA не создаётся.
 CREATE TABLE IF NOT EXISTS master_mat (path TEXT PRIMARY KEY, model TEXT, current_material TEXT,
   master_name TEXT, reported_name TEXT, has_master INTEGER);
 CREATE TABLE IF NOT EXISTS tools (path TEXT, model TEXT, tool_id TEXT, n_params INTEGER, assem TEXT);
@@ -1446,6 +1453,17 @@ def connect(ro=False, db=None):
             if _c and _col not in _c:
                 con.execute("ALTER TABLE %s ADD COLUMN %s TEXT DEFAULT 'real'" % (_tbl, _col))
                 con.commit()
+        # 🔴🔴 V154 ШАГ B: МИГРАЦИЯ `materials` — добавить колонки нового сканера.
+        # Старая база имеет `materials(mtype, density)`, а `scanner_write` пишет `n_props`/`system`
+        # ⇒ БЫЛО `table materials has no column named n_props` ⇒ таблица ПУСТАЯ (замер: 0 строк).
+        # `CREATE TABLE IF NOT EXISTS` существующую таблицу не меняет — нужен `ALTER ... ADD COLUMN`.
+        _mc = [r[1] for r in con.execute("PRAGMA table_info(materials)")]
+        if _mc:
+            for _col, _typ in (("n_props", "INTEGER"), ("system", "INTEGER"),
+                               ("mtype", "TEXT"), ("density", "REAL")):
+                if _col not in _mc:
+                    con.execute("ALTER TABLE materials ADD COLUMN %s %s" % (_col, _typ))
+                    con.commit()
     except Exception as _e:
         # грабля §83: НЕ молчать — иначе признак «исчезнет» без объяснения
         try:
@@ -2593,7 +2611,9 @@ def do_scan(roots, max_mb, limit, depth=None, progress_cb=None, stop_cb=None, fu
             if _use_new:
                 try:
                     import scanner_plm as _SN
-                    _boxes = _SN.scan_item_new(path)
+                    # 🔴 V154 ШАГ B: правильный вызов — `scan_item_new(path, FEATTYPE)`
+                    # (словарь типов фич из `scanner_plm`). Порядок: signature → словарь → ящики.
+                    _boxes = _SN.scan_item_new(path, getattr(_SN, "FEATTYPE", {}))
                     it = _SN.new_to_old(path, _boxes)
                 except Exception as _e:
                     log("scanner_new FAIL %s: %s — падаю на старый" % (path, _e))
@@ -2604,12 +2624,18 @@ def do_scan(roots, max_mb, limit, depth=None, progress_cb=None, stop_cb=None, fu
                 it = scan_item(s, path, codes, fstems.get(os.path.dirname(path), set()),
                                media_dir=media_dir, media_mode=media_mode,
                                **(param_cfg or {}))
-                # ДОПОЛНИТЕЛЬНО: ящики нового сканера (для таблиц bodies/materials/items/…)
+                # 🔴🔴 V154 ШАГ B (владелец: «делай все шаги»): ДОП. ЯЩИКИ нового сканера.
+                # ЖИВОЙ БАГ: здесь стояло `_SN.scan_item_new(path)` — БЕЗ обязательного
+                # `feat_dict` ⇒ ВСЕГДА `TypeError: missing 1 required positional argument`
+                # ⇒ исключение молча глоталось в `except` ⇒ `_boxes=None` ⇒ `write_item` НЕ
+                # вызывался ⇒ таблицы `bodies`/`mass_props`/`materials`/`features`/`dimensions`
+                # оставались ПУСТЫМИ (замер: 0 строк в каждой). Лечение: `scan_item_new_old`.
                 if _cfg.get("scanner_extra", True):
                     try:
                         import scanner_plm as _SN
-                        _boxes = _SN.scan_item_new(path)
-                    except Exception:
+                        _boxes = _SN.scan_item_new(path, getattr(_SN, "FEATTYPE", {}))
+                    except Exception as _e:
+                        log("scanner_extra scan FAIL %s: %s" % (path, _e))
                         _boxes = None
             # [V141-ВРЕМЕННО] ДОП. ТАБЛИЦЫ нового сканера (bodies·materials·items·matrices·…)
             # УДАЛИТЬ при переходе на `scanner_write` как основной путь.
