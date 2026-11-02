@@ -1,11 +1,11 @@
 {
- "version": "V152",
- "version_num": 152,
+ "version": "V153",
+ "version_num": 153,
  "date": "02.11.2026",
- "notes": "V153: ПАРАМЕТРЫ МОДЕЛИ и ИЗМЕНЕНИЯ ПАРАМЕТРОВ и ИСТОРИЯ работают в HTML (10321/8850/21665 моделей); граф без мусора (виртуальные только variant); превью на месте",
+ "notes": "V153: параметры/изменения/история работают; граф без мусора; превью на месте",
  "files": {
   "engine.py": "01492bfe8e9f67da36908c247d0598b8e166a3b8800450f7b140bde21fb8c9ef",
-  "plm_reader.py": "881c4d41805fe214ce8250b8166b67a5499ac4cd8aca96f1c7db3f1ac2ed6714",
+  "plm_reader.py": "ce0901b96691fda895d47ceb30b541855e2baee7efb7983db21be37472a16424",
   "plm_toolwin.py": "a9ae004ba4b2ab0e1247158a2f681021ae910f9ee3eef15584b0e641f1100679",
   "plm_history.py": "0e8a1b414f3ad7c67175251fb4192e26431b0e9760bcce6ba6d9faf03ada8c77",
   "plm_parse.py": "c6bb33a412b6b606ad402e3eb78cd49246b77738b69d82be1b6218a1358c0312",
