@@ -41,7 +41,7 @@ if __name__ == "__main__":
     import sys as _sys
     _sys.modules.setdefault("plm_reader", _sys.modules["__main__"])
 
-APP_VERSION = "V153"      # V153: ПАРАМЕТРЫ МОДЕЛИ / ИЗМЕНЕНИЯ ПАРАМЕТРОВ / ИСТОРИЯ работают в HTML (collect_from_graph_db читает arch_dims/arch_dim_ch/changes: 10321/8850/21665); граф без мусора. См. STATE.md фаза 52.
+APP_VERSION = "V154"      # V154: ШАГИ A-D — A: склейка встречных рёбер (20 787 дублей на экране) + двусторонняя стрелка; B: МАССА/ТЕЛА/МАТЕРИАЛЫ ЗАПИСЫВАЮТСЯ (scan_item_new звался без feat_dict → TypeError глотался) + ДВЕ materials в SCHEMA объединены; C: настройка write_mentions (39% базы); D: папка в карточке. См. STATE.md фаза 53.
 APP_TITLE = "PLM Reader " + APP_VERSION          # версия ОДНА: заголовок берёт её из константы
 DATA_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "db")          # данные — в подпапке db\
 SETTINGS_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "settings")  # настройки — в подпапке settings\
