@@ -41,7 +41,7 @@ if __name__ == "__main__":
     import sys as _sys
     _sys.modules.setdefault("plm_reader", _sys.modules["__main__"])
 
-APP_VERSION = "V159"      # V159: ЛОГ ОТКРЫТ (кнопка «Лог» + engine.log_stats/log_clear): скан 18847-непрочитанных ФАЙЛОВ объяснился — 510 663 ошибки `name '_cfg' is not defined` (переменная из чужой функции, 2-е повторение грабли `_media_dir`). Плюс восстановлена ПОТЕРЯННАЯ `_fs_date`, разорван цикл plm_dbview↔plm_reader, «Дополнительно» 110→0.7 с (одиночки 106 с → 0.10 с, ответ тот же 18209), починены «Авторы», кнопки ИНСТРУМЕНТЫ 5+5 (был обрезан 3-й столбец), кнопка «Снять замок». См. STATE.md фаза 58.
+APP_VERSION = "V160"      # V160: ЕДИНЫЙ СКАНЕР (plm_scanner.py = слияние scanner_plm+scanner_write; двойной разбор убран — скан 2.5× быстрее); ИМЯ ФАЙЛА ПЕРВЫМ (file_name/file_ext/file_version) + item_key С РАСШИРЕНИЯМИ (деталь≠сборка≠чертёж; версии одного файла = одно изделие); ЦИКЛ creo_read↔engine РАЗОРВАН; МИГРАЦИИ СХЕМЫ БД в Database (schema_version 0→2, ALTER TABLE, бэкап, идемпотентно — доказано на копии: данные целы); ПОКАЗ БОЛЬШЕ НЕ ЧИТАЕТ ФАЙЛЫ (граф/превью только из базы); БЕСШОВНОЕ ОБНОВЛЕНИЕ (манифест несёт schema_version + remove[] — переживает прыжок через 5–20 версий). См. STATE.md фазы 59+. См. STATE.md фаза 58.
 APP_TITLE = "PLM Reader " + APP_VERSION          # версия ОДНА: заголовок берёт её из константы
 DATA_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "db")          # данные — в подпапке db\
 SETTINGS_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "settings")  # настройки — в подпапке settings\

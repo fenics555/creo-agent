@@ -1020,63 +1020,11 @@ def save_media(raw, media_dir, want="all", mode="auto", limit=2):
         return []
 
 
-def scan_item(s, path, stems, fstems=frozenset(), pdes=None, pname=None, pmat=None,
-              media_dir=None, media_mode="auto"):
-    raw = open(path, "rb").read()
-    vol = real(raw, "volume") or real(raw, "mtrl_volume")
-    des = _by_rules(raw, pdes or _PARAM_DES)
-    nmv = _by_rules(raw, pname or _PARAM_NAME)
-    mat = _by_rules(raw, pmat or _PARAM_MAT)
-    if not des and _des_from_rel(raw):
-        des = s                                  # ОБОЗНАЧЕНИЕ = rel_model_name → имя модели
-    nm = names(raw)
-    refs = {c: nm[c] for c in nm if c != s and c in stems and len(c) >= 2}
-    # V125: ВСЕ параметры модели (имя + тип + значение) и ТАБЛИЦА СЕМЕЙСТВА.
-    # Владелец: «все же что за ПЛМ, которая хранит не все параметры?»; «исполнения могут
-    # иметь СВОИ параметры, управляемые через уравнения или таблицу семейства».
-    cparams = creo_params(raw)
-    fam = family_of(raw, s, path)      # V135: таблица семейства — ТОЛЬКО у ДЕТАЛИ (.prt)
-    hist2 = creo_history(raw)          # V126: кто/когда правил (компьютер + юзер + Creo)
-    h = last_hist(raw) or ("", "", "")
-    hm = HISTRE.findall(raw)
-    base, dkind = derived_of(raw, path)
-    # 🔴 V137 (28.10.2026): ВСЕ родители наследования, а не первый (скилл §1 доп.: в одном файле
-    # бывает НЕСКОЛЬКО записей `MERGE_BASE_PART` — замер дал до 5 у одного файла оснастки).
-    # `derived_of` оставлен для совместимости (даёт первого), а записываются ВСЕ.
-    _mb_all = merge_base_parts(raw)
-    _rp_all = ref_part_parents(raw) if not is_drawing_file(path) else []
-    derived_all = [(nm, "наследование") for nm, _ in _mb_all]
-    derived_all += [(nm, "производная") for nm in _rp_all if nm.upper() not in
-                    {n.upper() for n, _ in derived_all}]
-    # 🔴 V139 (28.10.2026, скилл §7): НАСЛЕДОВАНИЕ СВОЙСТВА — канал `prop`.
-    # Владелец: «наследуется не обязательно геометрия — наследуется ЛЮБОЕ свойство».
-    # ВАЖНО: по свойству родителя-МОДЕЛИ НЕ строим (иначе `PTC_MATERIAL_TYPE` станет «моделью»),
-    # но данные СОХРАНЯЕМ — иначе 1 368 файлов свойств исчезают из системы.
-    props_all = inherited_properties(raw)
-    cf = copy_from_of(raw)      # 07.10.2026: «МОДЕЛЬ СКОПИРОВАНА ОТ …» — ОТДЕЛЬНАЯ связь (Creo пишет
-                                # её в самом файле: `from_mdl_name` → `to_mdl_name`). Она ДОПОЛНЯЕТ
-                                # заготовку/отливку, а не заменяет. Есть и у деталей, и у сборок.
-    # СВЯЗИ ИЗ СТРУКТУРЫ (эта сессия): состав сборки и модели .asm-обработки (деталь/заготовка/
-    # отливка/инструмент/ОСНАСТКА). Берутся только имена, которые есть на складе (`stems`),
-    # иначе в состав лезли бы посторонние записи Creo. Отсюда в базу идёт «связь → оснастка»,
-    # которой раньше в базе не было вовсе (ЭТАП 1.7 / 2.6).
-    # V135: состав берём у СБОРОК (.asm); чертёж (.drw) составом не обладает вообще — `asm_components`
-    # вернёт [] по проверке типа, но и разбирать его байты незачем.
-    parts = asm_components(raw, s, stems, path) if not is_drawing_file(path) else []
-    # V140: ПРЕВЬЮ ИЗ ТЕХ ЖЕ БАЙТОВ — файл второй раз НЕ читаем (§96.1.1, «один файл — одно чтение»).
-    # `media` пуст, если превью не просили (`media_dir=None`) или картинки в файле нет.
-    media = save_media(raw, media_dir, mode=media_mode) if media_dir else []
-    return {"model": s, "path": path, "size": len(raw), "mtime": os.path.getmtime(path),
-            "volume": vol or 0.0, "material": mat,
-            "name": nmv,
-            "designation": des,
-            "rev": h[0], "author": h[1], "revdate": h[2], "role": role(raw, fstems, s), "refs": refs,
-            "hist": len(hm), "creo": (hm[-1][3].decode("latin-1") if hm else ""),
-            "base": base, "dkind": dkind, "copy_from": cf, "parts": parts,
-            "derived_all": derived_all, "props_all": props_all,
-            "cparams": cparams, "family": fam, "hist2": hist2, "media": media}
-
-
+# --- 🔴 V160: СТАРЫЙ СКАНЕР `scan_item` УДАЛЁН (был 1023…1084) ---------------------------
+# Он читал файл и возвращал `it[...]`; заменён ЕДИНЫМ сканером `plm_scanner.scan_item_new`
+# (1 чтение + 1 проход + ящики) с адаптером `new_to_old`. Вызовов не было (проверено),
+# дублировать логику в двух местах ЗАПРЕЩЕНО (догма §85: одна правда).
+# Живой путь скана: `do_scan` → `plm_scanner.scan_item_new` → `new_to_old` + `write_item`.
 # --- ЕДИНЫЙ ЧИТАТЕЛЬ: своя вложенная копия creo_read (папка самодостаточна) ---
 try:
     import creo_read as _CR          # своя копия рядом с engine.py (переносимость)
@@ -1100,7 +1048,13 @@ SCHEMA = """
 CREATE TABLE IF NOT EXISTS snapshots (
   path TEXT PRIMARY KEY, model TEXT, folder TEXT, size INTEGER, mtime REAL, volume REAL,
   material TEXT, name TEXT, designation TEXT, rev TEXT, author TEXT, revdate TEXT,
-  role TEXT, seen TEXT, hist INTEGER, creo TEXT, created REAL);
+  role TEXT, seen TEXT, hist INTEGER, creo TEXT, created REAL,
+  file_name TEXT, file_ext TEXT, file_version INTEGER);
+CREATE INDEX IF NOT EXISTS ix_snap_model ON snapshots(model);
+CREATE INDEX IF NOT EXISTS ix_snap_folder ON snapshots(folder);
+CREATE INDEX IF NOT EXISTS ix_snap_des ON snapshots(designation);
+CREATE INDEX IF NOT EXISTS ix_snap_fname ON snapshots(file_name);
+CREATE INDEX IF NOT EXISTS ix_snap_fext ON snapshots(file_ext);
 CREATE TABLE IF NOT EXISTS changes (
   id INTEGER PRIMARY KEY AUTOINCREMENT, item TEXT, rev TEXT, kind TEXT, descr TEXT,
   who TEXT, ts TEXT);
@@ -2731,14 +2685,8 @@ def do_scan(roots, max_mb, limit, depth=None, progress_cb=None, stop_cb=None, fu
         # КАЖДЫЙ раз, черновик не публиковался, база не менялась.
         # ТЕПЕРЬ пишем СПИСКОМ КОЛОНОК: скан работает и на базе с чужой колонкой, и без неё,
         # а `pdata` не затирается (её значение остаётся как было — мы её не трогаем).
-        con.execute("INSERT OR REPLACE INTO snapshots "
-                    "(path,model,folder,size,mtime,volume,material,name,designation,rev,"
-                    "author,revdate,role,seen,hist,creo,created) "
-                    "VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)",
-                    (it["path"], it["model"], os.path.dirname(path), it["size"], it["mtime"],
-                     it["volume"], it["material"], it["name"], it["designation"], it["rev"],
-                     it["author"], it["revdate"], it["role"], now, it.get("hist", 0),
-                     it.get("creo", ""), ctime))
+        # 🔴 V160: снапшот пишет `plm_scanner.write_item` (одно место!) — здесь НЕ дублируем.
+        # Храним только `changes`/`derived`/`links`/`params` (их `write_item` не касается).
         # 🔴 V137: пишем ВСЕ родители наследования (`derived_all`: MERGE_BASE_PART + ref_part_tab),
         # а не только первого. Замер 28.10.2026: у `500-55-500-ящик-верх-форма.prt.1` — 5 родителей.
         _dall = list(it.get("derived_all") or [])
@@ -4068,7 +4016,10 @@ def check_updates(timeout=10):
     return {"ok": True, "local": VERSION, "remote": remote,
             "available": _ver_num(remote) > _ver_num(VERSION),
             "notes": (data.get("notes") or "").strip(),
-            "files": data.get("files") or {}}
+            "files": data.get("files") or {},
+            # 🔴 V160: бесшовность — манифест несёт СХЕМУ БД и список УСТАРЕВШИХ файлов
+            "schema_version": data.get("schema_version"),
+            "remove": data.get("remove") or []}
 
 
 def _download(url, timeout=15):
@@ -4122,14 +4073,20 @@ def _rotate_update_backups(keep=UPDATE_KEEP):
         return 0
 
 
-def sync_by_manifest(files, timeout=15):
-    """Привести папку к состоянию манифеста: скачать/заменить файлы, лишние — в obsolete\\.
-    Возвращает {ok, updated, obsolete, error}. Перед заменой — снимок кода в settings\\backup_update\\<дата>\\."""
+def sync_by_manifest(files, timeout=15, remove=None, schema_version=None):
+    """Привести папку к состоянию манифеста: файлы, лишнее — в obsolete\\, затем УДАЛИТЬ
+    устаревшие (`remove`) и МИГРИРОВАТЬ базу (`schema_version`).
+
+    🔴 V160 (бесшовность через 20 версий): раньше обновление меняло ТОЛЬКО файлы —
+    ни база не мигрировала, ни устаревшие файлы (кроме .py/.bat/.md) не убирались.
+    Возвращает {ok, updated, obsolete, removed, migrated, error}.
+    """
     import shutil
     stamp = datetime.datetime.now().strftime("%Y%m%d_%H%M%S")
     snap = os.path.join(BACKUP_UPDATE_DIR, stamp)
     obsolete_dir = os.path.join(snap, "obsolete")
-    result = {"ok": False, "updated": [], "obsolete": [], "error": "", "warnings": []}
+    result = {"ok": False, "updated": [], "obsolete": [], "removed": [],
+              "migrated": None, "error": "", "warnings": []}
     try:
         os.makedirs(snap, exist_ok=True)
         tmp_dir = os.path.join(snap, "_new")
@@ -4154,18 +4111,51 @@ def sync_by_manifest(files, timeout=15):
                 shutil.copy2(target, os.path.join(snap, name))
             shutil.move(os.path.join(tmp_dir, name), target)
             result["updated"].append(name)
-        known = set(files or {})
-        keep = {"settings", "db", "log", "__pycache__", "version.json"}
+        # ── 🔴 V160: УДАЛЕНИЕ УСТАРЕВШИХ (список манифеста, ЛЮБОЕ расширение) ────────
+        os.makedirs(obsolete_dir, exist_ok=True)
+        for name in (remove or []):
+            if os.path.basename(name) != name or not name:
+                continue
+            p = os.path.join(HERE, name)
+            if os.path.isfile(p):
+                shutil.move(p, os.path.join(obsolete_dir, name))
+                result["removed"].append(name)
+                log("update: устаревший файл убран -> obsolete\\%s" % name)
+        known = set(files or {}) | set(remove or {})
+        keep = {"settings", "db", "log", "__pycache__", "version.json", "debug", "старое", "_diag"}
+        # V160: чистим ЛИШНЕЕ по ВСЕМ код-расширениям (было только .py/.bat/.md —
+        # `plm_graph_page.html`, `.gitignore` и прочее оставались навсегда).
+        code_ext = (".py", ".bat", ".md", ".html", ".json", ".txt", ".cfg", ".ini", ".sh")
         for f in os.listdir(HERE):
-            if f in known or f in keep:
+            if f in known or f in keep or f == "version.json":
                 continue
-            if not (f.endswith(".py") or f.endswith(".bat") or f.endswith(".md")):
+            if not f.lower().endswith(code_ext):
                 continue
-            os.makedirs(obsolete_dir, exist_ok=True)
-            shutil.move(os.path.join(HERE, f), os.path.join(obsolete_dir, f))
+            p = os.path.join(HERE, f)
+            if not os.path.isfile(p):
+                continue
+            shutil.move(p, os.path.join(obsolete_dir, f))
             result["obsolete"].append(f)
         shutil.rmtree(tmp_dir, ignore_errors=True)
         _rotate_update_backups()
+        # ── 🔴 V160: МИГРАЦИЯ БАЗЫ (бесшовность через 20 версий) ─────────────────────
+        try:
+            import plm_database as _DB
+            # 🔴 ВАЖНО: мигрируем БАЗУ ЭТОЙ ПАПКИ (`HERE\db`), а не «активную» чужую.
+            # Живой дефект (найден пробой 03.11.2026): `migrate()` без пути брал `_live_db()`
+            # и менял схему БОЕВОЙ базы, пока обновлялась другая папка.
+            _local_db = os.path.join(HERE, "db", "plm_reader.db")
+            _target = _local_db if os.path.isfile(_local_db) else None
+            v_from = _DB.schema_version(_target)
+            v_res = _DB.migrate(_target, quiet=True)   # шаг за шагом + бэкап внутри
+            if isinstance(v_res, tuple):
+                result["migrated"] = {"from": v_res[0], "to": v_res[1]}
+            else:
+                result["migrated"] = {"from": v_from, "to": v_res}
+            log("update: схема БД %s (%s)" % (result["migrated"], _target or "активная"))
+        except Exception as e:                       # noqa: BLE001
+            result["migrated"] = {"error": str(e)}
+            log("update: миграция схемы не выполнена: %s" % e)
         # V109: ГЛАВНАЯ ГРАБЛЯ ШАРЫ. `CREO_GRAPH.html` и `CREO_GRAPH_data.js` НЕ идут в git
         # (в .gitignore: собираются на месте) — поэтому после обновления на шаре оставалась
         # СТАРАЯ страница: без новых превью и без истории. Владелец видел «нет картинок».
@@ -4176,8 +4166,9 @@ def sync_by_manifest(files, timeout=15):
                 result["graph_rebuild"] = True
         except Exception:                            # noqa: BLE001
             result["graph_rebuild"] = False
-        log("update: обновлено %d, устаревших %d, снимок %s"
-            % (len(result["updated"]), len(result["obsolete"]), snap))
+        log("update: обновлено %d, устаревших %d, удалено %d, снимок %s"
+            % (len(result["updated"]), len(result["obsolete"]),
+               len(result["removed"]), snap))
         result["ok"] = True
         return result
     except Exception as e:

@@ -631,15 +631,23 @@ def run_gui():
             except Exception:
                 pass
 
-    def _upd_done_dialog(remote, n_files, n_obsolete, note):
+    def _upd_done_dialog(remote, n_files, n_obsolete, note, migrated=None, removed=None):
         """V90: итог обновления — НЕ messagebox (там только «ОК»), а окно с кнопкой «Перезапустить»."""
         win = tk.Toplevel(root)
         win.title("Обновление")
         win.transient(root)
+        _extra = ""
+        if removed:
+            _extra += "\nУстаревших файлов удалено: %d (%s)" % (
+                len(removed), ", ".join(removed[:6]))
+        if isinstance(migrated, dict) and migrated.get("to") is not None:
+            _extra += "\nСхема базы: %s → %s (данные целы)" % (migrated.get("from"), migrated.get("to"))
+        elif isinstance(migrated, dict) and migrated.get("error"):
+            _extra += "\n⚠️ Схема базы НЕ обновлена: %s" % migrated.get("error")
         ttk.Label(win, padding=(12, 10), justify="left", anchor="w",
-                  text=("Обновлено до %s.\nФайлов: %d, устаревших убрано: %d.%s\n\n"
+                  text=("Обновлено до %s.\nФайлов: %d, устаревших убрано: %d.%s%s\n\n"
                         "Перезапустите программу — или нажмите «Перезапустить»."
-                        % (remote, n_files, n_obsolete, note))).pack(fill="both", expand=True)
+                        % (remote, n_files, n_obsolete, _extra, note))).pack(fill="both", expand=True)
         bf = ttk.Frame(win, padding=(12, 0, 12, 10))
         bf.pack(fill="x")
         ttk.Button(bf, text="Перезапустить", command=_restart_app).pack(side="right")
@@ -668,10 +676,12 @@ def run_gui():
         _place_center()
         win.after(80, lambda: _place_center(True))
 
-    def _apply_update(files, remote):
+    def _apply_update(files, remote, remove=None, schema_version=None):
         def work():
             _upd_status("обновление: качаю файлы…")
-            res = eng.sync_by_manifest(files)
+            # 🔴 V160: передаём СХЕМУ БД и СПИСОК УСТАРЕВШИХ — обновление бесшовно
+            # (миграция базы + удаление ненужных файлов, накопленных за 5–20 версий).
+            res = eng.sync_by_manifest(files, remove=remove, schema_version=schema_version)
             if res.get("ok"):
                 warns = res.get("warnings") or []
                 note = ("\n\nПримечание: у части файлов SHA не совпал с манифестом (манифест "
@@ -697,7 +707,8 @@ def run_gui():
                         eng.log("update: страницу пересобрать не удалось: %s" % e)
                 _upd_status("обновлено до %s — перезапустите программу" % remote)
                 root.after(0, lambda: _upd_done_dialog(
-                    remote, len(res.get("updated", [])), len(res.get("obsolete", [])), note))
+                    remote, len(res.get("updated", [])), len(res.get("obsolete", [])),
+                    note, res.get("migrated"), res.get("removed")))
             else:
                 _upd_status("обновление не удалось: %s" % res.get("error"))
                 root.after(0, lambda: messagebox.showwarning(
@@ -720,7 +731,9 @@ def run_gui():
                        % (r.get("remote"), r.get("local"), r.get("notes") or ""))
                 def ask():
                     if messagebox.askyesno("Есть обновление", msg):
-                        _apply_update(r.get("files") or {}, r.get("remote"))
+                        # 🔴 V160: передаём СХЕМУ БД и список УСТАРЕВШИХ → бесшовно через 5–20 версий
+                        _apply_update(r.get("files") or {}, r.get("remote"),
+                                      r.get("remove") or [], r.get("schema_version"))
                 root.after(0, ask)
             else:
                 _upd_status("обновлений нет (версия %s)" % r.get("local"))

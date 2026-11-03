@@ -213,8 +213,58 @@ def versions_window(parent, tk, ttk, filedialog, title, rows):
     for r in rows:
         tv.insert("", "end", values=[r.get(c, "") for c in VER_COLUMNS])
     return win
+def history_rows_from_db(path):
+    """🔴 ИСТОРИЯ ИЗ БАЗЫ (V160) — без чтения файла Creo.
+
+    Закон: «показ читает ТОЛЬКО базу». Таблица `history` уже наполнена СКАНЕРОМ
+    (1 492 401 строка в боевой базе): path · model · ts · user · computer · creo · rev · action.
+    Возвращает список строк ТОГО ЖЕ формата, что `history_rows` (окну менять не нужно),
+    или None — если в базе по этому пути ничего нет (тогда вызывающий может взять файл).
+    """
+    try:
+        con = eng.connect()
+        rows = list(con.execute(
+            "SELECT rev, ts, user, computer, creo, action FROM history WHERE path=? "
+            "ORDER BY ts", (path,)))
+        chg = {}
+        for r in con.execute("SELECT rev, descr FROM changes WHERE item=? ORDER BY id", (path,)):
+            if r[0]:
+                chg.setdefault(r[0], []).append(r[1] or "")
+        con.close()
+    except Exception:
+        return None
+    if not rows:
+        return None
+    base = os.path.basename(path)
+    folder = os.path.dirname(path)
+    typ = os.path.splitext(base)[1].lstrip(".").upper() or "?"
+    out = []
+    for rev, ts, who, comp, ver, action in rows:
+        d = None
+        try:
+            if ts:
+                import datetime as _dt
+                d = _dt.datetime.strptime(ts[:19], "%Y-%m-%d %H:%M:%S")
+        except Exception:
+            d = None
+        what = "; ".join([x for x in (chg.get(rev) or []) if x]) or (action or "")
+        out.append({"Файл": base, "Путь": folder, "Тип": typ,
+                    "Ревизия": rev, "Дата": d.strftime("%d.%m.%Y %H:%M:%S") if d else "",
+                    "Пользователь": who, "Компьютер": clean_computer(comp),
+                    "Версия Creo": ver, "Что изменено": what,
+                    "_dt": d.isoformat() if d else ""})
+    return out
+
+
 def history_rows(path, settings):
-    """Полная история файла: список записей (ревизия, дата, кто, компьютер, версия, что изменено)."""
+    """Полная история файла: список записей (ревизия, дата, кто, компьютер, версия, что изменено).
+
+    🔴 V160: СНАЧАЛА БАЗА (`history`/`changes`), файл читается ТОЛЬКО если в базе пусто
+    (старая база без записи). Так показ не ходит на склад без нужды.
+    """
+    from_db = history_rows_from_db(path)
+    if from_db:
+        return from_db
     raw = read_bytes(path, settings.get("max_size_mb", 24))    # V86: умолчание24 = DEFAULT
     if raw is None:
         return []

@@ -209,17 +209,19 @@ def read_file(path, max_mb=64, dump_dir=None, dump_limit=None):
     except OSError:
         return None
     # 🎚️ РЫЧАГ ОТЛАДКИ: дамп байтов (только для тестов!)
+    # ⚠️ V160: `dump_raw_limit` = СКОЛЬКО ПЕРВЫХ файлов сохранить (0 или пусто = ВСЕ).
     if dump_dir:
         try:
             os.makedirs(dump_dir, exist_ok=True)
             n = len([x for x in os.listdir(dump_dir) if x.endswith(".bin")])
-            if dump_limit is None or n < int(dump_limit):
-                # 🔴 ГРАБЛЯ (исправлена V160): было ТОЛЬКО `basename(path)` — одинаковые имена
-                # в РАЗНЫХ папках перезаписывали друг друга ⇒ для разбора «что прочитано»
-                # годился лишь последний файл. Теперь — модель + номер версии + короткий хэш пути.
+            _lim = 0 if dump_limit in (None, "", 0) else int(dump_limit)
+            if _lim <= 0 or n < _lim:
+                # 🔴 V160: имя дампа = МОДЕЛЬ + расширение + версия (видно, ЧТО прочитано),
+                # хеш пути — только в конце (иначе файлы не сопоставить со диском).
                 import hashlib
-                _h = hashlib.md5(path.encode("utf-8")).hexdigest()[:8]
-                safe = model_of(path) + "_" + _h
+                _h = hashlib.md5(path.encode("utf-8")).hexdigest()[:6]
+                _base = os.path.basename(path).replace("\\", "_")
+                safe = _base + "__" + _h
                 with open(os.path.join(dump_dir, safe + ".bin"), "wb") as f:
                     f.write(raw)
         except (OSError, ValueError, TypeError):
@@ -929,6 +931,10 @@ def pack(raw, anchors, feat_dict, pdes=None, pname=None, model=""):
     # (там только `system_mtrl`/`mtype`) ⇒ в снапшот шла ПУСТОТА (замер: 0 из 30 файлов).
     # Материал — из мастер-материала (тот же источник, что у старого сканера).
     _mat = master.get("current_material") or master.get("master_name") or master.get("reported_name") or ""
+    # 🔴 ГРАБЛЯ (сверка 03.11.2026): `master_name` бывает ССЫЛКОЙ `PTC_MASTER_MATERIAL`
+    # (имя таблицы схемы, а не материал) — такое НЕ пишем, иначе в паспорте мусор.
+    if _mat.strip().upper().startswith(("PTC_", "PRO_", "MM_", "NEUT_")):
+        _mat = ""
     passport["material"] = _mat
     return {
         "snapshots": {                      # паспорт модели
@@ -1010,7 +1016,8 @@ def new_to_old(path, boxes):
     """
     Ящики нового сканера → dict старого формата (`scan_item`).
 
-    Используется при ПЕРЕКЛЮЧЕНИИ (флаг `scanner_new` в настройках).
+    🔴 V160: флаг `scanner_new` УДАЛЁН — сканер ОДИН (`plm_scanner`), переключателя нет.
+    Адаптер остаётся, потому что `engine.do_scan` читает поля формата `it[...]`.
     """
     if not boxes:
         return None
@@ -1029,17 +1036,22 @@ def new_to_old(path, boxes):
     # `PTC_MASTER_MATERIAL` (имя таблицы, а не материал!) — эталон такое ОТБРАСЫВАЛ.
     _JUNK = ("PTC_MASTER_MATERIAL", "PTC_ASSIGNED_MATERIAL", "PTC_SYSTEM_MTRL_PROPS",
              "PTC_MATERIAL_NAME", "PTC_MATERIAL_DESCRIPTION", "PTC_MATERIAL_TYPE",
-             "PTC_MASTER_MATERIAL_NAME", "MM_ASSY", "MM_PART")
+             "PTC_MASTER_MATERIAL_NAME", "MM_ASSY", "MM_PART", "NONE")
+
+    def _is_junk_material(s):
+        """Служебное имя схемы (PTC_*/PRO_*/MM_*) — НЕ материал."""
+        u = (s or "").strip().upper()
+        return (not u) or u in _JUNK or u.startswith(("PTC_", "PRO_", "MM_", "NEUT_"))
+
     material = ""
     for _cand in (mm.get("current_material"), mm.get("master_name"), mm.get("reported_name")):
-        _s = (_cand or "").strip()
-        if _s and _s.upper() not in _JUNK:
-            material = _s
+        if not _is_junk_material(_cand):
+            material = _cand.strip()
             break
     if not material:
         for m in (mm.get("materials") or []):
             _s = (m.get("name") or "").strip()
-            if _s and not m.get("system") and _s.upper() not in _JUNK:
+            if not m.get("system") and not _is_junk_material(_s):
                 material = _s
                 break
     # СВЯЗИ: refs (состав) из components
@@ -1068,6 +1080,23 @@ def new_to_old(path, boxes):
         _h = _CR.last_hist(_raw2) or ("", "", "")
     except Exception:
         _h = ("", "", "")
+    # 🔴 ИСТОРИЯ (hist2) — V160: РАНЬШЕ АДАПТЕР ЕЁ НЕ ЗАПОЛНЯЛ (`hist2: []`) ⇒
+    # `do_scan` писал в таблицу `history` ПУСТОТУ, и история перестала собираться
+    # (живой факт: у g9650.prt.1 — 26367 записей с ПУСТОЙ датой). Теперь — из файла:
+    # `creo_read.user_time()` даёт (позиция, пользователь, дата) — все записи журнала.
+    _hist2 = []
+    try:
+        _raw3 = _raw if "_raw" in dir() and _raw else read_file(path)
+        for _pos, _who, _dt in (_CR.user_time(_raw3) or []):
+            _hist2.append({"user": _who or "USER", "computer": "", "creo": "",
+                           "ts": _dt.strftime("%d.%m.%Y %H:%M:%S") if _dt else "",
+                           "rev": "", "action": ""})
+        _lh = _CR.last_hist(_raw3) or ("", "", "")
+        if _lh[0] or _lh[1] or _lh[2]:
+            _hist2.append({"user": _lh[1] or "USER", "computer": "", "creo": "",
+                           "ts": _lh[2] or "", "rev": _lh[0] or "", "action": ""})
+    except Exception:
+        _hist2 = []
     return {
         "model": model_of(path),
         "path": path,
@@ -1086,7 +1115,7 @@ def new_to_old(path, boxes):
         "creo": snap.get("creo", "") or "",
         "base": "", "dkind": "", "copy_from": links.get("copy_from", "") or "",
         "parts": [], "derived_all": [(d, "наследование") for d in (links.get("derived") or [])],
-        "props_all": [], "cparams": [], "family": [], "hist2": [], "media": [],
+        "props_all": [], "cparams": [], "family": [], "hist2": _hist2, "media": [],
         # ★ ДОПОЛНИТЕЛЬНО (новые данные — для расширенной записи)
         "_new": boxes,
     }
@@ -1345,23 +1374,31 @@ def write_item(con, path, boxes):
         con.execute("UPDATE items SET n_versions=? WHERE item_key=?", (nv, pp["item_key"]))
     n += 1
 
-    # --- ПАСПОРТ (главная таблица!): designation/name/material/volume/rev/author ---
-    # 🔴 ЭТАП 1 (V160): РАНЬШЕ `snapshots` НЕ ПИСАЛАСЬ ВООБЩЕ — отсюда «designation 0/20».
-    # 🔴 ЭТАП 3 (V160): + ИМЯ ФАЙЛА ПЕРВЫМ (file_name с расширением, без версии) —
-    #    «будет понятно что есть что, а где реально дубли» (слово владельца).
+    # --- ПАСПОРТ (snapshots) ---
+    # 🔴 V160: `write_item` пишет снапшот САМ, потому что вызывается АВТОНОМНО
+    # (аудит/пробы/`write_folder`) БЕЗ `do_scan`. Раньше писали оба → двойная работа;
+    # теперь `do_scan` НЕ пишет снапшот (делает это `write_item`) — одно место.
     snap = boxes.get("snapshots") or {}
     if snap:
+        _st = None
+        try:
+            _st = os.stat(path)
+        except OSError:
+            pass
         con.execute(
             "INSERT OR REPLACE INTO snapshots "
             "(path,model,folder,size,mtime,volume,material,name,designation,rev,"
             "author,revdate,role,seen,hist,creo,created,file_name,file_ext,file_version) "
             "VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)",
-            (path, snap.get("model") or m, pp["folder"], snap.get("size"),
-             snap.get("mtime"), snap.get("volume"), snap.get("material"),
-             snap.get("name"), snap.get("designation"), snap.get("rev"),
-             snap.get("author"), snap.get("revdate"), snap.get("role"),
-             snap.get("seen"), snap.get("hist") or 0, snap.get("creo") or "",
-             snap.get("created"), pp["file_name"], pp["ext"], pp["version"]))
+            (path, snap.get("model") or m, pp["folder"],
+             snap.get("size") or (_st.st_size if _st else 0),
+             snap.get("mtime") or (_st.st_mtime if _st else 0),
+             snap.get("volume"), snap.get("material"), snap.get("name"),
+             snap.get("designation"), snap.get("rev"), snap.get("author"),
+             snap.get("revdate"), snap.get("role"), snap.get("seen"),
+             snap.get("hist") or 0, snap.get("creo") or "",
+             snap.get("created") or (_st.st_ctime if _st else 0),
+             pp["file_name"], pp["ext"], pp["version"]))
         n += 1
 
     # --- ТЕЛА (у каждого свои volume/density/mass) ---

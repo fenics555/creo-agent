@@ -34,6 +34,29 @@ CODE_FILES = [
     # V143: ГРАФ-ПОСТРОИТЕЛЬ — полный граф связей всей базы в свои таблицы
     # (`graph_nodes`/`graph_edges`/`graph_metrics`). Показ (HTML/окно) только ЧИТАЕТ их.
     "plm_graph_build.py",
+    # V160: ЕДИНЫЙ СКАНЕР (слияние scanner_plm + scanner_write) — см. remove[] ниже.
+    "plm_scanner.py",
+    # V160: ДОКУМЕНТЫ ТЕМЫ — ОБЯЗАТЕЛЬНЫ в манифесте! Иначе при обновлении уйдут
+    # в obsolete\ (что и случилось в пробе 03.11.2026: STATE/CONCEPT/PLAN уехали).
+    "STATE.md",                # живое состояние (читать вторым после закона)
+    "CONCEPT_PLM.md",          # свод концепции: что и зачем хранить
+    "PLAN_ONE_SCANNER.md",     # этапы приведения к «один сканер»
+]
+
+# ═══════════════════════════════════════════════════════════════════════════════
+# 🔴 УСТАРЕВШИЕ ФАЙЛЫ (следствие обновления): УДАЛЯЮТСЯ при обновлении.
+#    Ведётся НАКОПИТЕЛЬНО: файл, ставший ненужным в ЛЮБОЙ версии, живёт здесь
+#    навсегда — тогда прыжок «через 20 версий» удалит ВСЁ лишнее сразу.
+#    ⚠️ Без путей, только имена. НЕ включать сюда рабочие файлы!
+# ═══════════════════════════════════════════════════════════════════════════════
+REMOVED_FILES = [
+    # V160 (03.11.2026): скан сведён в ОДИН файл `plm_scanner.py` (правило 7 README);
+    # `plm_scan.py`/`plm_parse.py` — старый распил окна (оставлены, окно их импортирует).
+    "scanner_plm.py",
+    "scanner_write.py",
+    # V159 и ранее: отладочные пробы в корне (переехали в debug/ или удалены).
+    "_probe_scan137.py",
+    "_smoke_v87.py",
 ]
 
 
@@ -57,6 +80,20 @@ def current_version():
     return "V0", 0
 
 
+def current_schema_version():
+    """Версия СХЕМЫ БД из `plm_database.SCHEMA_VERSION` (для миграции при обновлении).
+
+    🔴 V160: раньше манифест НЕ нёс схему — обновление меняло файлы, но НЕ базу.
+    Кто обновился через 20 версий, получал новый код на старой схеме → падение.
+    """
+    try:
+        sys.path.insert(0, HERE)
+        import plm_database as _DB
+        return int(_DB.SCHEMA_VERSION)
+    except Exception:
+        return 0
+
+
 def main():
     ver, num = current_version()
     files = {}
@@ -69,12 +106,18 @@ def main():
         "version_num": num,
         "date": datetime.date.today().strftime("%d.%m.%Y"),
         "notes": (sys.argv[1] if len(sys.argv) > 1 else "").strip(),
+        # 🔴 V160: КАКАЯ СХЕМА БД НУЖНА этой версии (обновление вызовет migrate()).
+        "schema_version": current_schema_version(),
+        # 🔴 V160: НАКОПИТЕЛЬНЫЙ список устаревших файлов — удаляются при обновлении
+        # (любое расширение, а не только .py/.bat/.md).
+        "remove": sorted(set(REMOVED_FILES)),
         "files": files,
     }
     out = os.path.join(HERE, "version.json")
     with open(out, "w", encoding="utf-8") as f:
         json.dump(manifest, f, ensure_ascii=False, indent=1)
-    print("version.json: %s (num=%d), files=%d -> %s" % (ver, num, len(files), out))
+    print("version.json: %s (num=%d), schema=%d, remove=%d, files=%d -> %s"
+          % (ver, num, manifest["schema_version"], len(manifest["remove"]), len(files), out))
 
 
 if __name__ == "__main__":
