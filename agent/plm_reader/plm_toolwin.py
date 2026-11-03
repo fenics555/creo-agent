@@ -571,8 +571,15 @@ def run_gui():
     var_auto = tk.BooleanVar(value=settings.get("auto_refresh", True))
     ttk.Checkbutton(grp_show, text="автообновление", variable=var_auto,
                     command=_auto_changed).pack(anchor="w", pady=(4, 0))
-    var_full = tk.BooleanVar(value=settings.get("full", False))
-    ttk.Checkbutton(grp_show, text="перечитать всё", variable=var_full).pack(anchor="w")
+    # 🔴🔴 V161 (владелец: «кнопка должна только запускать скан, а как читать/перечитывать —
+    # это настройки, не кнопка»). БЫЛО: галочка «перечитать всё» (`var_full`) стояла в панели
+    # ПОКАЗА и ЧИТАЛАСЬ кнопкой «Сканировать» ПРИ КАЖДОМ нажатии. Оставленная нажатой, она
+    # превращала КАЖДЫЙ обычный скан в полный пересчёт: кэш `размер+время` отключён
+    # (`engine.do_scan`: `if not full and ...`), перечитывались ВСЕ 60 000 файлов,
+    # перезаписывались все таблицы — отсюда и рост базы, и минуты на прогон.
+    # СТАЛО: галочки НЕТ. Есть РАЗОВАЯ кнопка «Перечитать всё» — сбрасывается сама после
+    # запуска. Обычная кнопка «Сканировать» ВСЕГДА читает только изменённое (кэш работает).
+    var_full = tk.BooleanVar(value=False)           # всегда False — режим задаёт кнопка, не галочка
 
     btn = ttk.Button(grp_do, text="Сканировать", width=18)
     btn.pack(anchor="w", pady=1)
@@ -580,6 +587,13 @@ def run_gui():
     def stop_scan():
         root._plm_stop = True
         lbl.config(text="останавливаю…")
+
+    # 🔴 V161: РАЗОВЫЙ полный скан — ОТДЕЛЬНАЯ кнопка (не галочка!). После нажатия
+    # `var_full` сбрасывается в False в `go()`, поэтому следующий обычный скан снова
+    # использует кэш. Случайно «оставить включённым» больше НЕЛЬЗЯ.
+    b_refull = ttk.Button(grp_do, text="Перечитать всё", width=18,
+                          command=lambda: go(full=True))
+    b_refull.pack(anchor="w", pady=1)
 
     b_stop = ttk.Button(grp_do, text="Стоп", command=stop_scan, state="disabled", width=18)
     b_stop.pack(anchor="w", pady=1)
@@ -4534,10 +4548,13 @@ def run_gui():
     def save_ui():
         """Собрать в настройки то, что на экране, и сохранить (зовётся при закрытии окна)."""
         try:
+            # 🔴 V161: `"full"` тут БОЛЬШЕ НЕ ПИШЕТСЯ — режим задаёт кнопка, а не настройка.
+            # Если писать, значение «залипнет» и следующий запуск будет полным сканом.
             settings.update({"max_size_mb": float(e_max.get() or 0),
                              "recurse": var_rec.get(), "latest_only": var_lat.get(),
                              "depth": int(e_depth.get() or 0), "purge_keep": int(e_keep.get() or 2),
-                             "auto_refresh": var_auto.get(), "full": var_full.get()})
+                             "auto_refresh": var_auto.get()})
+            settings.pop("full", None)
         except Exception:
             pass
         save_settings_file(settings)
@@ -4822,7 +4839,15 @@ def run_gui():
             res = {"error": str(e)}
         q.put(("done", 0, res))
 
-    def go():
+    def go(full=None):
+        """ЗАПУСТИТЬ СКАН. `full=None` (кнопка «Сканировать») — обычный режим: читаем только
+        изменённое (кэш `размер+время`). `full=True` (кнопка «Перечитать всё») — РАЗОВЫЙ полный
+        пересчёт. В настройки режим НЕ пишется: настройка есть, но кнопки её не меняют.
+
+        🔴 V161 (владелец: «кнопка должна только запускать скан, а как читать/перечитывать —
+        это настройки, не кнопка»): раньше режим брался из галочки `var_full.get()`; её забывали
+        снять — и КАЖДЫЙ скан шёл полным (кэш не работал, база росла).
+        """
         folder = norm_path(e_folder.get())
         if not os.path.isdir(folder):
             messagebox.showwarning(APP_TITLE, "Выберите папку.")
@@ -4844,8 +4869,13 @@ def run_gui():
         e_folder.insert(0, folder)
         tree.delete(*tree.get_children())
         rows_all.clear()
+        # 🔴 V161: РЕЖИМ — ИЗ АРГУМЕНТА КНОПКИ, НЕ ИЗ ГАЛОЧКИ. «Сканировать» → full=False (кэш
+        # работает). «Перечитать всё» → full=True, но ТОЛЬКО ЭТОТ прогон: `var_full` в настройки
+        # НЕ пишется, поэтому следующий обычный скан снова читает лишь изменённое.
+        _full = bool(full) if full is not None else bool(settings.get("full", False))
         opts = {"max_size_mb": float(e_max.get() or 0), "recurse": var_rec.get(),
-                "latest_only": var_lat.get(), "full": var_full.get()}
+                "latest_only": var_lat.get(), "full": _full}
+        lbl.config(text=("ПОЛНЫЙ скан (перечитать всё)…" if _full else "скан изменённого…"))
         btn.config(state="disabled")
         b_stop.config(state="normal")
         root._plm_stop = False
@@ -4860,11 +4890,16 @@ def run_gui():
         except Exception:
             pass
         lbl.config(text="ищу файлы…" + _hint)
+        # 🔴 V161: `"full"` в настройки НЕ пишем. Иначе режим «залипал»: один раз включённый
+        # полный скан оставался в settings.json, и КАЖДЫЙ следующий запуск программы читал
+        # его как «перечитать всё» (кэш мёртв, база растёт). Режим теперь живёт ТОЛЬКО
+        # в аргументе кнопки — «залипнуть» ему негде.
         settings.update({"max_size_mb": opts["max_size_mb"],
                          "recurse": opts["recurse"], "latest_only": opts["latest_only"],
                          "depth": int(e_depth.get() or 0), "purge_keep": int(e_keep.get() or 2),
-                         "auto_refresh": var_auto.get(), "full": var_full.get(),
+                         "auto_refresh": var_auto.get(),
                          "show_limit": max(1000, min(1000000, int(sp_limit.get() or 50000)))})
+        settings.pop("full", None)          # убрать старое «залипшее» значение из настроек
         save_settings()
         threading.Thread(target=worker, args=(roots, opts), daemon=True).start()
         root.after(120, poll_scan)
@@ -5192,9 +5227,9 @@ def run_gui():
                 "Это займёт время, зато база станет полной.")
         try:
             if messagebox.askyesno("PLM Reader — нужен ПОЛНЫЙ СКАН", note):
-                var_full.set(True)               # галочка «перечитать всё (полный скан)»
-                settings["full"] = True
-                go()                             # тот же путь, что кнопка «Скан» (папку берёт сам)
+                # 🔴 V161: зовём `go(full=True)` — РАЗОВЫЙ полный скан. В настройки НЕ пишем
+                # (раньше `settings["full"]=True` «залипал» навсегда и убивал кэш).
+                go(full=True)
         except Exception as ex:                  # noqa: BLE001
             log_line("full-scan prompt: %s" % ex)
 
