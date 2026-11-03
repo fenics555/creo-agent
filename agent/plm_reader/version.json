@@ -1,8 +1,8 @@
 {
- "version": "V160",
- "version_num": 160,
+ "version": "V161",
+ "version_num": 161,
  "date": "03.11.2026",
- "notes": "V160.6 КРИТИЧНО: БАЗА НЕ РАСТЁТ (48 ГБ -> 39 МБ). ТРИ утечки устранены: (1) в plm_scanner.py НЕ БЫЛО НИ ОДНОГО DELETE FROM - unknown_fields (x8917!), matrices (x9162), dim_all, bodies, materials, tools копились при перескане; теперь DELETE по path для 17 таблиц. (2) links[mentions] без очистки (+52/скан) - добавлен DELETE. (3) changes писал ложную правку при full=True (+355/прогон, x22 прогона = 103 млн) - теперь при full журнал НЕ пишется. (4) plm_build_links: DELETE built перед достройкой. ТЕСТ: 5 сканов подряд full=True и full=False - все 15 таблиц стабильны, размер 39.1 МБ. Урок: прежняя приёмка не проверяла идемпотентность - добавлен обязательный тест tests/test_no_grow_*.py. УДАЛЕНО ПО ПРОВЕРКЕ: 3 файла базы по 47.92 ГБ (144 ГБ).",
+ "notes": "V161 БАЗА НЕ РАСТЁТ: устранены ТРИ утечки роста (было 48 ГБ, стало 39 МБ). (1) plm_scanner.write_item - DELETE по path для 17 таблиц (раньше не было НИ ОДНОГО DELETE FROM: unknown_fields x8917, matrices x9162 копились при перескане). (2) engine - DELETE links[mentions]. (3) engine - при full=True журнал changes НЕ пополняется (+355 строк за прогон, 22 прогона = 103 млн). (4) plm_build_links - DELETE built перед достройкой. (5) params - точный разбор как engine.creo_params (23/файл, было 344). ТЕСТ: 5 сканов подряд full=True и full=False - 15 таблиц стабильны, 39.1 МБ. ВАЖНО: номер версии теперь растёт при каждой правке - иначе check_updates сравнивает 160>160=False и пишет обновлений нет, хотя файлы на GitHub новые.",
  "schema_version": 2,
  "remove": [
   "_probe_scan137.py",
@@ -12,7 +12,7 @@
  ],
  "files": {
   "engine.py": "be94e0c1cb816adfa68d9e0ac7ceafb6f6fe73cc7ca6cc46e595f79ab3d90cf4",
-  "plm_reader.py": "2bb8f50a291878d190cc813fed7a36f131954f5000590142363f12137f9f8d4b",
+  "plm_reader.py": "b739be48e425eafe3de6d28cb46312cd969563906887c078af0290abe67c8161",
   "plm_toolwin.py": "1bb1283227037e7cab77efeea3bdca9f273be173d785edda248f55262a01d228",
   "plm_history.py": "48f3705e57d3485f50f667b2afe63eeab35177f743e2b532123377013a5986ac",
   "plm_parse.py": "c6bb33a412b6b606ad402e3eb78cd49246b77738b69d82be1b6218a1358c0312",

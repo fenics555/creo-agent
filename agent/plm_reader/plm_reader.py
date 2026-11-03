@@ -41,7 +41,23 @@ if __name__ == "__main__":
     import sys as _sys
     _sys.modules.setdefault("plm_reader", _sys.modules["__main__"])
 
-APP_VERSION = "V160"      # V160: ЕДИНЫЙ СКАНЕР (plm_scanner.py = слияние scanner_plm+scanner_write; двойной разбор убран — скан 2.5× быстрее); ИМЯ ФАЙЛА ПЕРВЫМ (file_name/file_ext/file_version) + item_key С РАСШИРЕНИЯМИ (деталь≠сборка≠чертёж; версии одного файла = одно изделие); ЦИКЛ creo_read↔engine РАЗОРВАН; МИГРАЦИИ СХЕМЫ БД в Database (schema_version 0→2, ALTER TABLE, бэкап, идемпотентно — доказано на копии: данные целы); ПОКАЗ БОЛЬШЕ НЕ ЧИТАЕТ ФАЙЛЫ (граф/превью только из базы); БЕСШОВНОЕ ОБНОВЛЕНИЕ (манифест несёт schema_version + remove[] — переживает прыжок через 5–20 версий). См. STATE.md фазы 59+. См. STATE.md фаза 58.
+APP_VERSION = "V161"      # 🔴 V161 (03.11.2026): БАЗА НЕ РАСТЁТ — устранены ТРИ утечки роста (было
+                          # 48 ГБ, стало 39 МБ). ВАЖНО: номер ОБЯЗАН расти при КАЖДОЙ правке, иначе
+                          # `check_updates` сравнивает 160>160=False и пишет «обновлений нет», хотя
+                          # файлы на GitHub НОВЫЕ (проверено SHA: 8 из 28 отличались). Прежние правки
+                          # V160.1…V160.6 ушли под ОДНИМ номером — потому и не доставлялись на шару.
+                          # Что в V161: (1) plm_scanner.write_item — DELETE по path для 17 таблиц
+                          # (раньше в файле не было НИ ОДНОГО DELETE FROM: unknown_fields ×8917,
+                          # matrices ×9162 копились); (2) engine — DELETE links[mentions];
+                          # (3) engine — при full=True журнал `changes` НЕ пополняется (давал +355
+                          # строк за прогон, 22 прогона = 103 млн); (4) plm_build_links — DELETE built;
+                          # (5) params — точный разбор как engine.creo_params (23/файл, было 344).
+                          # ТЕСТ: 5 сканов подряд (full=True и full=False) — 15 таблиц стабильны.
+                          # V160: ЕДИНЫЙ СКАНЕР (plm_scanner.py = слияние scanner_plm+scanner_write;
+                          # двойной разбор убран — скан 2.5× быстрее); ИМЯ ФАЙЛА ПЕРВЫМ
+                          # (file_name/file_ext/file_version) + item_key С РАСШИРЕНИЯМИ; ЦИКЛ
+                          # creo_read↔engine РАЗОРВАН; МИГРАЦИИ СХЕМЫ БД (schema_version 0→2);
+                          # ПОКАЗ БОЛЬШЕ НЕ ЧИТАЕТ ФАЙЛЫ; БЕСШОВНОЕ ОБНОВЛЕНИЕ (schema_version + remove[]).
 APP_TITLE = "PLM Reader " + APP_VERSION          # версия ОДНА: заголовок берёт её из константы
 DATA_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "db")          # данные — в подпапке db\
 SETTINGS_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "settings")  # настройки — в подпапке settings\
