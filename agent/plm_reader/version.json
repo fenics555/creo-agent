@@ -2,7 +2,7 @@
  "version": "V160",
  "version_num": 160,
  "date": "03.11.2026",
- "notes": "V160.2: ЗАКРЫТЫ ПОСЛЕДНИЕ ЧТЕНИЯ ФАЙЛОВ В ПОКАЗЕ. plm_history: version_diff_from_db (версии .1/.2/.3 из snapshots), copy_source_of_db (скопирована от - из derived), history_rows_from_db (история из history+changes). Закон ФАЙЛЫ CREO ЧИТАЕТ ТОЛЬКО СКАНЕР выполнен кодом: engine.scan_item удалён, plm_graph.collect_by_path/collect_from_snapshots удалены. ПРИЁМКА: 19 проверок 0 сбоев.",
+ "notes": "V160.3 КРИТИЧНО: ИСПРАВЛЕНО РАЗДУВАНИЕ БАЗЫ (1.3 ГБ -> 47.9 ГБ). Грубый отбор params (344 имени/файл) заменён ТОЧНЫМ разбором как engine.creo_params: <ИМЯ> + ТЕГ ЗНАЧЕНИЯ (e2 33) => 23 параметра/файл (эталон). Замер: 399 файлов, params 12648, база 39 МБ (было 47.9 ГБ). Это была причина 194 с скана: копирование 48 ГБ базы по сети. ВНИМАНИЕ: раздутые копии базы удаляет ВЛАДЕЛЕЦ (шара).",
  "schema_version": 2,
  "remove": [
   "_probe_scan137.py",
@@ -21,7 +21,7 @@
   "plm_scan.py": "e32d610e33932afaee4c952cb0b4564801508f0568d4360d7d039ffacb856f48",
   "plm_paths_window.py": "c1bb60b36fbe7fe86e5213680978eab41ac1d1c722d7fd58fae4820155a3833a",
   "creo_read.py": "5d61edc8d94d9ac94bb8041d06c00c86484fe31ecb951d5a5b9bd2dd47875a26",
-  "README.md": "1a007f36103ac200a13425b3c4231f14ac33c3fe09a519ae4672fe1f893091df",
+  "README.md": "731945b9a72dc38113385b773ac80e2b6b42401f3f25dd9a0530aef5d5181302",
   "SHARE_copy.bat": "4eccb549a17251392337aeabbc3ef76233dfa3072beadff9d158cd6e932622ee",
   "plm_reader.bat": "bdd125397db3ac7e7432dbdb078a6a811ed4913fca02b062edb27907032fca3d",
   "plm_reader_gui.bat": "9f695898d5db6431e840784b9587c75304ca9e526b06f79d4b44ab026663bd20",
@@ -35,8 +35,8 @@
   "plm_build_links.py": "df2fa48516d03bbaefddab3de7ce6eb7e2289b326bd899da4e77f5d021ab2b1d",
   "plm_database.py": "10706cee1897e2cf09184b46dcf0386d6ee05b812887d2f669f6c05fb4fe367f",
   "plm_graph_build.py": "7e3ccf9e59e6cd98029b8dc2ec9473831169ba82b82ed2d8a3670b0f2e5be7ed",
-  "plm_scanner.py": "8008a7acd34b1fb34ec6a0b944c14b048cecee6173018ed2aec16a25c818fd60",
-  "STATE.md": "5076470ca0ba3af339bbaa4c369a043ebaa80e4feeb05c7dce5f30bd90f371e5",
+  "plm_scanner.py": "4f0b4825290fbef3991ba99bf72f26ac83ecfff59ce9abc45f0c3c429b376242",
+  "STATE.md": "5a701146811fa62d6f4e8943471205790506cc1c1e1a1df8e674b2161f9a032a",
   "CONCEPT_PLM.md": "6addb5c97847d55b261a2890e8f08a6efc4a2ca468c8d090f357b1b8c2c4ab61",
   "PLAN_ONE_SCANNER.md": "5ad0843add56f20e8964eeda205466bc621a004039bb034928a64b40039e7f14"
  }

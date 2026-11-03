@@ -634,87 +634,43 @@ def extract_links(raw, anchors):
 # 🔴 ЗАКОН ВЛАДЕЛЬЦА (30.10.2026): «"НЕИЗВЕСТНОЕ" ≠ "МУСОР"».
 # Найдено непонятное → ЗАПИСАТЬ (в `unknown_fields`), а не выбрасывать.
 #
-# 🔴🔴 V160 (ПРОИЗВОДИТЕЛЬНОСТЬ): РАНЬШЕ `extract_params` брал ЛЮБУЮ пару `<имя>\x00<знач>`
-# и хранил ВСЕ повторы: `type` ×97 · `id` ×70 · `attr` ×29 · `feat_id` ×27 … Замер:
-# **1473 строки на файл**, из них уникальных имён 678 — и почти все это СЛУЖЕБНЫЕ ПОЛЯ
-# СХЕМЫ Creo (структура файла), а не параметры пользователя. При 60 000 файлов ≈ 88 млн строк.
-# ТЕПЕРЬ: параметрами считаются имена, которые Creo пишет как ПАРАМЕТРЫ МОДЕЛИ —
-# `PTC_*` · `PRO_*` · пользовательские (КИРИЛЛИЦА/латиница без `_index`/`_ptr`) — плюс
-# дедупликация по имени. Служебные имена НЕ теряются: они в `unknown_fields` (закон соблюдён).
-_RE_PARAM = re.compile(rb"\xe0\x01([\x20-\x7e\xc0-\xff]{2,40})\x00")
+# 🔴🔴 V160.3 (РАЗДУВАНИЕ БАЗЫ 1.3 ГБ → 47.9 ГБ — ИСПРАВЛЕНО):
+# ГРУБЫЙ отбор «любая строка + значение» ловил на файл **344 имени** (включая служебные поля
+# схемы) ⇒ при 60 000 файлах база выросла в 36 раз, а скан стал копировать 48 ГБ по сети (194 с).
+# ТЕПЕРЬ — ТОЧНЫЙ разбор как у старого сканера `engine.creo_params` (эталон: 23 параметра/файл):
+#   ПАРАМЕТР = <ИМЯ>\x00 + ТЕГ ЗНАЧЕНИЯ (`\xe2\x33` = параметр, `'\x88 \xe3\x33` = отношение)
+#              + необязательный префикс `\xf7\x1c-\x1f` + значение\x00
+#   ИМЯ      = с БУКВЫ (латиница/кириллица/`_`), 2..31 знак, буквы/цифры/`_`/точка.
+# Служебные поля (без тега значения) НЕ теряются — они уже собраны в `unknown_fields`.
+CREO_VAL_TAG = (b"\x27\x88\x20\xe3\x33", b"\xe2\x33")
+_RX_PNAME = rb"([A-Za-z\xd0\x90-\xd1\x8f_][A-Za-z0-9\xd0\x90-\xd1\x8f_\.]{1,30})"
+_RE_PARAM = re.compile(_RX_PNAME + rb"\x00(?:" + b"|".join(CREO_VAL_TAG) + rb")"
+                       rb"(?:\xf7[\x1c-\x1f])?(.{0,120}?)\x00", re.S)
 _RE_PTC_NAME = re.compile(rb"([A-Z][A-Z_0-9]{3,40})\x00")
 
-# Служебные СУФФИКСЫ/слова структуры файла (не параметры пользователя).
-_SVC_SUFFIX = ("_index", "_ptr", "_id", "_arr", "_num", "_count", "_flags", "_key",
-               "_revnum", "_size", "_type", "_offset", "_len", "_pos")
-_SVC_EXACT = {"type", "id", "attr", "attributes", "name", "value", "data_type", "tab_key",
-              "geom_id", "feat_id", "revnum", "geom_revnum", "cosm_revnum", "order_num",
-              "insert_layer_id", "layer_count", "attrib_array", "lin_digits", "part_type",
-              "first_ent_id", "gr_creo_src_ver", "fixed_model_eps", "objname", "object_type",
-              "un_value", "bk_un_value", "vals", "key", "seq", "index", "status"}
 
-
-def _is_valid_param_name(nm):
-    """Настоящее ИМЯ ПАРАМЕТРА (а не служебное поле и не битый мусор).
-
-    ЗАМЕР V160 (два прохода):
-      ① без проверки в `params` лезли БИТЫЕ БАЙТЫ (`$zR`, `%(`, `&D8`);
-      ② с проверкой «буква+символы» — лезли СЛУЖЕБНЫЕ ПОЛЯ СХЕМЫ (`AE_Attr`, `FeatId`,
-         `HeaderId`, `LabelId`, `TrailId`…) — их на файл ~350, а НАСТОЯЩИХ параметров единицы.
-
-    ПРАВИЛО (по факту разбора Creo): параметр модели — это
-      • `PTC_*` / `PRO_*` — служебные свойства Creo (МАССА, объём, площадь, материал) — ЦЕННЫ;
-      • имена с КИРИЛЛИЦЕЙ (обозначение/наименование/материал пишет человек);
-      • простые пользовательские имена (ОДНА буква+цифры, без служебных суффиксов).
-    Всё прочее (структурные поля `*Id`, `AE_*`, `PIO*`, `Trail*`, `*_attr`) — НЕ параметр;
-    оно НЕ теряется: собрано в `unknown_fields`.
-    """
-    nm = (nm or "").strip()
-    low = nm.lower()
-    if len(nm) < 2:
-        return False
-    # ① явные служебные (точные и по суффиксу)
-    if low in _SVC_EXACT or low.endswith(_SVC_SUFFIX):
-        return False
-    # ② PTC_/PRO_ — свойства Creo: ЦЕННЫ
-    if low.startswith(("ptc_", "pro_")):
-        return True
-    # ③ кириллица — параметры человека
-    if any("\u0400" <= c <= "\u04ff" for c in nm):
-        return True
-    # ④ служебные структуры (CamelCase с Id/Header/Attr/Trail/AE_/PIO*)
-    if low.startswith(("ae_", "pio", "trail", "avl", "iges_")):
-        return False
-    if nm.endswith(("Id", "ID", "Attr", "Header", "Oper", "Pair")):
-        return False
-    # ⑤ остальное: буква + допустимые символы, без CamelCase-структуры
-    if not (nm[0].isalpha() or nm[0] == "_"):
-        return False
-    for ch in nm:
-        if not (ch.isalnum() or ch in "_-."):
-            return False
-    return True
+def _creo_clean(s):
+    """Убрать служебные байты Creo по краям значения (\\x00-\\x1f) — иначе в базе мусор."""
+    s = s.strip("\x00\x01\x02\x03\x04\x05\x06\x07\x08\x0b\x0c\x0e\x0f\x10\x11\x12\x13"
+                "\x14\x15\x16\x17\x18\x19\x1a\x1b\x1c\x1d\x1e\x1f \t\r\n")
+    return s.lstrip("\xf7\x1c\xf7\x1d\xf7\x1e\xf7\x1f").strip()
 
 
 def extract_params(raw, anchors):
     """
-    [(имя, значение)] — РЕЕСТР ПАРАМЕТРОВ модели: ОДНА запись на имя.
+    [(имя, значение)] — ПАРАМЕТРЫ МОДЕЛИ по ТОЧНОМУ разбору (как `engine.creo_params`).
 
-    Возвращает: [(name, value)] — включая внутренние (`PRO_MP_*`, `PTC_*`) — они ЦЕННЫ.
-    Служебные поля структуры файла (поле СХЕМЫ, а не параметр) — НЕ сюда: они идут
-    в `unknown_fields` (закон «в файлах мусора НЕТ» соблюдён — данные не теряются).
+    Включает внутренние (`PRO_MP_*`, `PTC_*`) — они ЦЕННЫ. Одно имя = одна запись.
+    Эталон: ≈23 параметра на файл (старая база: 1 078 484 на 47 394 файла).
     """
-    out, idx = [], {}
+    out, seen = [], set()
     for m in _RE_PARAM.finditer(raw):
-        nm = m.group(1).decode("utf-8", "replace")
-        v = _str_at(raw, m.end() - 1)
-        if not _is_valid_param_name(nm):   # структура/мусор → в unknown_fields
+        nm = m.group(1).decode("utf-8", "replace").strip()
+        val = _creo_clean(m.group(2).decode("utf-8", "replace"))
+        if not nm or not val or "\x00" in val or nm in seen:
             continue
-        if nm in idx:
-            out[idx[nm]] = (nm, v)      # одна строка на имя (последнее значение)
-        else:
-            idx[nm] = len(out)
-            out.append((nm, v))
+        seen.add(nm)
+        out.append((nm, val))
     return out
 
 
