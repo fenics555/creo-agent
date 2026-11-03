@@ -2677,50 +2677,23 @@ def do_scan(roots, max_mb, limit, depth=None, progress_cb=None, stop_cb=None, fu
             # V140: превью собирает СКАНЕР из тех же байтов (`media`), файл второй раз НЕ читается.
             # `media_dir` берётся от ПАПКИ базы; если превью не нужны — см. настройку `graph_media`.
             # ═══════════════════════════════════════════════════════════════════════
-            # [V141-ВРЕМЕННО] ПЕРЕКЛЮЧАТЕЛЬ СКАНЕРА (настройка `scanner_new`):
-            #   scanner_new = true  → НОВЫЙ сканер (`scanner_plm.scan_item_new_old`)
-            #   scanner_new = false → старый (`scan_item`, по умолчанию)
-            # УДАЛИТЬ, когда новый сканер станет основным (после проверки на складе).
             # ═══════════════════════════════════════════════════════════════════════
-            _use_new = bool(_cfg.get("scanner_new", False))
-            _boxes = None                       # ящики нового сканера (для доп. таблиц)
-            if _use_new:
-                try:
-                    import scanner_plm as _SN
-                    # 🔴 V154 ШАГ B: правильный вызов — `scan_item_new(path, FEATTYPE)`
-                    # (словарь типов фич из `scanner_plm`). Порядок: signature → словарь → ящики.
-                    _boxes = _SN.scan_item_new(path, getattr(_SN, "FEATTYPE", {}))
-                    it = _SN.new_to_old(path, _boxes)
-                except Exception as _e:
-                    log("scanner_new FAIL %s: %s — падаю на старый" % (path, _e))
-                    it = scan_item(s, path, codes, fstems.get(os.path.dirname(path), set()),
-                                   media_dir=media_dir, media_mode=media_mode,
-                                   **(param_cfg or {}))
-            else:
-                it = scan_item(s, path, codes, fstems.get(os.path.dirname(path), set()),
-                               media_dir=media_dir, media_mode=media_mode,
-                               **(param_cfg or {}))
-                # 🔴🔴 V154 ШАГ B (владелец: «делай все шаги»): ДОП. ЯЩИКИ нового сканера.
-                # ЖИВОЙ БАГ: здесь стояло `_SN.scan_item_new(path)` — БЕЗ обязательного
-                # `feat_dict` ⇒ ВСЕГДА `TypeError: missing 1 required positional argument`
-                # ⇒ исключение молча глоталось в `except` ⇒ `_boxes=None` ⇒ `write_item` НЕ
-                # вызывался ⇒ таблицы `bodies`/`mass_props`/`materials`/`features`/`dimensions`
-                # оставались ПУСТЫМИ (замер: 0 строк в каждой). Лечение: `scan_item_new_old`.
-                if _cfg.get("scanner_extra", True):
-                    try:
-                        import scanner_plm as _SN
-                        _boxes = _SN.scan_item_new(path, getattr(_SN, "FEATTYPE", {}))
-                    except Exception as _e:
-                        log("scanner_extra scan FAIL %s: %s" % (path, _e))
-                        _boxes = None
-            # [V141-ВРЕМЕННО] ДОП. ТАБЛИЦЫ нового сканера (bodies·materials·items·matrices·…)
-            # УДАЛИТЬ при переходе на `scanner_write` как основной путь.
-            if _boxes and con is not None:
-                try:
-                    import scanner_write as _SW
-                    _SW.write_item(con, path, _boxes)
-                except Exception as _e:
-                    log("scanner_extra FAIL %s: %s" % (path, _e))
+            # 🔴🔴 ЭТАП 1 (V160, 03.11.2026): ОДИН СКАНЕР — `plm_scanner`.
+            # БЫЛО (двойной разбор, 2.5× медленнее): `scan_item` (старый) + `scanner_plm`
+            # (новый) по ТЕМ ЖЕ байтам, плюс `scanner_write` — и всё это под флагами
+            # `scanner_new` / `scanner_extra`, которые «временно» жили с 30.10.
+            # СТАЛО: ровно ОДНО чтение файла → ящики нового сканера → `new_to_old` (для
+            # `it[...]` ниже) → `write_item` (в свои таблицы). Флаги УДАЛЕНЫ.
+            # ═══════════════════════════════════════════════════════════════════════
+            import plm_scanner as _SN
+            _boxes = _SN.scan_item_new(path, getattr(_SN, "FEATTYPE", {}),
+                                       pdes=(param_cfg or {}).get("pdes"),
+                                       pname=(param_cfg or {}).get("pname"))
+            if _boxes is None:                  # файл не прочитан (пустой/большой)
+                raise IOError("plm_scanner: файл не прочитан")
+            it = _SN.new_to_old(path, _boxes)
+            if con is not None:
+                _SN.write_item(con, path, _boxes)
         except Exception as e:
             n_err += 1
             log("ERROR %s: %s" % (path, e))
