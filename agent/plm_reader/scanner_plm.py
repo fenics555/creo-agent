@@ -346,9 +346,52 @@ def _dbl_from_e32(body7):
 
 
 # ── 3.1. ПАСПОРТ + ИСТОРИЯ (§169: typed_data(MdlStored)) ─────────────────────
-def extract_passport(raw, anchors):
+# 🔴 ПРАВИЛА ИЗВЛЕЧЕНИЯ ОБОЗНАЧЕНИЯ/НАИМЕНОВАНИЯ (V160): это НЕ хардкод, а НАСТРОЙКИ
+# владельца (`param_designation` / `param_name` в settings/settings.json) — «параметры
+# детали задаются ЧЕЛОВЕКОМ, они у всех РАЗНЫЕ». Берём из `creo_read` (тот же разбор,
+# что и старый сканер `engine.scan_item`) — ОДНА логика на весь инструмент (§85).
+try:                                    # своя копия рядом (переносимость)
+    import creo_read as _CR
+except ImportError:                     # запасной путь: общая библиотека дома
+    sys.path.insert(0, os.path.dirname(HERE))
+    import creo_read as _CR  # noqa: E402
+
+# ⚠️ УМОЛЧАНИЯ (зеркало `engine._PARAM_DES` / `_PARAM_NAME`): применяются ТОЛЬКО если
+# окно/CLI не передали правила из настроек. Держим СИНХРОННО с engine — это одна логика (§85).
+DEFAULT_PDES = ("ОБОЗНАЧЕНИЕ", "OBOZNACHENIE", "DESIGNATION", "PART_NUMBER")
+DEFAULT_PNAME = ("НАИМЕНОВАНИЕ", "NAIMENOVANIE", "NAME", "PART_NAME", "TITLE")
+
+
+
+
+def _by_rules(raw, rules):
+    """Первое НЕПУСТОЕ по списку правил (имя параметра ИЛИ шаблон `{ИМЯ} "текст" +`)."""
+    for rule in (rules or []):
+        r = (rule or "").strip()
+        if not r:
+            continue
+        v = _CR.compose(raw, r) if ("{" in r or '"' in r) else _CR.param(raw, [r])
+        if v:
+            return v
+    return ""
+
+
+def _des_from_rel(raw):
+    """Есть ли уравнение `ОБОЗНАЧЕНИЕ = rel_model_name` (тогда обозначение = имя модели)."""
+    for enc in ("utf-8", "cp1251"):
+        try:
+            nb = "ОБОЗНАЧЕНИЕ".encode(enc)
+        except Exception:
+            continue
+        i = raw.find(nb)
+        if i >= 0 and b"rel_model_name" in raw[i:i + 220]:
+            return True
+    return False
+
+
+def extract_passport(raw, anchors, pdes=None, pname=None, model=""):
     out = {"user": "", "computer": "", "rev": "", "creo": "", "ts": "",
-           "designation": "", "material": "", "kind": ""}
+           "designation": "", "material": "", "kind": "", "name": ""}
     m = re.match(rb"#UGC:2\s+(\w+)", raw)
     if m:
         out["kind"] = m.group(1).decode()
@@ -387,6 +430,16 @@ def extract_passport(raw, anchors):
             s, mi, h, d, mo, y = (x[0] for x in mm.groups())
             out["ts"] = "%04d-%02d-%02dT%02d:%02d:%02d" % (y + 1900, mo + 1, d, h, mi, s)
             break
+    # 🔴 V160: ОБОЗНАЧЕНИЕ и НАИМЕНОВАНИЕ — по ПРАВИЛАМ владельца (как в старом сканере).
+    # Без этого переключение на новый сканер теряло паспорт (замер: designation/name = 0/20).
+    if pdes is None:
+        pdes = DEFAULT_PDES
+    if pname is None:
+        pname = DEFAULT_PNAME
+    out["designation"] = _by_rules(raw, pdes)
+    if not out["designation"] and model and _des_from_rel(raw):
+        out["designation"] = model            # ОБОЗНАЧЕНИЕ = rel_model_name → имя модели
+    out["name"] = _by_rules(raw, pname)
     return out
 
 
@@ -849,14 +902,14 @@ def extract_matrices(raw, anchors):
 
 
 # ═════════════════════════════════════════════════════════════════════════════
-def pack(raw, anchors, feat_dict):
+def pack(raw, anchors, feat_dict, pdes=None, pname=None, model=""):
     """{таблица: данные} — что пишем в базу."""
     path_kind = ""
     m = re.match(rb"#UGC:2\s+(\w+)", raw)
     if m:
         path_kind = m.group(1).decode()
 
-    passport = extract_passport(raw, anchors)
+    passport = extract_passport(raw, anchors, pdes=pdes, pname=pname, model=model)
     mass = extract_mass(raw, anchors)
     links = extract_links(raw, anchors)
     return {
@@ -868,6 +921,8 @@ def pack(raw, anchors, feat_dict):
             "creo": passport["creo"],
             "ts": passport["ts"],
             "material": passport["material"],
+            "designation": passport["designation"],   # 🔴 V160: закрыт шов (было 0/20)
+            "name": passport["name"],                  # 🔴 V160
         },
         "mass_props": mass,                 # масса/объём/площадь (§175, первое тело)
         "bodies": extract_bodies(raw, anchors),        # ★ ТЕЛА (§177) — по одному на тело
@@ -890,19 +945,22 @@ def pack(raw, anchors, feat_dict):
 # ═════════════════════════════════════════════════════════════════════════════
 # 5. SCAN ITEM — 1 чтение + 1 проход + ящики
 # ═════════════════════════════════════════════════════════════════════════════
-def scan_item_new(path, feat_dict):
+def scan_item_new(path, feat_dict, pdes=None, pname=None):
     """
     Прочитать файл ОДИН раз → КАРТА → 1 проход → ящики. Возвращает {таблица: данные}.
 
     ПОРЯДОК (§178, закон): ① `#UGC_TOC` (карта секций) → ② один проход по байтам →
     ③ раскладка по ящикам. Карта сохраняется в `_meta.toc` (видно, где что лежит).
+
+    `pdes`/`pname` — правила обозначения/наименования из настроек владельца (V160):
+    без них берутся умолчания кода (`DEFAULT_PDES`/`DEFAULT_PNAME`).
     """
     raw = read_file(path)
     if raw is None:
         return None
     toc = read_toc(raw)                     # ← ① КАРТА (закон!)
     anchors = map_anchors(raw)              # ← ② ОДИН проход
-    boxes = pack(raw, anchors, feat_dict)   # ← ③ раскладка по ящикам
+    boxes = pack(raw, anchors, feat_dict, pdes=pdes, pname=pname, model=model_of(path))
     boxes["_meta"] = {"path": path, "size": len(raw), "anchors": len(anchors),
                       "toc": {k: {"off": v[0], "len": v[1]} for k, v in toc.items()}}
     return boxes
@@ -971,9 +1029,9 @@ def new_to_old(path, boxes):
     }
 
 
-def scan_item_new_old(path, feat_dict=None):
+def scan_item_new_old(path, feat_dict=None, pdes=None, pname=None):
     """Новый сканер → СТАРЫЙ формат (для `engine.do_scan`)."""
-    boxes = scan_item_new(path, feat_dict or FEATTYPE)
+    boxes = scan_item_new(path, feat_dict or FEATTYPE, pdes=pdes, pname=pname)
     return new_to_old(path, boxes)
 
 
