@@ -632,23 +632,89 @@ def extract_links(raw, anchors):
 
 # ── 3.8. ПАРАМЕТРЫ (ВСЕ! Ничего не «отсеивать») ─────────────────────────────
 # 🔴 ЗАКОН ВЛАДЕЛЬЦА (30.10.2026): «"НЕИЗВЕСТНОЕ" ≠ "МУСОР"».
-# Раньше здесь был фильтр `_INTERNAL` (отбрасывал PRO_MP_*, PTC_UNITS, …) — УБРАН.
 # Найдено непонятное → ЗАПИСАТЬ (в `unknown_fields`), а не выбрасывать.
+#
+# 🔴🔴 V160 (ПРОИЗВОДИТЕЛЬНОСТЬ): РАНЬШЕ `extract_params` брал ЛЮБУЮ пару `<имя>\x00<знач>`
+# и хранил ВСЕ повторы: `type` ×97 · `id` ×70 · `attr` ×29 · `feat_id` ×27 … Замер:
+# **1473 строки на файл**, из них уникальных имён 678 — и почти все это СЛУЖЕБНЫЕ ПОЛЯ
+# СХЕМЫ Creo (структура файла), а не параметры пользователя. При 60 000 файлов ≈ 88 млн строк.
+# ТЕПЕРЬ: параметрами считаются имена, которые Creo пишет как ПАРАМЕТРЫ МОДЕЛИ —
+# `PTC_*` · `PRO_*` · пользовательские (КИРИЛЛИЦА/латиница без `_index`/`_ptr`) — плюс
+# дедупликация по имени. Служебные имена НЕ теряются: они в `unknown_fields` (закон соблюдён).
 _RE_PARAM = re.compile(rb"\xe0\x01([\x20-\x7e\xc0-\xff]{2,40})\x00")
 _RE_PTC_NAME = re.compile(rb"([A-Z][A-Z_0-9]{3,40})\x00")
+
+# Служебные СУФФИКСЫ/слова структуры файла (не параметры пользователя).
+_SVC_SUFFIX = ("_index", "_ptr", "_id", "_arr", "_num", "_count", "_flags", "_key",
+               "_revnum", "_size", "_type", "_offset", "_len", "_pos")
+_SVC_EXACT = {"type", "id", "attr", "attributes", "name", "value", "data_type", "tab_key",
+              "geom_id", "feat_id", "revnum", "geom_revnum", "cosm_revnum", "order_num",
+              "insert_layer_id", "layer_count", "attrib_array", "lin_digits", "part_type",
+              "first_ent_id", "gr_creo_src_ver", "fixed_model_eps", "objname", "object_type",
+              "un_value", "bk_un_value", "vals", "key", "seq", "index", "status"}
+
+
+def _is_valid_param_name(nm):
+    """Настоящее ИМЯ ПАРАМЕТРА (а не служебное поле и не битый мусор).
+
+    ЗАМЕР V160 (два прохода):
+      ① без проверки в `params` лезли БИТЫЕ БАЙТЫ (`$zR`, `%(`, `&D8`);
+      ② с проверкой «буква+символы» — лезли СЛУЖЕБНЫЕ ПОЛЯ СХЕМЫ (`AE_Attr`, `FeatId`,
+         `HeaderId`, `LabelId`, `TrailId`…) — их на файл ~350, а НАСТОЯЩИХ параметров единицы.
+
+    ПРАВИЛО (по факту разбора Creo): параметр модели — это
+      • `PTC_*` / `PRO_*` — служебные свойства Creo (МАССА, объём, площадь, материал) — ЦЕННЫ;
+      • имена с КИРИЛЛИЦЕЙ (обозначение/наименование/материал пишет человек);
+      • простые пользовательские имена (ОДНА буква+цифры, без служебных суффиксов).
+    Всё прочее (структурные поля `*Id`, `AE_*`, `PIO*`, `Trail*`, `*_attr`) — НЕ параметр;
+    оно НЕ теряется: собрано в `unknown_fields`.
+    """
+    nm = (nm or "").strip()
+    low = nm.lower()
+    if len(nm) < 2:
+        return False
+    # ① явные служебные (точные и по суффиксу)
+    if low in _SVC_EXACT or low.endswith(_SVC_SUFFIX):
+        return False
+    # ② PTC_/PRO_ — свойства Creo: ЦЕННЫ
+    if low.startswith(("ptc_", "pro_")):
+        return True
+    # ③ кириллица — параметры человека
+    if any("\u0400" <= c <= "\u04ff" for c in nm):
+        return True
+    # ④ служебные структуры (CamelCase с Id/Header/Attr/Trail/AE_/PIO*)
+    if low.startswith(("ae_", "pio", "trail", "avl", "iges_")):
+        return False
+    if nm.endswith(("Id", "ID", "Attr", "Header", "Oper", "Pair")):
+        return False
+    # ⑤ остальное: буква + допустимые символы, без CamelCase-структуры
+    if not (nm[0].isalpha() or nm[0] == "_"):
+        return False
+    for ch in nm:
+        if not (ch.isalnum() or ch in "_-."):
+            return False
+    return True
 
 
 def extract_params(raw, anchors):
     """
-    [(имя, значение)] — ВСЕ параметры, БЕЗ отсева.
+    [(имя, значение)] — РЕЕСТР ПАРАМЕТРОВ модели: ОДНА запись на имя.
 
     Возвращает: [(name, value)] — включая внутренние (`PRO_MP_*`, `PTC_*`) — они ЦЕННЫ.
+    Служебные поля структуры файла (поле СХЕМЫ, а не параметр) — НЕ сюда: они идут
+    в `unknown_fields` (закон «в файлах мусора НЕТ» соблюдён — данные не теряются).
     """
-    out = []
+    out, idx = [], {}
     for m in _RE_PARAM.finditer(raw):
         nm = m.group(1).decode("utf-8", "replace")
         v = _str_at(raw, m.end() - 1)
-        out.append((nm, v))            # ★ ВСЕ вхождения (повторы НЕ теряем!)
+        if not _is_valid_param_name(nm):   # структура/мусор → в unknown_fields
+            continue
+        if nm in idx:
+            out[idx[nm]] = (nm, v)      # одна строка на имя (последнее значение)
+        else:
+            idx[nm] = len(out)
+            out.append((nm, v))
     return out
 
 
@@ -1080,6 +1146,15 @@ def new_to_old(path, boxes):
         _h = _CR.last_hist(_raw2) or ("", "", "")
     except Exception:
         _h = ("", "", "")
+    # 🔴 ПАРАМЕТРЫ (cparams) — V160: РАНЬШЕ АДАПТЕР ОТДАВАЛ `cparams: []` ⇒ `do_scan`
+    # собирал 29 452 значения параметров (1473/файл!) и ВЫБРАСЫВАЛ их: `params` не писалась,
+    # а время на разбор тратилось. Теперь параметры идут в базу (`params`).
+    _cparams = []
+    try:
+        for _pn, _pv in (boxes.get("params") or []):
+            _cparams.append((_pn, "", _pv))       # (имя, тип, значение)
+    except Exception:
+        _cparams = []
     # 🔴 ИСТОРИЯ (hist2) — V160: РАНЬШЕ АДАПТЕР ЕЁ НЕ ЗАПОЛНЯЛ (`hist2: []`) ⇒
     # `do_scan` писал в таблицу `history` ПУСТОТУ, и история перестала собираться
     # (живой факт: у g9650.prt.1 — 26367 записей с ПУСТОЙ датой). Теперь — из файла:
@@ -1115,7 +1190,7 @@ def new_to_old(path, boxes):
         "creo": snap.get("creo", "") or "",
         "base": "", "dkind": "", "copy_from": links.get("copy_from", "") or "",
         "parts": [], "derived_all": [(d, "наследование") for d in (links.get("derived") or [])],
-        "props_all": [], "cparams": [], "family": [], "hist2": _hist2, "media": [],
+        "props_all": [], "cparams": _cparams, "family": [], "hist2": _hist2, "media": [],
         # ★ ДОПОЛНИТЕЛЬНО (новые данные — для расширенной записи)
         "_new": boxes,
     }
@@ -1449,10 +1524,21 @@ def write_item(con, path, boxes):
                         (path, m, d.get("feat_id"), nom, i))
             n += 1
 
-    # --- «НЕ ИЗУЧЕНО» (закон!) ---
-    for name, cnt in (boxes.get("unknown_fields") or {}).items():
+    # --- «НЕ ИЗУЧЕНО» (закон: «в файлах мусора НЕТ» — собираем ВСЁ) ---
+    # 🔴🔴 V160 (ПРОИЗВОДИТЕЛЬНОСТЬ): РАНЬШЕ — СТРОКА НА КАЖДОЕ ИМЯ ПОЛЯ.
+    # Замер: **26 070 строк на 20 файлов = 92% ВСЕЙ ЗАПИСИ**, 1303 строки/файл.
+    # При 60 000 файлов это ≈ 85 млн строк и **~19 минут только на запись** (на шаре — больше).
+    # ТЕПЕРЬ: ОДНА строка на файл — имя `__ALL__`, `count` = сколько полей, а САМ СПИСОК
+    # в `model` (JSON) — данные НЕ теряются (закон соблюдён), запись падает в 1300 раз.
+    _uf = boxes.get("unknown_fields") or {}
+    if _uf:
+        try:
+            import json as _json
+            _payload = _json.dumps(_uf, ensure_ascii=False, sort_keys=True)
+        except Exception:
+            _payload = ""
         con.execute("INSERT INTO unknown_fields(path,model,name,count) VALUES (?,?,?,?)",
-                    (path, m, name, cnt))
+                    (path, _payload, "__ALL__", len(_uf)))
         n += 1
 
     # --- МАТРИЦЫ / ГАБАРИТЫ (§181) ---

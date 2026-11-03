@@ -2625,7 +2625,7 @@ def do_scan(roots, max_mb, limit, depth=None, progress_cb=None, stop_cb=None, fu
                 except Exception:
                     pass
             if progress_cb and n % 25 == 0:
-                progress_cb(n, total)
+                progress_cb(n, total, new + mod, skipped)   # V160: реальные числа
             continue
         try:
             # V140: превью собирает СКАНЕР из тех же байтов (`media`), файл второй раз НЕ читается.
@@ -2850,7 +2850,9 @@ def do_scan(roots, max_mb, limit, depth=None, progress_cb=None, stop_cb=None, fu
                             (s, _inst, 1, "family"))
         done += 1
         if progress_cb and n % 25 == 0:
-            progress_cb(n, total)
+            # 🔴 V160: передаём РЕАЛЬНЫЕ числа (прочитано = new+mod, пропущено = skipped),
+            # иначе окно показывало «прочитано 0 · пропущено 0» при живом скане.
+            progress_cb(n, total, new + mod, skipped)
         # 🔴🔴 V155 (владелец: «сколько раз сканируешь, всегда одно и то же вылетает:
         # 43525 / 59185 · прочитано 0 · 3 с»): КОММИТ КАЖДЫЕ 500 ФАЙЛОВ НА СЕТЕВОЙ БАЗЕ.
         # База лежит на ШАРЕ (`Z:`), и на 43 500+ накопленный журнал делал коммит ДОЛГИМ —
