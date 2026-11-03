@@ -220,6 +220,53 @@ def compose(raw, rule):
             i = j
     return " ".join("".join(out).split())
 
+# 🔴 28.10.2026: Creo ставит ПЕРЕД именем служебный байт-префикс (тип строки: \xe0, \xe1, \xe2, \xe3,
+# \xf6, \xf7 …). Их НЕЛЬЗЯ декодировать вместе с именем: в UTF-8 они дают \ufffd, а isprintable()
+# съедал часть многобайтной пары. Префиксы Creo (проверены на живых файлах).
+_CREO_PREFIX = {0xe0, 0xe1, 0xe2, 0xe3, 0xf6, 0xf7, 0xf8, 0xfb, 0xfc}
+
+
+def _clean_name_bytes(chunk):
+    """Имя модели из байтов Creo: срезать служебный префикс, декод UTF-8 с откатом cp1251.
+
+    Скилл §5 п.1 — БЕЗ регулярок: только по байтам. Кириллица (UTF-8) сохраняется целиком.
+    (ЭТАП 0: перенесено из `engine.py` — примитив байтов, дом — здесь.)
+    """
+    z = chunk.find(b"\x00")
+    if z >= 0:
+        chunk = chunk[:z]
+    i, j = 0, len(chunk)
+    while i < j and (chunk[i] < 0x20 or chunk[i] in _CREO_PREFIX):
+        i += 1
+    while j > i and (chunk[j - 1] < 0x20 or chunk[j - 1] in _CREO_PREFIX):
+        j -= 1
+    chunk = chunk[i:j]
+    if not chunk:
+        return ""
+    for enc in ("utf-8", "cp1251", "latin-1"):
+        try:
+            s = chunk.decode(enc)
+        except UnicodeDecodeError:
+            continue
+        if "\ufffd" not in s:
+            break
+    else:
+        s = chunk.decode("utf-8", "replace")
+    s = "".join(ch for ch in s if ch.isprintable() or ch in " \t-_.")
+    return s.strip()
+
+
+def _name_at(raw, pos, limit=64):
+    """Имя модели, начинающееся с позиции `pos`: до `\\x00`, UTF-8, без служебных байтов Creo."""
+    if pos < 0 or pos >= len(raw):
+        return ""
+    end = raw.find(b"\x00", pos)
+    if end < 0:
+        end = min(len(raw), pos + limit)
+    return _clean_name_bytes(raw[pos:end][:limit])
+
+
+
 
 def role(raw, stems=frozenset(), me=""):
     """Роль изделия по правилам §8.5 (имя файла НЕ признак):
@@ -238,45 +285,47 @@ def role(raw, stems=frozenset(), me=""):
     (209 918 Б) — полноценная модель-копия, но ни `MERGE_BASE_PART`, ни `ref_part_tab` там нет,
     и роль возвращалась пустой → в дереве файл не отличим от мусора.
     """
-    try:
-        import engine as _e0
-        _ext_role = _e0.role_by_path(me or "")
-        if _ext_role:
-            return _ext_role
-    except Exception:
-        pass
+    # ЭТАП 0: словарь — ТОЧНАЯ КОПИЯ `engine.ROLE_BY_EXT` (роль не меняется).
+    # Для `.prt`/`.asm`/`.drw` роль определяется СОДЕРЖИМЫМ — они в словаре отсутствуют.
+    _EXT_ROLE = {"xpr": "copy", "crc": "copy", "mfg": "mfg", "m_p": "mfg",
+                 "frm": "frame", "lay": "layer", "sec": "section", "neu": "neutral"}
+    _ext = (me or "").rsplit(".", 1)[-1].lower() if "." in (me or "") else ""
+    _ext_role = _EXT_ROLE.get(_ext, "")
+    if _ext_role:
+        return _ext_role
     if b"ASSEM_MFG" in raw[:400]:
         return "MFG"
-    try:
-        import engine as _eng                      # локальный импорт: разрыв цикла creo_read <-> engine
-        mb = _eng.merge_base_parts(raw)
-    except Exception:
-        mb = []
-    if not mb:                                     # запасной путь, если движка рядом нет
-        if b"MERGE_BASE_PART" in raw:
-            i = raw.find(b"\xe3\x33\xf7\x1c")
-            if i >= 0:
-                nm = raw[i + 4:raw.find(b"\x00", i + 4)]
-                s2 = nm.decode("utf-8", "replace").strip()
-                if s2:
-                    mb = [(s2, "наследование")]
+    # 🔴 ЭТАП 0 (V160, 03.11.2026): ЦИКЛ `creo_read <-> engine` РАЗОРВАН.
+    # Было: 4 × `import engine` В ТЕЛЕ функции ради role_by_path/merge_base_parts/
+    # first_model_name/ref_part_parents — библиотека чтения зависела от движка.
+    # Теперь роль строится ЛОКАЛЬНО по байтам: «ролевые» функции будут в сканере.
+    mb = []
+    _tmpl = ("MM_ASSY", "MM_PART", "SBORKA_MM", "SBORKA_MFG", "MFG_NC", "NONE")
+    if b"MERGE_BASE_PART" in raw:
+        i = raw.find(b"\xe3\x33\xf7\x1c")
+        if i >= 0:
+            s2 = _name_at(raw, i + 4, limit=64)
+            if s2 and s2.upper() not in _tmpl:
+                mb = [(s2, "наследование")]
     if mb:
-        # 🔴 28.10.2026 (замер литейки): первый элемент бывает СВОЙСТВОМ (`PTC_MASTER_MATERIAL`,
-        # `DISTORTION ENERGY (VON MISES)`, `CHUGUN_VCH50`), а не моделью. Роль строим по ПЕРВОЙ
-        # МОДЕЛИ; свойства не теряются — они идут каналом `prop` (`derived_all`/`props_all`).
         base = mb[0][0]
-        try:
-            import engine as _eng1
-            base = _eng1.first_model_name([m[0] for m in mb]) or base
-        except Exception:
-            pass
+        for _nm in [m[0] for m in mb]:          # первая МОДЕЛЬ (свойство — не модель)
+            if _nm and not _nm.upper().startswith(("PTC_", "PRO_", "NEUT_SPEC_", "MAT_NAME_")):
+                base = _nm
+                break
         if base and base.upper() not in ("MM_ASSY", "MM_PART", "SBORKA_MM", "SBORKA_MFG", "MFG_NC"):
             return "nasled." + base
-    try:
-        import engine as _eng2
-        rp = _eng2.ref_part_parents(raw)
-    except Exception:
-        rp = []
+    rp = []
+    pos = raw.find(b"ref_part_tab\x00")
+    while pos >= 0:
+        seg_end = min(len(raw), pos + 600)
+        i = raw.find(b"\xe0\x0aname\x00", pos, seg_end)
+        if i >= 0:
+            nm = _name_at(raw, i + 7, limit=64)
+            if nm and len(nm) >= 2 and nm.upper() not in _tmpl:
+                if nm not in rp:
+                    rp.append(nm)
+        pos = raw.find(b"ref_part_tab\x00", pos + 1)
     for p in rp:
         s = stem(p)
         if s != me and (not stems or s in stems):

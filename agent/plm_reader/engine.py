@@ -1,7 +1,14 @@
 # -*- coding: utf-8 -*-
-r"""PLM Reader — движок ПЛМ «в лоб»: паспорт изделий, дерево производства, входимость и ИЗМЕНЕНИЯ.
+r"""engine.py — РОЛЬ: ЯДРО / ДВИЖОК ПЛМ (БЕЗ сканера после ЭТАПА 1).
 
-Creo не нужен. Своя база лежит РЯДОМ с инструментом (db\plm_reader.db) — легко перенести на другую машину.
+ЧИТАЕТ:  базу (db\plm_reader.db) — выборки для окон и графа.
+ПИШЕТ:   базу: публикация черновика (`_publish`), обслуживание (purge, meta, бэкапы).
+ХРАНИТ:  инфраструктуру: пути, логи, настройки, замки, автообновление, CLI (`main`).
+НЕ ДЕЛАЕТ: НЕ читает файлы Creo (это СКАНЕР `plm_scanner.py`); НЕ строит связи
+           (CONNECTION BUILDER `plm_build_links.py`); НЕ рисует показ (окна / `plm_graph.py`).
+ЗОВУТ ЕГО: окна (`plm_toolwin`, `plm_reader`), граф, запросы, CLI.
+АРХИТЕКТУРА (догма §0.0.2): каждый пишет ТОЛЬКО в свои таблицы; схему меняет Database.
+Creo не нужен. Своя база лежит РЯДОМ (db\plm_reader.db) — легко перенести на другую машину.
 Корень склада ОДИН на все входы (окно, CLI, мета базы): Z:\PTC.
 
 CLI:
@@ -686,12 +693,10 @@ def log(msg):
 
 
 def stem(name):
-    n = name.upper()
-    for ext in (".PRT", ".ASM", ".DRW", ".NEU", ".SEC", ".M_P", ".PRT.", ".ASM."):
-        if ext in n:
-            n = n.split(ext)[0]
-            break
-    return re.sub(r"\.\d+$", "", n)
+    """ЗАМЕНЕНО (ЭТАП 0, V160): определение перенесено в `creo_read.stem` (ниже — импорт).
+    Оставлена только ссылка, чтобы не держать ДВА определения одной функции (путаница).
+    """
+    return _CR.stem(name)
 
 
 _VER_RE = re.compile(r"^(.*)\.([A-Za-z_]{2,4})\.(\d+)$", re.IGNORECASE)
@@ -719,57 +724,21 @@ def _filter_latest(files_stat):
     return out
 
 
+# ЭТАП 0 (V160): `parse_toc`/`real`/`params` — ОДНА реализация в `creo_read` (ниже импорт).
+# Здесь только обёртки-ссылки для совместимости старых вызовов `engine.parse_toc(...)`.
 def parse_toc(raw):
-    out, pos = {}, raw.find(b"#UGC_TOC")
-    for _ in range(20):
-        if pos < 0:
-            break
-        p = raw.find(b"\n", pos)
-        nxt = -1
-        while True:
-            e = raw.find(b"\n", p + 1)
-            if e < 0:
-                break
-            line = raw[p + 1:e].decode("ascii", "replace").strip()
-            p = e
-            if line.startswith("NEXT_TOC_ENTRY"):
-                nxt = int(line.split()[1], 16)
-                break
-            m = re.match(r"^([A-Za-z_][A-Za-z0-9_:]{1,40}) ([0-9a-f]{2,8}) ([0-9a-f]{2,8})"
-                         r"(?: ([0-9a-f]{2,8}))?(.*)$", line)
-            if m and (not m.group(5).strip() or m.group(5).strip()[0] in "0123456789-"):
-                ln = int(m.group(4), 16) if m.group(4) else int(m.group(3), 16)
-                out[m.group(1)] = (int(m.group(2), 16), max(ln, 1))
-        if nxt < 0 or nxt >= len(raw):
-            break
-        pos = nxt
-    return out
+    """Делегирует в `creo_read.parse_toc` (единственная реализация)."""
+    return _CR.parse_toc(raw)
 
 
 def real(raw, key):
-    m = re.search(rb"\xe0\x02" + key.encode() + rb"\x00\xed", raw)
-    if not m or m.end() + 8 > len(raw):
-        return None
-    try:
-        return struct.unpack(">d", raw[m.end():m.end() + 8])[0]
-    except Exception:
-        return None
+    """Делегирует в `creo_read.real` (единственная реализация)."""
+    return _CR.real(raw, key)
 
 
 def params(raw, toc):
-    out = {}
-    if "NeuPrtSld" not in toc:
-        return out
-    off, ln = toc["NeuPrtSld"][0], toc["NeuPrtSld"][1]
-    for m in re.finditer(rb"([\x20-\xff]{3,32})\x00\xe2\x33(.{0,60}?)\x00", raw[off:off + ln], re.S):
-        t = re.search(r"[\w]+$", m.group(1).decode("utf-8", "replace"))
-        try:
-            v = m.group(2).decode("utf-8")
-        except UnicodeDecodeError:
-            continue
-        if t and v and "\x00" not in v:
-            out.setdefault(t.group(0), " ".join(v.split()))
-    return out
+    """Делегирует в `creo_read.params` (единственная реализация)."""
+    return _CR.params(raw, toc)
 
 
 # 🔴 28.10.2026: РОЛЬ ПО РАСШИРЕНИЮ — для форматов, которых в Creo-разборе нет.
@@ -796,18 +765,15 @@ def role_by_path(path):
 
 
 def role(raw, path=None):
-    """Роль файла: содержимое важнее расширения, но для копий/вспомогательных — из расширения."""
-    ext_role = role_by_path(path) if path else ""
-    if ext_role:
-        return ext_role
-    if b"MERGE_BASE_PART" in raw:
-        m = re.search(rb"MERGE_BASE_PART.{0,80}?([A-Za-z0-9_\-]{5,40})\x00", raw, re.S)
-        return "nasled." + (m.group(1).decode("latin-1") if m else "?")
-    for m in re.finditer(rb"ref_part_tab\x00", raw):
-        nm = re.search(rb"name\x00([A-Za-z0-9_\-\.]{4,47})\x00", raw[m.end():m.end() + 200])
-        if nm:
-            return "proizv." + nm.group(1).decode("latin-1")
-    return ""
+    """Роль файла — обёртка над `creo_read.role` (ЭТАП 0: одна реализация).
+
+    ⚠️ СИГНАТУРЫ РАЗНЫЕ: здесь 2-й аргумент — ПУТЬ (`path`), а `creo_read.role(raw, stems, me)`
+    ждёт НАБОР ИМЁН папки и ИМЯ файла. Старый код вызывал `role(raw, fstems, s)` (3 арг.) —
+    это уже `creo_read.role`. Здесь адаптируем 2-аргументную форму: `path` → `me` (имя файла),
+    `stems` = имена папки (если переданы не как путь).
+    """
+    me = os.path.basename(path) if path else ""
+    return _CR.role(raw, frozenset(), me)
 
 
 TAIL = re.compile(rb"\xf7(.)\xe3([0-9]{1,7})\x00\x00(.{0,220}?)\x00((?:Creo )?[0-9][0-9.]*)\x00", re.S)
