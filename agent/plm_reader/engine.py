@@ -2653,6 +2653,20 @@ def do_scan(roots, max_mb, limit, depth=None, progress_cb=None, stop_cb=None, fu
             log("ERROR %s: %s" % (path, e))
             continue
         diffs = []
+        # 🔴🔴 V160.6 (владелец: «база раздулась до 48 ГБ, тесты ничего не стоят»):
+        # ПРИ `full=True` ЖУРНАЛ НЕ ПОПОЛНЯЕМ. ЗАМЕР: 5 полных сканов подряд дали
+        # `changes` 399 → 754 → 1109 → 1464 → 1819 (ровно +355 за прогон), потому что
+        # полный скан ПРИНУДИТЕЛЬНО перечитывает файлы и ЛЮБОЕ расхождение считает «правкой».
+        # Но это НЕ правка человека — это наш же повторный разбор. Журнал должен отражать
+        # изменение ФАЙЛА, а не факт перескана. При `full` идём веткой «без записи в журнал»
+        # (файл всё равно попадёт в `changes` при РЕАЛЬНОМ изменении на обычном скане).
+        if full:
+            # При полном скане: считаем файл прочитанным, но в `changes` НЕ пишем.
+            if old is None:
+                new += 1
+            else:
+                mod += 1
+            diffs = None                     # сигнал «в `changes` не пишем»
         # V110: ИМЯ КОМПЬЮТЕРА ОБЯЗАТЕЛЬНО. Автор из паспорта Creo часто пуст или служебный
         # («USER», «ADMIN») — тогда владельцу непонятно, «кто». Подставляем машину, сделавшую
         # запись: `COMPUTERNAME` (Windows) или hostname. Своё имя НЕ трогаем (реальные ZEH116,
@@ -2660,7 +2674,7 @@ def do_scan(roots, max_mb, limit, depth=None, progress_cb=None, stop_cb=None, fu
         who_rec = (it["author"] or "").strip()
         if not who_rec or who_rec.upper() in ("USER", "ADMIN", "?"):
             who_rec = _machine_name()
-        if old:
+        if diffs is not None and old:
             if abs(float(old[1] or 0) - float(it["volume"] or 0)) >= 0.5:
                 diffs.append("объём %d→%d" % (old[1] or 0, it["volume"] or 0))
             for key, idx in (("material", 2), ("name", 3), ("designation", 4),
@@ -2671,11 +2685,9 @@ def do_scan(roots, max_mb, limit, depth=None, progress_cb=None, stop_cb=None, fu
             if diffs:
                 con.execute("INSERT INTO changes (item,rev,kind,descr,who,ts) VALUES (?,?,?,?,?,?)",
                             (path, it["rev"], "modify", "; ".join(diffs), who_rec, now))
-                mod += 1
-        else:
+        elif diffs is not None:
             con.execute("INSERT INTO changes (item,rev,kind,descr,who,ts) VALUES (?,?,?,?,?,?)",
                         (path, it["rev"], "new", "первая запись паспорта", who_rec, now))
-            new += 1
         # ГЛАВНАЯ ГРАБЛЯ 27.10.2026 — ПОЧЕМУ «СКАН НЕ РАБОТАЛ» (владелец: «скан не работает»).
         # Было `INSERT ... snapshots VALUES (17 знаков ?)` БЕЗ списка колонок. SQLite в такой
         # форме требует значения для ВСЕХ колонок таблицы. А в боевой базе `snapshots` имеет
@@ -2725,6 +2737,10 @@ def do_scan(roots, max_mb, limit, depth=None, progress_cb=None, stop_cb=None, fu
                                 (s, pname, pval, "plm_tree"))
         if s not in seen:                       # связи код-родителя чистим ОДИН раз
             con.execute("DELETE FROM links WHERE parent=? AND source='plm_tree'", (s,))
+            # 🔴 V160.4 (владелец: «база раздулась до 48 ГБ»): `mentions` чистим ЗДЕСЬ ЖЕ.
+            # ЗАМЕР приёмки: без этой строки повторный скан давал рост `links` +52 строки
+            # (строки `mentions` копились, старые не сносились — был только INSERT).
+            con.execute("DELETE FROM links WHERE parent=? AND source='mentions'", (s,))
             seen.add(s)
         # 🔴 ГРАБЛЯ 28.10.2026 (владелец: «у дин912 связей 5»): связи `plm_tree` пишутся по
         # ВХОЖДЕНИЮ ИМЕНИ В БАЙТЫ файла. Для .prt/.drw это ЛОЖЬ: имя другой детали лежит там

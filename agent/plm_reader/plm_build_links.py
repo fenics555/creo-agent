@@ -141,6 +141,12 @@ def build(check_only=False, engine_mod=None):
 
         # ── ДОСТРОЙКА (пишем ТОЛЬКО 'built'; реальные строки не трогаем)
         #    ВИД сохраняем: `derived.kind` = обратный вид; `links.source` = обратный вид связи.
+        # 🔴🔴 V160.4 (владелец: «база раздулась до 48 ГБ»): СНАЧАЛА СНОСИМ СТАРУЮ ДОСТРОЙКУ.
+        # ЗАМЕР приёмки: повторный прогон давал `links` рост +52 строки — достройка добавляла те же
+        # пары ЗАНОВО (был только `INSERT`, без `DELETE`). «Идемпотентно» не работало.
+        # Реальные строки (`origin != 'built'`) НЕ трогаем — догма «либо одно, либо другое» цела.
+        con.execute("DELETE FROM links WHERE origin=?", (BUILT,))
+        con.execute("DELETE FROM derived WHERE origin=?", (BUILT,))
         for (a, b) in sorted(inh):
             if (b, a) in inh or (a, b) in bidir:
                 continue                     # встречная уже есть — не дублируем

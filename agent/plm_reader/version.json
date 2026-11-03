@@ -2,7 +2,7 @@
  "version": "V160",
  "version_num": 160,
  "date": "03.11.2026",
- "notes": "V160.3 КРИТИЧНО: ИСПРАВЛЕНО РАЗДУВАНИЕ БАЗЫ (1.3 ГБ -> 47.9 ГБ). Грубый отбор params (344 имени/файл) заменён ТОЧНЫМ разбором как engine.creo_params: <ИМЯ> + ТЕГ ЗНАЧЕНИЯ (e2 33) => 23 параметра/файл (эталон). Замер: 399 файлов, params 12648, база 39 МБ (было 47.9 ГБ). Это была причина 194 с скана: копирование 48 ГБ базы по сети. ВНИМАНИЕ: раздутые копии базы удаляет ВЛАДЕЛЕЦ (шара).",
+ "notes": "V160.6 КРИТИЧНО: БАЗА НЕ РАСТЁТ (48 ГБ -> 39 МБ). ТРИ утечки устранены: (1) в plm_scanner.py НЕ БЫЛО НИ ОДНОГО DELETE FROM - unknown_fields (x8917!), matrices (x9162), dim_all, bodies, materials, tools копились при перескане; теперь DELETE по path для 17 таблиц. (2) links[mentions] без очистки (+52/скан) - добавлен DELETE. (3) changes писал ложную правку при full=True (+355/прогон, x22 прогона = 103 млн) - теперь при full журнал НЕ пишется. (4) plm_build_links: DELETE built перед достройкой. ТЕСТ: 5 сканов подряд full=True и full=False - все 15 таблиц стабильны, размер 39.1 МБ. Урок: прежняя приёмка не проверяла идемпотентность - добавлен обязательный тест tests/test_no_grow_*.py. УДАЛЕНО ПО ПРОВЕРКЕ: 3 файла базы по 47.92 ГБ (144 ГБ).",
  "schema_version": 2,
  "remove": [
   "_probe_scan137.py",
@@ -11,7 +11,7 @@
   "scanner_write.py"
  ],
  "files": {
-  "engine.py": "7abb5ead40928cb73d571a9483b13a68cf46093446edb3f3fa1f98c5a10cee13",
+  "engine.py": "be94e0c1cb816adfa68d9e0ac7ceafb6f6fe73cc7ca6cc46e595f79ab3d90cf4",
   "plm_reader.py": "2bb8f50a291878d190cc813fed7a36f131954f5000590142363f12137f9f8d4b",
   "plm_toolwin.py": "1bb1283227037e7cab77efeea3bdca9f273be173d785edda248f55262a01d228",
   "plm_history.py": "48f3705e57d3485f50f667b2afe63eeab35177f743e2b532123377013a5986ac",
@@ -20,8 +20,8 @@
   "plm_settings.py": "9c9b9aa0117a1b1f3cc02a01ceca9dbde860b3f3e1a8e2b3fa624fb55e97d94f",
   "plm_scan.py": "e32d610e33932afaee4c952cb0b4564801508f0568d4360d7d039ffacb856f48",
   "plm_paths_window.py": "c1bb60b36fbe7fe86e5213680978eab41ac1d1c722d7fd58fae4820155a3833a",
-  "creo_read.py": "5d61edc8d94d9ac94bb8041d06c00c86484fe31ecb951d5a5b9bd2dd47875a26",
-  "README.md": "731945b9a72dc38113385b773ac80e2b6b42401f3f25dd9a0530aef5d5181302",
+  "creo_read.py": "b0049e9456f7c86791610b3543d475121e00a86a359438158feb53e13b921152",
+  "README.md": "c630b4954d6fabe29621ef0080af1d34ccd3704fd2618b929b78eb710c142dbd",
   "SHARE_copy.bat": "4eccb549a17251392337aeabbc3ef76233dfa3072beadff9d158cd6e932622ee",
   "plm_reader.bat": "bdd125397db3ac7e7432dbdb078a6a811ed4913fca02b062edb27907032fca3d",
   "plm_reader_gui.bat": "9f695898d5db6431e840784b9587c75304ca9e526b06f79d4b44ab026663bd20",
@@ -32,11 +32,11 @@
   "plm_graph_page.html": "d119d7c13ce72833c9a227021e21aa92a1037c8052bb22ef6707bb4db30602bc",
   "plm_queries.py": "3fa963038b75cc5551bb7d7bbc3ced5760c03188fe77d47d393c145c390f1977",
   "plm_links.py": "b1d1957df9043f3ebd8e0c9f0af346974f5299dab9be2e804c3ccf08fa108f72",
-  "plm_build_links.py": "df2fa48516d03bbaefddab3de7ce6eb7e2289b326bd899da4e77f5d021ab2b1d",
+  "plm_build_links.py": "563b1a4799d5fd8d880dd904b87d0faa833efeca5d641df7fd96695502a8e29a",
   "plm_database.py": "10706cee1897e2cf09184b46dcf0386d6ee05b812887d2f669f6c05fb4fe367f",
   "plm_graph_build.py": "7e3ccf9e59e6cd98029b8dc2ec9473831169ba82b82ed2d8a3670b0f2e5be7ed",
-  "plm_scanner.py": "4f0b4825290fbef3991ba99bf72f26ac83ecfff59ce9abc45f0c3c429b376242",
-  "STATE.md": "5a701146811fa62d6f4e8943471205790506cc1c1e1a1df8e674b2161f9a032a",
+  "plm_scanner.py": "e0168f97d37c9234a61be28d7982497857c389ee86477aeef43a3d031b3b023d",
+  "STATE.md": "6474a287576f8236ccd133703179c0fd39b3217a30ed7bad6b79f16293dd55ef",
   "CONCEPT_PLM.md": "6addb5c97847d55b261a2890e8f08a6efc4a2ca468c8d090f357b1b8c2c4ab61",
   "PLAN_ONE_SCANNER.md": "5ad0843add56f20e8964eeda205466bc621a004039bb034928a64b40039e7f14"
  }

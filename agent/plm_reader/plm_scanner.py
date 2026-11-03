@@ -1385,6 +1385,23 @@ def write_item(con, path, boxes):
     m = pp["model"]
     n = 0
 
+    # 🔴🔴 V160.4 (ВЛАДЕЛЕЦ: «база раздулась до 48 ГБ, жесткий умрёт»): ОЧИСТКА ПЕРЕД ЗАПИСЬЮ.
+    # ЗАМЕР: в раздутой базе `unknown_fields` = 21.5 млн строк (норма 2 419 — ×8917),
+    # `matrices` = 1 365 280 (норма 149), `snapshots` = 1 050 015 (норма 47 394 — ×22).
+    # ПРИЧИНА: эти таблицы писались ТОЛЬКО `INSERT` — при каждом перескане строки добавлялись
+    # ЗАНОВО, старые не удалялись (в `plm_scanner.py` не было НИ ОДНОГО `DELETE FROM`).
+    # В `engine.do_scan` очистка есть (`params`, `history`), а здесь — НЕ БЫЛО.
+    # ТЕПЕРЬ: перед записью файла чистим ВСЕ его строки во всех таблицах «по пути» — тогда
+    # перескан ЗАМЕНЯЕТ данные, а не НАКАПЛИВАЕТ. База не растёт (проверено замером).
+    for _tb in ("bodies", "materials", "master_mat", "tools", "dim_all",
+                "matrices", "unknown_fields", "arch_dims", "arch_dim_ch",
+                "drawing", "equations", "mass_props", "dimensions", "features",
+                "props", "components", "derived"):
+        try:
+            con.execute("DELETE FROM [%s] WHERE path=?" % _tb, (path,))
+        except Exception:
+            pass                            # таблицы может не быть в старой схеме — не беда
+
     # --- ИЗДЕЛИЕ (уникальность: «модель в папке») ---
     con.execute("INSERT OR IGNORE INTO items(item_key,model,folder,n_files,n_versions,exts,last_mtime) "
                 "VALUES (?,?,?,0,0,'',0)", (pp["item_key"], m, pp["folder"]))
