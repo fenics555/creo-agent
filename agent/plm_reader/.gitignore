@@ -1,4 +1,4 @@
-db/
+﻿db/
 settings/
 log/
 __pycache__/
@@ -27,3 +27,17 @@ plm_reader_OLD.py
 debug/
 # Отладочные скрипты (не в Git)
 
+
+# --- V159 (03.11.2026): GitHub-гигиена по итогам чистки репо.
+# Найдено: 230 МБ garbage (обрывки tmp_obj_* от прерванной операции git) + в истории
+# осели PDF-книги из agent/creo_pdf/_trash/ (папка с мусором в самом имени) и
+# многомегабайтные логи прогонов. Кодом это НЕ читается - только занимает место.
+*.db
+*.db-wal
+*.db-shm
+*_before_*.db
+db/versions/
+_trash/
+*.rar
+last_run_log.txt
+logs/

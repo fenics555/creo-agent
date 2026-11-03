@@ -41,7 +41,7 @@ if __name__ == "__main__":
     import sys as _sys
     _sys.modules.setdefault("plm_reader", _sys.modules["__main__"])
 
-APP_VERSION = "V158"      # V158: ИСПОЛНЕНИЯ больше НЕ в «Куда входит» (лежали в базе ДВАЖДЫ: family И structure) — DIN912: 4132→6 рёбер, ВХОДИТ 4 (сборки), ИСПОЛНЕНИЯ 1375 отдельно, пересечение 0. См. STATE.md фаза 57.
+APP_VERSION = "V159"      # V159: ЛОГ ОТКРЫТ (кнопка «Лог» + engine.log_stats/log_clear): скан 18847-непрочитанных ФАЙЛОВ объяснился — 510 663 ошибки `name '_cfg' is not defined` (переменная из чужой функции, 2-е повторение грабли `_media_dir`). Плюс восстановлена ПОТЕРЯННАЯ `_fs_date`, разорван цикл plm_dbview↔plm_reader, «Дополнительно» 110→0.7 с (одиночки 106 с → 0.10 с, ответ тот же 18209), починены «Авторы», кнопки ИНСТРУМЕНТЫ 5+5 (был обрезан 3-й столбец), кнопка «Снять замок». См. STATE.md фаза 58.
 APP_TITLE = "PLM Reader " + APP_VERSION          # версия ОДНА: заголовок берёт её из константы
 DATA_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "db")          # данные — в подпапке db\
 SETTINGS_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "settings")  # настройки — в подпапке settings\

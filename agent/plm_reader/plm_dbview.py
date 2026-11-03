@@ -1,15 +1,24 @@
 # -*- coding: utf-8 -*-
 """plm_dbview.py — вынесено из plm_reader.py распилом (см. СПЕКА_РАСПИЛА_PLM_READER.md)."""
-from plm_reader import (
-    CACHE_FILE,
-    DATA_DIR,
-    DB_FILE,
-    LOG_DIR,
-    datetime,
-    json,
-    os,
-    re,
-)
+import datetime
+import json
+import os
+import re
+
+# 🔴 V159 (03.11.2026): РАЗОРВАН ЦИКЛ `plm_dbview ↔ plm_reader`.
+# Было: `from plm_reader import CACHE_FILE, DATA_DIR, DB_FILE, LOG_DIR, datetime, json, os, re`,
+# а сам `plm_reader` на строке 415 делает `from plm_dbview import (...)` → ЦИКЛ, и ЛЮБАЯ попытка
+# `import plm_dbview` / `import plm_reader` напрямую падала с
+# `ImportError: cannot import name '_active_db_file' from partially initialized module 'plm_dbview'`.
+# Прятал это только батник (`plm_reader.bat`), который выставлял порядок импортов.
+# РЕШЕНИЕ: константы берём ТУТ ЖЕ (они вычисляются от файла, а не от чужого модуля) — совпадают
+# с plm_reader один в один. `datetime/json/os/re` — стандартные, тоже напрямую.
+_HERE = os.path.dirname(os.path.abspath(__file__))
+DATA_DIR = os.path.join(_HERE, "db")
+CACHE_FILE = os.path.join(DATA_DIR, "scan_cache.json")
+DB_FILE = os.path.join(DATA_DIR, "plm_reader.db")
+LOG_DIR = os.environ.get("PLM_LOG") or (
+    r"D:\AI\log\plm_reader" if os.path.isdir(r"D:\AI\log") else os.path.join(_HERE, "log"))
 
 
 def path_under(*a, **k):
@@ -204,9 +213,22 @@ def db_facts():
         try:
             # 1. ДЕТАЛИ-ОДИНОЧКИ: файл есть, но НИ в одной сборке не участвует (ни как родитель,
             #    ни как ребёнок). Это готовый список «кандидатов на архив/чистку склада».
-            orph = one("""SELECT COUNT(*) FROM snapshots s
-                          WHERE NOT EXISTS (SELECT 1 FROM links l WHERE l.child=s.model)
-                            AND NOT EXISTS (SELECT 1 FROM links l WHERE l.parent=s.model)""")
+            #
+            # 🔴 V159 (03.11.2026) — ЗАМЕР: этот счёт занимал **106 секунд из 110**, из-за чего окно
+            #    «Дополнительно» «очень долго строится» (жалоба владельца). Причина: ДВА
+            #    коррелированных `NOT EXISTS` — для КАЖДОЙ из 47 394 строк `snapshots` SQLite
+            #    проверяла `links` дважды (индекс `ix_links_child` покрывал только `child`).
+            #    РЕШЕНИЕ: собрать ОДИН раз множество всех участвующих моделей (`UNION` родитель+ребёнок,
+            #    дедупликация встроена) и вычесть левым соединением по индексированному `model`.
+            #    Тот же ответ (18 209), время — доли секунды.
+            orph = one("""WITH used AS (
+                              SELECT parent AS m FROM links WHERE parent IS NOT NULL
+                              UNION
+                              SELECT child  AS m FROM links WHERE child  IS NOT NULL
+                          )
+                          SELECT COUNT(*) FROM snapshots s
+                          LEFT JOIN used u ON u.m = s.model
+                          WHERE u.m IS NULL""")
             if orph:
                 lines.append(("🔍 Детали-одиночки (нигде не используются)",
                               "%d моделей — кандидаты на архив (кнопка «Проверить» → фильтр)" % orph[0]))
@@ -230,8 +252,11 @@ def db_facts():
                 lines.append(("🗓 По годам создания",
                               ", ".join("%s: %s" % (y, n) for y, n in yr)))
             # 5. ТОП АВТОРОВ (кто наполнял склад).
+            # 🔴 V159 (03.11.2026): было `ORDER BY n` при выражении-агрегате — SQLite отвечал
+            #    `no such column: n`, факт МОЛЧА пропадал (в окне нет строки «Авторы»).
+            #    Порядок по выражению-агрегату (как в соседних запросах — так и впредь).
             au2 = qrows("""SELECT COALESCE(NULLIF(author,''),'(пусто)') a, COUNT(*) n
-                       FROM snapshots GROUP BY a ORDER BY n DESC LIMIT 5""")
+                       FROM snapshots GROUP BY a ORDER BY COUNT(*) DESC LIMIT 5""")
             if au2:
                 lines.append(("👤 Авторы (топ-5)",
                               ", ".join("%s: %s" % (a, n) for a, n in au2)))

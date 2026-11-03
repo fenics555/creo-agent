@@ -585,6 +585,10 @@ def run_gui():
     b_stop.pack(anchor="w", pady=1)
     b_check = ttk.Button(grp_do, text="Актуально?", width=18, command=lambda: check_base())
     b_check.pack(anchor="w", pady=1)
+    # V159: «Снять замок» — когда прошлый скан упал/закрыт крестиком, замок держит машину
+    # до LOCK_STALE_SEC и владелец видит «идёт скан на <машина>» на СВОЁМ же зависшем скане.
+    b_unlock = ttk.Button(grp_do, text="Снять замок", width=18, command=lambda: unlock_base())
+    b_unlock.pack(anchor="w", pady=1)
 
     def _vgrid(parent, items, per_col=4, width=18):
         """Кнопки ВЕРТИКАЛЬНО: не больше per_col в столбик, дальше — следующий столбец правее.
@@ -605,7 +609,8 @@ def run_gui():
         ("Проверить обновление", lambda: check_updates_ui(True)),
         ("Дополнительно", lambda: show_facts()),
         ("Состав в CSV", lambda: export_bom()),   # V83: BOM текущего изделия нижнего окна
-    ], per_col=4)
+        ("Лог", lambda: show_log()),              # V159: открыть engine.log (владелец: «лога нет»)
+    ], per_col=5)   # V159: 10 кнопок = РОВНО 5+5 = ДВА столбца (было 4 → 3-й столбец обрезался)
     def _upd_status(text):
         try:
             root.after(0, lambda: lbl.config(text=text))
@@ -765,6 +770,71 @@ def run_gui():
         threading.Thread(target=work, daemon=True).start()
         ttk.Button(win, text="Пересчитать",
                    command=lambda: threading.Thread(target=work, daemon=True).start()).pack(pady=6)
+
+    def show_log():
+        """🔴 V159 (03.11.2026): ОКНО ЛОГА. Владелец: «а лога то и нет. Как лог то открыть?»
+
+        Скан пишет «НЕ ПРОЧИТАНО N ФАЙЛОВ — см. лог», но лог — это файл на диске
+        (`D:\\AI\\log\\plm_reader\\engine.log`), и открывать его было НЕЧЕМ. Здесь — окно:
+        сразу показывает статистику ошибок по типам (главное: ЧТО и СКОЛЬКО падает),
+        и кнопки «Открыть в блокноте» / «Обновить».
+
+        Строки читаются С КОНЦА (свежие — первыми) и порциями: файл 166 МБ читать целиком нельзя.
+        """
+        win = tk.Toplevel(root)
+        win.title("PLM Reader — лог (ошибки чтения файлов)")
+        win.geometry("900x560")
+        win.transient(root)
+        head = ttk.Label(win, text="читаю…", padding=8)
+        head.pack(anchor="w")
+        body = ttk.Frame(win)
+        body.pack(fill="both", expand=True, padx=8)
+        tv = ttk.Treeview(body, columns=("k", "v"), show="headings", height=18)
+        tv.heading("k", text="Тип ошибки / последняя строка")
+        tv.heading("v", text="Сколько")
+        tv.column("k", width=700, anchor="w")
+        tv.column("v", width=110, anchor="e")
+        sb = ttk.Scrollbar(body, orient="vertical", command=tv.yview)
+        tv.configure(yscrollcommand=sb.set)
+        tv.pack(side="left", fill="both", expand=True)
+        sb.pack(side="right", fill="y")
+        tail = tk.Text(win, height=9, wrap="none")
+        tail.pack(fill="x", padx=8, pady=(6, 0))
+
+        def work():
+            info = eng.log_stats(tail_lines=40)      # счёт по типам + хвост (движок читает сам)
+
+            def done():
+                try:
+                    tv.delete(*tv.get_children())
+                    for k, v in info.get("types", []):
+                        tv.insert("", "end", values=(k, v))
+                    head.config(text="%s  ·  строк: %s  ·  ошибок: %s  ·  размер: %.1f МБ"
+                                     % (info.get("path", "?"), info.get("lines", 0),
+                                        info.get("errors", 0), info.get("mb", 0.0)))
+                    tail.delete("1.0", "end")
+                    tail.insert("1.0", "\n".join(info.get("tail", [])))
+                except Exception:
+                    pass
+            root.after(0, done)
+
+        def open_ext():
+            try:
+                if sys.platform.startswith("win"):
+                    os.startfile(eng.LOG)                                  # noqa: S606
+                else:
+                    subprocess.Popen(["xdg-open", eng.LOG])
+            except Exception as e:      # noqa: BLE001
+                messagebox.showwarning("Лог", "Не удалось открыть: %s\n\nФайл: %s" % (e, eng.LOG))
+
+        bar = ttk.Frame(win)
+        bar.pack(fill="x", padx=8, pady=6)
+        ttk.Button(bar, text="Обновить",
+                   command=lambda: threading.Thread(target=work, daemon=True).start()).pack(side="left")
+        ttk.Button(bar, text="Открыть в блокноте", command=open_ext).pack(side="left", padx=6)
+        ttk.Button(bar, text="Очистить лог", command=lambda: (
+            eng.log_clear(), threading.Thread(target=work, daemon=True).start())).pack(side="left")
+        threading.Thread(target=work, daemon=True).start()
 
     def show_facts():
         """Окно «Дополнительно»: интересные факты по активной базе (расчёт в фоне)."""
@@ -4260,6 +4330,33 @@ def run_gui():
         t = tk.Text(win, wrap="word", font=("Consolas", 9))
         t.pack(fill="both", expand=True)
         t.insert("1.0", text)
+
+    def unlock_base():
+        """V159: принудительно снять ЗАМОК скана (прошлый процесс упал/закрыт крестиком).
+
+        Показывает, КТО держал замок, и снимает после подтверждения — иначе владелец навсегда
+        видит «идёт скан на <машина>» и не может запустить новый скан.
+        """
+        try:
+            import engine as eng
+            busy, txt = eng.lock_status()
+        except Exception as e:      # noqa: BLE001
+            messagebox.showwarning("Замок", "Не удалось прочитать замок: %s" % e)
+            return
+        if not busy:
+            messagebox.showinfo("Замок", "Замка нет — скан не идёт, можно запускать.")
+            return
+        if not messagebox.askyesno("Замок",
+                                   "%s.\n\nСнять замок принудительно?\n"
+                                   "(нужно только если тот скан давно не идёт)" % txt):
+            return
+        try:
+            import engine as eng
+            was, who = eng.lock_force_release()
+            lbl.config(text="замок снят (держал: %s)" % (who or "—"))
+            messagebox.showinfo("Замок", "Замок снят.\nДержал: %s" % (who or "—"))
+        except Exception as e:      # noqa: BLE001
+            messagebox.showwarning("Замок", "Не удалось снять: %s" % e)
 
     def check_base():
         """Быстро: актуальна база или нужен скан (обход+stat, БЕЗ чтения файлов)."""

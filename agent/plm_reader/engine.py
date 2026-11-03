@@ -2242,6 +2242,26 @@ def lock_release():
             pass
 
 
+def lock_force_release():
+    """V159: СНЯТЬ ЗАМОК ПРИНУДИТЕЛЬНО (кнопка окна, когда скан «висит»).
+
+    🔴 Зачем: `lock_release()` намеренно снимает ТОЛЬКО свой замок (чужой скан трогать нельзя).
+    Но если процесс упал/закрыт крестиком, замок остаётся до `LOCK_STALE_SEC` (часы!) и владелец
+    видит «идёт скан на <машина>» на СВОЁМ же зависшем скане. Здесь — осознанное действие
+    владельца: показать, КТО держал замок, и снять его.
+
+    Возврат: (был_замок: bool, текст_кто_держал).
+    """
+    busy, txt = lock_status()
+    try:
+        if os.path.isfile(LOCK_FILE):
+            os.remove(LOCK_FILE)
+    except Exception as e:                        # noqa: BLE001
+        return busy, "не удалось снять: %s" % e
+    log("lock: снят принудительно (держал: %s)" % (txt or "никто"))
+    return busy, txt
+
+
 # --- ПУБЛИКАЦИЯ: боевая база меняется только целиком и атомарно ---
 def _backup_dir():
     """Папка бэкапов — РЯДОМ С БОЕВОЙ БАЗОЙ (не в папке инструмента, если база на складе).
@@ -2550,6 +2570,74 @@ def inventory(roots, max_mb=8, store=True, max_depth=None):
     return folders, files
 
 
+def log_stats(tail_lines=40, scan_bytes=4 * 1024 * 1024):
+    """Статистика ЛОГА для окна «Лог» (V159).
+
+    Файл `engine.log` доходит до сотен МБ (живой: 166 МБ, 888 261 строка), поэтому ЦЕЛИКОМ его
+    читать нельзя — окно повисло бы. Читаем ХВОСТ (`scan_bytes` с конца) и считаем по нему:
+    общее число строк/ошибок и РАЗБИВКУ ОШИБОК ПО ТИПАМ (что именно падает и сколько раз).
+
+    Возврат: {"path", "mb", "lines", "errors", "types": [(тип, сколько)], "tail": [строки]}
+    """
+    out = {"path": LOG, "mb": 0.0, "lines": 0, "errors": 0, "types": [], "tail": []}
+    if not os.path.isfile(LOG):
+        return out
+    try:
+        size = os.path.getsize(LOG)
+        out["mb"] = size / 1048576.0
+        with open(LOG, "rb") as f:
+            if size > scan_bytes:
+                f.seek(size - scan_bytes)
+                f.readline()                      # добить неполную строку
+            raw = f.read().decode("utf-8", errors="ignore")
+        lines = [l for l in raw.split("\n") if l.strip()]
+        out["lines"] = len(lines)
+        errs = [l for l in lines if "ERROR" in l]
+        out["errors"] = len(errs)
+        cnt = {}
+        for l in errs:
+            key = l.split("  ERROR ", 1)
+            if len(key) == 2:
+                body = key[1]
+                # тип = часть после последнего ": " (обычно текст исключения); иначе — до 60 знаков
+                t = body.rsplit(": ", 1)[-1].strip() if ": " in body else body
+                t = t[:60] if len(t) > 60 else t
+            else:
+                t = l[:60]
+            if not t:
+                t = "(пусто)"
+            cnt[t] = cnt.get(t, 0) + 1
+        out["types"] = sorted(cnt.items(), key=lambda x: -x[1])[:60]
+        out["tail"] = lines[-tail_lines:]
+    except Exception:
+        pass
+    return out
+
+
+def log_clear(keep_tail=2000):
+    """Обрезать лог, оставив последние `keep_tail` строк (V159, кнопка «Очистить лог»).
+
+    🔴 Зачем не «удалить»: лог — единственный след причин сбоя. Полное удаление стирает улики;
+    оставляем хвост, чтобы свежие события были видны и после чистки.
+    """
+    try:
+        if not os.path.isfile(LOG):
+            return 0
+        with open(LOG, "rb") as f:
+            size = os.path.getsize(LOG)
+            if size > 4 * 1024 * 1024:
+                f.seek(size - 4 * 1024 * 1024)
+                f.readline()
+            raw = f.read().decode("utf-8", errors="ignore")
+        lines = [l for l in raw.split("\n") if l.strip()][-keep_tail:]
+        with open(LOG, "w", encoding="utf-8") as f:
+            f.write("\n".join(lines) + "\n")
+        log("log: очищен, оставлено строк %d" % len(lines))
+        return len(lines)
+    except Exception:
+        return 0
+
+
 def do_scan(roots, max_mb, limit, depth=None, progress_cb=None, stop_cb=None, full=False, db=None,
             walk_cb=None,
             param_cfg=None, exclude=None, recurse=True, latest_only=True,
@@ -2564,7 +2652,14 @@ def do_scan(roots, max_mb, limit, depth=None, progress_cb=None, stop_cb=None, fu
     (скан «не работает»), а причина молча уходила в лог строкой `ERROR <path>: name '_media_dir' is
     not defined`. `py_compile` и смоук этого НЕ видят: имя, отсутствующее в области видимости,
     ловится только ВЫЗОВОМ. Значения по умолчанию (None/auto) сохраняют старое поведение CLI.
+
+    🔴🔴 V159 (03.11.2026) — ТА ЖЕ ГРАБЛЯ ПОВТОРИЛАСЬ С `_cfg`: правки V154/V156 завели в
+    `scan_to_base` переменную `_cfg`, а использовали её ЗДЕСЬ (строки с `scanner_new`,
+    `scanner_extra`, `write_mentions`) — `NameError: name '_cfg' is not defined` на КАЖДОМ файле.
+    ЖИВОЙ ЛОГ: **510 663** таких ошибок, «НЕ ПРОЧИТАНО 18847 ФАЙЛОВ». ЛЕЧЕНИЕ: читаем настройки
+    ЗДЕСЬ, в своей области видимости (как и должно быть).
     """
+    _cfg = _settings_json()               # V159: настройки В СВОЕЙ функции (не из чужой!)
     t0 = time.time()
     roots = as_roots(roots)               # строка-корень = ОДИН корень (иначе обход всего диска)
     lim = float("inf") if (limit or 0) <= 0 else limit      # --limit 0 = без предела по времени
@@ -3423,6 +3518,24 @@ def _kind_of(path, role):
     if ".drw." in p or p.endswith(".drw"):
         return "ЧЕРТЁЖ"
     return ""
+
+
+def _fs_date(ts):
+    """Unix-время → «ДД.ММ.ГГГГ ЧЧ:ММ» для колонок «Создан»/«Изменён».
+
+    V159 (03.11.2026): функция БЫЛА ПОТЕРЯНА при правках V154/V156 — в `_row_dict` остался вызов,
+    а определения не стало (`NameError` на каждом показе строки). Восстановлена.
+    """
+    try:
+        t = float(ts or 0)
+    except Exception:
+        return ""
+    if t <= 0:
+        return ""
+    try:
+        return datetime.datetime.fromtimestamp(t).strftime("%d.%m.%Y %H:%M")
+    except Exception:
+        return ""
 
 
 def _row_dict(t):
