@@ -29,7 +29,12 @@ import sys
 import time
 
 HERE = os.path.dirname(os.path.abspath(__file__))
-sys.path.insert(0, os.path.dirname(HERE))
+# 🔴 ЖИВОЙ ПРОВАЛ 03.11.2026: было `sys.path.insert(0, os.path.dirname(HERE))` — родительская
+# папка `agent\` вставала ПЕРВОЙ, и `import creo_read` подхватывал СТАРУЮ общую библиотеку
+# (`agent\creo_read.py`, 7 КБ, БЕЗ `param`/`compose`) вместо своей копии рядом (18 КБ).
+# Итог: `AttributeError: module 'creo_read' has no attribute 'param'`. Лечение: СВОЯ папка — первой.
+if HERE not in sys.path:
+    sys.path.insert(0, HERE)
 
 # ═════════════════════════════════════════════════════════════════════════════
 # СЛОВАРЬ ТИПОВ ЭЛЕМЕНТОВ Creo (pfcFeatureType) — 314 значений. §171
@@ -350,10 +355,12 @@ def _dbl_from_e32(body7):
 # владельца (`param_designation` / `param_name` в settings/settings.json) — «параметры
 # детали задаются ЧЕЛОВЕКОМ, они у всех РАЗНЫЕ». Берём из `creo_read` (тот же разбор,
 # что и старый сканер `engine.scan_item`) — ОДНА логика на весь инструмент (§85).
-try:                                    # своя копия рядом (переносимость)
+try:                                    # своя копия рядом (переносимость) — ПРИОРИТЕТ!
     import creo_read as _CR
+    if not hasattr(_CR, "param"):       # 🔴 попалась СТАРАЯ общая библиотека дома
+        raise ImportError("creo_read: нет param/compose")
 except ImportError:                     # запасной путь: общая библиотека дома
-    sys.path.insert(0, os.path.dirname(HERE))
+    sys.path.insert(0, HERE)            # своя папка — ПЕРВОЙ (не родительская!)
     import creo_read as _CR  # noqa: E402
 
 # ⚠️ УМОЛЧАНИЯ (зеркало `engine._PARAM_DES` / `_PARAM_NAME`): применяются ТОЛЬКО если
