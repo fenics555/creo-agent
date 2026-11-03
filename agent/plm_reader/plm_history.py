@@ -147,12 +147,46 @@ def version_change(path, settings):
         if a and b and a != b:
             parts.append("%s %s→%s" % (f.split(",")[0], a, b))
     return "; ".join(parts)
+def version_diff_from_db(path):
+    """🔴 V160: СРАВНЕНИЕ ВЕРСИЙ ИЗ БАЗЫ — без чтения файлов Creo.
+
+    Закон «показ читает ТОЛЬКО базу». `snapshots` хранит ПАСПОРТ каждой версии
+    (path уникален: `.prt.1`/`.prt.2` — разные строки). Возвращает те же строки,
+    что `version_diff`, или None — если версий в базе <2 (тогда вызывающий берёт файлы).
+    """
+    try:
+        con = eng.connect()
+        vers = sibling_versions(path)
+        rows = []
+        for num, p in vers:
+            r = con.execute(
+                "SELECT volume, material, name, designation, rev, author, revdate, role, "
+                "size FROM snapshots WHERE path=?", (p,)).fetchone()
+            if r is None:
+                continue
+            d = {}
+            d[VERSION_FIELDS[0] if VERSION_FIELDS else "Версия"] = str(num)
+            hist = con.execute(
+                "SELECT rev, ts, user, COUNT(*) FROM history WHERE path=? "
+                "GROUP BY rev, ts, user ORDER BY ts DESC LIMIT 1", (p,)).fetchone()
+            rows.append((num, {"Объём, мм³": r[0], "Материал": r[1], "Наименование": r[2],
+                               "Обозначение": r[3], "Ревизия": r[4], "Пользователь": r[5],
+                               "Дата": r[6], "Роль": r[7]}, {}))
+        con.close()
+    except Exception:
+        return None
+    return rows if len(rows) >= 2 else None
+
+
 def version_diff(path, settings):
     """Было→стало между версиями одного изделия (.1 .2 .3 …).
 
-    Числа (объём, габарит) сравниваются, когда оба значения правдоподобны; ревизия — всегда.
-    Плюс к каждой версии — что менялось по её внутренним записям (размеры/параметры).
+    🔴 V160: СНАЧАЛА БАЗА (`version_diff_from_db`) — файлы не читаются.
+    Файлы — только если в базе по версиям ничего нет (старая база).
     """
+    rows_db = version_diff_from_db(path)
+    if rows_db is not None:
+        return rows_db
     vers = sibling_versions(path)
     if len(vers) < 2:
         return []
@@ -315,6 +349,42 @@ def copy_source_keys(src_paths, settings):
         except Exception:
             pass
     return keys
+def copy_source_of_db(paths):
+    """🔴 V160: ИСТОЧНИК КОПИИ ИЗ БАЗЫ — без чтения файлов Creo.
+
+    Сканер уже записал «модель скопирована от» в `derived` (канал `копия`).
+    Анализ голосов (prt/asm решают, чертёж не решает) — по данным БАЗЫ.
+    Возвращает (stem, src_paths, keys, found) или None, если в базе пусто.
+    """
+    try:
+        con = eng.connect()
+        self_stem = eng.stem(os.path.basename(paths[0])) if paths else ""
+        by_type = {"model": {}, "drw": {}}
+        for p in paths:
+            mn = re.search(r"\.(prt|asm|drw)\.\d+$", os.path.basename(p), re.I)
+            if not mn:
+                continue
+            stem_p = eng.stem(os.path.basename(p))
+            r = con.execute(
+                "SELECT base FROM derived WHERE child=? AND kind IN ('копия','copy') "
+                "LIMIT 1", (stem_p,)).fetchone()
+            if not r or not r[0]:
+                continue
+            st = eng.stem(r[0])
+            if not st or st == self_stem:
+                continue
+            bucket = "model" if mn.group(1).lower() in ("prt", "asm") else "drw"
+            by_type[bucket][st] = by_type[bucket].get(st, 0) + 1
+        con.close()
+    except Exception:
+        return None
+    votes = by_type["model"]
+    if not votes:
+        return None
+    src = max(votes, key=votes.get)
+    return src, [], set(), True
+
+
 def copy_source_of(paths, settings):
     """Источник копии по файлам изделия: (stem, src_paths, keys, found).
 
@@ -322,7 +392,13 @@ def copy_source_of(paths, settings):
     выбираем по большинству голосов среди файлов изделия (у `.drw` имя в блоке бывает иным,
     поэтому голос чертежа не решает). Источник не найден/не прочитан → `found=False`, и записи
     НЕ помечаем (ничего не выдумываем).
+
+    🔴 V160: СНАЧАЛА БАЗА (`copy_source_of_db`) — сканер уже прочитал `from_mdl_name`
+    и записал в `derived`. Файлы — только если в базе пусто.
     """
+    db_res = copy_source_of_db(paths)
+    if db_res is not None:
+        return db_res
     self_stem = eng.stem(os.path.basename(paths[0])) if paths else ""
     by_type = {"model": {}, "drw": {}}
     for p in paths:

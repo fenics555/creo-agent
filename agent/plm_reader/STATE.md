@@ -1136,10 +1136,28 @@ history_rows(): СНАЧАЛА база, файл — только если в �
 Проверено: g9650.prt.1 → 26 367 записей из БАЗЫ (без чтения файла).
 ```
 
-**ОСТАТКИ (честно, не закрыты):**
-- `engine.scan_item` — помечен УСТАРЕВШИМ (вызовов нет, но код остался: 200 строк);
-- `plm_history` строки 161/218/283 — читают файлы в `version_diff`/`history_rows` (резерв);
-- `collect_by_path`/`collect_from_snapshots` в `plm_graph` — устаревшие, из `main` убраны.
+**ОСТАТКИ — ЗАКРЫТЫ ЭТАПОМ 10 (V160.2):**
+- ~~`engine.scan_item`~~ — **УДАЛЁН**;
+- ~~`plm_graph.collect_by_path` / `collect_from_snapshots`~~ — **УДАЛЕНЫ**;
+- `plm_history` — теперь **сначала БАЗА** (`history_rows_from_db`, `version_diff_from_db`,
+  `copy_source_of_db`); чтение файла — только если в базе по записи пусто (старая база).
+
+### 🧹 ЭТАП 10 (V160.2) — ЗАКРЫТЫ ПОСЛЕДНИЕ ЧТЕНИЯ ФАЙЛОВ В ПОКАЗЕ
+
+```
+plm_history.version_diff_from_db(path)  — версии (.1/.2/.3) ИЗ `snapshots` (паспорта версий)
+plm_history.copy_source_of_db(paths)    — «скопирована от» ИЗ `derived` (канал `копия`)
+plm_history.history_rows_from_db(path)  — история ИЗ `history` + `changes` (ЭТАП 4-БИС)
+Все три: вызывающий СНАЧАЛА база → файл только при пустой базе.
+```
+**ИТОГ ПО ЗАКОНУ «ФАЙЛЫ CREO ЧИТАЕТ ТОЛЬКО СКАНЕР»:**
+```
+plm_scanner.py  ✅ единственный читатель
+creo_read.py    ✅ библиотека (зовёт сканер)
+engine.py       ❌ не читает  (scan_item удалён)
+plm_graph.py    ❌ не читает  (collect_* удалены)
+plm_history.py  ⚠️ файл — ТОЛЬКО если в базе пусто (резерв для старых баз)
+```
 
 ### 🔍 ЭТАП 7 (V160) — ПОЛНЫЙ АУДИТ СКАНА + РЫЧАГ RAM
 
