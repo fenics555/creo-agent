@@ -14,19 +14,228 @@ plm_database.py — DATABASE: обслуживание базы ПЛМ (влад
 КОМАНДЫ:
     python plm_database.py stats                 — статистика боевой базы
     python plm_database.py check                 — проверка целостности
+    python plm_database.py schema                — ВЕРСИЯ СХЕМЫ (база / код) + список миграций
+    python plm_database.py migrate [--db ПУТЬ]   — ПРИВЕСТИ БАЗУ К СХЕМЕ (шаг за шагом)
     python plm_database.py validate <draft.db>   — проверка черновика
     python plm_database.py publish <draft.db>    — публикация в боевую
     python plm_database.py indexes               — REINDEX + ANALYZE
     python plm_database.py vacuum                — сжать базу
     python plm_database.py backup                — бэкап боевой базы
+
+МИГРАЦИИ (ЗАКОН, живое состояние схемы):
+    Схема ВЕРСИОНИРУЕТСЯ: `meta.schema_version` (в базе) ↔ `SCHEMA_VERSION` (в коде).
+      N == M  → всё в порядке;
+      N <  M  → Database мигрирует ШАГ ЗА ШАГОМ (N→N+1→…→M), каждый шаг в транзакции;
+      N >  M  → СТОП «база новее программы» — НИЧЕГО не ломать (правило README §1).
+
+    🔴 ЗАПРЕЩЕНО: `DROP`/переименование колонок и таблиц без прямого слова владельца.
+       Разрешено: `ALTER TABLE ... ADD COLUMN` (данные НЕ теряются).
+    🔴 БЭКАП ПЕРЕД МИГРАЦИЕЙ — обязателен.
+    🔴 Данные (заполнение новых колонок) — ОТДЕЛЬНЫМ проходом (сканер), не в миграции.
 """
+import datetime
 import os
+import shutil
 import sqlite3
 import sys
 import time
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 sys.path.insert(0, HERE)
+
+
+# ═══════════════════════════════════════════════════════════════════════════════
+# РЕЕСТР МИГРАЦИЙ — ОДНО МЕСТО (добавлять ТОЛЬКО сюда)
+#   Каждая запись: (версия_ОТ, функция). Функция переводит схему РОВНО на +1.
+#   Функция получает коннект и ОБЯЗАНА быть безопасной:
+#   только ADD COLUMN / CREATE TABLE / CREATE INDEX. Данные не трогаем.
+# ═══════════════════════════════════════════════════════════════════════════════
+SCHEMA_VERSION = 2          # ← версия схемы, которую ждёт ЭТОТ код
+
+
+def _has_col(cur, table, col):
+    """Есть ли колонка `col` в таблице `table` (без падения на отсутствии)."""
+    try:
+        return col in [r[1] for r in cur.execute("PRAGMA table_info(%s)" % table)]
+    except sqlite3.Error:
+        return False
+
+
+def _has_table(cur, table):
+    return bool(cur.execute(
+        "SELECT 1 FROM sqlite_master WHERE type='table' AND name=?", (table,)).fetchone())
+
+
+def _mig_0_to_1(con):
+    """V0 → V1: завести `meta.schema_version` + индексы паспорта.
+
+    Ничего не удаляем: только `CREATE TABLE IF NOT EXISTS` и `CREATE INDEX IF NOT EXISTS`.
+    """
+    cur = con.cursor()
+    cur.execute("CREATE TABLE IF NOT EXISTS meta (k TEXT PRIMARY KEY, v TEXT)")
+    for s in (
+        "CREATE INDEX IF NOT EXISTS ix_snap_model ON snapshots(model)",
+        "CREATE INDEX IF NOT EXISTS ix_snap_folder ON snapshots(folder)",
+        "CREATE INDEX IF NOT EXISTS ix_snap_des ON snapshots(designation)",
+    ):
+        try:
+            cur.execute(s)
+        except sqlite3.Error:
+            pass          # нет таблицы `snapshots` — пропускаем (база ещё пустая)
+    con.commit()
+
+
+def _mig_1_to_2(con):
+    """V1 → V2: колонки ФАЙЛА в `snapshots` + `file_*` в `items`.
+
+    ЗАЧЕМ: «прям ИМЯ ФАЙЛА писать первым! тогда будет понятно что есть что,
+    а где реально дубли» (слово владельца 03.11.2026). Имя файла С РАСШИРЕНИЕМ,
+    БЕЗ номера версии (`.prt.1` → `.prt`).
+
+    🔴 Только ADD COLUMN — данные целы (старые строки: новые поля = NULL,
+    заполняются следующим сканом).
+    """
+    cur = con.cursor()
+    # snapshots: файл как первичное
+    for col, typ in (("file_name", "TEXT"), ("file_ext", "TEXT"), ("file_version", "INTEGER")):
+        if not _has_col(cur, "snapshots", col):
+            cur.execute("ALTER TABLE snapshots ADD COLUMN %s %s" % (col, typ))
+    # items: расширение — часть КЛЮЧА изделия (file ≠ деталь/сборка/чертёж)
+    # ⚠️ ЖИВОЙ ФАКТ: в СТАРОЙ базе (V0, 14 таблиц) `items` ЕЩЁ НЕТ — она появилась в V141.
+    #    Поэтому колонки добавляем ТОЛЬКО если таблица есть (иначе пропускаем — сканер создаст).
+    if _has_table(cur, "items"):
+        for col, typ in (("file_exts", "TEXT"), ("n_files", "INTEGER")):
+            if not _has_col(cur, "items", col):
+                cur.execute("ALTER TABLE items ADD COLUMN %s %s" % (col, typ))
+    for s in ("CREATE INDEX IF NOT EXISTS ix_snap_fname ON snapshots(file_name)",
+              "CREATE INDEX IF NOT EXISTS ix_snap_fext ON snapshots(file_ext)"):
+        try:
+            cur.execute(s)
+        except sqlite3.Error:
+            pass
+    con.commit()
+
+
+MIGRATIONS = [
+    (0, _mig_0_to_1),           # 0 → 1
+    (1, _mig_1_to_2),           # 1 → 2
+]
+
+
+# ═══════════════════════════════════════════════════════════════════════════════
+# ВЕРСИЯ СХЕМЫ + МИГРАЦИЯ
+# ═══════════════════════════════════════════════════════════════════════════════
+def _arg_db(db=None):
+    """Какая база: явный `db` → `--db ПУТЬ` из argv → активная (боевая).
+
+    🔴 ВАЖНО (V160): раньше функции звали `_live_db()` напрямую, и `--db` ИГНОРИРОВАЛСЯ —
+    проба на КОПИИ молча шла в БОЕВУЮ базу (на шаре!). Теперь путь берётся явно.
+    """
+    if db:
+        return db
+    if "--db" in sys.argv:
+        i = sys.argv.index("--db")
+        if i + 1 < len(sys.argv):
+            return sys.argv[i + 1]
+    return _live_db()
+
+
+def schema_version(db=None):
+    """Версия схемы В БАЗЕ. Нет `meta`/записи → 0 (старая схема)."""
+    p = _arg_db(db)
+    if not p or not os.path.isfile(p):
+        return None
+    con = sqlite3.connect(p)
+    try:
+        if not _has_table(con.cursor(), "meta"):
+            return 0
+        r = con.execute("SELECT v FROM meta WHERE k='schema_version'").fetchone()
+        return int(r[0]) if r and str(r[0]).isdigit() else 0
+    except sqlite3.Error:
+        return 0
+    finally:
+        con.close()
+
+
+def set_schema_version(v, db=None):
+    p = db or _live_db()
+    con = sqlite3.connect(p)
+    con.execute("CREATE TABLE IF NOT EXISTS meta (k TEXT PRIMARY KEY, v TEXT)")
+    con.execute("INSERT OR REPLACE INTO meta VALUES ('schema_version', ?)", (str(int(v)),))
+    con.commit()
+    con.close()
+
+
+def schema(db=None):
+    """Показать версию схемы (база / код) и реестр миграций."""
+    p = _arg_db(db)
+    v_db = schema_version(p)
+    print("БАЗА          :", p)
+    print("ВЕРСИЯ В БАЗЕ :", v_db)
+    print("ВЕРСИЯ В КОДЕ :", SCHEMA_VERSION)
+    if v_db is None:
+        print("СТАТУС        : база не найдена")
+    elif v_db == SCHEMA_VERSION:
+        print("СТАТУС        : OK — схема актуальна")
+    elif v_db < SCHEMA_VERSION:
+        print("СТАТУС        : ВНИМАНИЕ — база СТАРЕЕ кода, нужна миграция (migrate)")
+    else:
+        print("СТАТУС        : СТОП — БАЗА НОВЕЕ ПРОГРАММЫ, ничего не менять (откат кода?)")
+    print("РЕЕСТР МИГРАЦИЙ:")
+    for frm, fn in MIGRATIONS:
+        print("   %d -> %d  %s" % (frm, frm + 1, fn.__name__))
+    return v_db
+
+
+def migrate(db=None, quiet=False):
+    """Привести базу к `SCHEMA_VERSION`, ШАГ ЗА ШАГОМ. Возвращает (было, стало).
+
+    Правила: бэкап ПЕРЕД первым шагом; `N > M` → СТОП; каждая миграция в транзакции.
+    """
+    p = _arg_db(db)
+    if not p or not os.path.isfile(p):
+        print("база не найдена")
+        return None, None
+    v = schema_version(p)
+    if v is None:
+        return None, None
+    if v > SCHEMA_VERSION:
+        print("СТОП: база новее программы (база %d > код %d) — НИЧЕГО НЕ МЕНЯЮ"
+              % (v, SCHEMA_VERSION))
+        return v, v
+    if v == SCHEMA_VERSION:
+        if not quiet:
+            print("схема актуальна (версия %d) — миграция не нужна" % v)
+        return v, v
+    # БЭКАП (обязательно!)
+    try:
+        ts = datetime.datetime.now().strftime("%Y%m%d_%H%M%S")
+        bdir = os.path.join(os.path.dirname(p), "backup")
+        os.makedirs(bdir, exist_ok=True)
+        bpath = os.path.join(bdir, "pre_migrate_%s_v%d.db" % (ts, v))
+        shutil.copy2(p, bpath)
+        if not quiet:
+            print("бэкап перед миграцией:", bpath)
+    except Exception as e:                       # noqa: BLE001
+        print("БЭКАП НЕ СДЕЛАН (%s) — миграция ОТМЕНЕНА" % e)
+        return v, v
+    v0 = v
+    con = sqlite3.connect(p)
+    for frm, fn in sorted(MIGRATIONS):
+        if v <= frm < SCHEMA_VERSION:
+            try:
+                fn(con)
+                v = frm + 1
+                set_schema_version(v, p)
+                if not quiet:
+                    print("  миграция %d -> %d : %s OK" % (frm, v, fn.__name__))
+            except Exception as e:               # noqa: BLE001
+                print("  миграция %d -> %d : ОШИБКА %s" % (frm, frm + 1, e))
+                break
+    con.close()
+    if not quiet:
+        print("ИТОГ: схема %s -> %s" % (v0, v))
+    return v0, v
 
 
 def validate(draft):
@@ -161,6 +370,16 @@ if __name__ == "__main__":
         stats()
     elif cmd == "check":
         check()
+    elif cmd == "schema":
+        schema()
+    elif cmd == "migrate":
+        # migrate [--db ПУТЬ]
+        _db = None
+        if "--db" in sys.argv:
+            i = sys.argv.index("--db")
+            if i + 1 < len(sys.argv):
+                _db = sys.argv[i + 1]
+        migrate(_db)
     elif cmd == "validate":
         v = validate(arg)
         print("OK" if v["ok"] else "ОШИБКИ", v["stats"])

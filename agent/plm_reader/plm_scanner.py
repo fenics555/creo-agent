@@ -1168,10 +1168,13 @@ SCHEMA_V141 = """
 CREATE TABLE IF NOT EXISTS snapshots (
   path TEXT PRIMARY KEY, model TEXT, folder TEXT, size INTEGER, mtime REAL, volume REAL,
   material TEXT, name TEXT, designation TEXT, rev TEXT, author TEXT, revdate TEXT,
-  role TEXT, seen TEXT, hist INTEGER, creo TEXT, created REAL);
+  role TEXT, seen TEXT, hist INTEGER, creo TEXT, created REAL,
+  file_name TEXT, file_ext TEXT, file_version INTEGER);
 CREATE INDEX IF NOT EXISTS ix_snap_model ON snapshots(model);
 CREATE INDEX IF NOT EXISTS ix_snap_folder ON snapshots(folder);
 CREATE INDEX IF NOT EXISTS ix_snap_des ON snapshots(designation);
+CREATE INDEX IF NOT EXISTS ix_snap_fname ON snapshots(file_name);
+CREATE INDEX IF NOT EXISTS ix_snap_fext ON snapshots(file_ext);
 
 CREATE TABLE IF NOT EXISTS bodies (
   path TEXT, model TEXT, folder TEXT, version INTEGER, body_id INTEGER, seq INTEGER,
@@ -1253,22 +1256,31 @@ def path_parts(path):
     """
     🔴 УНИКАЛЬНОСТЬ ОДНОИМЁННЫХ ФАЙЛОВ (замер 30.10.2026: 47 389 файлов → 24 267 имён!).
 
-    Возвращает dict: folder · model · ext · version · item_key
-      folder    — папка (РАЗНЫЕ ПАПКИ = РАЗНЫЕ ФАЙЛЫ!)
-      model     — имя модели (без версии/расширения)
-      ext       — тип (.prt/.asm/.drw/.mfg)
-      version   — номер версии (.prt.2 → 2)
-      item_key  — КЛЮЧ ИЗДЕЛИЯ = folder + '\\' + model (уникален для «модели в папке»)
+    Возвращает dict: folder · model · ext · version · file_name · file_version · item_key
+      folder       — папка (РАЗНЫЕ ПАПКИ = РАЗНЫЕ ФАЙЛЫ!)
+      model        — имя модели (без версии/расширения) — для группировки КОМПЛЕКТА
+      ext          — тип (prt/asm/drw/mfg/frm/lay/sec/m_p/tph/xpr/crc/…)
+      version      — номер версии (.prt.2 → 2)
+
+      🔴 file_name  — ИМЯ ФАЙЛА С РАСШИРЕНИЕМ, БЕЗ НОМЕРА ВЕРСИИ («df-stp2-gdf.prt»).
+         Слово владельца (03.11.2026): «прям ИМЯ ФАЙЛА писать первым! тогда будет понятно,
+         что есть что, а где реально дубли» (деталь .PRT ≠ сборка .ASM ≠ чертёж .DRW).
+      🔴 item_key   — КЛЮЧ ИЗДЕЛИЯ = folder + '\\' + file_name (С РАСШИРЕНИЕМ!).
+         «item_key должен учитывать расширения» (слово владельца). Поэтому
+         `DF.PRT` и `DF.ASM` — РАЗНЫЕ изделия-файлы, а не слипшаяся «одна модель».
     """
     d = os.path.dirname(path)
     f = os.path.basename(path)
     low = f.lower()
+    # расширение: модельные + вспомогательные (с подчёркиванием — `.m_p`)
     ext = ""
-    for e in (".prt", ".asm", ".drw", ".mfg", ".frm", ".lay", ".sec"):
+    for e in (".prt", ".asm", ".drw", ".mfg", ".frm", ".lay", ".sec", ".m_p",
+              ".tph", ".xpr", ".crc", ".neu", ".idx", ".stk", ".dsn", ".mrd", ".pdf"):
         i = low.find(e)
         if i > 0:
             ext = e.lstrip(".")
             break
+    # версия: последний числовой суффикс
     ver = None
     parts = f.rsplit(".", 2)
     if len(parts) == 3:
@@ -1277,8 +1289,14 @@ def path_parts(path):
         except ValueError:
             ver = None
     m = model_of(path)
+    # file_name: имя с расширением, БЕЗ номера версии  (df-stp2-gdf.prt.1 → df-stp2-gdf.prt)
+    if ext:
+        file_name = f[:low.find("." + ext) + len(ext) + 1]
+    else:
+        file_name = f
     return {"folder": d, "model": m, "ext": ext, "version": ver,
-            "item_key": (d + "\\" + m) if d else m}
+            "file_name": file_name, "file_version": ver,
+            "item_key": ((d + "\\" + file_name) if d else file_name)}
 
 
 def draft_path():
@@ -1329,20 +1347,21 @@ def write_item(con, path, boxes):
 
     # --- ПАСПОРТ (главная таблица!): designation/name/material/volume/rev/author ---
     # 🔴 ЭТАП 1 (V160): РАНЬШЕ `snapshots` НЕ ПИСАЛАСЬ ВООБЩЕ — отсюда «designation 0/20».
-    # Теперь пишем из `pack()` → `boxes["snapshots"]` (шов закрыт в scanner_plm, V160).
+    # 🔴 ЭТАП 3 (V160): + ИМЯ ФАЙЛА ПЕРВЫМ (file_name с расширением, без версии) —
+    #    «будет понятно что есть что, а где реально дубли» (слово владельца).
     snap = boxes.get("snapshots") or {}
     if snap:
         con.execute(
             "INSERT OR REPLACE INTO snapshots "
             "(path,model,folder,size,mtime,volume,material,name,designation,rev,"
-            "author,revdate,role,seen,hist,creo,created) "
-            "VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)",
+            "author,revdate,role,seen,hist,creo,created,file_name,file_ext,file_version) "
+            "VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)",
             (path, snap.get("model") or m, pp["folder"], snap.get("size"),
              snap.get("mtime"), snap.get("volume"), snap.get("material"),
              snap.get("name"), snap.get("designation"), snap.get("rev"),
              snap.get("author"), snap.get("revdate"), snap.get("role"),
              snap.get("seen"), snap.get("hist") or 0, snap.get("creo") or "",
-             snap.get("created")))
+             snap.get("created"), pp["file_name"], pp["ext"], pp["version"]))
         n += 1
 
     # --- ТЕЛА (у каждого свои volume/density/mass) ---

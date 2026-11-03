@@ -200,6 +200,11 @@ def plm_edges():
 
 
 def collect_by_path(media_dir=None):
+    """🔴 УСТАРЕЛО (V160): читает ФАЙЛЫ Creo — НАРУШАЕТ закон «показ только базу».
+
+    Оставлена для истории/сверки. ВЫЗЫВАТЬ ИЗ ПОКАЗА ЗАПРЕЩЕНО (убрана из `main`).
+    Правильный путь: `collect_from_graph_db()` (готовый граф) или `collect_from_db()` (база).
+    """
     """Узлы по ПУТИ файла (правильная модель: одноимённые в разных папках — РАЗНЫЕ узлы).
 
     Проверка _diag_collide.py: 80% связей неоднозначны по имени (KIR-401-60X67-01 — 23 пути).
@@ -526,50 +531,27 @@ def collect_from_db(media_dir=None):
             path = row[1] or ""
             img = ""
             img2 = ""                                  # второй вид (чертёж), если есть
-            # ПРЕВЬЮ: собираем КАРТИНКУ и ЧЕРТЁЖ (оба, если есть) — по требованию владельца
-            mode = (media_dir and _media_mode) or "none"
-            if media_dir and mode != "none" and path and os.path.isfile(path) \
-                    and not nodes.get(model, {}).get("i"):
-                try:
-                    raw = open(path, "rb").read()
-                    # ВАЖНО: в файлах бывает ТОЛЬКО JPEG (даже у .drw) — собираем всё найденное
-                    found = cut_preview(raw, "all")
-                    if mode == "pict":
-                        found = [f for f in found if f[1] == "jpg"]
-                    elif mode == "draw":
-                        found = [f for f in found if f[1] == "bmp"]
-                    data, ext = found[0] if found else (b"", "")
-                    if len(found) > 1:
-                        d2 = found[1]
-                    else:
-                        d2 = (b"", "")
-                    if not os.path.isdir(media_dir):
-                        os.makedirs(media_dir)
-                    for blob, ex, key in ((data, ext, "i"), (d2[0], d2[1], "i2")):
-                        if not blob:
-                            continue
-                        fname = hashlib.sha256(blob).hexdigest()[:20] + "." + ex
-                        dst = os.path.join(media_dir, fname)
-                        if not os.path.exists(dst):
-                            with open(dst, "wb") as f:
-                                f.write(blob)
-                        if key == "i":
-                            img = fname
-                        else:
-                            img2 = fname
-                    if not v:
-                        mv = RE_CREO.search(raw[:3000])
-                        v = ("Creo " + mv.group(1).decode()) if mv else (
-                            "ProE/Wildfire" if RE_PROE.search(raw[:3000]) else "")
-                    kind = "?"
-                    mt = PAT_TYPE.search(raw[:400])
-                    if mt:
-                        kind = mt.group(1).decode("latin-1")
-                    mfg = b"ASSEM_MFG" in raw[:400]
-                except OSError:
-                    kind, mfg = "?", False
-            else:
-                kind, mfg = "?", False
+            # 🔴🔴 ПРЕВЬЮ — ИЗ КЭША, БЕЗ ЧТЕНИЯ ФАЙЛОВ (V160, закон «показ только базу»).
+            # Раньше показ читал ФАЙЛЫ (open(path,"rb")) ради картинки. Но превью собирает
+            # СКАНЕР в `db\media\` + индекс `media_cache.json` (файл = SHA-256, без дублей).
+            # Здесь только берём готовое из кэша/папки. Файл Creo НЕ открываем.
+            if media_dir and path:
+                _c = _load_media_cache()
+                _hit = _c.get(path)
+                if _hit:
+                    img, img2 = (_hit + [""])[:1][0], (_hit + ["", ""])[1] if len(_hit) > 1 else ""
+                else:
+                    _fname = hashlib.sha256(path.encode("utf-8")).hexdigest()[:20]
+                    for _ex in ("jpg", "bmp", "png"):
+                        _p = os.path.join(media_dir, _fname + "." + _ex)
+                        if os.path.isfile(_p):
+                            img = _fname + "." + _ex
+                            break
+            # 🔴 V160: `kind`/`mfg` — ИЗ БАЗЫ (роль), а не из чтения файла.
+            mfg = "MFG" in role or path.lower().endswith(".m_p")
+            kind = ("ASSEMBLY" if path.lower().endswith(".asm") else
+                    "DRAWING" if path.lower().endswith(".drw") else
+                    "PART" if path.lower().endswith(".prt") else "?")
             if not img and model in nodes:          # уже есть узел с превью — не затираем
                 continue
             nodes[model] = {"k": kind, "v": v, "m": mfg, "i": img, "i2": img2,
@@ -642,6 +624,10 @@ cut_preview = _CR_MEDIA.cut_preview
 
 
 def collect_from_snapshots(media_dir=None):
+    """🔴 УСТАРЕЛО (V160): читает ФАЙЛЫ Creo — НАРУШАЕТ закон «показ только базу».
+
+    Оставлена для истории/сверки. ВЫЗЫВАТЬ ИЗ ПОКАЗА ЗАПРЕЩЕНО (убрана из `main`).
+    """
     """Узлы и рёбра, читая ФАЙЛЫ (без базы). media_dir — куда класть превью (SHA-256)."""
     if engine is None:
         return None, None
@@ -1417,20 +1403,19 @@ def main():
         _media_root = os.path.join(HERE, "db")
     media = None if _media_mode == "none" or not cfg.get("graph_media") \
         else os.path.join(_media_root, "media")
-    nodes, edges = collect_from_graph_db(media)   # V142: СНАЧАЛА готовый граф (быстро, без файлов!)
+    # 🔴🔴 ЗАКОН «ПОКАЗ ТОЛЬКО ЧИТАЕТ БАЗУ» (V160):
+    # Раньше показ ЛЕЗ В ФАЙЛЫ, если база пуста: `collect_by_path` (читал Z:),
+    # `collect_from_snapshots` (читал Z:) — 3 места `open(path,"rb")`. Теперь показ
+    # читает ТОЛЬКО базу. Нет данных в базе → честное сообщение, а не чтение склада.
+    nodes, edges = collect_from_graph_db(media)   # ① готовый граф (graph_nodes/graph_edges)
     src = "граф (graph_nodes/graph_edges)"
     if not nodes:
-        nodes, edges = collect_by_path(media)      # КЛЮЧ = ПУТЬ (одноимённые — разные узлы)
-        src = "база (по путям)"
-    if not nodes:
-        nodes, edges = collect_from_db(media)
+        nodes, edges = collect_from_db(media)     # ② база (по именам)
         src = "база (по именам)"
     if not nodes:
-        nodes, edges = collect_from_snapshots(media)
-        src = "файлы"
-    if not nodes:
-        print("НЕТ ДАННЫХ: ни базы, ни моделей. Сначала просканируйте (Сканировать).")
+        print("НЕТ ДАННЫХ: граф строится ТОЛЬКО из базы. Сначала просканируйте (Сканировать).")
         return 1
+    print("источник графа:", src)
     html = build_html(nodes, edges, media)
     errs = selfcheck(html)
     if errs:
