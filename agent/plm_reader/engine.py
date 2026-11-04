@@ -2113,8 +2113,52 @@ def _lock_owner():
             "pid": os.getpid(), "ts": time.time()}
 
 
+def _pid_alive(pid):
+    """ЖИВ ли процесс с таким PID (V166). Нужно, чтобы фантомный замок от УПАВШЕГО
+    скана не держал машину LOCK_STALE_SEC (180 с), показывая «идёт скан».
+    Windows: OpenProcess(PROCESS_QUERY_LIMITED_INFORMATION); иначе — os.kill(pid, 0).
+    Чужой PID на другой машине проверить нельзя → считаем живым (не навредить).
+    """
+    try:
+        pid = int(pid)
+    except Exception:
+        return False
+    if pid <= 0 or pid == os.getpid():
+        return True                                  # свой PID — считаем живым
+    try:
+        if os.name == "nt":
+            import ctypes
+            from ctypes import wintypes
+            PROCESS_QUERY_LIMITED_INFORMATION = 0x1000
+            STILL_ACTIVE = 259
+            k32 = ctypes.windll.kernel32
+            h = k32.OpenProcess(PROCESS_QUERY_LIMITED_INFORMATION, False, pid)
+            if not h:
+                return False                         # процесса нет — открыть не удалось
+            try:
+                code = wintypes.DWORD()
+                if k32.GetExitCodeProcess(h, ctypes.byref(code)):
+                    return code.value == STILL_ACTIVE
+                return True
+            finally:
+                k32.CloseHandle(h)
+        os.kill(pid, 0)                              # POSIX: сигнал 0 = проверка живости
+        return True
+    except ProcessLookupError:
+        return False
+    except Exception:
+        return True                                  # не смогли проверить — не трогаем чужой скан
+
+
 def lock_status():
-    """(занят, текст). Нет/битый/протухший замок = свободно."""
+    """(занят, текст). Нет/битый/протухший замок = свободно.
+
+    🔴🔴 V166 (04.11.2026, владелец: «сканер не работает»): ДОБАВЛЕНА ПРОВЕРКА ЖИВОГО PID.
+    Живой случай: скан упал (PID 20144 мёртв), а `plm.lock` остался → новый скан из окна
+    не мог занять замок ВЕСЬ LOCK_STALE_SEC (180 с), окно писало «Занято: идёт скан»,
+    прогресс стоял. Владелец видел «сканер не работает». Теперь: если владелец замка
+    ТОЙ ЖЕ машины и его PID МЁРТВ — замок сразу считается протухшим (не ждём 180 с).
+    """
     try:
         with open(LOCK_FILE, "r", encoding="utf-8") as f:
             info = json.load(f)
@@ -2122,7 +2166,12 @@ def lock_status():
         return False, ""
     ts = float(info.get("ts") or 0)
     if time.time() - ts > LOCK_STALE_SEC:
-        return False, ""                        # протух — владелец, похоже, упал
+        return False, ""                        # протух по времени — владелец, похоже, упал
+    # V166: владелец ТОЙ ЖЕ машины, но процесс мёртв → замок фантомный, снимаем сразу.
+    _mine_machine = (str(info.get("machine") or "").strip().lower()
+                     == (os.environ.get("COMPUTERNAME") or "").strip().lower())
+    if _mine_machine and info.get("pid") and not _pid_alive(info.get("pid")):
+        return False, ""
     return True, "идёт скан на %s с %s (пользователь %s)" % (
         info.get("machine", "?"), time.strftime("%H:%M", time.localtime(ts)), info.get("user", "?"))
 
