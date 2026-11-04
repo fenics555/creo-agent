@@ -1,7 +1,33 @@
 # STATE — ЖИВОЕ СОСТОЯНИЕ PLM READER (обновлять при КАЖДОМ шаге)
 
 > Правило: «Сессия смертна. Всё, что не в файле — потеряно».
-> **Обновлено:** 04.11.2026 · **V163** · ТЕМА: СКОРОСТЬ СКАНА + ОБЪЁМ БАЗЫ (замеры, баги, провал потока)
+> **Обновлено:** 04.11.2026 · **V164** · ТЕМА: СКОРОСТЬ СКАНА + ОБЪЁМ БАЗЫ + ГРАФ/ИСТОРИЯ
+
+## 🔴 ТЕСТ «ЧТО ПИШЕТ СКАН» + СОСТОЯНИЕ БАЗЫ (нога 2, 04.11.2026)
+
+```
+ТЕСТ (черновик, 2 687 файлов, 77.6 с, 0 ошибок): snapshots 2687 · params 71770 ·
+  history 256585 (102/файл) · matrices 14083 · components 8253 · dim_all 5099 ·
+  links 2426 (plm_tree 1083 · dwg 819 · mentions 508 · mfg 16) ·
+  derived 1508 (наслед. 1442 · производная 66) · drawing 839 ·
+  НУЛИ: equations · features · mass_props · props · family · changes
+
+БОЕВАЯ БАЗА (Z:, 8,1 ГБ, только чтение): snapshots 52294 · links 63207
+  (real 59867 / built 3340) · derived 31858 · graph_nodes 41243 · graph_edges 48923 ·
+  history 16 279 405 на 43 573 файла (373,6/файл) · matrices 1 036 541 · changes 574 161
+
+🔴🔴 РАЗРЫВЫ (править):
+ 1. history.ts_int ПУСТ у 100 % (16,3 млн) — ужатие V164 не применено к архиву
+ 2. HTML plm_graph_page.html:769 `edgeKind` НЕ пропускает коды `dwg`/`mfg`
+    (фильтр в стр. 779–780 перечисляет structure/inherit/derive/copy/variant, БЕЗ dwg/mfg;
+    CLR их знает, стр. 765–766) → ребро серое, без стрелки. ПРАВКА V164 НЕ ЗАКРЫТА.
+ 3. links.kind пуст у family/asm_comp (часть plm_tree без kind)
+ 4. built всего 3 340 против real 59 867 — обратные связи почти не построены
+ 5. role пусто 65 % · volume 74 % (боевая) — скан не заполняет
+
+ОТЧЁТ: D:\AI\log\reports\REPORT_plm_graph_history_state_cline_04.11.2026.md
+ТЕСТЫ: D:\AI\log\plm_chain\t_read_write.py · t_live_state.py (+ _out/.log)
+```
 
 ## 🔴🔴 ГЛАВНОЕ (04.11.2026): ЗАМЕРЫ СКОРОСТИ И ОБЪЁМА
 
