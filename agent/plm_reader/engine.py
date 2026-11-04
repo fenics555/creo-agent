@@ -4330,7 +4330,14 @@ def sync_by_manifest(files, timeout=15, remove=None, schema_version=None):
                 result["removed"].append(name)
                 log("update: устаревший файл убран -> obsolete\\%s" % name)
         known = set(files or {}) | set(remove or {})
-        keep = {"settings", "db", "log", "__pycache__", "version.json", "debug", "старое", "_diag"}
+        # 🔴🔴 V168 (04.11.2026, разбор «на шаре нет обновлений»): `version.json` БОЛЬШЕ НЕ в keep.
+        # БЫЛО: манифест этой папки НИКОГДА не перезаписывался (он же в keep) → код уезжал
+        # вперёд (V167), а `version.json` оставался старым (V159, 26 файлов вместо 28).
+        # Замер: механизм обновил шару 3 раза за вечер (по 28 файлов), манифест — не сдвинулся.
+        # ЧЕМ ПЛОХО: при следующем обновлении механизм сверяется с УСТАРЕВШИМ манифестом
+        # (там нет 2 файлов, у остальных старые SHA) → правит файлы наугад, часть уводит в obsolete.
+        # СТАЛО: манифест пишется ниже — ровно тем, что лежит на GitHub (см. блок «манифест»).
+        keep = {"settings", "db", "log", "__pycache__", "debug", "старое", "_diag"}
         # V160: чистим ЛИШНЕЕ по ВСЕМ код-расширениям (было только .py/.bat/.md —
         # `plm_graph_page.html`, `.gitignore` и прочее оставались навсегда).
         code_ext = (".py", ".bat", ".md", ".html", ".json", ".txt", ".cfg", ".ini", ".sh")
@@ -4345,6 +4352,26 @@ def sync_by_manifest(files, timeout=15, remove=None, schema_version=None):
             shutil.move(p, os.path.join(obsolete_dir, f))
             result["obsolete"].append(f)
         shutil.rmtree(tmp_dir, ignore_errors=True)
+        # 🔴🔴 V168: МАНИФЕСТ ЭТОЙ ПАПКИ = МАНИФЕСТ GITHUB (догнать код).
+        # Живой дефект (разобран 04.11.2026): `version.json` лежал в `keep` и НИКОГДА не
+        # обновлялся — код шары уехал на V167, а манифест остался V159 (26 файлов вместо 28).
+        # Из-за устаревшего манифеста СЛЕДУЮЩЕЕ обновление правит файлы наугад.
+        # Теперь: скачиваем манифест с GitHub и кладём в папку (снимок старого — в snap).
+        try:
+            _man = _download(UPDATE_MANIFEST, timeout=timeout)
+            _mp = os.path.join(HERE, "version.json")
+            if os.path.isfile(_mp):
+                try:
+                    shutil.copy2(_mp, os.path.join(snap, "version.json"))
+                except Exception:                # noqa: BLE001
+                    pass
+            with open(_mp, "wb") as _f:
+                _f.write(_man)
+            result["manifest"] = True
+            log("update: манифест version.json обновлён с GitHub")
+        except Exception as _e:                  # noqa: BLE001
+            result["manifest"] = False
+            log("update: манифест обновить не удалось: %s" % _e)
         _rotate_update_backups()
         # ── 🔴 V160: МИГРАЦИЯ БАЗЫ (бесшовность через 20 версий) ─────────────────────
         try:
