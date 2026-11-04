@@ -1,8 +1,8 @@
 {
- "version": "V162",
- "version_num": 162,
- "date": "03.11.2026",
- "notes": "V162 КНОПКА ТОЛЬКО ЗАПУСКАЕТ СКАН. Владелец: кнопка должна только запускать скан, а как читать-перечитывать это настройки, не кнопка. БЫЛО: галочка перечитать всё в панели показа, читалась кнопкой Сканировать И ПИСАЛАСЬ в settings.json - потому залипала: один раз включив, владелец получал ПОЛНЫЙ пересчёт на КАЖДОМ скане (кэш мёртв, база растёт, минуты на прогон). СТАЛО: галочки НЕТ; разовая кнопка Перечитать всё (go full=True), сбрасывается сама; Сканировать ВСЕГДА читает изменённое. ТЕСТ: 1-й скан 9.3с; повторный 0.0с skipped=399; полный 9.7с skipped=0; ПОСЛЕ полного снова 0.0с skipped=399. В плюс к V161 (база не растёт: три утечки роста устранены).",
+ "version": "V163",
+ "version_num": 163,
+ "date": "04.11.2026",
+ "notes": "V163: ПОЛНАЯ КАРТА СВЯЗЕЙ + ЗАКОН «ЧИТАЕТ ТОЛЬКО СКАНЕР». 1) ОКНО НЕ ЧИТАЕТ ФАЙЛЫ CREO (было read_bytes в _prop_show). 2) НОВЫЕ КАНАЛЫ: links(dwg) = ЧЕРТЁЖ->МОДЕЛЬ (890 файлов), links(mfg) = МАНУФАКТУРИНГ->ИЗДЕЛИЕ (766 из 1317). 3) СХЕМА: links += kind (вид связи) и origin (real/built) + МИГРАЦИЯ старых баз. 4) СЕМЕЙСТВА СБОРОК: do_scan обнулял таблицу у не-деталей — противоречие снято (замер библиотеки: 219 семейств = 201 prt + 18 asm). 5) ДЕДУП family-пар (.prt/.PRT/без = одна пара, было три). 6) ДОСТРОИТЕЛЬ: dwg/mfg — свои виды, в «состав» не идут. 7) ПОКАЗ: окно и HTML читают одну базу; вывод по настройкам (graph_depth, graph_nodes_max, graph_children_max, graph_links_max).",
  "schema_version": 2,
  "remove": [
   "_probe_scan137.py",
@@ -11,9 +11,9 @@
   "scanner_write.py"
  ],
  "files": {
-  "engine.py": "be94e0c1cb816adfa68d9e0ac7ceafb6f6fe73cc7ca6cc46e595f79ab3d90cf4",
-  "plm_reader.py": "bf7974c88054a517934be784b6300fb8bc1d8cfcd17a802c44f93f8c84d5a765",
-  "plm_toolwin.py": "17cb45f53456f4fc2468e309f3c8d5e22afbcc89c1d2a1b452de7878ff034b0d",
+  "engine.py": "100dbecfa59db348cc3c0c0c8be99a00b240889018985e32b524b8c5403ec183",
+  "plm_reader.py": "e85eabee61cf87719e2d57d02e4e1534b30431530052a5c112c1bc4797541061",
+  "plm_toolwin.py": "2afd65e09ef0736841f894558a45dc0536890897346ad3dfe68e5f0aa0415df8",
   "plm_history.py": "48f3705e57d3485f50f667b2afe63eeab35177f743e2b532123377013a5986ac",
   "plm_parse.py": "c6bb33a412b6b606ad402e3eb78cd49246b77738b69d82be1b6218a1358c0312",
   "plm_dbview.py": "a1473b3b37716523ef8e47616d8a63cbf3c83358907a1796e51b7c92ad3342b5",
@@ -21,7 +21,7 @@
   "plm_scan.py": "e32d610e33932afaee4c952cb0b4564801508f0568d4360d7d039ffacb856f48",
   "plm_paths_window.py": "c1bb60b36fbe7fe86e5213680978eab41ac1d1c722d7fd58fae4820155a3833a",
   "creo_read.py": "b0049e9456f7c86791610b3543d475121e00a86a359438158feb53e13b921152",
-  "README.md": "c630b4954d6fabe29621ef0080af1d34ccd3704fd2618b929b78eb710c142dbd",
+  "README.md": "e0881a8965ff39a73111f8c8408f8411da40aeb6040db3c08ecb86106a05bf23",
   "SHARE_copy.bat": "4eccb549a17251392337aeabbc3ef76233dfa3072beadff9d158cd6e932622ee",
   "plm_reader.bat": "bdd125397db3ac7e7432dbdb078a6a811ed4913fca02b062edb27907032fca3d",
   "plm_reader_gui.bat": "9f695898d5db6431e840784b9587c75304ca9e526b06f79d4b44ab026663bd20",
@@ -32,11 +32,11 @@
   "plm_graph_page.html": "d119d7c13ce72833c9a227021e21aa92a1037c8052bb22ef6707bb4db30602bc",
   "plm_queries.py": "3fa963038b75cc5551bb7d7bbc3ced5760c03188fe77d47d393c145c390f1977",
   "plm_links.py": "b1d1957df9043f3ebd8e0c9f0af346974f5299dab9be2e804c3ccf08fa108f72",
-  "plm_build_links.py": "563b1a4799d5fd8d880dd904b87d0faa833efeca5d641df7fd96695502a8e29a",
+  "plm_build_links.py": "b3435f9987a1aa42115eb08dc63eb1ed4e877d68318029c952fb9e1416a79fb7",
   "plm_database.py": "10706cee1897e2cf09184b46dcf0386d6ee05b812887d2f669f6c05fb4fe367f",
   "plm_graph_build.py": "7e3ccf9e59e6cd98029b8dc2ec9473831169ba82b82ed2d8a3670b0f2e5be7ed",
-  "plm_scanner.py": "e0168f97d37c9234a61be28d7982497857c389ee86477aeef43a3d031b3b023d",
-  "STATE.md": "6474a287576f8236ccd133703179c0fd39b3217a30ed7bad6b79f16293dd55ef",
+  "plm_scanner.py": "0c65f67054c61081867fc933e0dd4a7bfbaf71f67cfbbc8f9f8a9c7ac2b959d0",
+  "STATE.md": "0a24b334cd07dcb4fb0666212e167feedece0ad44d2ed5ac0e3cd2fea8b565c3",
   "CONCEPT_PLM.md": "6addb5c97847d55b261a2890e8f08a6efc4a2ca468c8d090f357b1b8c2c4ab61",
   "PLAN_ONE_SCANNER.md": "5ad0843add56f20e8964eeda205466bc621a004039bb034928a64b40039e7f14"
  }

@@ -2263,12 +2263,19 @@ def run_gui():
         return x
 
     def _prop_show(model):
-        """Показать сводные свойства изделия из файла модели (без базы PLM)."""
+        """Показать сводные свойства изделия — ТОЛЬКО ИЗ БАЗЫ (закон: файлы Creo читает сканер).
+
+        🔴 ЗАКОН (слово владельца, 04.11.2026): «ЧИТАЕТ Файлы крео ТОЛЬКО ПЛМсканер и только он
+        один! … ОКНО ОСНОВНОЙ ПРОГРАММЫ должны читать только одну базу, если нужен кеш — пожалуйста».
+        РАНЬШЕ здесь было `read_bytes(path, 0)` — окно открывало файл Creo (нарушение закона).
+        ТЕПЕРЬ: объём/площадь — из `snapshots`/`mass_props`, параметры — `model_params`,
+        семейство — `model_family`. Скан уже собрал всё это в базу.
+        """
         ptv.delete(*ptv.get_children())
         model = eng.stem(model or "")
         if not model:
-            lpsum.config(text="выбери изделие — покажу площадь, техтребования, "
-                               "числовые параметры, РАЗМЕРЫ и связанные чертежи")
+            lpsum.config(text="выбери изделие — покажу объём, площадь, параметры, "
+                               "размеры и связанные чертежи (ВСЁ ИЗ БАЗЫ)")
             return
         # путь берём из базы (активной), последняя версия изделия
         path = latest_path(model)
@@ -2278,19 +2285,6 @@ def run_gui():
         if not os.path.isfile(path):
             lpsum.config(text="файл указан в базе, но отсутствует на диске: %s" % path)
             return
-        try:
-            raw = read_bytes(path, 0)          # 0 = без ограничения размера: свойства нужны всегда
-        except Exception as e:
-            lpsum.config(text="не прочитать файл: %s (%s)" % (os.path.basename(path), e))
-            return
-        if not raw:
-            lpsum.config(text="пустой/битый файл: %s" % os.path.basename(path))
-            return
-
-        sec = sections(raw)
-        area = real_value(raw, "surfarea")
-        notes = tech_notes(raw)               # 04.10.2026: с отсевом служебных подписей
-        nums = sorted(numeric_params(raw).items(), key=lambda kv: kv[0])
 
         def add(k, v, bold=False):
             ptv.insert("", "end", values=(k, v),
@@ -2298,16 +2292,51 @@ def run_gui():
 
         add("Файл", os.path.basename(path), True)
         add("Полный путь", path)
-        v = real_value(raw, "volume")
-        add("Объём, мм³", _fmt(v) if v else "— нет в файле")
-        add("Площадь поверхности, мм²", _fmt(area) if area else "— нет в файле")
-        # ⚠️ штатный outline_mm на живых файлах даёт не габарит (одно число 31.59 у детали
-        # с резьбой М12), поэтому показываем его честно — как «неподтверждённый разбор»
-        ol = outline_mm(raw, sec)
-        add("Габарит, мм", ("%s  ← штатный разбор, НЕ подтверждён" % ", ".join(
-            "%.2f" % x for x in ol)) if ol else "— формат не подтверждён")
-        add("Технические требования", "  |  ".join(notes) if notes else "— нет")
-        add("Числовых параметров", str(len(nums)))
+        # ── ОБЪЁМ/ПЛОЩАДЬ — ИЗ БАЗЫ (прямой SQL: `mass_props` → резерв `snapshots`) ─────────
+        # ⚠️ ГРАБЛЯ (§scope): НЕ звать несуществующие `eng.model_mass_props`/`snapshot_of` —
+        # таких функций нет. Пишем SQL к активной базе.
+        _vol = _surf = None
+        _con = None
+        try:
+            _con = eng.connect()
+            row = _con.execute(
+                "SELECT volume, surfarea FROM mass_props WHERE path=? "
+                "AND (volume IS NOT NULL OR surfarea IS NOT NULL) LIMIT 1", (path,)).fetchone()
+            if row:
+                _vol, _surf = row[0], row[1]
+            if _vol is None:
+                row = _con.execute("SELECT volume FROM snapshots WHERE path=? LIMIT 1",
+                                   (path,)).fetchone()
+                _vol = row[0] if row else None
+        except Exception:               # noqa: BLE001
+            pass
+        finally:
+            try:
+                if _con is not None:
+                    _con.close()
+            except Exception:           # noqa: BLE001
+                pass
+        add("Объём, мм³", _fmt(_vol) if _vol else "— нет в базе (нужен скан)")
+        add("Площадь поверхности, мм²", _fmt(_surf) if _surf else "— нет в базе (нужен скан)")
+        add("Габарит, мм", "— из базы (матрицы): см. вкладку «Матрицы»")
+        add("Технические требования", "— из базы: параметры ниже")
+        # ── ПАРАМЕТРЫ ИЗ БАЗЫ ──────────────────────────────────────────────────────────────
+        try:
+            _allp = eng.model_params(path)
+        except Exception:               # noqa: BLE001
+            _allp = []
+        nums = []
+        for _row in _allp:
+            try:
+                _pn, _pt, _pv = _row[0], _row[1], _row[2]
+            except (TypeError, IndexError, KeyError):
+                continue
+            try:
+                nums.append((_pn, float(str(_pv).replace(",", "."))))
+            except (TypeError, ValueError):
+                continue
+        nums.sort(key=lambda kv: kv[0])
+        add("Числовых параметров (из базы)", str(len(nums)))
         for k, val in nums[:60]:
             add("   " + k, _fmt(val))
         # ── V125: ВСЕ ПАРАМЕТРЫ «КАК В CREO» + ТАБЛИЦА СЕМЕЙСТВА ──────────────────────────

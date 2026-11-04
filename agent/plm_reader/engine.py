@@ -1070,7 +1070,7 @@ CREATE TABLE IF NOT EXISTS changes (
 -- `origin` = 'built' — связь ДОСТРОЕНА из базы (работа ДОСТРОИТЕЛЯ; неверно — правим достроитель).
 -- Миграция колонки — в `connect()` ПОСЛЕ `executescript(SCHEMA)` (на новой базе таблиц ещё нет —
 -- живой прогон 28.10.2026 дал `no such table: main.links`, если миграция шла раньше).
-CREATE TABLE IF NOT EXISTS links (parent TEXT, child TEXT, qty INTEGER, source TEXT);
+CREATE TABLE IF NOT EXISTS links (parent TEXT, child TEXT, qty INTEGER, source TEXT, kind TEXT, origin TEXT);
 CREATE INDEX IF NOT EXISTS ix_links_child ON links(child);
 CREATE TABLE IF NOT EXISTS derived (child TEXT, base TEXT, kind TEXT, source TEXT);
 CREATE INDEX IF NOT EXISTS ix_derived_child ON derived(child);
@@ -1386,6 +1386,15 @@ def connect(ro=False, db=None):
             _c = [r[1] for r in con.execute("PRAGMA table_info(%s)" % _tbl)]
             if _c and _col not in _c:
                 con.execute("ALTER TABLE %s ADD COLUMN %s TEXT DEFAULT 'real'" % (_tbl, _col))
+                con.commit()
+        # 🔴 04.11.2026 (спека владельца): `links.kind` — ВИД СВЯЗИ (состав / чертёж / исполнение /
+        # мануфактуринг / входимость). РАНЬШЕ вид был свален в `source`, и «чертёж→модель» было
+        # не отличить от состава. У `derived` колонка `kind` есть — теперь и у `links`.
+        # Кардинальность 1:N (у модели 2–4 чертежа) через `qty` НЕ выражается — вид решает.
+        for _tbl, _col, _typ in (("links", "kind", "TEXT"), ("family", "source", "TEXT")):
+            _c = [r[1] for r in con.execute("PRAGMA table_info(%s)" % _tbl)]
+            if _c and _col not in _c:
+                con.execute("ALTER TABLE %s ADD COLUMN %s %s" % (_tbl, _col, _typ))
                 con.commit()
         # 🔴🔴 V154 ШАГ B: МИГРАЦИЯ `materials` — добавить колонки нового сканера.
         # Старая база имеет `materials(mtype, density)`, а `scanner_write` пишет `n_props`/`system`
@@ -2757,8 +2766,8 @@ def do_scan(roots, max_mb, limit, depth=None, progress_cb=None, stop_cb=None, fu
                 if (s, child) in seen:
                     continue
                 seen.add((s, child))
-                con.execute("INSERT INTO links (parent,child,qty,source) VALUES (?,?,?,?)",
-                            (s, child, qty, "plm_tree"))
+                con.execute("INSERT INTO links (parent,child,qty,source,kind) VALUES (?,?,?,?,?)",
+                            (s, child, qty, "plm_tree", "состав"))
         else:
             # деталь/чертёж: вхождение имени — не состав. Пишем отдельным источником `mentions`,
             # чтобы данные НЕ терялись (видно в SQL), но в состав/граф по умолчанию не попадали.
@@ -2777,8 +2786,8 @@ def do_scan(roots, max_mb, limit, depth=None, progress_cb=None, stop_cb=None, fu
                 if (s, child) in seen:
                     continue
                 seen.add((s, child))
-                con.execute("INSERT INTO links (parent,child,qty,source) VALUES (?,?,?,?)",
-                            (s, child, qty, "mentions"))
+                con.execute("INSERT INTO links (parent,child,qty,source,kind) VALUES (?,?,?,?,?)",
+                            (s, child, qty, "mentions", "упоминание"))
         # СВЯЗИ ИЗ СТРУКТУРЫ ФАЙЛА (эта сессия): состав .asm и модели .asm-обработки. Идут своим
         # источником `asm_comp`, а «имя по вхождению» остаётся как было (`plm_tree`) — их видно
         # отдельно в SQL, поэтому связь можно ПРОВЕРИТЬ, а не верить ей (грабля «приёмка по строкам»).
@@ -2786,8 +2795,26 @@ def do_scan(roots, max_mb, limit, depth=None, progress_cb=None, stop_cb=None, fu
         if parts:
             con.execute("DELETE FROM links WHERE parent=? AND source='asm_comp'", (s,))
             for child, _role, qty in parts:
-                con.execute("INSERT INTO links (parent,child,qty,source) VALUES (?,?,?,?)",
-                            (s, child, qty or 1, "asm_comp"))
+                con.execute("INSERT INTO links (parent,child,qty,source,kind) VALUES (?,?,?,?,?)",
+                            (s, child, qty or 1, "asm_comp", _role or "состав"))
+        # 🔴🔴 04.11.2026 (спека владельца): ЧЕРТЁЖ → МОДЕЛЬ и МАНУФАКТУРИНГ → ИЗДЕЛИЕ.
+        # Каналы ЧИТАЮТСЯ сканером (`_boxes["links"]["model_names"]` и `["ref_models"]`),
+        # а в `links` НЕ писались — потому в базе не было ни пары `drw`.
+        # ① чертёж→модель: `model_names`/`Model_refs` (замер 890 файлов, у модели 2–4 чертежа → 1:N);
+        # ② MFG→изделие: `ref_model_info` (замер 766 из 1 317).
+        _lk = ((_boxes or {}).get("links") or {})
+        _dwg = [x for x in (_lk.get("model_names") or []) if x]
+        _mfg = [x for x in (_lk.get("ref_models") or []) if x]
+        if _dwg or _mfg:
+            con.execute("DELETE FROM links WHERE parent=? AND source IN ('dwg','mfg')", (s,))
+            for _ch in _dwg:
+                con.execute(
+                    "INSERT INTO links (parent,child,qty,source,kind) VALUES (?,?,?,?,?)",
+                    (s, _ch, 1, "dwg", "чертёж"))
+            for _ch in _mfg:
+                con.execute(
+                    "INSERT INTO links (parent,child,qty,source,kind) VALUES (?,?,?,?,?)",
+                    (s, _ch, 1, "mfg", "мануфактуринг"))
         # ── V125: ВСЕ ПАРАМЕТРЫ МОДЕЛИ (имя + тип + значение) и ТАБЛИЦА СЕМЕЙСТВА ─────────────
         # Владелец: «хранить как все параметры детали, так и все параметры исполнения, тогда
         # связи будут реальные и выводиться будут без плясок». Пишем по ПУТИ файла (как snapshots).
@@ -2803,14 +2830,19 @@ def do_scan(roots, max_mb, limit, depth=None, progress_cb=None, stop_cb=None, fu
         if is_drawing_file(path):
             con.execute("DELETE FROM links WHERE parent=? AND source IN ('asm_comp','plm_tree')", (s,))
         fam = it.get("family") or []
-        # V135: таблица семейства — ТОЛЬКО у ДЕТАЛИ. У сборок/чертежей сносим и СТАРЫЕ строки
-        # (в базе их 15 937 + 11 490), иначе мусор переживёт перескан: DELETE срабатывает даже
-        # при пустом `fam`, а запись — только когда `fam` непустой И файл деталь.
-        if not is_part_file(path):
+        # 🔴🔴 04.11.2026 (спека владельца + замер): ТАБЛИЦА СЕМЕЙСТВА БЫВАЕТ У СБОРКИ.
+        # Замер библиотеки: 219 семейств = .prt 201 + **.asm 18** (турновер `птр-401-мт-01r-00-t01`).
+        # `family_of` уже разрешает `.prt` И `.asm` (запрещён только `.drw`), а ЗДЕСЬ стояло
+        # `if not is_part_file(path): fam = []` — и таблица сборки ОБНУЛЯЛАСЬ (противоречие).
+        # Теперь: снос старых строк — у всех, кроме чертежа; запись — у детали и сборки.
+        if is_drawing_file(path):
             con.execute("DELETE FROM family WHERE generic=?", (s,))
             con.execute("DELETE FROM links WHERE parent=? AND source='family'", (s,))
             fam = []
         con.execute("DELETE FROM family WHERE generic=?", (s,))
+        # 🔴 ДЕДУП (замер: одна пара писалась ТРИЖДЫ — `00080→00080-03.prt` / `00080-03` / `.PRT`).
+        # Нормализуем стем и не пишем повторов. Владелец: «либо одно править, либо другое».
+        _seen_fam = set()
         for _item in fam:
             # V127: family теперь пары (исполнение, РОДИТЕЛЬ) — таблица бывает МНОГОУРОВНЕВОЙ.
             if isinstance(_item, (tuple, list)):
@@ -2822,8 +2854,18 @@ def do_scan(roots, max_mb, limit, depth=None, progress_cb=None, stop_cb=None, fu
             # имя задаёт человек и оно может быть любым (`401-10534_спец_исполнение`),
             # поэтому любые числа из имени — ДОГАДКА, а в системе учёта полуправды быть не может.
             # См. скилл: `Creo\READ\SKILL_creo_tree_jlink_etalon.md` §104 (мастер-таблица «что нащупано»).
+            # 🔴 ДЕДУП: нормализуем стем (`00080-03.prt` / `.PRT` / без = ОДНА пара).
+            # `stem()` — СУЩЕСТВУЮЩАЯ функция движка (обёртка над `creo_read.stem`).
+            try:
+                _inst_s = stem(_inst) or _inst
+            except Exception:              # noqa: BLE001
+                _inst_s = _inst
+            _fk = ((_par or s or "").upper(), (str(_inst_s) or "").upper())
+            if _fk in _seen_fam:
+                continue
+            _seen_fam.add(_fk)
             con.execute("INSERT INTO family (generic,instance,params,source) VALUES (?,?,?,?)",
-                        (_par or s, _inst, "", "plm_tree"))
+                        (_par or s, _inst_s, "", "plm_tree"))
         # ── V126: ИСТОРИЯ ПРАВОК (компьютер + юзер + время + Creo) ──────────────────────────
         # Владелец: «+ что когда правилось и кем (имя компьютера + юзер)».
         h2 = it.get("hist2") or []

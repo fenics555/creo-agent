@@ -121,6 +121,12 @@ def build(check_only=False, engine_mod=None):
             s = (src or "").strip().lower()
             if s in ("mentions",) or s.startswith("built"):
                 continue                     # упоминание — не связь; built — уже достройка
+            # 🔴 04.11.2026: `dwg` (чертёж→модель) и `mfg` (MFG→изделие) — СВОИ виды,
+            # в «состав/входимость» не идут: у них обратная сторона своя (`BACK_LINKS`).
+            # Иначе чертёж попал бы в «входимость состава» сборки — это неверно.
+            if s in ("dwg", "mfg"):
+                asm[(a.lower(), b.lower())] = s
+                continue
             if a and b and a.lower() != b.lower():
                 asm[(a.lower(), b.lower())] = s or "asm_comp"
         # какие обратные пары УЖЕ есть (реальные или достроенные)
