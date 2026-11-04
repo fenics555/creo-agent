@@ -776,8 +776,13 @@ function edgeKind(from, to){
   const arr = (ND[from] && ND[from].o) || [];
   for (const t of arr){ if (String(t[0]) === String(to)) {
     const v = String(t[1] || "").toLowerCase();
+    // 🔴🔴 V165 (04.11.2026): ДОБАВЛЕНЫ `dwg` / `mfg`.
+    // V164 завёл эти виды в базе (`plm_links.KINDS`) и в `CLR` (цвет + подпись),
+    // но ЗДЕСЬ фильтр их не пропускал → ребро чертежа/мануфактуринга падало в
+    // `return "parent"` → серый цвет, стрелка не находилась. Правка V164 была НЕ ЗАКРЫТА.
+    // Теперь вид из базы = ключ CLR (цвет + маркер-стрелка), как у остальных видов.
     if (v === "structure" || v === "inherit" || v === "derive" ||
-        v === "copy" || v === "variant") {
+        v === "copy" || v === "variant" || v === "dwg" || v === "mfg") {
       return v;                       // код вида из базы = ключ CLR (цвет + стрелка)
     }
     // совместимость со старым форматом (русские слова из прежних баз)
@@ -785,6 +790,10 @@ function edgeKind(from, to){
     if (v.indexOf("загот") >= 0 || v.indexOf("отлив") >= 0 || v.indexOf("производ") >= 0) return "derive";
     if (v.indexOf("исполн") >= 0) return "variant";
     if (v.indexOf("наслед") >= 0 || v.indexOf("база") >= 0 || v.indexOf("зеркал") >= 0) return "inherit";
+    // 🔴 V165: чертёж/мануфактуринг в СТАРЫХ базах могли лежать словами — ловим и их,
+    // иначе снова серое ребро (совместимость, как у остальных видов выше).
+    if (v.indexOf("черт") >= 0) return "dwg";
+    if (v.indexOf("мануфактур") >= 0) return "mfg";
     return "structure";               // состав сборки
   } }
   return "parent";
