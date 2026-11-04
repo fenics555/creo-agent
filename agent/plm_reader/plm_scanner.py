@@ -120,7 +120,7 @@ ANCHORS = (
     b"symbol_key", b"reg_status", b"mdl_geom_rev", b"inactive_geom",
     b"MERGE_BASE_PART", b"from_mdl_name", b"to_mdl_name", b"model_names",
     b"PTC_UNITS_MASS", b"tool_params", b"OPERATION_NAME", b"MACHINING_TIME",
-    b"num_parents", b"is_item_alive", b"rel_model_name",
+    b"num_parents", b"is_item_alive", b"rel_model_name", b"ref_model_info",
     b"PRO_MP_MASS", b"PRO_MP_VOLUME", b"PRO_MP_AREA", b"PRO_MP_DENSITY",
 )
 # БАЙТОВЫЕ маркеры (не текст!) — отдельно: `\xe3\x32` = 2 байта 0xE3 0x32.
@@ -596,6 +596,14 @@ def extract_health(raw, anchors):
 
 # ── 3.7. СВЯЗИ (наследование/копия/модель чертежа) ───────────────────────────
 _RX_MODEL_REF = re.compile(rb"([A-Z0-9][A-Z0-9_\-\.]{3,40}\.(?:PRT|ASM))")
+# 🔴 КАНАЛ «МАНУФАКТУРИНГ → ИЗДЕЛИЕ» (04.11.2026): имя изделия ТЕКСТОМ в `ref_model_info`.
+# Замер: 766 из 1317 `ASSEM_MFG`, сцепка 97.7 %. См. `READ\SKILL_creo_read_mfg.md` §2г-2.
+_RX_REF_MODEL = re.compile(
+    rb"ref_model_info.{0,90}?\xe0\x0aname\x00([\x20-\x7e\x80-\xff]{3,60})\x00", re.S)
+# 🔴 ЧЕРТЁЖ → МОДЕЛЬ (§168): `model_names` → имя модели ТЕКСТОМ ("BESEDKA-000-SB.ASM").
+# Замер 3 папок владельца: 816 верных пар. Прежний `_str_at` отдавал битый байт.
+_RX_DWG_MODEL = re.compile(
+    rb"model_names\x00.{0,40}?([A-Za-z0-9_\-. ]{3,55}\.(?:PRT|ASM|prt|asm))\x00", re.S)
 
 
 def extract_links(raw, anchors):
@@ -603,7 +611,8 @@ def extract_links(raw, anchors):
 
     ⚡ ОПТИМИЗАЦИЯ: имена моделей ищем ТОЛЬКО в .asm/.drw (в .prt их нет).
     """
-    out = {"derived": [], "copy_from": "", "model_names": [], "components": []}
+    out = {"derived": [], "copy_from": "", "model_names": [], "components": [],
+           "ref_models": []}
     for pos in anchors.get(b"MERGE_BASE_PART", []):
         v = _str_at(raw, pos + 15)
         if v:
@@ -613,10 +622,34 @@ def extract_links(raw, anchors):
         if v:
             out["copy_from"] = v
             break
-    for pos in anchors.get(b"model_names", []):
-        v = _str_at(raw, pos)
-        if v:
-            out["model_names"].append(v)
+    # 🔴 04.11.2026: `model_names` — СВОЙ разбор (§168), а НЕ `_str_at`!
+    # ПРИЧИНА (найдено приёмкой): `_str_at` пропускает маркеры `\xe1\xe2\xe0\xf1` и отдавал
+    # БИТЫЙ БАЙТ `'\ufffd'` ⇒ связь чертежа уходила мусором (1448 файлов с пустышкой).
+    # ФОРМАТ (§168, `besedka-000-sb.drw.1`): `model_names \x00 ... "BESEDKA-000-SB.ASM"`.
+    # Замер после починки: чертёж→модель 816 верных пар (было 0 осмысленных).
+    for _mm in _RX_DWG_MODEL.finditer(raw):
+        try:
+            _nm = _mm.group(1).decode("utf-8", "replace").strip()
+        except Exception:
+            continue
+        if 4 <= len(_nm) <= 60 and "\ufffd" not in _nm and _nm not in out["model_names"]:
+            out["model_names"].append(_nm)
+        if len(out["model_names"]) >= 12:
+            break
+    # 🔴🔴 НОВЫЙ КАНАЛ (04.11.2026): МАНУФАКТУРИНГ → ИЗДЕЛИЕ.
+    # Якорь `ref_model_info` … `\xe0\x0aname\x00<ИМЯ>\x00` — имя изделия ТЕКСТОМ.
+    # Замер 3 папок владельца: 766 из 1317 `ASSEM_MFG`, сцепка с набором 97.7 %.
+    # Обоснование и формулы — `repo\Creo\READ\SKILL_creo_read_mfg.md` §2г-2.
+    if b"ASSEM_MFG" in raw[:400]:
+        for _rm in _RX_REF_MODEL.finditer(raw):
+            try:
+                _nm = _rm.group(1).decode("utf-8", "replace").strip()
+            except Exception:
+                continue
+            if 3 <= len(_nm) <= 60 and _nm not in out["ref_models"]:
+                out["ref_models"].append(_nm)
+            if len(out["ref_models"]) >= 12:
+                break
     # состав — только если это сборка/чертёж (быстрая проверка)
     head = raw[:200]
     if b"ASSEMBLY" in head or b"DRAWING" in head:
@@ -1080,6 +1113,18 @@ def new_to_old(path, boxes):
     refs = {}
     for c in (links.get("components") or []):
         refs[c.get("name")] = c.get("count", 1)
+    # 🔴 04.11.2026: ЧЕРТЁЖ → МОДЕЛЬ (`model_names`/Dwg_Models) и МАНУФАКТУРИНГ → ИЗДЕЛИЕ
+    # (`ref_model_info`). Раньше `model_names` собирался в `extract_links`, но В БАЗУ НЕ ШЁЛ:
+    # адаптер отдавал только `components` ⇒ связь чертежа терялась (в базе 0 пар `drw`).
+    # Замер 3 папок владельца: чертёж→модель 816 пар, MFG→изделие 766 пар.
+    for _mn in (links.get("model_names") or []):
+        _mn = (_mn or "").strip()
+        if _mn and _mn not in refs:
+            refs[_mn] = 1
+    for _rm in (links.get("ref_models") or []):
+        _rm = (_rm or "").strip()
+        if _rm and _rm not in refs:
+            refs[_rm] = 1
     try:
         st = os.stat(path)
         size, mtime = st.st_size, st.st_mtime
