@@ -604,6 +604,11 @@ _RX_REF_MODEL = re.compile(
 # Замер 3 папок владельца: 816 верных пар. Прежний `_str_at` отдавал битый байт.
 _RX_DWG_MODEL = re.compile(
     rb"model_names\x00.{0,40}?([A-Za-z0-9_\-. ]{3,55}\.(?:PRT|ASM|prt|asm))\x00", re.S)
+# 🔴 ВТОРОЙ КАНАЛ ЧЕРТЕЖА: `Model_refs` + `object_type` (даёт ТИП: 0x01=ASM, 0x02=PRT).
+# ЗАЧЕМ: у части чертежей `model_names` ПУСТ (замер 35 gri: 7+ файлов), но `Model_refs` ЕСТЬ.
+# Без этого канала чертежи теряют связь. См. `READ\SKILL_creo_read_mfg.md` §2г-2.
+_RX_MODEL_REFS = re.compile(
+    rb"Model_refs.{0,60}?object_type\x00(.)\xe0\x0aname\x00([\x20-\x7e\x80-\xff]{3,60})\x00", re.S)
 
 
 def extract_links(raw, anchors):
@@ -612,7 +617,7 @@ def extract_links(raw, anchors):
     ⚡ ОПТИМИЗАЦИЯ: имена моделей ищем ТОЛЬКО в .asm/.drw (в .prt их нет).
     """
     out = {"derived": [], "copy_from": "", "model_names": [], "components": [],
-           "ref_models": []}
+           "ref_models": [], "model_refs": []}
     for pos in anchors.get(b"MERGE_BASE_PART", []):
         v = _str_at(raw, pos + 15)
         if v:
@@ -650,6 +655,24 @@ def extract_links(raw, anchors):
                 out["ref_models"].append(_nm)
             if len(out["ref_models"]) >= 12:
                 break
+    # 🔴🔴 04.11.2026: ВТОРОЙ КАНАЛ `Model_refs` (обязателен — у части чертежей `model_names` ПУСТ).
+    # Замер 35 gri: 7+ файлов имеют ПУСТОЙ model_names, но Model_refs даёт и имя, и ТИП.
+    # object_type: 0x01 = ASM (сборка), 0x02 = PRT (деталь).
+    _seen_refs = set()
+    for _mr in _RX_MODEL_REFS.finditer(raw):
+        _nm = _mr.group(2).decode("utf-8", "replace").strip()
+        _ty = "ASM" if _mr.group(1) == b"\x01" else ("PRT" if _mr.group(1) == b"\x02" else "")
+        if not (3 <= len(_nm) <= 60) or "\ufffd" in _nm:
+            continue
+        _full = _nm + ("." + _ty if _ty else "")
+        if _full in _seen_refs:
+            continue
+        _seen_refs.add(_full)
+        out["model_refs"].append(_full)
+        if _full not in out["model_names"]:
+            out["model_names"].append(_full)      # тот же канал — один список
+        if len(_seen_refs) >= 12:
+            break
     # состав — только если это сборка/чертёж (быстрая проверка)
     head = raw[:200]
     if b"ASSEMBLY" in head or b"DRAWING" in head:
