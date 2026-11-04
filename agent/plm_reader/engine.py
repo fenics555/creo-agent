@@ -1284,6 +1284,29 @@ def _db_search_dirs():
     return out
 
 
+def _lnorm(name):
+    """НОРМАЛИЗАЦИЯ имени связи (V167): убрать расширение (.ASM/.PRT/.DRW) и версию,
+    верхний регистр — ТЕМ ЖЕ правилом, что `stem()` (creo_read).
+
+    🔴🔴 04.11.2026 (владелец: «10-12-575_F-VS — граф строит такую хрень»):
+    ЗАМЕР боевой базы: `parent` писался СТЕМОМ, а `child` — СЫРЫМ именем с расширением
+    (`.ASM`/`.PRT`) из `components`/`model_names` ⇒ одна деталь в базе ЖИЛА ДВУМЯ узлами:
+      `10-12-575_F-VS` и `10-12-575_F-VS.ASM`, плюс достройка слепляла их «входимостью».
+    ИТОГ: 5 965 пар-двойников, 10 346 связей с расширением, **469 само-связей**
+    (`00080-03 == 00080-03`) → в графе сборка «входит сама в себя».
+    Замер на копии с нормализацией ОБЕИХ сторон: 63 207 → 34 172 связей (−46 %),
+    петель 469 → 0, потерь данных 0.
+    Правило ОДНО на движок (`stem` = тот же нормализатор, что у `parent`) — иначе снова рассинхрон.
+    """
+    x = (name or "").strip()
+    if not x:
+        return x
+    try:
+        return stem(x)
+    except Exception:                    # noqa: BLE001 — нормализация не должна ронять скан
+        return x
+
+
 def active_db():
     """Путь к АКТИВНОЙ базе.
 
@@ -2827,11 +2850,16 @@ def do_scan(roots, max_mb, limit, depth=None, progress_cb=None, stop_cb=None, fu
         is_asm = ".asm" in path.lower()
         if is_asm:
             for child, qty in it["refs"].items():
-                if (s, child) in seen:
+                # 🔴 V167: НОРМАЛИЗУЕМ child (иначе двойники и петли, см. `_lnorm`)
+                _ch = _lnorm(child)
+                _sp = _lnorm(s)
+                if not _ch or _ch == _sp:      # сборка «входит сама в себя» — не связь
                     continue
-                seen.add((s, child))
+                if (_sp, _ch) in seen:
+                    continue
+                seen.add((_sp, _ch))
                 con.execute("INSERT INTO links (parent,child,qty,source,kind) VALUES (?,?,?,?,?)",
-                            (s, child, qty, "plm_tree", "состав"))
+                            (_sp, _ch, qty, "plm_tree", "состав"))
         else:
             # деталь/чертёж: вхождение имени — не состав. Пишем отдельным источником `mentions`,
             # чтобы данные НЕ терялись (видно в SQL), но в состав/граф по умолчанию не попадали.
@@ -2859,8 +2887,13 @@ def do_scan(roots, max_mb, limit, depth=None, progress_cb=None, stop_cb=None, fu
         if parts:
             con.execute("DELETE FROM links WHERE parent=? AND source='asm_comp'", (s,))
             for child, _role, qty in parts:
+                # 🔴 V167: НОРМАЛИЗУЕМ обе стороны (двойники .ASM/.PRT -> один узел)
+                _ch = _lnorm(child)
+                _sp = _lnorm(s)
+                if not _ch or _ch == _sp:
+                    continue
                 con.execute("INSERT INTO links (parent,child,qty,source,kind) VALUES (?,?,?,?,?)",
-                            (s, child, qty or 1, "asm_comp", _role or "состав"))
+                            (_sp, _ch, qty or 1, "asm_comp", _role or "состав"))
         # 🔴🔴 04.11.2026 (спека владельца): ЧЕРТЁЖ → МОДЕЛЬ и МАНУФАКТУРИНГ → ИЗДЕЛИЕ.
         # Каналы ЧИТАЮТСЯ сканером (`_boxes["links"]["model_names"]` и `["ref_models"]`),
         # а в `links` НЕ писались — потому в базе не было ни пары `drw`.
@@ -2871,14 +2904,21 @@ def do_scan(roots, max_mb, limit, depth=None, progress_cb=None, stop_cb=None, fu
         _mfg = [x for x in (_lk.get("ref_models") or []) if x]
         if _dwg or _mfg:
             con.execute("DELETE FROM links WHERE parent=? AND source IN ('dwg','mfg')", (s,))
+            _sp = _lnorm(s)
             for _ch in _dwg:
+                _cc = _lnorm(_ch)          # V167: чертёж→МОДЕЛЬ без ".ASM" в имени
+                if not _cc or _cc == _sp:
+                    continue
                 con.execute(
                     "INSERT INTO links (parent,child,qty,source,kind) VALUES (?,?,?,?,?)",
-                    (s, _ch, 1, "dwg", "чертёж"))
+                    (_sp, _cc, 1, "dwg", "чертёж"))
             for _ch in _mfg:
+                _cc = _lnorm(_ch)
+                if not _cc or _cc == _sp:
+                    continue
                 con.execute(
                     "INSERT INTO links (parent,child,qty,source,kind) VALUES (?,?,?,?,?)",
-                    (s, _ch, 1, "mfg", "мануфактуринг"))
+                    (_sp, _cc, 1, "mfg", "мануфактуринг"))
         # ── V125: ВСЕ ПАРАМЕТРЫ МОДЕЛИ (имя + тип + значение) и ТАБЛИЦА СЕМЕЙСТВА ─────────────
         # Владелец: «хранить как все параметры детали, так и все параметры исполнения, тогда
         # связи будут реальные и выводиться будут без плясок». Пишем по ПУТИ файла (как snapshots).
