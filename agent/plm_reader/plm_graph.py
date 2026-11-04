@@ -273,11 +273,18 @@ def collect_from_db(media_dir=None):
                 agg[k] = agg.get(k, 0) + int(q or 1)
 
         # V134: источник различаем — `mentions` не связь, `family` = исполнения, `asm_comp` = структура
+        # 🔴🔴 04.11.2026: ДОБАВЛЕНЫ НОВЫЕ КАНАЛЫ (`dwg`, `mfg`) — они писались в базу,
+        # но граф отправлял их в `else` → показывались как «деталь» (НЕВЕРНО).
+        #   `dwg` = ЧЕРТЁЖ → МОДЕЛЬ (Dwg_Models/Model_refs; у модели 1:N чертежей)
+        #   `mfg` = МАНУФАКТУРИНГ → ИЗДЕЛИЕ (`ref_model_info`)
+        # Владелец: «ХТМЛ переписал чтобы выводило как положено?» — теперь как положено.
         for row in con.execute("SELECT parent, child, qty, source FROM links"):
             _src = (row[3] or "").strip().lower()
             if _src == "mentions":
                 continue
             _typ = ("исполнение" if _src == "family"
+                    else "чертёж" if _src == "dwg"
+                    else "мануфактуринг" if _src == "mfg"
                     else "структура" if _src == "asm_comp" else "деталь")
             add_edge(_norm(row[0]), _norm(row[1]), _typ, row[2], "db")
         for row in con.execute("SELECT child, base, kind FROM derived"):

@@ -1098,7 +1098,7 @@ CREATE INDEX IF NOT EXISTS ix_family_instance ON family(instance);
 -- Владелец: «+ что когда правилось и кем (имя компьютера + юзер)». Creo пишет это в файл
 -- (`user_name`, `comment` → «Наименование компьютера: 'X'», `modif_time`, `Proe_version`).
 CREATE TABLE IF NOT EXISTS history (path TEXT, model TEXT, ts TEXT, user TEXT, computer TEXT,
-  creo TEXT, rev TEXT, action TEXT);
+  creo TEXT, rev TEXT, action TEXT, ts_int INTEGER);
 CREATE INDEX IF NOT EXISTS ix_history_model ON history(model);
 CREATE INDEX IF NOT EXISTS ix_history_path ON history(path);
 CREATE INDEX IF NOT EXISTS ix_history_comp ON history(computer);
@@ -1391,7 +1391,8 @@ def connect(ro=False, db=None):
         # мануфактуринг / входимость). РАНЬШЕ вид был свален в `source`, и «чертёж→модель» было
         # не отличить от состава. У `derived` колонка `kind` есть — теперь и у `links`.
         # Кардинальность 1:N (у модели 2–4 чертежа) через `qty` НЕ выражается — вид решает.
-        for _tbl, _col, _typ in (("links", "kind", "TEXT"), ("family", "source", "TEXT")):
+        for _tbl, _col, _typ in (("links", "kind", "TEXT"), ("family", "source", "TEXT"),
+                                 ("history", "ts_int", "INTEGER")):
             _c = [r[1] for r in con.execute("PRAGMA table_info(%s)" % _tbl)]
             if _c and _col not in _c:
                 con.execute("ALTER TABLE %s ADD COLUMN %s %s" % (_tbl, _col, _typ))
@@ -2924,6 +2925,11 @@ def do_scan(roots, max_mb, limit, depth=None, progress_cb=None, stop_cb=None, fu
                     _ts_int = int(_dt.replace(tzinfo=datetime.timezone.utc).timestamp())
             except Exception:              # noqa: BLE001
                 _ts_int = None
+            # ⚠️ ПОЛЯ ОСТАВЛЕНЫ (решение по РИСКУ, 04.11.2026): попытка не писать пустые
+            # `computer`/`creo`/`rev`/`action` ОТМЕНЕНА — читатели берут их ПО ИНДЕКСАМ
+            # (`plm_history.py:170` `SELECT rev,ts,user,COUNT(*)` + распаковка `r[4]..r[7]`),
+            # и `None` вместо `''` ломает вывод истории. Пустая строка в SQLite почти бесплатна.
+            # Реальный резерв объёма найден в другом: `matrices` ×22 и `params` −24 %.
             con.execute("INSERT INTO history (path,model,ts,user,computer,creo,rev,action,ts_int) "
                         "VALUES (?,?,?,?,?,?,?,?,?)",
                         (path, s, _ts_txt, _h.get("user", ""), _h.get("computer", ""),

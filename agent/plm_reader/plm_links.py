@@ -57,6 +57,14 @@ KINDS = {
                   "about": "вариант семейства (generic → instance)"},
     "mention":   {"label": "упоминание",   "sign": "⋯", "color": "#6f8499", "dash": "dotted",
                   "about": "только текст в байтах — НЕ связь (в граф не идёт)"},
+    # 🔴🔴 04.11.2026 (владелец: «ХТМЛ переписал чтобы выводило как положено?»):
+    # НОВЫЕ КАНАЛЫ. `kind_code` их УЖЕ возвращает (стр. 86–89), а здесь их НЕ БЫЛО ⇒
+    # `kind_info("dwg")` падал/подменялся на `structure`, и в показе «чертёж» и
+    # «мануфактуринг» выглядели как состав. Владелец: «цикл крах» — правка была НЕ ЗАКРЫТА.
+    "dwg":       {"label": "чертёж",       "sign": "☰", "color": "#c9a227", "dash": "dashdot",
+                  "about": "чертёж → модель (Dwg_Models / Model_refs; у модели 2–4 чертежа)"},
+    "mfg":       {"label": "мануфактуринг", "sign": "⚙", "color": "#c98a5a", "dash": "longdash",
+                  "about": "обработка → изделие (ref_model_info, ASSEM_MFG)"},
 }
 
 # НАПРАВЛЕНИЕ (куда читать связь) → подпись и стрелка
@@ -78,6 +86,15 @@ def kind_code(source, channel):
         return "mention"
     if channel == "variant" or s == "family":
         return "variant"
+    # 🔴🔴 04.11.2026 (владелец: «ХТМЛ переписал чтобы выводило как положено?»):
+    # НОВЫЕ КАНАЛЫ ПАДАЛИ В `structure` и показывались как состав — неверно.
+    #   `dwg` = ЧЕРТЁЖ → МОДЕЛЬ (`Dwg_Models`/`Model_refs`; у модели 2–4 чертежа, кардинальность 1:N)
+    #   `mfg` = МАНУФАКТУРИНГ → ИЗДЕЛИЕ (`ref_model_info`)
+    # Ставим ПЕРЕД `structure`, иначе они до него не дойдут.
+    if channel == "dwg" or s == "dwg":
+        return "dwg"
+    if channel == "mfg" or s == "mfg":
+        return "mfg"
     if channel == "inherit":
         if "коп" in s:
             return "copy"
