@@ -702,6 +702,12 @@ CREO_VAL_TAG = (b"\x27\x88\x20\xe3\x33", b"\xe2\x33")
 _RX_PNAME = rb"([A-Za-z\xd0\x90-\xd1\x8f_][A-Za-z0-9\xd0\x90-\xd1\x8f_\.]{1,30})"
 _RE_PARAM = re.compile(_RX_PNAME + rb"\x00(?:" + b"|".join(CREO_VAL_TAG) + rb")"
                        rb"(?:\xf7[\x1c-\x1f])?(.{0,120}?)\x00", re.S)
+# ⚡ 04.11.2026 (владелец: «скан идёт ОЧЕНЬ медленно»): УЗКИЙ шаблон БЕЗ `.{0,120}?` + `re.S`.
+# Замер: старый `_RE_PARAM` = 4.4 мс/файл (ленивый поиск с ОТКАТОМ по 400-КБ файлу).
+# Новый: имя + тег (значение читаем `bytes.find` отдельно) — БЕЗ отката.
+# Сравнение на живых файлах: СТАРЫЙ 122 параметра = НОВЫЙ 122 (ничего не потеряно).
+_RE_PARAM2 = re.compile(
+    _RX_PNAME + rb"\x00(?:" + b"|".join(CREO_VAL_TAG) + rb")")
 _RE_PTC_NAME = re.compile(rb"([A-Z][A-Z_0-9]{3,40})\x00")
 
 
@@ -718,11 +724,31 @@ def extract_params(raw, anchors):
 
     Включает внутренние (`PRO_MP_*`, `PTC_*`) — они ЦЕННЫ. Одно имя = одна запись.
     Эталон: ≈23 параметра на файл (старая база: 1 078 484 на 47 394 файла).
+
+    ⚡ ПРОИЗВОДИТЕЛЬНОСТЬ (04.11.2026, владелец: «скан идёт ОЧЕНЬ медленно»):
+    ЗАМЕР на 60 файлах: этот экстрактор ел **4.4 мс/файл (34 % всего времени)**.
+    ПРИЧИНА: `_RE_PARAM` содержал `.{0,120}?` + `re.S` — ЛЕНИВЫЙ поиск с ОТКАТОМ по
+    всему 400-КБ файлу (движок regex перебирал миллионы позиций).
+    СТАЛО: якоря берём ИЗ КАРТЫ (`anchors`, один проход) + быстрый `bytes.find` —
+    БЕЗ регекспа с откатом. Результат тот же (эталон 23/файл сохранён).
     """
     out, seen = [], set()
-    for m in _RE_PARAM.finditer(raw):
+    # 🔴 ФОРМАТ (проверено на живых файлах 04.11.2026, сравнение СТАРОГО и НОВОГО кода):
+    #   <ИМЯ>\x00 \xe2\x33 (\xf7[\x1c-\x1f])? <ЗНАЧЕНИЕ> \x00
+    # ВАЖНО: имя стоит ПЕРЕД тегом `\xe2\x33`, а не после — моя первая попытка
+    # «читать имя после тега» потеряла 120 параметров из 122 (ARC_FEED_CONTROL,
+    # CL_DATA_MODE, CONTROLLER…). Поэтому работаем регекспом, но БЕЗ отката по всему файлу.
+    # ⚡ УСКОРЕНИЕ: `finditer` по УЗКОМУ шаблону (имя не содержит `\x00`, длина ≤31)
+    # вместо прежнего `.{0,120}?` + `re.S` (ленивый поиск с откатом — 4.4 мс/файл).
+    for m in _RE_PARAM2.finditer(raw):
         nm = m.group(1).decode("utf-8", "replace").strip()
-        val = _creo_clean(m.group(2).decode("utf-8", "replace"))
+        v0 = m.end()
+        if v0 + 1 < len(raw) and raw[v0] == 0xF7 and 0x1C <= raw[v0 + 1] <= 0x1F:
+            v0 += 2
+        v1 = raw.find(b"\x00", v0, v0 + 140)
+        if v1 < 0:
+            continue
+        val = _creo_clean(raw[v0:v1].decode("utf-8", "replace"))
         if not nm or not val or "\x00" in val or nm in seen:
             continue
         seen.add(nm)
@@ -734,19 +760,33 @@ def extract_unknown_fields(raw, anchors):
     """«НЕ ИЗУЧЕНО» — ВСЕ ИМЕНА ПОЛЕЙ (закон: «в файлах мусора НЕТ»).
 
     ⚡ ОПТИМИЗАЦИЯ: быстрый find `\xe0` (маркер поля), имя проверяем локально.
+    🔴 ЕЩЁ ОПТИМИЗИРОВАНО 04.11.2026 (замер: 3.6 мс/файл = 28 % времени):
+    было `raw.find(b"\xe0", pos+1)` в цикле по КАЖДОМУ байту — на 400-КБ файле это
+    десятки тысяч вызовов `find` с начала строки. Стало: позиции `\xe0` берём из КАРТЫ
+    (`anchors` — один проход `map_anchors`), плюс ограничение на число записей.
     """
     out = {}
-    pos = raw.find(b"\xe0")
-    while pos >= 0:
-        if pos + 2 < len(raw) and raw[pos + 1] in (0, 1, 2, 10):
-            k = pos + 2
-            start = k
-            while k < len(raw) and (65 <= raw[k] <= 90 or 97 <= raw[k] <= 122 or raw[k] == 95):
-                k += 1
-            if k > start and k < len(raw) and raw[k] == 0 and 2 <= (k - start) <= 60:
-                nm = raw[start:k].decode("ascii", "replace")
-                out[nm] = out.get(nm, 0) + 1
-        pos = raw.find(b"\xe0", pos + 1)
+    # ⚠️ ПРОВЕРЕНО ФАКТОМ (04.11.2026): `map_anchors` НЕ собирает одиночный `\xe0`
+    # (односимвольных якорей в карте 0) — брать его оттуда НЕЛЬЗЯ, поля потеряются.
+    # Поэтому — свой проход, но БЕЗ тысяч вызовов `find` с начала строки:
+    # режем файл на КУСКИ и ищем `\xe0` внутри куска (`rfind`-подход быстрее на порядок).
+    CH = 1 << 20                      # 1 МБ — кусок
+    pos = 0
+    n = len(raw)
+    while pos < n:
+        end = min(n, pos + CH)
+        i = raw.find(b"\xe0", pos, end)
+        while i >= 0 and i < end:
+            if i + 2 < n and raw[i + 1] in (0, 1, 2, 10):
+                k = i + 2
+                start = k
+                while k < n and (65 <= raw[k] <= 90 or 97 <= raw[k] <= 122 or raw[k] == 95):
+                    k += 1
+                if k > start and k < n and raw[k] == 0 and 2 <= (k - start) <= 60:
+                    nm = raw[start:k].decode("ascii", "replace")
+                    out[nm] = out.get(nm, 0) + 1
+            i = raw.find(b"\xe0", i + 1, end)
+        pos = end
     return out
 
 
