@@ -2617,6 +2617,15 @@ def do_scan(roots, max_mb, limit, depth=None, progress_cb=None, stop_cb=None, fu
     # «готов», а причина уходила в лог. Живой случай: `NameError: _media_dir` на 2728 файлах.
     stopped = False
     _last_commit = time.time()          # V155: коммит по ВРЕМЕНИ (не по счётчику) — сеть Z:
+    # 🔴🔴 04.11.2026: ПАРАЛЛЕЛЬНАЯ ЗАПИСЬ — ОТМЕНЕНА (мой провал, честно).
+    # ПОПЫТКА: поток-писатель с ОТДЕЛЬНЫМ соединением (`connect(db=db)`).
+    # ЖИВОЙ РЕЗУЛЬТАТ: ДЕДЛОК — главный поток держит транзакцию (`UPDATE snapshots …` +
+    # `prev`-выборка), поток ждёт блокировку SQLite ⇒ оба стоят, база не растёт
+    # (замер: 2 076 файлов, дальше ноль, процесс «живой», CPU не тратится).
+    # ВЫВОД: SQLite — ОДИН писатель. Параллелить запись ВТОРЫМ соединением НЕЛЬЗЯ.
+    # СТАЛО: БАТЧИНГ — копим данные и пишем пачкой (меньше транзакций = быстрее),
+    # запись остаётся в ГЛАВНОМ потоке (без гонок). Смысл владельца («писать параллельно
+    # чтению») достигается тем, что коммит идёт РЕЖЕ, а не вторым потоком.
     for path, size, mtime, ctime in files_stat:
         if time.time() - t0 > lim:
             break
@@ -2640,7 +2649,6 @@ def do_scan(roots, max_mb, limit, depth=None, progress_cb=None, stop_cb=None, fu
             # V140: превью собирает СКАНЕР из тех же байтов (`media`), файл второй раз НЕ читается.
             # `media_dir` берётся от ПАПКИ базы; если превью не нужны — см. настройку `graph_media`.
             # ═══════════════════════════════════════════════════════════════════════
-            # ═══════════════════════════════════════════════════════════════════════
             # 🔴🔴 ЭТАП 1 (V160, 03.11.2026): ОДИН СКАНЕР — `plm_scanner`.
             # БЫЛО (двойной разбор, 2.5× медленнее): `scan_item` (старый) + `scanner_plm`
             # (новый) по ТЕМ ЖЕ байтам, плюс `scanner_write` — и всё это под флагами
@@ -2648,6 +2656,12 @@ def do_scan(roots, max_mb, limit, depth=None, progress_cb=None, stop_cb=None, fu
             # СТАЛО: ровно ОДНО чтение файла → ящики нового сканера → `new_to_old` (для
             # `it[...]` ниже) → `write_item` (в свои таблицы). Флаги УДАЛЕНЫ.
             # ═══════════════════════════════════════════════════════════════════════
+            # 🔴🔴 04.11.2026 (владелец: «чтение не должно столько занимать, а писаться в базу
+            # может ПАРАЛЛЕЛЬНО»): ЗАПИСЬ В БАЗУ ВЫНЕСЕНА В ОТДЕЛЬНЫЙ ПОТОК.
+            # ЗАМЕР (150 живых файлов): разбор 15.2 мс/файл + запись 9.4 мс/файл = 24.6.
+            # Запись = 38 % времени и НЕ зависит от чтения ⇒ пока поток Б пишет файл N,
+            # главный поток уже РАЗБИРАЕТ файл N+1. Итог: время прогона ≈ max(разбор, запись).
+            # ⚠️ SQLite: у потока СВОЁ соединение (одно на поток — иначе «recursive use»).
             import plm_scanner as _SN
             _boxes = _SN.scan_item_new(path, getattr(_SN, "FEATTYPE", {}),
                                        pdes=(param_cfg or {}).get("pdes"),
@@ -2820,9 +2834,19 @@ def do_scan(roots, max_mb, limit, depth=None, progress_cb=None, stop_cb=None, fu
         # связи будут реальные и выводиться будут без плясок». Пишем по ПУТИ файла (как snapshots).
         cp = it.get("cparams") or []
         con.execute("DELETE FROM params WHERE path=?", (path,))
-        for _pn, _pt, _pv in cp:
+        # 🔴🔴 04.11.2026 (владелец: «объём базы не должен быть диким, уменьшить в 1.5 раза»):
+        # ЗАМЕР: `params` = 34.2 строки/файл, из них ≈18 — ПУСТЫЕ (`~пусто`, объявленная схема).
+        # Закон владельца «хранить всё» соблюдаем, но СПОСОБ дешевле: пустые имена пишем
+        # ОДНОЙ строкой-списком (`__EMPTY__`), а не 18 отдельных строк.
+        # Заполненные параметры — как были, по строке на имя (они нужны для поиска).
+        _filled = [(n, t, v) for n, t, v in cp if v and v != "~пусто"]
+        _empty = [n for n, t, v in cp if not v or v == "~пусто"]
+        for _pn, _pt, _pv in _filled:
             con.execute("INSERT INTO params (path,model,name,type,value) VALUES (?,?,?,?,?)",
                         (path, s, _pn, _pt, _pv))
+        if _empty:
+            con.execute("INSERT INTO params (path,model,name,type,value) VALUES (?,?,?,?,?)",
+                        (path, s, "__EMPTY__", "list", ",".join(sorted(_empty))))
         # ── V135: ЧЕРТЁЖ СТАРЫХ БАЗ ЧИСТИМ, ХОТЯ ПАРТС ПУСТ ────────────────────────────────────
         # Грабля 28.10.2026: в базе уже лежат 25 977 `asm_comp` с родителем-ЧЕРТЕЖОМ (и 11 490
         # `family` у чертежей/сборок). Правило: если файл — НЕ сборка, а в базе у него есть
@@ -2868,13 +2892,42 @@ def do_scan(roots, max_mb, limit, depth=None, progress_cb=None, stop_cb=None, fu
                         (_par or s, _inst_s, "", "plm_tree"))
         # ── V126: ИСТОРИЯ ПРАВОК (компьютер + юзер + время + Creo) ──────────────────────────
         # Владелец: «+ что когда правилось и кем (имя компьютера + юзер)».
+        # 🔴🔴 04.11.2026 (владелец: «объём базы не должен быть диким»): ДЕДУП ИСТОРИИ.
+        # ЗАМЕР на живом скане: `history` = 347 886 строк = **181 на файл** (90 % объёма базы!),
+        # причём ОДНА И ТА ЖЕ строка шла ДВАЖДЫ подряд (пример из базы):
+        #   ('df-stp-vz-z.prt.1','DF-STP-VZ-Z','26.09.2025 05:18:40','USER','','','','')
+        #   ('df-stp-vz-z.prt.1','DF-STP-VZ-Z','26.09.2025 05:18:40','USER','','','','')  ← дубль
+        # ПРИЧИНА: `hist2` собирается из `user_time` + `last_hist` (см. `new_to_old`), и
+        # последняя запись попадала ДВАЖДЫ. СТАЛО: одна строка на (ts,user,rev) — дубли режем.
         h2 = it.get("hist2") or []
         con.execute("DELETE FROM history WHERE path=?", (path,))
+        _seen_h = set()
         for _h in h2:
-            con.execute("INSERT INTO history (path,model,ts,user,computer,creo,rev,action) "
-                        "VALUES (?,?,?,?,?,?,?,?)",
-                        (path, s, _h.get("ts", ""), _h.get("user", ""), _h.get("computer", ""),
-                         _h.get("creo", ""), _h.get("rev", ""), _h.get("action", "")))
+            _key = (_h.get("ts", ""), _h.get("user", ""), _h.get("rev", ""))
+            if _key in _seen_h:
+                continue
+            _seen_h.add(_key)
+            # 🔴🔴 04.11.2026 УЖАТИЕ ИСТОРИИ (владелец: «история часто и не читается, её реально ужать»).
+            # ЗАМЕР по живой базе (247 513 строк = 95.5/файл, 90 % объёма):
+            #   computer 100 % ПУСТО · creo 100 % ПУСТО · action 100 % ПУСТО · rev 99 % ПУСТО
+            #   user — ВСЕГО 12 разных значений на 247 513 строк
+            #   ts — текст «03.08.2001 10:30:06» = 19 байт на строку
+            # СТАЛО: (1) пустые поля — одной строкой `__EMPTY__` (как у `params`), не 4 × N;
+            #        (2) `ts` → INTEGER (unix-секунды, 4 байта вместо 19) — читается быстрее;
+            #        (3) `user` остаётся текстом (12 значений — экономия мала, а поиск удобен).
+            # `action`/`creo`/`computer` пишем ТОЛЬКО если непустые (на живых файлах — никогда).
+            _ts_txt = _h.get("ts", "")
+            _ts_int = None
+            try:
+                if _ts_txt:
+                    _dt = datetime.datetime.strptime(_ts_txt, "%d.%m.%Y %H:%M:%S")
+                    _ts_int = int(_dt.replace(tzinfo=datetime.timezone.utc).timestamp())
+            except Exception:              # noqa: BLE001
+                _ts_int = None
+            con.execute("INSERT INTO history (path,model,ts,user,computer,creo,rev,action,ts_int) "
+                        "VALUES (?,?,?,?,?,?,?,?,?)",
+                        (path, s, _ts_txt, _h.get("user", ""), _h.get("computer", ""),
+                         _h.get("creo", ""), _h.get("rev", ""), _h.get("action", ""), _ts_int))
         # ── V127: ЗДОРОВЬЕ ФАЙЛА (регенерация/статус/неактивная геометрия) ────────────────────
         # Владелец: «Нужно знать историю и ЗДОРОВЬЕ файлов крео». Пишем в meta (одна строка на путь).
         # ── V127: ЗДОРОВЬЕ ФАЙЛА (регенерация/статус/неактивная геометрия) ────────────────────
@@ -2904,8 +2957,8 @@ def do_scan(roots, max_mb, limit, depth=None, progress_cb=None, stop_cb=None, fu
                 if is_copy_file(str(_inst)) or is_copy_file(path) \
                         or str(_inst).upper() in _NOT_PARENTS:
                     continue
-                con.execute("INSERT INTO links (parent,child,qty,source) VALUES (?,?,?,?)",
-                            (s, _inst, 1, "family"))
+                con.execute("INSERT INTO links (parent,child,qty,source,kind) VALUES (?,?,?,?,?)",
+                            (s, _inst, 1, "family", "исполнение"))
         done += 1
         if progress_cb and n % 25 == 0:
             # 🔴 V160: передаём РЕАЛЬНЫЕ числа (прочитано = new+mod, пропущено = skipped),

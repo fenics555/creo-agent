@@ -749,10 +749,16 @@ def extract_params(raw, anchors):
         if v1 < 0:
             continue
         val = _creo_clean(raw[v0:v1].decode("utf-8", "replace"))
-        if not nm or not val or "\x00" in val or nm in seen:
+        if not nm or "\x00" in val or nm in seen:
             continue
+        # ⚠️ ОСОЗНАННОЕ РЕШЕНИЕ (04.11.2026, замер: пустых 18.2/файл = 10 %):
+        # параметр с ПУСТЫМ значением — это ОБЪЯВЛЕННАЯ, но незаполненная схема
+        # (`НАИМЕНОВАНИЕ\x00\x27\x88\x20\xe33\x00` — тег и сразу конец). Закон владельца:
+        # «в файлах мусора НЕТ, хранить ВСЁ». Поэтому НЕ выбрасываем: пишем с признаком
+        # `~пусто`, чтобы в базе было видно «параметр есть, значение не задано».
+        # Это НЕ раздувает базу: одна строка на имя (дедуп по `seen`).
         seen.add(nm)
-        out.append((nm, val))
+        out.append((nm, val if val else "~пусто"))
     return out
 
 
@@ -1005,6 +1011,23 @@ def extract_master(raw, anchors):
 # ═════════════════════════════════════════════════════════════════════════════
 # 4. PACK — раскладка по ЯЩИКАМ (= таблицам базы)
 #    ЯВНЫЙ СПИСОК: что · откуда · куда
+# 🔴 04.11.2026: служебные поля `matrices`, которые НЕ нужны ПЛМ (дублируют габарит/матрицу).
+# Замер (60 файлов, до фильтра 25.6 поля/файл): `transf`, `transf_to_local`, `envlp`,
+# `history_scale`, `ent_outl`, `crv_pnt_arr`, `local_sys`, `disp_outline`, `orig_outline`.
+# Оставляем: `outline` (габарит по осям), `matrix` (4×4), `inertia` (масса/инерция).
+_MTX_SKIP = frozenset((
+    "transf", "transf_to_local", "envlp", "history_scale", "ent_outl",
+    "crv_pnt_arr", "disp_outline", "orig_outline",
+    # 🔴 замер 2-й итерации (17.1 поля/файл): остаток служебного —
+    "world_matrix", "world", "trf", "transform", "fit_outline",
+    "current_model_outline", "saved_model_outline", "local_sys",
+    # 🔴 замер 3-й итерации (8.8 поля/файл): геометрия кривых/точек — НЕ для ПЛМ,
+    "old_envlp", "i_pnts", "end_tangts", "disp_loc_trf", "ctrl_uv",
+    "brk_ctrl_uv", "misc_attr", "last_trf", "pnts", "tangts", "ctrl_pnts",
+    "u_params", "v_params", "knots", "weights", "poly_pts",
+))
+
+
 def extract_matrices(raw, anchors):
     """[{field,dims,values}] — matrix (4x4) · outline (2x3).
 
@@ -1012,6 +1035,7 @@ def extract_matrices(raw, anchors):
     ⚡ ОПТИМИЗАЦИЯ: быстрый find `\xf9`, имя НАЗАД (не regex по всему файлу).
     """
     out = []
+    _seenm = set()
     pos = raw.find(b"\xf9")
     while pos >= 0:
         j = pos - 1
@@ -1021,6 +1045,24 @@ def extract_matrices(raw, anchors):
                 k -= 1
             name = raw[k + 1:j].decode("ascii", "replace")
             if 3 <= len(name) <= 30 and pos + 2 < len(raw):
+                # 🔴 ДЕДУП (04.11.2026, владелец: «объём базы не должен быть диким»):
+                # ЗАМЕР на живом скане: `matrices` = **114.4 записи/файл** (296 491 на 2 591),
+                # а РЕАЛЬНЫХ полей ~10. ПРИЧИНА: одно поле (`outline`) встречается в файле
+                # НЕСКОЛЬКО раз (4+ записей `\xf9` с тем же именем) — писались ВСЕ, без дедупа.
+                # СТАЛО: одна запись на (имя, dims) — повторные пропускаем.
+                _mk = (name, raw[pos + 1], raw[pos + 2])
+                if _mk in _seenm:
+                    pos = raw.find(b"\xf9", pos + 1)
+                    continue
+                _seenm.add(_mk)
+                # 🔴 04.11.2026 (владелец: «объём базы не должен быть диким, уменьшить в 1.5 раза»):
+                # СЛУЖЕБНЫЕ поля НЕ пишем — они дублируют `matrix`/`outline` и не нужны для ПЛМ.
+                # Замер (60 файлов): 25.6 поля/файл, из них `transf`,`transf_to_local`,`envlp`,
+                # `history_scale`,`ent_outl`,`crv_pnt_arr` — служебная геометрия Creo.
+                # Оставляем то, что читает человек/ПЛМ: габарит, матрица, инерция, системы.
+                if name in _MTX_SKIP:
+                    pos = raw.find(b"\xf9", pos + 1)
+                    continue
                 seg = raw[pos + 3:pos + 3 + 200]
                 vals = []
                 for i2 in range(0, min(len(seg) - 3, 64), 4):
