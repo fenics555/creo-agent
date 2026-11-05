@@ -2285,22 +2285,31 @@ def _backup_dir():
 
 def _rotate_backups(keep=BACKUP_KEEP):
     """Оставить последние `keep` бэкапов базы в db\\backup; старые удалить (best-effort).
-    Бэкапы больше не копятся бесконечно (грабля 30.09.2026: db\\backup дорос до 2 ГБ)."""
+    Бэкапы больше не копятся бесконечно (грабля 30.09.2026: db\\backup дорос до 2 ГБ).
+
+    🔴🔴 V175 (05.11.2026, владелец: «сколько база весит?» — ЗАМЕР: 124 ГБ!):
+    Раньше чистились ТОЛЬКО `plm_reader_*.db`, а `pre_migrate_*.db` (бэкап ПЕРЕД миграцией,
+    их делает `plm_database.migrate`) НЕ ЧИСТИЛИСЬ ВООБЩЕ.
+    Последствие: миграция запускается при КАЖДОМ скане (V174) → на каждый скан бэкап ~11 ГБ;
+    замер: 5 файлов `pre_migrate_*` = 55 ГБ, а всего на складе 124 ГБ баз.
+    ЛЕЧЕНИЕ: чистим ОБА семейства (`plm_reader_*`, `pre_migrate_*`), оставляя свежие.
+    """
     try:
         bdir = _backup_dir()
         if not os.path.isdir(bdir):
             return 0
-        files = sorted(f for f in os.listdir(bdir)
-                       if f.startswith("plm_reader_") and f.endswith(".db"))
         removed = 0
-        for old in files[:max(0, len(files) - keep)]:
-            try:
-                os.remove(os.path.join(bdir, old))
-                removed += 1
-            except Exception:
-                pass
+        for prefix in ("plm_reader_", "pre_migrate_"):
+            files = sorted(f for f in os.listdir(bdir)
+                           if f.startswith(prefix) and f.endswith(".db"))
+            for old in files[:max(0, len(files) - keep)]:
+                try:
+                    os.remove(os.path.join(bdir, old))
+                    removed += 1
+                except Exception:
+                    pass
         if removed:
-            log("backup: удалено старых копий %d, оставлено %d" % (removed, keep))
+            log("backup: удалено старых копий %d (plm_reader + pre_migrate), оставлено %d" % (removed, keep))
         return removed
     except Exception:
         return 0
@@ -2492,10 +2501,13 @@ def scan_to_base(roots, max_mb=8, limit=120, depth=None, progress_cb=None, stop_
         try:
             import plm_database as _DBm
             _newdb = active_db()
-            _vv = _DBm.migrate(_newdb, quiet=True)
-            if isinstance(_vv, tuple) and _vv[0] != _vv[1]:
-                log("scan: схема опубликованной базы %s -> %s" % _vv)
-            res["schema"] = _vv
+            # ⚠️ V175: вызываем ТОЛЬКО если схема реально старее — иначе `migrate()` сделает
+            # лишний бэкап 11 ГБ на КАЖДОМ скане (замер 05.11.2026: 5 бэкапов pre_migrate = 55 ГБ).
+            if _DBm.schema_version(_newdb) != _DBm.SCHEMA_VERSION:
+                _vv = _DBm.migrate(_newdb, quiet=True)
+                if isinstance(_vv, tuple) and _vv[0] != _vv[1]:
+                    log("scan: схема опубликованной базы %s -> %s" % _vv)
+                res["schema"] = _vv
         except Exception as _e:                      # noqa: BLE001
             log("scan: миграция опубликованной базы не удалась: %s" % _e)
         # 🔴🔴 V142 (30.10.2026, владелец: «нужен способ обновлять после скана и связи, и
