@@ -3942,7 +3942,11 @@ def config_pro_dirs(path=None):
         return dirs, tpl_files, libs
     raw = b""
     try:
-        raw = open(path, "rb").read()
+        # 🔴 V173: ОГРАНИЧЕНИЕ ЧТЕНИЯ (512 КБ). `config.pro` — текстовый конфиг
+        # (живой файл: 385 строк). Чтение БЕЗ лимита на сетевой шаре `Z:` может
+        # тянуть большой/занятый файл; 512 КБ с запасом хватает любому config.pro.
+        with open(path, "rb") as _f:
+            raw = _f.read(512 * 1024)
     except Exception as e:                          # noqa: BLE001
         log("config.pro: чтение не удалось (%s)" % e)
         return dirs, tpl_files, libs
