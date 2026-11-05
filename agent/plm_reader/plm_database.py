@@ -151,9 +151,17 @@ def _mig_2_to_3(con):
     if not _has_table(cur, "links"):
         return
     # 1) двойники: child с расширением Creo
+    # 🔴🔴 V179 (05.11.2026, владелец: «где же чертежи? связей чертёж→модель нет»):
+    # ЖИВОЙ ДЕФЕКТ: этот DELETE снёс СВЯЗИ `dwg` И `mfg`! Сканер пишет их ИМЕНЕМ С РАСШИРЕНИЕМ
+    # (`extract_links` даёт `model_names = ['23-1013GRI-M2.ASM']`), т.е. ВСЕ `dwg`-связи попадали
+    # под маску `.ASM`/`.PRT` и удалялись. Замер: было 822 `dwg` на 2 687 файлах → в базе осталось 3.
+    # ЛЕЧЕНИЕ: НЕ трогаем каналы `dwg`/`mfg` — у них имя с расширением ЗАКОННО (это имя файла модели,
+    # как его записал Creo). Чистим двойников ТОЛЬКО среди составных каналов (`plm_tree`, `asm_comp`,
+    # `family`, `mentions`) — там расширение действительно лишнее.
     for pat in ("%.ASM", "%.PRT", "%.DRW", "%.asm", "%.prt", "%.drw", "%.m_p", "%.M_P"):
         try:
-            cur.execute("DELETE FROM links WHERE child LIKE ?", (pat,))
+            cur.execute("DELETE FROM links WHERE child LIKE ? "
+                        "AND COALESCE(source,'') NOT IN ('dwg','mfg')", (pat,))
         except sqlite3.Error:
             pass
     # 2) само-связи: сборка «входит сама в себя»
