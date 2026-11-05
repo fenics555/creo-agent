@@ -299,7 +299,19 @@ def history_rows(path, settings):
     from_db = history_rows_from_db(path)
     if from_db:
         return from_db
-    raw = read_bytes(path, settings.get("max_size_mb", 24))    # V86: умолчание24 = DEFAULT
+    # 🔴🔴 V176 (05.11.2026, владелец: «ИСТОРИЯ ПРОСТО ПИШЕТ …WinError 3 — не удаётся найти путь»):
+    # ФАЙЛА МОЖЕТ НЕ БЫТЬ: его переименовали/удалили/purge, а путь в базе остался. Раньше
+    # `read_bytes` вызывался БЕЗ защиты ⇒ `WinError 3` вылетал в таблицу истории.
+    # ЛЕЧЕНИЕ: файла нет (или недоступен) — история ПУСТАЯ, без исключения (окно покажет «нет правок»).
+    try:
+        if not os.path.isfile(path):
+            return []
+    except Exception:                          # noqa: BLE001 — проверка пути тоже может упасть
+        return []
+    try:
+        raw = read_bytes(path, settings.get("max_size_mb", 24))    # V86: умолчание24 = DEFAULT
+    except Exception:                          # noqa: BLE001
+        return []
     if raw is None:
         return []
     chg = parse_changes(raw)

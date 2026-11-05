@@ -2711,6 +2711,7 @@ def do_scan(roots, max_mb, limit, depth=None, progress_cb=None, stop_cb=None, fu
     now = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
     done = new = mod = skipped = 0
     seen = set()
+    seen_paths = set()        # V176: ВСЕ пути, что скан реально видел (для чистки пропавших)
     seen_der = set()          # модели, у которых связи «из чего» уже почищены (у имени много файлов)
     seen_derp = set()         # пары (изделие, основа, вид) — чтобы не плодить дубли
     seen_prop = set()         # модели, у которых свойства уже почищены (V139, канал prop)
@@ -2737,6 +2738,7 @@ def do_scan(roots, max_mb, limit, depth=None, progress_cb=None, stop_cb=None, fu
             stopped = True
             break
         n += 1
+        seen_paths.add(path)              # V176: запомнили — этот путь скан видел
         s = stem(os.path.basename(path))
         old = prev.get(path)
         if not full and old and int(old[9] or 0) == size and abs(float(old[10] or 0) - mtime) < 1.0:
@@ -3117,6 +3119,51 @@ def do_scan(roots, max_mb, limit, depth=None, progress_cb=None, stop_cb=None, fu
                     % (len(dead), len(gone_stems)))
         except Exception as e:
             log("scan: чистка исключённых не удалась: %s" % e)
+    # 🔴🔴 V176 (05.11.2026): ЧИСТКА ПРОПАВШИХ ФАЙЛОВ (владелец: «в окне половина не работает»).
+    # ЖИВОЙ ДЕФЕКТ (замер 05.11.2026): в `snapshots` 66 247 строк, из них **4 787 (7.2 %)** —
+    # файлов на диске НЕТ (переименованы/удалены/purge). `do_scan` их НЕ удалял: цикл идёт по
+    # `files_stat` (что НАШЛИ), а о пропавших не знает. Возвращалось `"gone": 0` — ЖЁСТКО.
+    # ПОСЛЕДСТВИЯ (то, что видел владелец): «История файла» падала с `WinError 3` (путь из базы
+    # ведёт в никуда), граф рисовал узлы без типа (`?`), дерево/списки работали вполсилы.
+    # ЛЕЧЕНИЕ: после цикла удаляем из базы записи, которых НЕ БЫЛО в найденном наборе (`seen_paths`).
+    #   ⚠️ Работаем ТОЛЬКО по ТЕМ ЖЕ корням, что и скан: чужой корень (база шире) не трогаем.
+    #   ⚠️ При `latest_only` «пропавшими» кажутся промежуточные версии (_PURGE — норма) —
+    #      поэтому по умолчанию включено только для файлов ВНЕ текущих корней? Нет: сверяем по `seen`.
+    gone = 0
+    if not full:                     # при полном скане набор тот же — тоже можно, но осторожно
+        try:
+            found = set(seen_paths)
+            roots_norm = [os.path.abspath(r).lower() for r in as_roots(roots)]
+            dead = []
+            for p in prev:
+                pl = p.lower()
+                if pl in found:
+                    continue
+                # СТРОГО внутри наших корней (чужую часть базы не трогаем)
+                under = any(pl.startswith(r + os.sep) or pl == r for r in roots_norm)
+                if not under:
+                    continue
+                # файл действительно исчез (не ошибка доступа)
+                try:
+                    exists = os.path.isfile(p)
+                except Exception:
+                    exists = True          # не смогли проверить — НЕ трогаем
+                if not exists:
+                    dead.append(p)
+            for p in dead:
+                s_d = stem(os.path.basename(p))
+                con.execute("DELETE FROM snapshots WHERE path=?", (p,))
+                con.execute("DELETE FROM params WHERE path=?", (p,))
+                con.execute("DELETE FROM history WHERE path=?", (p,))
+                con.execute("DELETE FROM matrices WHERE path=?", (p,))
+                con.execute("DELETE FROM bodies WHERE path=?", (p,))
+                con.execute("DELETE FROM master_mat WHERE path=?", (p,))
+                con.execute("DELETE FROM matrices WHERE path=?", (p,))
+                gone += 1
+            if gone:
+                log("scan: убрано пропавших файлов: %d (их нет на диске)" % gone)
+        except Exception as e:                     # noqa: BLE001
+            log("scan: чистка пропавших не удалась: %s" % e)
     # 🔴 28.10.2026 (владелец: «МНЕ НУЖЕН СКАНЕР И БАЗА ДАННЫХ РАБОЧИЕ»): `meta.roots` пишем
     # ТОЛЬКО когда скан идёт «по-настоящему» (`remember=True`, из окна). Любая ПРОБА/CLI/тест
     # вызывала do_scan с техническими путями — и записывала ИХ в боевую базу. Окно читает корни
@@ -3140,7 +3187,7 @@ def do_scan(roots, max_mb, limit, depth=None, progress_cb=None, stop_cb=None, fu
           "| ОШИБОК ЧТЕНИЯ %d | за %.1f с%s | база %s"
           % (done, total, new, mod, skipped, n_err, dt,
              " | ОСТАНОВЛЕНО" if stopped else "", db or DB))
-    return {"done": done, "total": total, "new": new, "mod": mod, "skipped": skipped, "stopped": stopped, "secs": round(dt, 1), "gone": 0, "purged": 0, "excluded": purged_excl, "need": False, "verdict": "", "errors": n_err}
+    return {"done": done, "total": total, "new": new, "mod": mod, "skipped": skipped, "stopped": stopped, "secs": round(dt, 1), "gone": gone, "purged": 0, "excluded": purged_excl, "need": False, "verdict": "", "errors": n_err}
 
 
 def summary():
