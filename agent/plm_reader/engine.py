@@ -1324,6 +1324,15 @@ def active_db():
       2) только если боевой папки нет или она пуста — остальные папки (`os.path.dirname(DB)`,
          `BASE_DIR`, локальная `db`), тем же правилом.
     Пустой/битый файл (0 байт) пропускаем.
+
+    🔴🔴 V177 (05.11.2026, владелец: «в основном окне половина не работает» — РАЗБОР):
+    БЫЛО: приоритет у СВЕЖАЙШЕГО VERSIONED-файла (`if cand: return max(cand)`), а `plm_reader.db`
+    брался только как резерв. ПОСЛЕДСТВИЕ (замер 05.11.2026): `active_db()` возвращал
+    `plm_reader_20261105_112131.db` (links 16 141, **built=0**), а окно читало `plm_reader.db`
+    (links 31 738, **built=15 597**) ⇒ ПОКАЗ И ДОСТРОЙКА СМОТРЕЛИ В РАЗНЫЕ БАЗЫ:
+    граф терял обратные связи (входимость, чертёж, обработку), история падала, списки вполсилы.
+    СТАЛО: главный — `plm_reader.db` («последняя копия», её и публикует `_publish`), versioned —
+    только резерв (если главного нет). Это и есть ДОГМА «БАЗА — ОДНА».
     """
     dirs = _db_search_dirs()
     for d in dirs:
@@ -1341,10 +1350,11 @@ def active_db():
                 main.append((os.path.getmtime(m), "plm_reader.db", m))
         except Exception:                            # noqa: BLE001
             pass
-        if cand:
-            return max(cand)[2]                      # свежайший versioned В ЭТОЙ папке
+        # 🔴 V177: ГЛАВНЫЙ — `plm_reader.db` (одна база); versioned — только если главного нет
         if main:
-            return max(main)[2]                      # иначе — `plm_reader.db` в ЭТОЙ папке
+            return max(main)[2]                      # `plm_reader.db` В ЭТОЙ папке — ГЛАВНЫЙ
+        if cand:
+            return max(cand)[2]                      # резерв: свежайший versioned
     return DB
 
 
