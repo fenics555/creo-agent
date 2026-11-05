@@ -1,8 +1,8 @@
 {
- "version": "V171",
- "version_num": 171,
+ "version": "V172",
+ "version_num": 172,
  "date": "05.11.2026",
- "notes": "V171: СКАН В 168 РАЗ БЫСТРЕЕ - ИНДЕКСЫ ПО КОЛОНКАМ ОЧИСТКИ. ПРИЧИНА (владелец: '2 недели назад всё читалось быстро' - сравнил с архивом Z:\\PTC\\CREO-START\\plm_reader.rar от 28.10.2026): в СТАРОМ коде блока 'for _tb in (...): DELETE FROM [X] WHERE path=?' НЕ БЫЛО ВООБЩЕ, он появился в V160.4 и делает 17 DELETE на КАЖДЫЙ файл. Но у этих таблиц НЕ БЫЛО ИНДЕКСА по колонке удаления => SQLite сканировал ВСЮ таблицу на каждый файл (matrices 1068156 строк, arch_dims 248572, arch_dim_ch 224845, snapshots 59299, dim_all 45895, derived 44712). ЗАМЕР на копии боевой базы (60 файлов): БЕЗ индексов 168.0 мс/файл (9719 файлов = ~30 мин, как в логе), С ИНДЕКСАМИ 1.0 мс/файл (= ~10 секунд). УСКОРЕНИЕ В 168 РАЗ. ЛЕЧЕНИЕ: индексы в SCHEMA (создаются в connect автоматически у всех) + миграция схемы 3->4. ПЛЮС V170: миграция 2->3 - чистка следов V167 (дубли связей). ПЛЮС V169: do_scan откачен к V166 (правка _lnorm его замедляла).",
+ "notes": "V172: ДОСТРОЙКА БОЛЬШЕ НЕ ЗАЦИКЛИВАЕТСЯ + ЧИСТКА МУСОРА СВЯЗЕЙ. ПРИЧИНА (проверка базы 05.11.2026): в derived найдены виды 'обратное обратное обратное ... наследование' (401 строка), 'обратное обратное обратная копия' - до 9 наслоений. МЕХАНИЗМ: plm_build_links._pairs_kind читал derived БЕЗ фильтра origin => брал и built-строки => каждый прогон достраивал 'обратное ОТ обратного'. ЛЕЧЕНИЕ: _pairs_kind читает ТОЛЬКО origin='real' + отсечка kind NOT LIKE обратно. ПЛЮС миграция 2->3: сносит built и в derived (был только links) + строки с двойным 'обратно'. ПЛЮС V171: индексы по path (скан в 168 раз быстрее: 168мс -> 1мс на файл). ПЛЮС V170: миграция 2->3 (чистка дублей V167). ПЛЮС V169: do_scan откачен к V166. ЗАМЕР БАЗЫ до правки: links 88150, двойники 10105, само-связи 471, built 28314, graph_edges 109952, schema_version базы = 2 (миграции ещё не применены).",
  "schema_version": 4,
  "remove": [
   "_probe_scan137.py",
@@ -12,7 +12,7 @@
  ],
  "files": {
   "engine.py": "78e582da30f05c695ebff514b6dbd7940db442e588c69d62e35121975ec5f3da",
-  "plm_reader.py": "8399e603a5c8361d96bf763edc020e9e0758c3cf79fd5ec2fe7680905eb3ebc0",
+  "plm_reader.py": "d2b1ec482de0dfd9267beb6ef298e88874d3990b1826cb8ec7c054d7fcdda3df",
   "plm_toolwin.py": "2afd65e09ef0736841f894558a45dc0536890897346ad3dfe68e5f0aa0415df8",
   "plm_history.py": "48f3705e57d3485f50f667b2afe63eeab35177f743e2b532123377013a5986ac",
   "plm_parse.py": "c6bb33a412b6b606ad402e3eb78cd49246b77738b69d82be1b6218a1358c0312",
@@ -32,8 +32,8 @@
   "plm_graph_page.html": "83806fde9654ebdc8c22109b932cc1c00efc3d6add87147b8937bcb7a2d2f521",
   "plm_queries.py": "3fa963038b75cc5551bb7d7bbc3ced5760c03188fe77d47d393c145c390f1977",
   "plm_links.py": "698df65db4fb7571d086cb4343cb8d8391aead559caf96db4715c44e2f397ffe",
-  "plm_build_links.py": "b3435f9987a1aa42115eb08dc63eb1ed4e877d68318029c952fb9e1416a79fb7",
-  "plm_database.py": "d7d61f4282c9d61b10fb17e9d7f1bbf5776cee3e18b1bb80791b3446562d4894",
+  "plm_build_links.py": "b4ee4671a1a468174b9296ba402aa79daa719ce2336b5ba7a2fc5fdb7c4a50a8",
+  "plm_database.py": "e3f7d1701837304d26c9f18e4b9a08fb5be9fd7f8fd5ee7356c7aa031c1c60d2",
   "plm_graph_build.py": "7e3ccf9e59e6cd98029b8dc2ec9473831169ba82b82ed2d8a3670b0f2e5be7ed",
   "plm_scanner.py": "f07fe0c2582e7324e9d026ef73293e7a5a3330aa2bbf362363ec8a64d4589663",
   "STATE.md": "b9197aac54c7238a70c4383ef7384ade9e6834f2c05df094ba71a2cc7608405d",
