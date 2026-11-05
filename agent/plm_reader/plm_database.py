@@ -166,6 +166,17 @@ def _mig_2_to_3(con):
         cur.execute("DELETE FROM links WHERE COALESCE(origin,'')='built'")
     except sqlite3.Error:
         pass
+    # 3б) 🔴 V172: МУСОР НАСЛОЕНИЯ («обратное обратное …») в derived — от зацикливания достройки.
+    #     Замер боевой базы: 408 строк с двойным «обратное», 3 049 с любым «обратное».
+    #     Все `built` сносим, «обратные» виды — тоже (перестроятся чисто, см. `_pairs_kind` V172).
+    try:
+        cur.execute("DELETE FROM derived WHERE COALESCE(origin,'')='built'")
+    except sqlite3.Error:
+        pass
+    try:
+        cur.execute("DELETE FROM derived WHERE kind LIKE '%обратно%' AND kind LIKE '%обратно%обратно%'")
+    except sqlite3.Error:
+        pass
     # 4) граф: перестроится построителем
     for t in ("graph_edges", "graph_nodes", "graph_metrics"):
         if _has_table(cur, t):
