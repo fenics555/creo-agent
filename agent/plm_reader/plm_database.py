@@ -50,7 +50,11 @@ sys.path.insert(0, HERE)
 #   Функция получает коннект и ОБЯЗАНА быть безопасной:
 #   только ADD COLUMN / CREATE TABLE / CREATE INDEX. Данные не трогаем.
 # ═══════════════════════════════════════════════════════════════════════════════
-SCHEMA_VERSION = 3          # ← версия схемы, которую ждёт ЭТОТ код
+SCHEMA_VERSION = 4          # ← версия схемы, которую ждёт ЭТОТ код
+                            # V171 (05.11.2026): 3 → 4 — миграция `_mig_3_to_4`: ИНДЕКСЫ по колонкам
+                            # очистки (`write_item` делал 17 DELETE без индекса ⇒ полный скан таблиц).
+                            # ЗАМЕР: запись 168 мс/файл → 1 мс/файл (ускорение скана в 168 раз).
+                            # V170: 2 → 3 — `_mig_2_to_3` чистит следы V167 (дубли связей).
                             # V176 (05.11.2026): 2 → 3 — миграция `_mig_2_to_3` ЧИСТИТ СЛЕДЫ V167
                             # (дубли связей: `child` с расширением 10 107 · само-связи 471 ·
                             # раздутая достройка `built` 28 314 · граф). У ВСЕХ, АВТОМАТИЧЕСКИ
@@ -172,10 +176,50 @@ def _mig_2_to_3(con):
     con.commit()
 
 
+def _mig_3_to_4(con):
+    """V3 → V4: ИНДЕКСЫ ПО КОЛОНКАМ ОЧИСТКИ (ускорение скана в 168 раз).
+
+    🔴 ЗАЧЕМ (замер 05.11.2026, владелец: «2 недели назад всё читалось быстро»):
+    `plm_scanner.write_item` перед записью делает 17× `DELETE FROM <таблица> WHERE <колонка>=?`.
+    У этих таблиц НЕ БЫЛО ИНДЕКСА по колонке удаления ⇒ SQLite сканировал ВСЮ таблицу на КАЖДЫЙ
+    файл (matrices 1 068 156 строк · arch_dims 248 572 · snapshots 59 299 · dim_all 45 895 …).
+    ЗАМЕР: запись 168.0 мс/файл → 1.0 мс/файл С ИНДЕКСАМИ. 9 719 файлов: 30 минут → 10 секунд.
+
+    ⚠️ Сам `connect()` уже создаёт эти индексы (`SCHEMA` → `CREATE INDEX IF NOT EXISTS`),
+    миграция нужна для баз, которые НЕ проходят `connect()` (обслуживание, пробы, аудит),
+    и чтобы поднять `schema_version` (видно, что база «догнала»).
+    Идемпотентно: `IF NOT EXISTS` — повторный прогон безвреден.
+    """
+    cur = con.cursor()
+    if not _has_table(cur, "snapshots"):
+        return
+    for sql in (
+        "CREATE INDEX IF NOT EXISTS ix_snap_path ON snapshots(path)",
+        "CREATE INDEX IF NOT EXISTS ix_matrices_path ON matrices(path)",
+        "CREATE INDEX IF NOT EXISTS ix_dimall_path ON dim_all(path)",
+        "CREATE INDEX IF NOT EXISTS ix_components_path ON components(path)",
+        "CREATE INDEX IF NOT EXISTS ix_bodies_path ON bodies(path)",
+        "CREATE INDEX IF NOT EXISTS ix_mastermat_path ON master_mat(path)",
+        "CREATE INDEX IF NOT EXISTS ix_drawing_path ON drawing(path)",
+        "CREATE INDEX IF NOT EXISTS ix_tools_path ON tools(path)",
+        "CREATE INDEX IF NOT EXISTS ix_derived_child ON derived(child)",
+        "CREATE INDEX IF NOT EXISTS ix_derived_base ON derived(base)",
+        "CREATE INDEX IF NOT EXISTS ix_props_child ON props(child)",
+        "CREATE INDEX IF NOT EXISTS ix_archdims_date ON arch_dims(arch_date)",
+        "CREATE INDEX IF NOT EXISTS ix_archdimch_date ON arch_dim_ch(arch_date)",
+    ):
+        try:
+            cur.execute(sql)
+        except sqlite3.Error:
+            pass          # нет таблицы/колонки в этой базе — пропускаем
+    con.commit()
+
+
 MIGRATIONS = [
     (0, _mig_0_to_1),           # 0 → 1
     (1, _mig_1_to_2),           # 1 → 2
-    (2, _mig_2_to_3),           # 2 → 3   V176-ФИКС: чистка следов V167 (дубли связей)
+    (2, _mig_2_to_3),           # 2 → 3   чистка следов V167 (дубли связей)
+    (3, _mig_3_to_4),           # 3 → 4   ИНДЕКСЫ по колонкам очистки (скан ×168 быстрее)
 ]
 
 

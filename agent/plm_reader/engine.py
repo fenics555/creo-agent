@@ -1171,6 +1171,31 @@ CREATE TABLE IF NOT EXISTS unknown_fields (path TEXT, model TEXT, name TEXT, cou
 CREATE INDEX IF NOT EXISTS ix_uf_path ON unknown_fields(path);
 CREATE TABLE IF NOT EXISTS dim_all (path TEXT, model TEXT, feat_id INTEGER, nominal REAL, idx INTEGER);
 CREATE TABLE IF NOT EXISTS matrices (path TEXT, model TEXT, field TEXT, dims TEXT, vals TEXT);
+-- 🔴🔴 V171 (05.11.2026): ИНДЕКСЫ ПО `path` ДЛЯ ТАБЛИЦ, КОТОРЫЕ ЧИСТИТ `write_item`.
+-- ЖИВАЯ ПРИЧИНА ТОРМОЗА СКАНА (замер 05.11.2026): `plm_scanner.write_item` перед записью делает
+-- 17× `DELETE FROM <таблица> WHERE path=?` (закон «перескан ЗАМЕНЯЕТ, а не НАКАПЛИВАЕТ»).
+-- БЕЗ индекса по `path` SQLite выполняет ПОЛНЫЙ СКАН таблицы на КАЖДЫЙ файл. Замер:
+--   matrices 1 068 156 строк · arch_dims 248 572 · arch_dim_ch 224 845 · snapshots 59 299 ·
+--   dim_all 45 895 · derived 44 712 · components 13 195 — ВСЕ без индекса по path.
+-- ИТОГ БЕЗ ИНДЕКСОВ: запись 184.9 мс/файл (при разборе 12.6 мс) ⇒ 9 719 файлов = ~30 минут.
+-- СТАЛО: индекс превращает полный скан в поиск по B-tree (доли мс).
+CREATE INDEX IF NOT EXISTS ix_snap_path     ON snapshots(path);
+CREATE INDEX IF NOT EXISTS ix_matrices_path ON matrices(path);
+CREATE INDEX IF NOT EXISTS ix_dimall_path   ON dim_all(path);
+CREATE INDEX IF NOT EXISTS ix_components_path ON components(path);
+CREATE INDEX IF NOT EXISTS ix_bodies_path   ON bodies(path);
+CREATE INDEX IF NOT EXISTS ix_mastermat_path ON master_mat(path);
+CREATE INDEX IF NOT EXISTS ix_drawing_path  ON drawing(path);
+CREATE INDEX IF NOT EXISTS ix_tools_path    ON tools(path);
+-- ⚠️ У этих таблиц колонки `path` НЕТ (проверено 05.11.2026) — индексы по ИХ колонкам:
+--   arch_dims/arch_dim_ch — по `arch_date` (write_item их чистит по path ВПУСТУЮ — отдельная тема);
+--   derived — по `child`; props — по `child`.
+-- `derived`/`props` чистятся в `do_scan` по `child`, поэтому индекс по `child` ускоряет и это.
+CREATE INDEX IF NOT EXISTS ix_derived_child ON derived(child);
+CREATE INDEX IF NOT EXISTS ix_derived_base  ON derived(base);
+CREATE INDEX IF NOT EXISTS ix_props_child   ON props(child);
+CREATE INDEX IF NOT EXISTS ix_archdims_date ON arch_dims(arch_date);
+CREATE INDEX IF NOT EXISTS ix_archdimch_date ON arch_dim_ch(arch_date);
 CREATE TABLE IF NOT EXISTS drawing (path TEXT PRIMARY KEY, model TEXT, source_models TEXT,
   states TEXT, uniq_name TEXT, sheet_size TEXT);
 CREATE TABLE IF NOT EXISTS components (path TEXT, model TEXT, comp TEXT, count INTEGER, kind TEXT);
