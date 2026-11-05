@@ -1,8 +1,8 @@
 {
- "version": "V178",
- "version_num": 178,
+ "version": "V179",
+ "version_num": 179,
  "date": "05.11.2026",
- "notes": "V178: ФИЛЬТРЫ ТИПОВ РАБОТАЮТ (детали/сборки/обработка/чертежи). ДЕФЕКТ (владелец: 'Выбираю детали: пусто!!! Сборки - пусто. Обработка - пусто!'): HTML-фильтр сравнивал поле k СТРОГО (n.k !== fk.value), а значения приходят ИЗ ТРЁХ РАЗНЫХ ИСТОЧНИКОВ: 1) collect_from_graph_db -> PRT/ASM/DRW/MFG (это и попадает в данные); 2) collect_from_db -> PART/ASSEMBLY; 3) plm_graph_build._kind_of_model -> деталь/сборка/чертёж/мануфактуринг. Фильтр ждал ASSEMBLY/PART/ASSEMBLY-ASSEM_MFG => совпадений НОЛЬ. Замер graph_nodes.kind: деталь 45340, чертёж 3858, сборка 1071, мануфактуринг 186; данные HTML: k=PRT. ЛЕЧЕНИЕ: kindCode(n) - единый код типа из ЛЮБОГО формата (prt/asm/drw/mfg), фильтр сравнивает по СМЫСЛУ; значения опций prt/asm/drw/mfg; добавлен фильтр 'чертежи'. ДОЛГ (не в этой версии): свести три источника k к ОДНОМУ (догма 'одна правда'). В ПОСТАВКЕ: V177 (БАЗА ОДНА - active_db отдаёт plm_reader.db), V176 (чистка пропавших 4787 + защита истории от WinError 3), V175 (база не раздувается), V174 (миграция к опубликованной), V171 (индексы: скан x168).",
+ "notes": "V179: ВЕРНУЛ СВЯЗИ ЧЕРТЁЖ->МОДЕЛЬ (их снесла миграция). ДЕФЕКТ (владелец: 'где же чертежи?'): в базе source=dwg было ВСЕГО 3 при 13071 чертеже. ПРИЧИНА: миграция _mig_2_to_3 чистила двойников через DELETE FROM links WHERE child LIKE '%.ASM' (и .PRT/.DRW), а сканер пишет связи dwg/mfg ИМЕНЕМ С РАСШИРЕНИЕМ (extract_links -> model_names = 23-1013GRI-M2.ASM) => ВСЕ dwg попадали под маску и удалялись. ДОКАЗАНО на копии: do_scan(full=True) даёт 822 dwg на 2687 файлах, а в боевой осталось 3. ЛЕЧЕНИЕ: миграция чистит двойников только среди plm_tree/asm_comp/family/mentions; dwg/mfg НЕ трогает (имя с расширением ЗАКОННО). ВАЖНО: чтобы dwg вернулись - нужен ПЕРЕСКАН (Перечитать всё): сканер пишет dwg только для прочитанных файлов, а при кэше идёт continue ДО записи связей. ПЛЮС V178: фильтры типов в HTML (kindCode - единый код prt/asm/drw/mfg; добавлен фильтр чертежи). ПЛЮС V177: БАЗА ОДНА (active_db -> plm_reader.db - окно и достройка в одном файле). ПЛЮС V176: чистка пропавших файлов (4787) + защита истории от WinError 3.",
  "schema_version": 4,
  "remove": [
   "_probe_scan137.py",
@@ -12,7 +12,7 @@
  ],
  "files": {
   "engine.py": "883327f0e32fe7b2348a6230ee570e89aba9c9b747c4d72383c276bf74d5f088",
-  "plm_reader.py": "4568fceb489edf55d414ae306870c529088d87b4056d7a613db0408294ddb865",
+  "plm_reader.py": "84b0b9cec691deca70bcacd67f6349d42a6fd4d4e0dd55b6db54f204d39279a9",
   "plm_toolwin.py": "2afd65e09ef0736841f894558a45dc0536890897346ad3dfe68e5f0aa0415df8",
   "plm_history.py": "e028c211022463898073cea2c03f395632029ae13448723425fae39b996e4027",
   "plm_parse.py": "c6bb33a412b6b606ad402e3eb78cd49246b77738b69d82be1b6218a1358c0312",
@@ -33,7 +33,7 @@
   "plm_queries.py": "3fa963038b75cc5551bb7d7bbc3ced5760c03188fe77d47d393c145c390f1977",
   "plm_links.py": "698df65db4fb7571d086cb4343cb8d8391aead559caf96db4715c44e2f397ffe",
   "plm_build_links.py": "b4ee4671a1a468174b9296ba402aa79daa719ce2336b5ba7a2fc5fdb7c4a50a8",
-  "plm_database.py": "e3f7d1701837304d26c9f18e4b9a08fb5be9fd7f8fd5ee7356c7aa031c1c60d2",
+  "plm_database.py": "a744ce6f22197129e3149b197eae07e33492f124f2a55aa75f0f2916b46b88a1",
   "plm_graph_build.py": "7e3ccf9e59e6cd98029b8dc2ec9473831169ba82b82ed2d8a3670b0f2e5be7ed",
   "plm_scanner.py": "f07fe0c2582e7324e9d026ef73293e7a5a3330aa2bbf362363ec8a64d4589663",
   "STATE.md": "b9197aac54c7238a70c4383ef7384ade9e6834f2c05df094ba71a2cc7608405d",
