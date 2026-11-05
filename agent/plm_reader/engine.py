@@ -1284,33 +1284,6 @@ def _db_search_dirs():
     return out
 
 
-def _lnorm(name):
-    """НОРМАЛИЗАЦИЯ имени связи (V168-исправление): убрать РАСШИРЕНИЕ и ВЕРСИЮ, РЕГИСТР СОХРАНИТЬ.
-
-    🔴🔴 04.11.2026 (владелец: «скан стал просто ещё тупее раза в 3» — РАЗБОР):
-    В V167 здесь стоял `stem()` = `creo_read.stem()`, а он делает `.upper()`.
-    ПОСЛЕДСТВИЯ (замер на боевой базе, 88 170 связей):
-      1) ВЫБРОШЕНО 4 980 связей — отсечение `_ch == _sp` срабатывало на РАЗНЫХ именах,
-         которые после регистра совпали (`00080-03` и `00080-03.prt` → оба `00080-03`);
-      2) РЕГИСТР родителя стал ВЕРХНИМ, а вся база — нижняя указывались => узлы РАСЩЕПИЛИСЬ
-         (`00080-03` старые и `00080-03` новые как разные модели).
-    СТАЛО: нормализуем ОБЕ стороны ОДИНАКОВО, ТОЛЬКО срезая расширение и номер версии,
-    РЕГИСТР НЕ ТРОГАЕМ (как он есть в файле) — тогда имена сходятся, а связи НЕ теряются.
-    """
-    x = (name or "").strip()
-    if not x:
-        return x
-    try:
-        # ПОРЯДОК ВАЖЕН: сначала НОМЕР ВЕРСИИ (`.1/.2`), ПОТОМ расширение.
-        # `00080-03.prt.1` → `00080-03.prt` → `00080-03` (иначе расширение не срежется:
-        # оно не в конце строки, пока стоит номер версии).
-        y = re.sub(r"\.\d+$", "", x)          # номер версии файла: .1/.2/… (в конце)
-        y = re.sub(r"\.(asm|prt|drw|m_p|xpr|crc|sec|neu|lay|frm)$", "", y, flags=re.IGNORECASE)
-        return y or x
-    except Exception:                         # noqa: BLE001 — нормализация не должна ронять скан
-        return x
-
-
 def active_db():
     """Путь к АКТИВНОЙ базе.
 
@@ -2854,16 +2827,11 @@ def do_scan(roots, max_mb, limit, depth=None, progress_cb=None, stop_cb=None, fu
         is_asm = ".asm" in path.lower()
         if is_asm:
             for child, qty in it["refs"].items():
-                # 🔴 V167: НОРМАЛИЗУЕМ child (иначе двойники и петли, см. `_lnorm`)
-                _ch = _lnorm(child)
-                _sp = _lnorm(s)
-                if not _ch or _ch == _sp:      # сборка «входит сама в себя» — не связь
+                if (s, child) in seen:
                     continue
-                if (_sp, _ch) in seen:
-                    continue
-                seen.add((_sp, _ch))
+                seen.add((s, child))
                 con.execute("INSERT INTO links (parent,child,qty,source,kind) VALUES (?,?,?,?,?)",
-                            (_sp, _ch, qty, "plm_tree", "состав"))
+                            (s, child, qty, "plm_tree", "состав"))
         else:
             # деталь/чертёж: вхождение имени — не состав. Пишем отдельным источником `mentions`,
             # чтобы данные НЕ терялись (видно в SQL), но в состав/граф по умолчанию не попадали.
@@ -2891,13 +2859,8 @@ def do_scan(roots, max_mb, limit, depth=None, progress_cb=None, stop_cb=None, fu
         if parts:
             con.execute("DELETE FROM links WHERE parent=? AND source='asm_comp'", (s,))
             for child, _role, qty in parts:
-                # 🔴 V167: НОРМАЛИЗУЕМ обе стороны (двойники .ASM/.PRT -> один узел)
-                _ch = _lnorm(child)
-                _sp = _lnorm(s)
-                if not _ch or _ch == _sp:
-                    continue
                 con.execute("INSERT INTO links (parent,child,qty,source,kind) VALUES (?,?,?,?,?)",
-                            (_sp, _ch, qty or 1, "asm_comp", _role or "состав"))
+                            (s, child, qty or 1, "asm_comp", _role or "состав"))
         # 🔴🔴 04.11.2026 (спека владельца): ЧЕРТЁЖ → МОДЕЛЬ и МАНУФАКТУРИНГ → ИЗДЕЛИЕ.
         # Каналы ЧИТАЮТСЯ сканером (`_boxes["links"]["model_names"]` и `["ref_models"]`),
         # а в `links` НЕ писались — потому в базе не было ни пары `drw`.
@@ -2908,21 +2871,14 @@ def do_scan(roots, max_mb, limit, depth=None, progress_cb=None, stop_cb=None, fu
         _mfg = [x for x in (_lk.get("ref_models") or []) if x]
         if _dwg or _mfg:
             con.execute("DELETE FROM links WHERE parent=? AND source IN ('dwg','mfg')", (s,))
-            _sp = _lnorm(s)
             for _ch in _dwg:
-                _cc = _lnorm(_ch)          # V167: чертёж→МОДЕЛЬ без ".ASM" в имени
-                if not _cc or _cc == _sp:
-                    continue
                 con.execute(
                     "INSERT INTO links (parent,child,qty,source,kind) VALUES (?,?,?,?,?)",
-                    (_sp, _cc, 1, "dwg", "чертёж"))
+                    (s, _ch, 1, "dwg", "чертёж"))
             for _ch in _mfg:
-                _cc = _lnorm(_ch)
-                if not _cc or _cc == _sp:
-                    continue
                 con.execute(
                     "INSERT INTO links (parent,child,qty,source,kind) VALUES (?,?,?,?,?)",
-                    (_sp, _cc, 1, "mfg", "мануфактуринг"))
+                    (s, _ch, 1, "mfg", "мануфактуринг"))
         # ── V125: ВСЕ ПАРАМЕТРЫ МОДЕЛИ (имя + тип + значение) и ТАБЛИЦА СЕМЕЙСТВА ─────────────
         # Владелец: «хранить как все параметры детали, так и все параметры исполнения, тогда
         # связи будут реальные и выводиться будут без плясок». Пишем по ПУТИ файла (как snapshots).
