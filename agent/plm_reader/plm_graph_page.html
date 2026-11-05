@@ -113,9 +113,10 @@
     <input id="q" placeholder="Поиск по имени…">
     <select id="fk">
       <option value="">— все типы —</option>
-      <option value="ASSEMBLY/ASSEM_MFG">обработка (ASSEM_MFG)</option>
-      <option value="ASSEMBLY">сборки</option>
-      <option value="PART">детали</option>
+      <option value="mfg">обработка (ASSEM_MFG)</option>
+      <option value="asm">сборки</option>
+      <option value="prt">детали</option>
+      <option value="drw">чертежи</option>
     </select>
     <select id="fv"><option value="">— все версии Creo —</option></select>
     <select id="fs">
@@ -436,12 +437,28 @@ function kindTag(n){
   if (k.indexOf("DRAW") === 0) return '<span class="t drw">DRW</span>';
   return '<span class="t">' + (k || "?") + '</span>';
 }
+// 🔴 V178: ЕДИНЫЙ КОД ТИПА из любого формата поля `k` (PRT/PART/деталь → `prt`).
+function kindCode(n){
+  const k = String((n && n.k) || "").toLowerCase();
+  if (!k) return "?";
+  if (k.indexOf("prt") === 0 || k.indexOf("part") === 0 || k.indexOf("детал") === 0) return "prt";
+  if (k.indexOf("asm") === 0 || k.indexOf("assem") === 0 || k.indexOf("сборк") === 0) return "asm";
+  if (k.indexOf("drw") === 0 || k.indexOf("draw") === 0 || k.indexOf("черт") === 0) return "drw";
+  if (k.indexOf("mfg") >= 0 || k.indexOf("м_p") >= 0 || k.indexOf("мануфактур") >= 0) return "mfg";
+  return k;
+}
+
 function matches(m){
   const n = ND[m];
   // ключ узла — ЧИСЛО (index); ищем по имени и по папке (одноимённые различимы)
   const hay = ((n.nm || m) + " " + (n.dir || "")).toLowerCase();
   if (q.value && !hay.includes(q.value.toLowerCase())) return false;
-  if (fk.value && n.k !== fk.value) return false;
+  // 🔴🔴 V178: ФИЛЬТР ТИПА ПОНИМАЕТ ВСЕ 3 ФОРМАТА `k` (бардак из трёх источников):
+  //   1) `PRT`/`ASM`/`DRW`/`MFG`  — быстрый путь HTML (`collect_from_graph_db`);
+  //   2) `PART`/`ASSEMBLY`/`DRAWING` — резервный путь (`collect_from_db`);
+  //   3) `деталь`/`сборка`/`чертёж`/`мануфактуринг` — база (`plm_graph_build._kind_of_model`).
+  //   Сравниваем по СМЫСЛУ, а не по строке — иначе фильтр даёт 0 (владелец: «выбираю детали: пусто»).
+  if (fk.value && kindCode(n) !== fk.value) return false;
   if (fv.value && n.v !== fv.value) return false;
   const linked = n.o.length + n.n.length;
   if (fs.value === "linked" && !linked) return false;
