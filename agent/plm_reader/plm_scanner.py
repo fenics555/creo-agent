@@ -804,13 +804,13 @@ _RX_DRW_MODEL = re.compile(rb"([A-Z0-9][A-Z0-9_\-\.]{3,40}\.PRT)\x00")
 
 def extract_drawing(raw, anchors):
     """
-    [{source_model, sheet_size, states, uniq_name}] — данные чертежа `.drw`.
+    [{source_model, sheet_size, states, uniq_name, sheets, format}] — данные чертежа `.drw`.
 
     ФАКТ (замер): связь с моделью — ИМЯ `.PRT` в файле (`CTKD-KALIBR-25X1X9G.PRT`).
     Поля: `uniq_name` · `time_stamp` · `names_table` · `size` · `active_size` ·
     `backup_size` · `state_name`.
     """
-    out = {"source_models": [], "uniq_name": "", "sheet_size": None, "states": []}
+    out = {"source_models": [], "uniq_name": "", "sheet_size": None, "states": [], "sheets": [], "format": ""}
     # ⚡ ОПТИМИЗАЦИЯ: только для чертежа (быстрая проверка заголовка)
     if b"DRAWING" not in raw[:200]:
         return out
@@ -826,6 +826,15 @@ def extract_drawing(raw, anchors):
     m = re.search(rb"active_size\x00([\x20-\x7e]{1,40})\x00", raw)
     if m:
         out["sheet_size"] = m.group(1).decode("utf-8", "replace")
+    
+    # Sheets and Format extraction
+    m = re.search(rb"sheet\x00([\x20-\x7e]{1,40})\x00", raw)
+    if m:
+        out["sheets"].append(m.group(1).decode("utf-8", "replace"))
+    m = re.search(rb"format\x00([\x20-\x7e]{1,40})\x00", raw)
+    if m:
+        out["format"] = m.group(1).decode("utf-8", "replace")
+
     st = []
     for m in re.finditer(rb"state_name\x00([\x20-\x7e]{1,40})\x00", raw):
         v = m.group(1).decode("utf-8", "replace")
@@ -1361,6 +1370,8 @@ def extract_tools(raw, anchors):
                 "tool_id": tid.group(1).decode("utf-8", "replace"),
                 "n_params": mp.group(1)[0] if mp else 0,
                 "assem": assem,
+                "operation_id": "",
+                "workpiece": assem
             })
     return out
 
