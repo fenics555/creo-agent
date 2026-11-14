@@ -39,6 +39,12 @@ class CreoTreeUnpacker:
                 
 import re
 
+import re
+                    # Normalize: extract first alphanumeric word, stripping #, spaces, and control chars
+                    match = re.search(r'#?([A-Za-z0-9_]+)', raw_name)
+                    name = match.group(1) if match else raw_name.strip()
+
+
 # ... (around line 36)
                 if ne != -1 and ns < ne and ns < self.s:
                     raw_name = self.d[ns:ne].decode('ascii', errors='ignore')
