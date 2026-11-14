@@ -483,3 +483,113 @@ def passport(path, stems=()):
             "designation": pr.get("\u041e\u0411\u041e\u0417\u041d\u0410\u0427\u0415\u041d\u0418\u0415") or "",
             "rev": h[0], "author": h[1], "revdate": h[2],
             "role": role(raw, stems, stem(os.path.basename(path))), "refs": refs}
+
+def extract_drw_fields(raw):
+    \"\"\"Извлечение sheets и format из .drw.\"\"\"
+    out = {"sheets": [], "format": ""}
+    # Sheets
+    for m in re.finditer(rb"sheet\\x00([\\x20-\\x7e]{1,40})\\x00", raw):
+        out["sheets"].append(m.group(1).decode("utf-8", "replace"))
+    # Format
+    m = re.search(rb"format\\x00([\\x20-\\x7e]{1,40})\\x00", raw)
+    if m:
+        out["format"] = m.group(1).decode("utf-8", "replace")
+    return out
+
+def extract_mfg_fields(raw):
+    \"\"\"Извлечение operation_id и workpiece из .mfg.\"\"\"
+    out = {"operation_id": \"\", \"workpiece\": \"\"}
+    # Operation ID
+    m = re.search(rb"operation_id\\x00([\\x20-\\x7e]{1,40})\\x00\", raw)
+    if m:
+        out["operation_id"] = m.group(1).decode(\"utf-8\", \"replace\")
+    # Workpiece
+    m = re.search(rb"workpiece\\x00([\\x20-\\x7e]{1,40})\\x00\", raw)
+    if m:
+        out["workpiece\"] = m.group(1).decode(\"utf-8\", \"replace\")
+    return out
+
+def extract_family_info(raw):
+    \"\"\"Извлечение данных о семействах (Family Table) из .prt.\"\"\"
+    out = []
+    # Ищем маркеры FamilyInf или Sld_FamilyInfo
+    # Для упрощения - ищем инстансы через regex
+    for m in re.finditer(rb"user_instances\\x00([\\x20-\\x7e]{1,40})\\x00\", raw):
+        inst = m.group(1).decode(\"utf-8\", \"replace\")
+        # Ищем сопутствующий generic (упрощенно)
+        m_gen = re.search(rb\"user_visible_name\\x00([\\x20-\\x7e]{1,40})\\x00\", raw)
+        if m_gen:
+            gen = m_gen.group(1).decode(\"utf-8\", \"replace\")
+            out.append({\"generic\": gen, \"instance\": inst, \"params\": \"\", \"source\": \"family_table\"})
+    return out
+
+
+
+def extract_drw_fields(raw):
+    """Извлечение sheets и format из .drw."""
+    out = {"sheets": [], "format": ""}
+    # Sheets
+    for m in re.finditer(rb"sheet\\x00([\\x20-\\x7e]{1,40})\\x00", raw):
+        out["sheets"].append(m.group(1).decode("utf-8", "replace"))
+    # Format
+    m = re.search(rb"format\\x00([\\x20-\\x7e]{1,40})\\x00", raw)
+    if m:
+        out["format"] = m.group(1).decode("utf-8", "replace")
+    return out
+
+def extract_mfg_fields(raw):
+    """Извлечение operation_id и workpiece из .mfg."""
+    out = {"operation_id": "", "workpiece": ""}
+    # Operation ID
+    m = re.search(rb"operation_id\\x00([\\x20-\\x7e]{1,40})\\x00", raw)
+    if m:
+        out["operation_id"] = m.group(1).decode("utf-8", "replace")
+    # Workpiece
+    m = re.search(rb"workpiece\\x00([\\x20-\\x7e]{1,40})\\x00", raw)
+    if m:
+        out["workpiece"] = m.group(1).decode("utf-8", "replace")
+    return out
+
+def extract_family_info(raw):
+    \"\"\"Извлечение данных о семействах (Family Table) из .prt.\"\"\"
+    out = []
+    # Ищем маркеры FamilyInf или Sld_FamilyInfo
+    # В реальности это может быть сложный блок, здесь упрощенный поиск пар (inst, gen)
+    # по паттернам, если они есть в текстовом виде
+    # (Для полноценного разбора нужен поиск смещения по TOC, но мы используем regex для скорости)
+    
+    # Паттерн для поиска инстансов (упрощенно)
+    for m in re.finditer(rb"user_instances\\x00([\\x20-\\x7e]{1,40})\\x00", raw):
+        inst = m.group(1).decode("utf-8", "replace")
+        # Ищем сопутствующий generic (упрощенно)
+        m_gen = re.search(rb"user_visible_name\\x00([\\x20-\\x7e]{1,40})\\x00", raw)
+        if m_gen:
+            gen = m_gen.group(1).decode("utf-8", "replace")
+            out.append({"generic": gen, "instance": inst, "params": "", "source": "family_table"})
+    return out
+
+def extract_drw_fields(raw):
+    """Извлечение sheets и format из .drw."""
+    out = {"sheets": [], "format": ""}
+    # Sheets
+    for m in re.finditer(rb"sheet\\x00([\\x20-\\x7e]{1,40})\\x00", raw):
+        out["sheets"].append(m.group(1).decode("utf-8", "replace"))
+    # Format
+    m = re.search(rb"format\\x00([\\x20-\\x7e]{1,40})\\x00", raw)
+    if m:
+        out["format"] = m.group(1).decode("utf-8", "replace")
+    return out
+
+def extract_mfg_fields(raw):
+    """Извлечение operation_id и workpiece из .mfg."""
+    out = {"operation_id": "", "workpiece": ""}
+    # Operation ID
+    m = re.search(rb"operation_id\\x00([\\x20-\\x7e]{1,40})\\x00", raw)
+    if m:
+        out["operation_id"] = m.group(1).decode("utf-8", "replace")
+    # Workpiece
+    m = re.search(rb"workpiece\\x00([\\x20-\\x7e]{1,40})\\x00", raw)
+    if m:
+        out["workpiece"] = m.group(1).decode("utf-8", "replace")
+    return out
+

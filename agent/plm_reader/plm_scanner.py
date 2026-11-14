@@ -810,6 +810,7 @@ def extract_drawing(raw, anchors):
     Поля: `uniq_name` · `time_stamp` · `names_table` · `size` · `active_size` ·
     `backup_size` · `state_name`.
     """
+    import creo_read
     out = {"source_models": [], "uniq_name": "", "sheet_size": None, "states": [], "sheets": [], "format": ""}
     # ⚡ ОПТИМИЗАЦИЯ: только для чертежа (быстрая проверка заголовка)
     if b"DRAWING" not in raw[:200]:
@@ -827,13 +828,49 @@ def extract_drawing(raw, anchors):
     if m:
         out["sheet_size"] = m.group(1).decode("utf-8", "replace")
     
-    # Sheets and Format extraction
-    m = re.search(rb"sheet\x00([\x20-\x7e]{1,40})\x00", raw)
+    # Sheets and Format extraction via creo_read
+    drw_fields = creo_read.extract_drw_fields(raw)
+    out["sheets"] = drw_fields["sheets"]
+    out["format"] = drw_fields["format"]
+
+    st = []
+    for m in re.finditer(rb"state_name\x00([\x20-\x7e]{1,40})\x00", raw):
+        v = m.group(1).decode("utf-8", "replace")
+        if v not in st:
+            st.append(v)
+    out["states"] = st
+    return out
+
+def extract_drawing(raw, anchors):
+    """
+    [{source_model, sheet_size, states, uniq_name, sheets, format}] — данные чертежа `.drw`.
+
+    ФАКТ (замер): связь с моделью — ИМЯ `.PRT` в файле (`CTKD-KALIBR-25X1X9G.PRT`).
+    Поля: `uniq_name` · `time_stamp` · `names_table` · `size` · `active_size` ·
+    `backup_size` · `state_name`.
+    """
+    import creo_read
+    out = {"source_models": [], "uniq_name": "", "sheet_size": None, "states": [], "sheets": [], "format": ""}
+    # ⚡ ОПТИМИЗАЦИЯ: только для чертежа (быстрая проверка заголовка)
+    if b"DRAWING" not in raw[:200]:
+        return out
+    seen = []
+    for m in _RX_DRW_MODEL.finditer(raw):
+        nm = m.group(1).decode("utf-8", "replace")
+        if nm not in seen:
+            seen.append(nm)
+    out["source_models"] = seen
+    m = re.search(rb"uniq_name\x00([\x20-\x7e]{1,60})\x00", raw)
     if m:
-        out["sheets"].append(m.group(1).decode("utf-8", "replace"))
-    m = re.search(rb"format\x00([\x20-\x7e]{1,40})\x00", raw)
+        out["uniq_name"] = m.group(1).decode("utf-8", "replace")
+    m = re.search(rb"active_size\x00([\x20-\x7e]{1,40})\x00", raw)
     if m:
-        out["format"] = m.group(1).decode("utf-8", "replace")
+        out["sheet_size"] = m.group(1).decode("utf-8", "replace")
+    
+    # Sheets and Format extraction via creo_read
+    drw_fields = creo_read.extract_drw_fields(raw)
+    out["sheets"] = drw_fields["sheets"]
+    out["format"] = drw_fields["format"]
 
     st = []
     for m in re.finditer(rb"state_name\x00([\x20-\x7e]{1,40})\x00", raw):
