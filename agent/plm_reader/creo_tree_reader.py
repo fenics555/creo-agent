@@ -37,11 +37,18 @@ class CreoTreeUnpacker:
                 ne = self.d.find(b'\0', ns)
                 if ne == -1: ne = self.d.find(b'\n', ns)
                 
+import re
+
+# ... (around line 36)
                 if ne != -1 and ns < ne and ns < self.s:
-                    name = self.d[ns:ne].decode('ascii', errors='ignore')
+                    raw_name = self.d[ns:ne].decode('ascii', errors='ignore')
+                    # Normalize: extract first alphanumeric word, stripping #, spaces, and control chars
+                    match = re.search(r'#?([A-Za-z0-9_]+)', raw_name)
+                    name = match.group(1) if match else raw_name.strip()
                     self.t["sections"].append({"name": name, "offset": so, "len": se - so, "content": self._parse(self.d[so:se])})
                     o = se
                     continue
+
             except:
                 pass
             
