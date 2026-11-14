@@ -1,160 +1,101 @@
-# -*- coding: utf-8 -*-
-r"""creo_read — РОЛЬ: БИБЛИОТЕКА ЧТЕНИЯ БАЙТОВ CREO (чистая, БЕЗ импорта engine).
-
-ЧИТАЕТ:  файлы Creo (Z:) — байты в RAM.
-ПИШЕТ:   ничего (ни базы, ни файлов).
-ДАЁТ:    примитивы разбора: `read` · `stem` · `parse_toc` · `real` · `params` · `compose` ·
-         `role` · `names` · `passport` · `cut_preview` · `_clean_name_bytes` · `_name_at`.
-ЗОВЁТ ЕГО: СКАНЕР `plm_scanner.py` (единственный, кто читает файлы); окна зовут `stem` и утилиты.
-ЦИКЛ `creo_read ↔ engine` РАЗОРВАН (ЭТАП 0, V160): библиотека НЕ импортирует движок.
-Одна реализация чтения — её используют инструменты, чтобы не плодить копии парсера.
-Creo не нужен, только стандартная библиотека.
-"""
+﻿# -*- coding: utf-8 -*-
+"""creo_read вЂ” PART 1"""
 
 import datetime
 import os
 import re
 import struct
 from collections import Counter
-import creo_tree_reader
+
+try:
+    import creo_tree_reader
+except ImportError:
+    creo_tree_reader = None
+
+TAIL = re.compile(rb"\xf7(.)\xe3([0-9]{1,7})\x00\x00(.{0,220}?)\x00((?:Creo )?[0-9][0-9.]*)\x00", re.S)
+STAMP = re.compile(rb"\xf7\x14([\x20-\x7e\xc0-\xff]{1,24}?)\x00\xe2(.)(.)(.)(.)(.)(.)", re.S)
+STAMP2 = re.compile(rb"\xe1\xf6\xe1([\x20-\x7e\xc0-\xff]{1,24}?)\x00\xe2(.)(.)(.)(.)(.)(.)", re.S)
+NAME_B = re.compile(rb"[\x00-\x1f\x80-\xff]([A-Za-z0-9][A-Za-z0-9_\-\.]{3,47}\.(?:PRT|ASM))", re.IGNORECASE)
+
+def stem(name):
+    n = name.upper()
+    for ext in (".PRT", ".ASM", ".DRW", ".NEU", ".SEC", ".M_P", ".PRT.", ".ASM."):
+        if ext in n: n = n.split(ext)[0]; break
+    return re.sub(r"\.\d+$", "", n)
+
+def read(path):
+    with open(path, "rb") as f: return f.read()
+
+def parse_toc(raw):
+    out, pos = {}, raw.find(b"#UGC_TOC")
+    for _ in range(20):
+        if pos < 0: break
+        p = raw.find(b"\n", pos)
+        nxt = -1
+        while True:
+            e = raw.find(b"\n", p + 1)
+            if e < 0: break
+            line = raw[p + 1:e].decode("ascii", "replace").strip()
+            p = e
+            if line.startswith("NEXT_TOC_ENTRY"):
+                nxt = int(line.split()[1], 16); break
+            m = re.match(r"^([A-Za-z_][A-Za-z0-9_:]{1,40}) ([0-9a-f]{2,8}) ([0-9a-f]{2,8})(?: ([0-9a-f]{2,8}))?(.*)$", line)
+            if m and (not m.group(5).strip() or m.group(5).strip()[0] in "0123456789-"):
+                ln = int(m.group(4), 16) if m.group(4) else int(m.group(3), 16)
+                key = m.group(1)
+                nd_re = re.compile(r"^ND:\d+:(.+?)(?::\d+)?$")
+                nd_match = nd_re.match(key)
+                if nd_match: key = nd_match.group(1)
+                out[key] = (int(m.group(2), 16), max(ln, 1))
+        if nxt < 0 or nxt >= len(raw): break
+        pos = nxt
+    return out
+
+def _endian(raw):
+    return "big" if b"MACH SUN_SunOS" in raw[:512] else "little"
 
 def parse_record_flow(data, start_pos):
-    """
-    Implements the Record Flow Law:
-    e1 e0 (dict) -> e1 f1 (boundary) -> f7/e3 (val) -> e1 e1 (end)
-    """
     results = {}
     dict_start = data.find(b'\xe1\xe0', start_pos)
-    if dict_start == -1:
-        return results, "No dictionary (e1e0) found."
-    
+    if dict_start == -1: return results, "No dictionary (e1e0) found."
     boundary_pos = data.find(b'\xe1\xf1', dict_start)
-    if boundary_pos == -1:
-        return results, "No boundary (e1f1) found after dictionary."
-
+    if boundary_pos == -1: return results, "No boundary (e1f1) found after dictionary."
     field_names = []
     curr = dict_start + 2 
     while curr < boundary_pos:
         null_pos = data.find(b'\x00', curr)
-        if null_pos == -1 or null_pos >= boundary_pos:
-            break
+        if null_pos == -1 or null_pos >= boundary_pos: break
         name = data[curr:null_pos].decode('ascii', errors='replace').strip('\x00')
-        if name:
-            field_names.append(name)
+        if name: field_names.append(name)
         curr = null_pos + 1
-
     end_pos = data.find(b'\xe1\xe1', boundary_pos)
-    if end_pos == -1:
-        end_pos = len(data)
-
+    if end_pos == -1: end_pos = len(data)
     curr = boundary_pos + 2 
     while curr < end_pos:
         f7_pos = data.find(b'\xf7', curr, end_pos)
-        if f7_pos == -1:
-            break
-            
+        if f7_pos == -1: break
         idx = data[f7_pos + 1]
         e3_pos = data.find(b'\xe3', f7_pos + 2, end_pos)
-        if e3_pos == -1:
-            break
-            
+        if e3_pos == -1: break
         val_start = e3_pos + 1
-        if val_start >= end_pos:
-            break
-
+        if val_start >= end_pos: break
         type_code = data[val_start]
-        if type_code == 0xe0: # double
+        if type_code == 0xe0:
             if val_start + 9 <= end_pos:
                 val = struct.unpack('>d', data[val_start+1:val_start+9])[0]
                 val_end = val_start + 9
             else: break
-        elif type_code == 0xe2: # int32
+        elif type_code == 0xe2:
             if val_start + 5 <= end_pos:
                 val = struct.unpack('>i', data[val_start+1:val_start+5])[0]
                 val_end = val_start + 5
             else: break
         else:
-            # Try as string
             null_pos = data.find(b'\x00', val_start, end_pos)
             if null_pos != -1:
                 val = data[val_start:null_pos].decode('cp1251', errors='replace').strip('\x00')
                 val_end = null_pos + 1
             else:
-def get_structural_data(raw):
-    """
-    High-level structural parser. 
-    Uses the robust tree-unpacker and specialized logic for key sections.
-    """
-    if not creo_tree_reader:
-        return {"error": "creo_tree_reader not available"}
-
-    tree = creo_tree_reader.get_tree_dict(raw)
-    out = {
-        "family_table": [],
-        "assembly_links": [],
-        "relations": [],
-        "drawing_info": {"source_models": [], "sheets": [], "format": ""},
-        "mfg_info": {"operation_id": "", "workpiece": ""}
-    }
-
-    for section in tree.get("sections", []):
-        name = section.get("name")
-        content = section.get("content", [])
-
-        # 1. Family Table (FamilyInf)
-        if name == "FamilyInf":
-            # Improved extraction using Record Flow Law
-            # First, find the actual bytes of this section in 'raw'
-            sec_offset = section.get("offset")
-            sec_len = section.get("len")
-            if sec_offset is not None:
-                sec_raw = raw[sec_offset : sec_offset + sec_len]
-                # We can use the logic from parse_record_flow directly
-                # But it returns a dict and a status.
-                # We want to extract the family instances.
-                # In FamilyInf, instances are usually dict_entries.
-                # Let's use the parsed 'content' if it's already good, or parse raw.
-                # For robust extraction, we'll scan for patterns in sec_raw.
-                for m in re.finditer(rb"user_instances\\x00([\\x20-\\x7e]{1,40})\\x00", sec_raw):
-                    inst = m.group(1).decode("utf-8", "replace")
-                    # Try to find a corresponding generic name in the same section
-                    m_gen = re.search(rb"user_visible_name\\x00([\\x20-\\x7e]{1,40})\\x00", sec_raw)
-                    gen = m_gen.group(1).decode("utf-8", "replace") if m_gen else "UNKNOWN"
-                    out["family_table"].append({"generic": gen, "instance": inst})
-
-        # 2. Assembly Links (MdlRefInfo)
-        elif name == "MdlRefInfo":
-            for entry in content:
-                if entry.get("type") == "dict_entry":
-                    val = entry.get("name", "")
-                    if any(ext in val.upper() for ext in (".PRT", ".ASM")):
-                        out["assembly_links"].append(val)
-
-        # 3. Relations (LargeText)
-        elif name == "LargeText":
-            # Scan the raw section for equation patterns
-            for m in re.finditer(rb"(/\\*if|/\\*else|/\\*endif)[\\s\\S]*?\\x00", raw):
-                rel = m.group(0).decode("utf-8", "replace").strip('\x00')
-                if rel and rel not in out["relations"]:
-                    out["relations"].append(rel)
-
-        # 4. Drawing Info (DwgData)
-        elif name == "DwgData":
-            drw = extract_drw_fields(raw)
-            out["drawing_info"].update(drw)
-            for m in re.finditer(rb"model_names<([A-Z][A-Za-z0-9_]+)\\.PRT", raw):
-                out["drawing_info"]["source_models"].append(m.group(1).decode("ascii"))
-
-        # 5. Manufacturing (NeuAsmSld in MFG files)
-        elif name == "NeuAsmSld" and b"ASSEMBLY/ASSEM_MFG" in raw[:200]:
-             m_op = re.search(rb"operation_id\\x00([\\x20-\\x7e]{1,40})\\x00", raw)
-             if m_op: out["mfg_info"]["operation_id"] = m_op.group(1).decode("utf-8", "replace")
-             m_wp = re.search(rb"workpiece\\x00([\\x20-\\x7e]{1,40})\\x00", raw)
-             if m_wp: out["mfg_info"]["workpiece"] = m_wp.group(1).decode("utf-8", "replace")
-
-    return out
-
-                # Fallback: read until next marker or end
                 next_marker = data.find(b'\xe1', val_start, end_pos)
                 if next_marker != -1:
                     val = data[val_start:next_marker].decode('cp1251', errors='replace').strip('\x00')
@@ -162,590 +103,63 @@ def get_structural_data(raw):
                 else:
                     val = data[val_start:min(val_start + 64, end_pos)].decode('cp1251', errors='replace').strip('\x00')
                     val_end = val_start + 64
-        
-        if idx < len(field_names):
-            results[field_names[idx]] = val
-        else:
-            results[f"UNKNOWN_IDX_{idx}"] = val
-            
+        if idx < len(field_names): results[field_names[idx]] = val
+        else: results[f"UNKNOWN_IDX_{idx}"] = val
         curr = val_end
-
     return results, "Success"
-
-
-TAIL = re.compile(rb"\xf7(.)\xe3([0-9]{1,7})\x00\x00(.{0,220}?)\x00((?:Creo )?[0-9][0-9.]*)\x00", re.S)
-# STAMP2 (\xe1\xf6\xe1) — РАБОЧИЙ шаблон записи истории (даёт имена USER/ADMIN).
-# `STAMP` (\xf7\x14) в живых файлах ловит МУСОР ('в/Z@/>', 'вHQАHU') — оставлен для совместимости.
-# 🔴 V160.4: правки раскладок ОТМЕНЕНЫ. Причина раздувания `history` — НЕ шаблон, а запись
-# ВСЕХ 299 совпадений на файл. Лечение — ДЕДУП по (пользователь, дата), см. `engine.do_scan`.
-STAMP = re.compile(rb"\xf7\x14([\x20-\x7e\xc0-\xff]{1,24}?)\x00\xe2(.)(.)(.)(.)(.)(.)", re.S)
-STAMP2 = re.compile(rb"\xe1\xf6\xe1([\x20-\x7e\xc0-\xff]{1,24}?)\x00\xe2(.)(.)(.)(.)(.)(.)", re.S)
-NAME_B = re.compile(rb"[\x00-\x1f\x80-\xff]([A-Za-z0-9][A-Za-z0-9_\-\.]{3,47}\.(?:PRT|ASM))",
-                    re.IGNORECASE)
-
-
-def stem(name):
-    """Имя файла → код модели (верхний регистр, без версии и расширения)."""
-    n = name.upper()
-    for ext in (".PRT", ".ASM", ".DRW", ".NEU", ".SEC", ".M_P", ".PRT.", ".ASM."):
-        if ext in n:
-            n = n.split(ext)[0]
-            break
-    return re.sub(r"\.\d+$", "", n)
-
-
-def read(path):
-    with open(path, "rb") as f:
-        return f.read()
-
-
-def parse_toc(raw):
-    """Оглавление секций файла: {имя: (offset, length)} по цепочке NEXT_TOC_ENTRY."""
-    out, pos = {}, raw.find(b"#UGC_TOC")
-    for _ in range(20):
-        if pos < 0:
-            break
-        p = raw.find(b"\n", pos)
-        nxt = -1
-        while True:
-            e = raw.find(b"\n", p + 1)
-            if e < 0:
-                break
-            line = raw[p + 1:e].decode("ascii", "replace").strip()
-            p = e
-            if line.startswith("NEXT_TOC_ENTRY"):
-                nxt = int(line.split()[1], 16)
-                break
-            m = re.match(r"^([A-Za-z_][A-Za-z0-9_:]{1,40}) ([0-9a-f]{2,8}) ([0-9a-f]{2,8})"
-                         r"(?: ([0-9a-f]{2,8}))?(.*)$", line)
-            if m and (not m.group(5).strip() or m.group(5).strip()[0] in "0123456789-"):
-                ln = int(m.group(4), 16) if m.group(4) else int(m.group(3), 16)
-                key = m.group(1)
-                # Normalize ND: keys
-                nd_re = re.compile(r"^ND:\d+:(.+?)(?::\d+)?$")
-                nd_match = nd_re.match(key)
-                if nd_match:
-                    key = nd_match.group(1)
-                out[key] = (int(m.group(2), 16), max(ln, 1))
-        if nxt < 0 or nxt >= len(raw):
-            break
-        pos = nxt
-    return out
-
-
-def _endian(raw):
-    return "big" if b"MACH SUN_SunOS" in raw[:512] else "little"
-
-# Правдоподобные пределы (V106): Creo-модель не бывает 1000 м³ и не бывает отрицательной.
-# Грабля владельца: в таблице появлялся «объём» из ~400 цифр (1.37e+290) — это БИТЫЙ double
-# (случайные 8 байт попали на шаблон `e0 02 volume 00 ed`). Такой мусор ломал и фильтр
-# (`CAST(volume AS TEXT) LIKE '%170%'` ловил цифры), и сортировку.
-VOL_MIN, VOL_MAX = 0.0, 1e9          # мм³: от 0 до 1000 м³
-
-
-def _sane_number(v):
-    """Отсеять мусорный double: NaN/inf/отрицательный/сверхбольшой → None."""
-    if v is None:
-        return None
-    try:
-        f = float(v)
-    except (TypeError, ValueError):
-        return None
-    if f != f or f in (float("inf"), float("-inf")):      # NaN / inf
-        return None
-    if f < VOL_MIN or f > VOL_MAX:
-        return None
-    return f
-
-
-def real(raw, key):
-    """Числовое поле `e0 02 <имя> 00 ed <8 байт BE double>` (объём, масса).
-
-    V106: значение проверяется `_sane_number` — битые double (1e+290 и т.п.) отбрасываются,
-    чтобы в базе и в таблице не появлялись «объёмы» из сотен цифр.
-    """
-    m = re.search(rb"\xe0\x02" + key.encode() + rb"\x00\xed", raw)
-    if not m or m.end() + 8 > len(raw):
-        return None
-    fmt = ">d" if _endian(raw) == "big" else "<d"
-    try:
-        return _sane_number(struct.unpack(fmt, raw[m.end():m.end() + 8])[0])
-    except Exception:
-        return None
-
-
-def params(raw, toc):
-    """Параметры изделия `<имя>\\0 e2 33 <текст>`: сначала секция NeuPrtSld, затем — по ВСЕМУ файлу
-    (у .asm/.prt часть параметров лежит вне этой секции: МАТЕРИАЛ, PTC_MATERIAL_NAME, НАИМЕНОВАНИЕ…)."""
-    out = {}
-    off, ln = toc.get("NeuPrtSld", (0, 0))
-    for src in (raw[off:off + ln], raw):
-        for m in re.finditer(
-                rb"([\x20-\xff]{3,32})\x00(?:\xe2\x33|\x27\x88\x20\xe3\x33)(.{0,80}?)\x00", src, re.S):
-            try:
-                t = m.group(1).decode("utf-8", "replace").strip()
-            except Exception:
-                t = m.group(1).decode("cp1251", "replace").strip()
-            
-            try:
-                v = m.group(2).decode("utf-8", "replace").strip()
-            except Exception:
-                try:
-                    v = m.group(2).decode("cp1251", "replace").strip()
-                except Exception:
-                    continue
-                    
-            if t and v and "\x00" not in v:
-                out[t] = v
-    return out
-
-
-VAL_TAGS = (b"\xe2\x33", b"\x27\x88\x20\xe3\x33")   # значение параметра | значение отношения
-
-
-def param(raw, names, default=""):
-    """Значение параметра по списку имён — ищем по ВСЕМУ файлу, в UTF-8 и cp1251, по всем тегам значения.
-    Параметр может быть задан и вручную, и уравнением — берём первое найденное НЕПУСТОЕ значение."""
-    for nm in names:
-        if not nm:
-            continue
-        for enc in ("utf-8", "cp1251"):
-            try:
-                nb = nm.encode(enc)
-            except Exception:
-                continue
-            pos = 0
-            while True:
-                i = raw.find(nb, pos)
-                if i < 0:
-                    break
-                pos = i + 1
-                if i > 0:                        # не хвост длинного имени (…_NAME, PTC_MATERIAL_NAME)
-                    pb = raw[i - 1]
-                    if pb == 0x5F or 0x30 <= pb <= 0x39 or 0x41 <= pb <= 0x5A or 0x61 <= pb <= 0x7A:
-                        continue
-                h = raw[i + len(nb): i + len(nb) + 12]
-                for tag in VAL_TAGS:
-                    if h.startswith(b"\x00" + tag):
-                        v = raw[i + len(nb) + 1 + len(tag):]
-                        if v[:1] == b"\xf7":     # служебный префикс записи: f7 + байт-флаг
-                            v = v[2:]
-                        j = v.find(b"\x00")
-                        if j < 0:
-                            j = 48
-                        v = v[:j]
-                        try:
-                            s = v.decode("utf-8")
-                        except UnicodeDecodeError:
-                            try:
-                                s = v.decode("cp1251")
-                            except Exception:
-                                continue
-                        s = " ".join(s.split())
-                        if s and "\x00" not in s:
-                            return s
-    return default
-
-
-def compose(raw, rule):
-    """Собрать значение по ПРАВИЛУ-шаблону:
-      `{ИМЯ}`  — значение параметра;  `"текст"` — литерал (КАВЫЧКИ НЕ ВЫВОДЯТСЯ);
-      `+` и пробелы между частями — только склейка (в значение не попадают).
-    Пустые параметры отбрасываются, лишние пробелы сжимаются.
-    Правило без `{` и `"` — просто имя параметра.
-    """
-    rule = rule or ""
-    if "{" not in rule and '"' not in rule:
-        return param(raw, [rule.strip()])
-    out, i, n = [], 0, len(rule)
-    while i < n:
-        c = rule[i]
-        if c == "{":
-            j = rule.find("}", i)
-            if j < 0:
-                break
-            v = param(raw, [rule[i + 1:j].strip()])
-            if v:
-                out.append(v)
-            i = j + 1
-        elif c == '"':
-            j = rule.find('"', i + 1)
-            if j < 0:
-                break
-            out.append(rule[i + 1:j])
-            i = j + 1
-        elif c == "+":
-            i += 1
-        elif c.isspace():
-            out.append(" ")                    # пробел в правиле = пробел в выводе
-            i += 1
-        else:
-            j = i
-            while j < n and rule[j] not in '{+"':
-                j += 1
-            out.append(rule[i:j])
-            i = j
-    return " ".join("".join(out).split())
-
-# 🔴 28.10.2026: Creo ставит ПЕРЕД именем служебный байт-префикс (тип строки: \xe0, \xe1, \xe2, \xe3,
-# \xf6, \xf7 …). Их НЕЛЬЗЯ декодировать вместе с именем: в UTF-8 они дают \ufffd, а isprintable()
-# съедал часть многобайтной пары. Префиксы Creo (проверены на живых файлах).
-_CREO_PREFIX = {0xe0, 0xe1, 0xe2, 0xe3, 0xf6, 0xf7, 0xf8, 0xfb, 0xfc}
-
-
-def _clean_name_bytes(chunk):
-    """Имя модели из байтов Creo: срезать служебный префикс, декод UTF-8 с откатом cp1251.
-
-    Скилл §5 п.1 — БЕЗ регулярок: только по байтам. Кириллица (UTF-8) сохраняется целиком.
-    (ЭТАП 0: перенесено из `engine.py` — примитив байтов, дом — здесь.)
-    """
-    z = chunk.find(b"\x00")
-    if z >= 0:
-        chunk = chunk[:z]
-    i, j = 0, len(chunk)
-    while i < j and (chunk[i] < 0x20 or chunk[i] in _CREO_PREFIX):
-        i += 1
-    while j > i and (chunk[j - 1] < 0x20 or chunk[j - 1] in _CREO_PREFIX):
-        j -= 1
-    chunk = chunk[i:j]
-    if not chunk:
-        return ""
-    for enc in ("utf-8", "cp1251", "latin-1"):
-        try:
-            s = chunk.decode(enc)
-        except UnicodeDecodeError:
-            continue
-        if "\ufffd" not in s:
-            break
-    else:
-        s = chunk.decode("utf-8", "replace")
-    s = "".join(ch for ch in s if ch.isprintable() or ch in " \t-_.")
-    return s.strip()
-
-
-def _name_at(raw, pos, limit=64):
-    """Имя модели, начинающееся с позиции `pos`: до `\\x00`, UTF-8, без служебных байтов Creo."""
-    if pos < 0 or pos >= len(raw):
-        return ""
-    end = raw.find(b"\x00", pos)
-    if end < 0:
-        end = min(len(raw), pos + limit)
-    return _clean_name_bytes(raw[pos:end][:limit])
-
-
-
-
-def role(raw, stems=frozenset(), me=""):
-    """Роль изделия по правилам §8.5 (имя файла НЕ признак):
-    `MFG` — сборка `ASSEM_MFG`; `nasled.<родитель>` — `MERGE_BASE_PART` (отражение/базовая деталь);
-    `nasled.<СВОЙСТВО>` — наследование СВОЙСТВА (`PTC_*`/`layers`/`restrict_table` — скилл §7);
-    `proizv.<родитель>` — `ref_part_tab.name` из ТОЙ ЖЕ папки (у обычной детали там шаблонный
-    `MM_ASSY`/`SBORKA_MM` — не роль, поэтому сверяем с именами папки).
-
-    🔴 V139 (28.10.2026): ПЕРЕПИСАНО. Старый код брал родителя РЕГУЛЯРКОЙ `.{0,80}?` + `latin-1` —
-    скилл §5 п.1 это ЗАПРЕЩАЕТ: кириллица превращалась в мусор, а имя обрезалось. Теперь разбор
-    идёт ТЕМ ЖЕ кодом, что и сканер (`engine.merge_base_parts` / `ref_part_parents`) — одна правда.
-
-    🔴 28.10.2026 (владелец: «нужно уметь читать ВСЕ файлы Creo»): `me` — это ИМЯ ФАЙЛА в вызове
-    (`role(raw, fstems, s)`), поэтому по нему же определяем КОПИИ и ВСПОМОГАТЕЛЬНЫЕ форматы
-    (`.xpr`, `.crc`, `.mfg`, `.m_p`, `.frm`, `.lay`, `.sec`, `.neu`). Замер: `paralelka_15x4.xpr`
-    (209 918 Б) — полноценная модель-копия, но ни `MERGE_BASE_PART`, ни `ref_part_tab` там нет,
-    и роль возвращалась пустой → в дереве файл не отличим от мусора.
-    """
-    # ЭТАП 0: словарь — ТОЧНАЯ КОПИЯ `engine.ROLE_BY_EXT` (роль не меняется).
-    # Для `.prt`/`.asm`/`.drw` роль определяется СОДЕРЖИМЫМ — они в словаре отсутствуют.
-    _EXT_ROLE = {"xpr": "copy", "crc": "copy", "mfg": "mfg", "m_p": "mfg",
-                 "frm": "frame", "lay": "layer", "sec": "section", "neu": "neutral"}
-    _ext = (me or "").rsplit(".", 1)[-1].lower() if "." in (me or "") else ""
-    _ext_role = _EXT_ROLE.get(_ext, "")
-    if _ext_role:
-        return _ext_role
-    if b"ASSEM_MFG" in raw[:400]:
-        return "MFG"
-    # 🔴 ЭТАП 0 (V160, 03.11.2026): ЦИКЛ `creo_read <-> engine` РАЗОРВАН.
-    # Было: 4 × `import engine` В ТЕЛЕ функции ради role_by_path/merge_base_parts/
-    # first_model_name/ref_part_parents — библиотека чтения зависела от движка.
-    # Теперь роль строится ЛОКАЛЬНО по байтам: «ролевые» функции будут в сканере.
-    mb = []
-    _tmpl = ("MM_ASSY", "MM_PART", "SBORKA_MM", "SBORKA_MFG", "MFG_NC", "NONE")
-    if b"MERGE_BASE_PART" in raw:
-        i = raw.find(b"\xe3\x33\xf7\x1c")
-        if i >= 0:
-            s2 = _name_at(raw, i + 4, limit=64)
-            if s2 and s2.upper() not in _tmpl:
-                mb = [(s2, "наследование")]
-    if mb:
-        base = mb[0][0]
-        for _nm in [m[0] for m in mb]:          # первая МОДЕЛЬ (свойство — не модель)
-            if _nm and not _nm.upper().startswith(("PTC_", "PRO_", "NEUT_SPEC_", "MAT_NAME_")):
-                base = _nm
-                break
-        if base and base.upper() not in ("MM_ASSY", "MM_PART", "SBORKA_MM", "SBORKA_MFG", "MFG_NC"):
-            return "nasled." + base
-    rp = []
-    pos = raw.find(b"ref_part_tab\x00")
-    while pos >= 0:
-        seg_end = min(len(raw), pos + 600)
-        i = raw.find(b"\xe0\x0aname\x00", pos, seg_end)
-        if i >= 0:
-            nm = _name_at(raw, i + 7, limit=64)
-            if nm and len(nm) >= 2 and nm.upper() not in _tmpl:
-                if nm not in rp:
-                    rp.append(nm)
-        pos = raw.find(b"ref_part_tab\x00", pos + 1)
-    for p in rp:
-        s = stem(p)
-        if s != me and (not stems or s in stems):
-            return "proizv." + p
-    return ""
-
-
-def user_time(raw):
-    """Все пары (позиция, пользователь, дата) из истории — по возрастанию позиции.
-    Две раскладки записи: `f7 14 <user> 00 e2 <6 байт>` и `e1 f6 e1 <user> 00 e2 <6 байт`.
-    🔴 V160.4: сам сбор НЕ менялся; раздувание `history` лечится ДЕДУПОМ на стороне записи."""
-    out = []
-    for rx in (STAMP, STAMP2):
-        for m in rx.finditer(raw):
-            s, mi, h, d, mo, y = (b[0] for b in m.groups()[1:])
-            try:
-                dt = datetime.datetime(1900 + y, mo + 1, d, h, mi, s)
-            except ValueError:
-                continue
-            if 1990 <= dt.year <= 2030:
-                try:
-                    who = m.group(1).decode("utf-8")
-                except UnicodeDecodeError:
-                    who = m.group(1).decode("cp1251", "replace")
-                out.append((m.start(), who, dt))
-    return sorted(set(out))
-
-
-def last_hist(raw):
-    """Последняя запись истории: (ревизия, пользователь, дата 'дд.мм.гг чч:мм')."""
-    st, last = user_time(raw), None
-    for t in TAIL.finditer(raw):
-        prev = [s for s in st if s[0] < t.start()]
-        last = (t.group(2).decode(), prev[-1][1] if prev else "",
-                prev[-1][2].strftime("%d.%m.%y %H:%M") if prev else "")
-    return last
-
-
-def names(raw):
-    """Имена моделей внутри файла (расширение срезано) и сколько раз встречаются (входимость)."""
-    c = Counter()
-    for m in NAME_B.finditer(raw):
-        c[stem(m.group(1).decode("latin-1"))] += 1
-    return c
-
-
-# --- ПРЕВЬЮ ИЗ ФАЙЛА (перенесено из plm_graph.py, V140, 28.10.2026) ----------
-# Владелец: «Скан же должен и превью собирать, если оно читается в лоб???»
-# Логика вырезки живёт ЗДЕСЬ (общий модуль чтения Creo), потому что читает ФАЙЛ.
-# Показ (plm_graph) обязан только брать готовое и НЕ читать файлы (правило §96.1).
-
-_SOF = [bytes([0xFF, c]) for c in (0xC0, 0xC1, 0xC2, 0xC3, 0xC5, 0xC6, 0xC7,
-                                   0xC9, 0xCA, 0xCB, 0xCD, 0xCE, 0xCF)]
-
-
-def jpeg_size(d):
-    """(ширина, высота) JPEG по SOF. (0,0) — не валидный JPEG (мусор)."""
-    i, n = 2, len(d)
-    while i < n - 9:
-        if d[i] != 0xFF:
-            i += 1
-            continue
-        mk = d[i:i + 2]
-        if mk in _SOF:
-            return int.from_bytes(d[i + 7:i + 9], "big"), int.from_bytes(d[i + 5:i + 7], "big")
-        if mk == b"\xff\xd8" or 0xD0 <= d[i + 1] <= 0xD9:
-            i += 2
-            continue
-        ln = int.from_bytes(d[i + 2:i + 4], "big")
-        if ln < 2:
-            return 0, 0
-        i += 2 + ln
-    return 0, 0
-
-
-def _find_jpg(raw):
-    """Первый ВАЛИДНЫЙ JPEG (сигнатура + проверка маркера SOF). (bytes,'jpg')|(b'','')."""
-    j = -1
-    while True:
-        j = raw.find(b"\xff\xd8\xff", j + 1)
-        if j < 0:
-            return b"", ""
-        e = raw.find(b"\xff\xd9", j + 3)
-        if e <= 0:
-            continue
-        cand = raw[j:e + 2]
-        if len(cand) < 2048:
-            continue
-        w, h = jpeg_size(cand)
-        if w and h and 16 <= w <= 4096 and 16 <= h <= 4096:
-            return cand, "jpg"
-
-
-def _find_bmp(raw):
-    """Первый ВАЛИДНЫЙ BMP (размер и WxH из заголовка). (bytes,'bmp')|(b'','')."""
-    b = -1
-    while True:
-        b = raw.find(b"BM", b + 1)
-        if b < 0 or b + 26 > len(raw):
-            return b"", ""
-        size = int.from_bytes(raw[b + 2:b + 6], "little")
-        w = int.from_bytes(raw[b + 18:b + 22], "little", signed=True)
-        h = int.from_bytes(raw[b + 22:b + 26], "little", signed=True)
-        if 1024 <= size <= len(raw) - b and 16 <= abs(w) <= 4096 and 16 <= abs(h) <= 4096:
-            return raw[b:b + size], "bmp"
-
-
-def cut_preview(raw, want="both"):
-    """Превью из файла: ПО СИГНАТУРЕ (TOC-офсет DwgData НЕ ведёт к картинке!).
-
-    want: "both" — что найдётся (важно: в файлах бывает ТОЛЬКО JPEG, даже у .drw);
-          "jpg" | "bmp" — строго этот формат; "all" — вернуть список ВСЕХ найденных.
-    Возвращает (bytes, 'jpg'|'bmp') или (b'', ''); для "all" — [(bytes, ext), …].
-    """
-    if want == "all":
-        out = []
-        j, e = _find_jpg(raw)
-        if j:
-            out.append((j, e))
-        b, e = _find_bmp(raw)
-        if b:
-            out.append((b, e))
-        return out
-    j, e1 = _find_jpg(raw)
-    b, e2 = _find_bmp(raw)
-    if want == "jpg":
-        return (j, e1)
-    if want == "bmp":
-        return (b, e2)
-    return (j, e1) if j else (b, e2)
-
-
-def passport(path, stems=()):
-    """Паспорт модели из файла (Creo не нужен)."""
-    raw = read(path)
-    pr = params(raw, parse_toc(raw))
-    vol = real(raw, "volume") or real(raw, "mtrl_volume")
-    nm = names(raw)
-    refs = {c: nm[c] for c in nm if c != stem(os.path.basename(path)) and c in stems and len(c) >= 5}
-    h = last_hist(raw) or ("", "", "")
-    return {"path": path, "size": len(raw), "mtime": os.path.getmtime(path),
-            "volume": vol or 0.0, "material": pr.get("PTC_MATERIAL_NAME") or pr.get("PTC_MASTER_MATERIAL") or "",
-            "name": pr.get("\u041d\u0410\u0418\u041c\u0415\u041d\u041e\u0412\u0410\u041d\u0418\u0415") or "",
-            "designation": pr.get("\u041e\u0411\u041e\u0417\u041d\u0410\u0427\u0415\u041d\u0418\u0415") or "",
-            "rev": h[0], "author": h[1], "revdate": h[2],
-            "role": role(raw, stems, stem(os.path.basename(path))), "refs": refs}
-
-def extract_drw_fields(raw):
-    \"\"\"Извлечение sheets и format из .drw.\"\"\"
-    out = {"sheets": [], "format": ""}
-    # Sheets
-    for m in re.finditer(rb"sheet\\x00([\\x20-\\x7e]{1,40})\\x00", raw):
-        out["sheets"].append(m.group(1).decode("utf-8", "replace"))
-    # Format
-    m = re.search(rb"format\\x00([\\x20-\\x7e]{1,40})\\x00", raw)
-    if m:
-        out["format"] = m.group(1).decode("utf-8", "replace")
-    return out
-
-def extract_mfg_fields(raw):
-    \"\"\"Извлечение operation_id и workpiece из .mfg.\"\"\"
-    out = {"operation_id": \"\", \"workpiece\": \"\"}
-    # Operation ID
-    m = re.search(rb"operation_id\\x00([\\x20-\\x7e]{1,40})\\x00\", raw)
-    if m:
-        out["operation_id"] = m.group(1).decode(\"utf-8\", \"replace\")
-    # Workpiece
-    m = re.search(rb"workpiece\\x00([\\x20-\\x7e]{1,40})\\x00\", raw)
-    if m:
-        out["workpiece\"] = m.group(1).decode(\"utf-8\", \"replace\")
+def get_structural_data(raw):
+    if not creo_tree_reader: return {"error": "creo_tree_reader not available"}
+    tree = creo_tree_reader.get_tree_dict(raw)
+    out = {"family_table": [], "assembly_links": [], "relations": [], "drawing_info": {"source_models": [], "sheets": [], "format": ""}, "mfg_info": {"operation_id": "", "workpiece": ""}}
+    for section in tree.get("sections", []):
+        name, content = section.get("name"), section.get("content", [])
+        if name == "FamilyInf":
+            sec_offset, sec_len = section.get("offset"), section.get("len")
+            if sec_offset is not None:
+                sec_raw = raw[sec_offset : sec_offset + sec_len]
+                for m in re.finditer(rb"user_instances\x00([\x20-\x7e]{1,40})\x00", sec_raw):
+                    inst = m.group(1).decode("utf-8", "replace")
+                    m_gen = re.search(rb"user_visible_name\x00([\x20-\x7e]{1,40})\x00", sec_raw)
+                    gen = m_gen.group(1).decode("utf-8", "replace") if m_gen else "UNKNOWN"
+                    out["family_table"].append({"generic": gen, "instance": inst})
+        elif name == "MdlRefInfo":
+            sec_offset, sec_len = section.get("offset"), section.get("len")
+            if sec_offset is not None:
+                sec_raw = raw[sec_offset : sec_offset + sec_len]
+                for m in re.finditer(rb"([a-zA-Z0-9_]{3,30})\x00([\x20-\x7e]{1,64})\x00", sec_raw):
+                    val = m.group(2).decode("utf-8", "replace")
+                    if any(ext in val.upper() for ext in (".PRT", ".ASM")): out["assembly_links"].append(val)
+        elif name == "LargeText":
+            for m in re.finditer(rb"(/\\*if|/\\*else|/\\*endif)[\s\S]*?\x00", raw):
+                rel = m.group(0).decode("utf-8", "replace").strip('\x00')
+                if rel and rel not in out["relations"]: out["relations"].append(rel)
+        elif name == "DwgData":
+            drw = extract_drw_fields(raw)
+            out["drawing_info"].update(drw)
+            for m in re.finditer(rb"model_names<([A-Z][A-Za-z0-9_]+)\.PRT", raw):
+                out["drawing_info"]["source_models"].append(m.group(1).decode("ascii"))
+        elif name == "NeuAsmSld" and b"ASSEMBLY/ASSEM_MFG" in raw[:200]:
+             m_op = re.search(rb"operation_id\x00([\x20-\x7e]{1,40})\x00", raw)
+             if m_op: out["mfg_info"]["operation_id"] = m_op.group(1).decode("utf-8", "replace")
+             m_wp = re.search(rb"workpiece\x00([\x20-\x7e]{1,40})\x00", raw)
+             if m_wp: out["mfg_info"]["workpiece"] = m_wp.group(1).decode("utf-8", "replace")
     return out
 
 def extract_family_info(raw):
-    \"\"\"Извлечение данных о семействах (Family Table) из .prt.\"\"\"
-    out = []
-    # Ищем маркеры FamilyInf или Sld_FamilyInfo
-    # Для упрощения - ищем инстансы через regex
-    for m in re.finditer(rb"user_instances\\x00([\\x20-\\x7e]{1,40})\\x00\", raw):
-        inst = m.group(1).decode(\"utf-8\", \"replace\")
-        # Ищем сопутствующий generic (упрощенно)
-        m_gen = re.search(rb\"user_visible_name\\x00([\\x20-\\x7e]{1,40})\\x00\", raw)
-        if m_gen:
-            gen = m_gen.group(1).decode(\"utf-8\", \"replace\")
-            out.append({\"generic\": gen, \"instance\": inst, \"params\": \"\", \"source\": \"family_table\"})
-    return out
-
-
+    data = get_structural_data(raw)
+    return data.get("family_table", [])
 
 def extract_drw_fields(raw):
-    """Извлечение sheets и format из .drw."""
-    out = {"sheets": [], "format": ""}
-    # Sheets
-    for m in re.finditer(rb"sheet\\x00([\\x20-\\x7e]{1,40})\\x00", raw):
-        out["sheets"].append(m.group(1).decode("utf-8", "replace"))
-    # Format
-    m = re.search(rb"format\\x00([\\x20-\\x7e]{1,40})\\x00", raw)
-    if m:
-        out["format"] = m.group(1).decode("utf-8", "replace")
-    return out
+    data = get_structural_data(raw)
+    return data.get("drawing_info", {"sheets": [], "format": ""})
 
 def extract_mfg_fields(raw):
-    """Извлечение operation_id и workpiece из .mfg."""
-    out = {"operation_id": "", "workpiece": ""}
-    # Operation ID
-    m = re.search(rb"operation_id\\x00([\\x20-\\x7e]{1,40})\\x00", raw)
-    if m:
-        out["operation_id"] = m.group(1).decode("utf-8", "replace")
-    # Workpiece
-    m = re.search(rb"workpiece\\x00([\\x20-\\x7e]{1,40})\\x00", raw)
-    if m:
-        out["workpiece"] = m.group(1).decode("utf-8", "replace")
-    return out
+    data = get_structural_data(raw)
+    return data.get("mfg_info", {"operation_id": "", "workpiece": ""})
 
-def extract_family_info(raw):
-    \"\"\"Извлечение данных о семействах (Family Table) из .prt.\"\"\"
-    out = []
-    # Ищем маркеры FamilyInf или Sld_FamilyInfo
-    # В реальности это может быть сложный блок, здесь упрощенный поиск пар (inst, gen)
-    # по паттернам, если они есть в текстовом виде
-    # (Для полноценного разбора нужен поиск смещения по TOC, но мы используем regex для скорости)
-    
-    # Паттерн для поиска инстансов (упрощенно)
-    for m in re.finditer(rb"user_instances\\x00([\\x20-\\x7e]{1,40})\\x00", raw):
-        inst = m.group(1).decode("utf-8", "replace")
-        # Ищем сопутствующий generic (упрощенно)
-        m_gen = re.search(rb"user_visible_name\\x00([\\x20-\\x7e]{1,40})\\x00", raw)
-        if m_gen:
-            gen = m_gen.group(1).decode("utf-8", "replace")
-            out.append({"generic": gen, "instance": inst, "params": "", "source": "family_table"})
-    return out
 
-def extract_drw_fields(raw):
-    """Извлечение sheets и format из .drw."""
-    out = {"sheets": [], "format": ""}
-    # Sheets
-    for m in re.finditer(rb"sheet\\x00([\\x20-\\x7e]{1,40})\\x00", raw):
-        out["sheets"].append(m.group(1).decode("utf-8", "replace"))
-    # Format
-    m = re.search(rb"format\\x00([\\x20-\\x7e]{1,40})\\x00", raw)
-    if m:
-        out["format"] = m.group(1).decode("utf-8", "replace")
-    return out
 
-def extract_mfg_fields(raw):
-    """Извлечение operation_id и workpiece из .mfg."""
-    out = {"operation_id": "", "workpiece": ""}
-    # Operation ID
-    m = re.search(rb"operation_id\\x00([\\x20-\\x7e]{1,40})\\x00", raw)
-    if m:
-        out["operation_id"] = m.group(1).decode("utf-8", "replace")
-    # Workpiece
-    m = re.search(rb"workpiece\\x00([\\x20-\\x7e]{1,40})\\x00", raw)
-    if m:
-        out["workpiece"] = m.group(1).decode("utf-8", "replace")
-    return out
+
+
+
 
