@@ -16,6 +16,162 @@ import os
 import re
 import struct
 from collections import Counter
+import creo_tree_reader
+
+def parse_record_flow(data, start_pos):
+    """
+    Implements the Record Flow Law:
+    e1 e0 (dict) -> e1 f1 (boundary) -> f7/e3 (val) -> e1 e1 (end)
+    """
+    results = {}
+    dict_start = data.find(b'\xe1\xe0', start_pos)
+    if dict_start == -1:
+        return results, "No dictionary (e1e0) found."
+    
+    boundary_pos = data.find(b'\xe1\xf1', dict_start)
+    if boundary_pos == -1:
+        return results, "No boundary (e1f1) found after dictionary."
+
+    field_names = []
+    curr = dict_start + 2 
+    while curr < boundary_pos:
+        null_pos = data.find(b'\x00', curr)
+        if null_pos == -1 or null_pos >= boundary_pos:
+            break
+        name = data[curr:null_pos].decode('ascii', errors='replace').strip('\x00')
+        if name:
+            field_names.append(name)
+        curr = null_pos + 1
+
+    end_pos = data.find(b'\xe1\xe1', boundary_pos)
+    if end_pos == -1:
+        end_pos = len(data)
+
+    curr = boundary_pos + 2 
+    while curr < end_pos:
+        f7_pos = data.find(b'\xf7', curr, end_pos)
+        if f7_pos == -1:
+            break
+            
+        idx = data[f7_pos + 1]
+        e3_pos = data.find(b'\xe3', f7_pos + 2, end_pos)
+        if e3_pos == -1:
+            break
+            
+        val_start = e3_pos + 1
+        if val_start >= end_pos:
+            break
+
+        type_code = data[val_start]
+        if type_code == 0xe0: # double
+            if val_start + 9 <= end_pos:
+                val = struct.unpack('>d', data[val_start+1:val_start+9])[0]
+                val_end = val_start + 9
+            else: break
+        elif type_code == 0xe2: # int32
+            if val_start + 5 <= end_pos:
+                val = struct.unpack('>i', data[val_start+1:val_start+5])[0]
+                val_end = val_start + 5
+            else: break
+        else:
+            # Try as string
+            null_pos = data.find(b'\x00', val_start, end_pos)
+            if null_pos != -1:
+                val = data[val_start:null_pos].decode('cp1251', errors='replace').strip('\x00')
+                val_end = null_pos + 1
+            else:
+def get_structural_data(raw):
+    """
+    High-level structural parser. 
+    Uses the robust tree-unpacker and specialized logic for key sections.
+    """
+    if not creo_tree_reader:
+        return {"error": "creo_tree_reader not available"}
+
+    tree = creo_tree_reader.get_tree_dict(raw)
+    out = {
+        "family_table": [],
+        "assembly_links": [],
+        "relations": [],
+        "drawing_info": {"source_models": [], "sheets": [], "format": ""},
+        "mfg_info": {"operation_id": "", "workpiece": ""}
+    }
+
+    for section in tree.get("sections", []):
+        name = section.get("name")
+        content = section.get("content", [])
+
+        # 1. Family Table (FamilyInf)
+        if name == "FamilyInf":
+            # Improved extraction using Record Flow Law
+            # First, find the actual bytes of this section in 'raw'
+            sec_offset = section.get("offset")
+            sec_len = section.get("len")
+            if sec_offset is not None:
+                sec_raw = raw[sec_offset : sec_offset + sec_len]
+                # We can use the logic from parse_record_flow directly
+                # But it returns a dict and a status.
+                # We want to extract the family instances.
+                # In FamilyInf, instances are usually dict_entries.
+                # Let's use the parsed 'content' if it's already good, or parse raw.
+                # For robust extraction, we'll scan for patterns in sec_raw.
+                for m in re.finditer(rb"user_instances\\x00([\\x20-\\x7e]{1,40})\\x00", sec_raw):
+                    inst = m.group(1).decode("utf-8", "replace")
+                    # Try to find a corresponding generic name in the same section
+                    m_gen = re.search(rb"user_visible_name\\x00([\\x20-\\x7e]{1,40})\\x00", sec_raw)
+                    gen = m_gen.group(1).decode("utf-8", "replace") if m_gen else "UNKNOWN"
+                    out["family_table"].append({"generic": gen, "instance": inst})
+
+        # 2. Assembly Links (MdlRefInfo)
+        elif name == "MdlRefInfo":
+            for entry in content:
+                if entry.get("type") == "dict_entry":
+                    val = entry.get("name", "")
+                    if any(ext in val.upper() for ext in (".PRT", ".ASM")):
+                        out["assembly_links"].append(val)
+
+        # 3. Relations (LargeText)
+        elif name == "LargeText":
+            # Scan the raw section for equation patterns
+            for m in re.finditer(rb"(/\\*if|/\\*else|/\\*endif)[\\s\\S]*?\\x00", raw):
+                rel = m.group(0).decode("utf-8", "replace").strip('\x00')
+                if rel and rel not in out["relations"]:
+                    out["relations"].append(rel)
+
+        # 4. Drawing Info (DwgData)
+        elif name == "DwgData":
+            drw = extract_drw_fields(raw)
+            out["drawing_info"].update(drw)
+            for m in re.finditer(rb"model_names<([A-Z][A-Za-z0-9_]+)\\.PRT", raw):
+                out["drawing_info"]["source_models"].append(m.group(1).decode("ascii"))
+
+        # 5. Manufacturing (NeuAsmSld in MFG files)
+        elif name == "NeuAsmSld" and b"ASSEMBLY/ASSEM_MFG" in raw[:200]:
+             m_op = re.search(rb"operation_id\\x00([\\x20-\\x7e]{1,40})\\x00", raw)
+             if m_op: out["mfg_info"]["operation_id"] = m_op.group(1).decode("utf-8", "replace")
+             m_wp = re.search(rb"workpiece\\x00([\\x20-\\x7e]{1,40})\\x00", raw)
+             if m_wp: out["mfg_info"]["workpiece"] = m_wp.group(1).decode("utf-8", "replace")
+
+    return out
+
+                # Fallback: read until next marker or end
+                next_marker = data.find(b'\xe1', val_start, end_pos)
+                if next_marker != -1:
+                    val = data[val_start:next_marker].decode('cp1251', errors='replace').strip('\x00')
+                    val_end = next_marker
+                else:
+                    val = data[val_start:min(val_start + 64, end_pos)].decode('cp1251', errors='replace').strip('\x00')
+                    val_end = val_start + 64
+        
+        if idx < len(field_names):
+            results[field_names[idx]] = val
+        else:
+            results[f"UNKNOWN_IDX_{idx}"] = val
+            
+        curr = val_end
+
+    return results, "Success"
+
 
 TAIL = re.compile(rb"\xf7(.)\xe3([0-9]{1,7})\x00\x00(.{0,220}?)\x00((?:Creo )?[0-9][0-9.]*)\x00", re.S)
 # STAMP2 (\xe1\xf6\xe1) — РАБОЧИЙ шаблон записи истории (даёт имена USER/ADMIN).
