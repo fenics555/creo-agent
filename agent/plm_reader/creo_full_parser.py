@@ -80,7 +80,7 @@ def extract_asm_bom_and_refs(sections: dict, self_base: str) -> tuple:
         seen_ids = set()
         for m in comp_re.finditer(mdl_status):
             cname_bytes = m.group(1)
-            if len(cname_bytes) > 1 and cname_bytes[0] in b'lU':
+            if len(cname_bytes) > 1 and ord(cname_bytes[0]) == len(cname_bytes[1:]) + 1:
                 cname_bytes = cname_bytes[1:]
             cname = smart_decode(cname_bytes).upper()
             cid = m.group(2).decode('ascii')
