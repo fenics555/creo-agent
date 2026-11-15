@@ -6,6 +6,7 @@ import os
 import re
 import struct
 from collections import Counter
+from creo_full_parser import parse_creo_file
 
 try:
     import creo_tree_reader
