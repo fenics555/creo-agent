@@ -33,17 +33,22 @@ class CreoTreeUnpacker:
                 so = o
                 se = o + l
                 if se > self.s: se = self.s
+                
                 ns = o + 3
                 ne = self.d.find(b'\0', ns)
                 if ne == -1: ne = self.d.find(b'\n', ns)
                 
                 if ne != -1 and ns < ne and ns < self.s:
-                    raw_name = self.d[ns:ne].decode('ascii', errors='ignore')
-                    match = re.search(r'#?([A-Za-z0-9_]+)', raw_name)
-                    name = match.group(1) if match else raw_name
-                    self.t["sections"].append({"name": name, "offset": so, "len": se - so, "content": self._parse(self.d[so:se])})
-                    o = se
-                    continue
+                    full_name_bytes = self.d[o+2:ne]
+                    match = re.match(b'#([A-Z][A-Za-z0-9_]{4,40})', full_name_bytes)
+                    if match:
+                        name = match.group(1).decode('ascii', errors='ignore')
+                        self.t["sections"].append({"name": name, "offset": so, "len": se - so, "content": self._parse(self.d[so:se])})
+                        o = se
+                        continue
+                    else:
+                        o = se
+                        continue
             except:
                 pass
             
@@ -93,6 +98,10 @@ class CreoTreeUnpacker:
                 if rl > 0: n.append({"type": "raw", "offset": i, "len": rl, "raw_hex": b2h(data[i:nm])})
                 i = nm
         return n
+
+    def save(self, p):
+        with open(p, 'w', encoding='utf-8') as f: json.dump(self.t, f, indent=2, ensure_ascii=False)
+
 def get_tree_dict(raw_data):
     import tempfile
     with tempfile.NamedTemporaryFile(delete=False) as tmp:
@@ -105,3 +114,8 @@ def get_tree_dict(raw_data):
     finally:
         if os.path.exists(tmp_path):
             os.remove(tmp_path)
+
+if __name__ == "__main__":
+    if len(sys.argv) < 3: sys.exit(1)
+    u = CreoTreeUnpacker(sys.argv[1]); u.unpack(); u.save(sys.argv[2])
+    print(f"Sections: {len(u.t['sections'])} Total: {sum(s.get('len',0) for s in u.t['sections'])} File: {os.path.getsize(sys.argv[1])}")
