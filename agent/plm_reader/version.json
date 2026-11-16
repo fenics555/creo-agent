@@ -1,8 +1,8 @@
 {
- "version": "V197",
- "version_num": 197,
+ "version": "V198",
+ "version_num": 198,
  "date": "16.11.2026",
- "notes": "V197: graph symmetry (edge endpoints become nodes); doctor splits live/archive orphans; graph test in gate",
+ "notes": "V198: doctor shows model-set divergence (unified generation diagnostic)",
  "schema_version": 4,
  "remove": [
   "_probe_scan137.py",
@@ -12,7 +12,7 @@
  ],
  "files": {
   "engine.py": "7e392e218c2b663be4fb7fb78b7ccfa2757f9b516efccd91531e62334af219db",
-  "plm_reader.py": "eaf7e73415b37e14e15d973ebbaa6d5f1432399e212c1c5a1f517b5d6ffa6417",
+  "plm_reader.py": "ba764cbc2c5e2da69a0f2cd77d6d27b66221b531d062a88e03a21d57babcec5b",
   "plm_toolwin.py": "4e4f412f9c71b6b97b9e52128174e9288b043a32cce1527e98bcdb589e03b4ee",
   "plm_history.py": "e028c211022463898073cea2c03f395632029ae13448723425fae39b996e4027",
   "plm_parse.py": "c6bb33a412b6b606ad402e3eb78cd49246b77738b69d82be1b6218a1358c0312",
@@ -33,7 +33,7 @@
   "plm_queries.py": "3fa963038b75cc5551bb7d7bbc3ced5760c03188fe77d47d393c145c390f1977",
   "plm_links.py": "698df65db4fb7571d086cb4343cb8d8391aead559caf96db4715c44e2f397ffe",
   "plm_build_links.py": "ee15ddfe7d8ac2355a73bd3f67a60da66ce8f3551499dd6d5ebceb4f3f0ce66f",
-  "plm_database.py": "e2087b8f0904b064f75294b0dde5b7995ff810e1f90a01a7daa0edb7c5889b5e",
+  "plm_database.py": "663ca32adaf888c62801ecbfb79945d492ac603289ef5c590bc3b7c3e79059d2",
   "plm_graph_build.py": "0016ff6bffc83f05547975a9a11be863e7611f1d1cbc0fe9e09830b7c47d0c9d",
   "plm_scanner.py": "8ac13395647dbdf48a7dd0748e6a22ca7f99dcb8283d33ca30862066861f3c79",
   "plm_db_admin_win.py": "066c4a70b50d2924dca2fe2b481ed41b0e5dc0a9821fbc85a7ec447fb1ed0feb",

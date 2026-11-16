@@ -1044,6 +1044,15 @@ def _table_row_count(cur, table):
         return None
 
 
+def _table_distinct(cur, table, col):
+    """Число РАЗНЫХ значений колонки (None, если таблицы/колонки нет). V198."""
+    try:
+        return cur.execute('SELECT COUNT(DISTINCT "%s") FROM "%s"'
+                           % (col, table)).fetchone()[0]
+    except sqlite3.Error:
+        return None
+
+
 def _estimate_table_mb(cur, table, cols, sample=300):
     """ОЦЕНКА объёма таблицы в МБ → (мб, строк).
 
@@ -1194,6 +1203,13 @@ def _doctor_data(db_path=None):
                                if o["table"] not in _arch and o["parent"] not in _arch]
         res["orphans_archive"] = [o for o in res["orphans"]
                                   if o["table"] in _arch or o["parent"] in _arch]
+        # V198: расхождение НАБОРОВ моделей (снимки/связи/граф) — признак «разных генераций».
+        res["model_sets"] = {
+            "snapshots": _table_distinct(cur, "snapshots", "model"),
+            "links_parent": _table_distinct(cur, "links", "parent"),
+            "links_child": _table_distinct(cur, "links", "child"),
+            "graph_nodes": _table_distinct(cur, "graph_nodes", "model"),
+        }
 
         # ── дубли / само-связи ──
         res["links"] = _links_diag(cur, "links")
@@ -1258,6 +1274,11 @@ def _print_doctor(res):
     for o in _ar:
         print("   %s.%s -> %s.%s : %d строк"
               % (o["table"], o["column"], o["parent"], o["parent_column"], o["count"]))
+    print("")
+    print("-- НАБОРЫ МОДЕЛЕЙ (разные генерации данных, если числа расходятся) --")
+    _ms = res.get("model_sets") or {}
+    for _k, _v in _ms.items():
+        print("   %-14s разных моделей: %s" % (_k, _v))
     print("")
     print("-- СВЯЗИ links / graph_edges (ключ дубля = как в `repair`) --")
     for key in ("links", "graph_edges"):
