@@ -41,7 +41,15 @@ if __name__ == "__main__":
     import sys as _sys
     _sys.modules.setdefault("plm_reader", _sys.modules["__main__"])
 
-APP_VERSION = "V192"      # 🔴 V192: «ЭТАЛОН = РЕАЛЬНОСТЬ» — эталон схемы догнал все 31 таблицу.
+APP_VERSION = "V193"      # 🔴 V193 (этап 1/5, ядро): АУДИТ РАЗДЕЛЁН ПО РЕГИСТРУ.
+                          #        `check`/`doctor` теперь различают:
+                          #        ORPHAN_CASE — строка совпадает со `snapshots` БЕЗ учёта регистра;
+                          #        ORPHAN      — реально нет модели (библиотеки/внешние).
+                          #        Замер по базе шары: 910 127 строк `params` и 142 774 `links` —
+                          #        это НЕ потери, а разный регистр имени модели (главная находка).
+                          #        ОСТАЛОСЬ (см. ESTAFETA_PLM_READER.md): canon_model в писателях,
+                          #        `normalize_case` + кнопка в окне, selftest-проверки, релиз.
+                          # 🔴 V192: «ЭТАЛОН = РЕАЛЬНОСТЬ» — эталон схемы догнал все 31 таблицу.
                           #        SCHEMA: +10 таблиц (items, item_ver, props, folders, tools,
                           #        mass_props, unknown_fields, graph_metrics, meta, arch_dim_ch) и
                           #        +4 колонки snapshots (file_name/file_ext/file_version/version) —

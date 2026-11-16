@@ -1,8 +1,8 @@
 {
- "version": "V192",
- "version_num": 192,
+ "version": "V193",
+ "version_num": 193,
  "date": "16.11.2026",
- "notes": "V192: эталон=реальность (31/31 таблиц в SCHEMA) + ключ дублей как в repair + MISSING_TABLE + индексы новых таблиц",
+ "notes": "V193: аудит по регистру (ORPHAN_CASE vs ORPHAN) - этап 1/5",
  "schema_version": 4,
  "remove": [
   "_probe_scan137.py",
@@ -12,7 +12,7 @@
  ],
  "files": {
   "engine.py": "685a314c0cac669bfccbc449c2c173951cad75597a774cfb6dbe6385d2042520",
-  "plm_reader.py": "edf033cba9a75c8f6eccb704897c180bfee46d5a902eab67cf77d276982d9f62",
+  "plm_reader.py": "f7ed57d14e9bc5c4ff1af708774e39053dddc09bd59ea56a88bb62cb353bf009",
   "plm_toolwin.py": "4e4f412f9c71b6b97b9e52128174e9288b043a32cce1527e98bcdb589e03b4ee",
   "plm_history.py": "e028c211022463898073cea2c03f395632029ae13448723425fae39b996e4027",
   "plm_parse.py": "c6bb33a412b6b606ad402e3eb78cd49246b77738b69d82be1b6218a1358c0312",
@@ -33,7 +33,7 @@
   "plm_queries.py": "3fa963038b75cc5551bb7d7bbc3ced5760c03188fe77d47d393c145c390f1977",
   "plm_links.py": "698df65db4fb7571d086cb4343cb8d8391aead559caf96db4715c44e2f397ffe",
   "plm_build_links.py": "b4ee4671a1a468174b9296ba402aa79daa719ce2336b5ba7a2fc5fdb7c4a50a8",
-  "plm_database.py": "587f03b6405f4cf8610182c4221b4e0c83d82db0eab14e7880622b3d88e36227",
+  "plm_database.py": "690c5e0f4ab1954e6e954927db01563f96810dda2131722630096dda4426af8e",
   "plm_graph_build.py": "cf2ffe41b90bcdc4fce49185dc8b3edcceae5b64c8f33052c01fce91ba27fcce",
   "plm_scanner.py": "67c8f9204e371a7e11fa3b6739efada1d416f7647e63bb5afc87ec3c5fa775bf",
   "plm_db_admin_win.py": "61b6dfc0e3aa4883b1904d4d2fde1b9103217bea072d1cf59f2752741771214e",

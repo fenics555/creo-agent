@@ -662,9 +662,28 @@ def _check_orphan_references(cur, issues):
         except sqlite3.Error:
             continue
         if n:
-            issues.append({"code": "ORPHAN", "severity": "warning", "table": child_t,
-                             "message": "орфанные ссылки: %s.%s -> %s.%s (%d строк без родителя)"
-                             % (child_t, child_c, parent_t, parent_c, n)})
+            # 🔴 V193: разделяем «регистр» и «реально нет». Замер по базе шары: 910 127 строк
+            # `params` и 142 774 строк `links` совпадают со `snapshots` БЕЗ учёта регистра ⇒
+            # «висячие» — в основном НЕ потерянные данные, а разный регистр имени модели.
+            try:
+                n_case = cur.execute(
+                    'SELECT COUNT(*) FROM [%s] WHERE %s IS NOT NULL AND %s != "" '
+                    'AND upper(%s) IN (SELECT upper(%s) FROM [%s]) '
+                    'AND %s NOT IN (SELECT %s FROM [%s])'
+                    % (child_t, _qcol(child_c), _qcol(child_c), _qcol(child_c),
+                       _qcol(parent_c), parent_t, _qcol(child_c), _qcol(parent_c), parent_t)
+                ).fetchone()[0]
+            except sqlite3.Error:
+                n_case = 0
+            n_real = max(0, n - n_case)
+            if n_case:
+                issues.append({"code": "ORPHAN_CASE", "severity": "warning", "table": child_t,
+                               "message": "регистр имён: %s.%s -> %s.%s (%d строк совпадают без учёта регистра)"
+                               % (child_t, child_c, parent_t, parent_c, n_case)})
+            if n_real:
+                issues.append({"code": "ORPHAN", "severity": "warning", "table": child_t,
+                               "message": "орфанные ссылки: %s.%s -> %s.%s (%d строк без родителя)"
+                               % (child_t, child_c, parent_t, parent_c, n_real)})
 
 
 def _check_duplicate_links(cur, issues):
@@ -1060,8 +1079,19 @@ def _orphan_counts(cur):
         except sqlite3.Error:
             continue
         if n:
-            out.append({"table": child_t, "column": child_c,
-                        "parent": parent_t, "parent_column": parent_c, "count": n})
+            try:                                  # V193: сколько из них — чисто регистр
+                n_case = cur.execute(
+                    'SELECT COUNT(*) FROM [%s] WHERE %s IS NOT NULL AND %s != "" '
+                    'AND upper(%s) IN (SELECT upper(%s) FROM [%s]) '
+                    'AND %s NOT IN (SELECT %s FROM [%s])'
+                    % (child_t, _qcol(child_c), _qcol(child_c), _qcol(child_c),
+                       _qcol(parent_c), parent_t, _qcol(child_c), _qcol(parent_c), parent_t)
+                ).fetchone()[0]
+            except sqlite3.Error:
+                n_case = 0
+            out.append({"table": child_t, "column": child_c, "parent": parent_t,
+                        "parent_column": parent_c, "count": n, "case": n_case,
+                        "real": max(0, n - n_case)})
     return out
 
 
@@ -1211,8 +1241,9 @@ def _print_doctor(res):
     if not res.get("orphans"):
         print("   нет")
     for o in res.get("orphans", []):
-        print("   %s.%s -> %s.%s : %d строк"
-              % (o["table"], o["column"], o["parent"], o["parent_column"], o["count"]))
+        print("   %s.%s -> %s.%s : %d строк (регистр %s / реально нет %s)"
+              % (o["table"], o["column"], o["parent"], o["parent_column"], o["count"],
+                 o.get("case", 0), o.get("real", o["count"])))
     print("")
     print("-- СВЯЗИ links / graph_edges (ключ дубля = как в `repair`) --")
     for key in ("links", "graph_edges"):
