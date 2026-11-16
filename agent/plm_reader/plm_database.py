@@ -29,6 +29,7 @@ plm_database.py — DATABASE: обслуживание базы ПЛМ (влад
     python plm_database.py selftest                 — встроенный регресс-тест (временная БД)
     python plm_database.py repair [--apply] [--db ПУТЬ] — ОЧИСТКА связей (dry-run по умолчанию)
     python plm_database.py compact [--apply] [--db ПУТЬ] — ОБРЕЗКА длинных дампов unknown_fields
+    python plm_database.py normalize [--apply] [--db ПУТЬ] — ВЫРАВНИВАНИЕ регистра имён моделей
 
 КОДЫ ВОЗВРАТА `check`: 0 — чисто, 1 — предупреждения, 2 — ошибки.
 Флаг `--json` — структурированный вывод с кодами проблем (ORPHAN / DUPLICATE /
@@ -1470,6 +1471,28 @@ def cmd_selftest():
         _c2.execute("CREATE TABLE snapshots (path TEXT, model TEXT)")
         _c2.commit()
         _c2.close()
+        # ── V193: канон имён, ORPHAN_CASE и normalize_case ────────────────────
+        import creo_read as _CRt
+        if _CRt.canon_model("abc.prt.1") != "ABC" or _CRt.canon_model("-001-002.PRT") != "":
+            problems.append("canon_model: неверный канон (ждали 'ABC' для 'abc.prt.1')")
+        _c3 = connect_safe(dbf)
+        _c3.execute("INSERT INTO params(model,path,name) VALUES(?,?,?)", ("a", "/x2", "p"))
+        _c3.commit()
+        _c3.close()
+        r193 = _run_check(dbf, full=True, use_cache=False)
+        if "ORPHAN_CASE" not in set(i["code"] for i in r193["issues"]):
+            problems.append("check: ORPHAN_CASE не найден (params.model='a' против snapshots 'A')")
+        np_plan = normalize_case(dbf, dry_run=True, quiet=True)
+        if not np_plan or not np_plan.get("total_rows"):
+            problems.append("normalize_case: dry-run не нашёл строк для выравнивания")
+        np_res = normalize_case(dbf, dry_run=False, quiet=True)
+        if not np_res or not np_res.get("changed"):
+            problems.append("normalize_case --apply: строки не выровнены")
+        else:
+            if _cnt("SELECT COUNT(*) FROM params WHERE model = 'a'"):
+                problems.append("normalize_case: остались строчные имена")
+            if not np_res.get("backup"):
+                problems.append("normalize_case: не сделан бэкап")
         res3 = _run_check(dbf2, full=True, use_cache=False)
         if "MISSING_TABLE" not in set(i["code"] for i in res3["issues"]):
             problems.append("check: MISSING_TABLE не сработал на урезанной базе")
@@ -1746,7 +1769,114 @@ def compact_unknown_fields(db_path=None, dry_run=True, quiet=False):
 
 
 
-def indexes(db=None):
+# 🔴 V193: таблицы и колонки-КЛЮЧИ, которые приводятся к каноническому имени модели.
+# Архивные (changes/history/arch_dims/arch_dim_ch) НЕ включены — Purge-safe.
+NORM_TARGETS = (
+    ("snapshots", "model"), ("params", "model"), ("links", "parent"), ("links", "child"),
+    ("derived", "child"), ("derived", "base"), ("family", "generic"), ("family", "instance"),
+    ("components", "model"), ("props", "child"), ("tools", "model"), ("items", "model"),
+    ("mass_props", "model"), ("materials", "model"), ("matrices", "model"), ("dim_all", "model"),
+    ("dimensions", "model"), ("features", "model"), ("equations", "model"), ("health", "model"),
+    ("master_mat", "model"), ("graph_nodes", "model"), ("graph_edges", "from"), ("graph_edges", "to"),
+)
+
+
+def normalize_case(db_path=None, dry_run=True, quiet=False):
+    """Привести имена моделей к ЕДИНОМУ канону (`creo_read.canon_model` → UPPER).
+
+    🔴 ЗАЧЕМ (замер по базе шары 16.11.2026): `snapshots.model` — строчные, `links.child`/
+    `params.model` — ПРОПИСНЫЕ ⇒ 910 127 строк `params` и 142 774 `links` числились «висячими».
+    ⚠️ Нормализация идёт в PYTHON, а не SQL `upper()`: в этой сборке SQLite `upper()` — ASCII-only
+    (ICU нет), кириллица через SQL не поднимется.
+    Конфликты уникальных индексов разбираются дедупликацией «лишних» строк. Архив не трогаем.
+    """
+    p = _arg_db(db_path)
+    if not p or not os.path.isfile(p):
+        print("база не найдена:", p)
+        return None
+    import creo_read as _CR
+    con = connect_safe(p)
+    cur = con.cursor()
+    plan = []
+    for t, c in NORM_TARGETS:
+        if not _has_table(cur, t) or c not in [x[1] for x in cur.execute("PRAGMA table_info(%s)" % t)]:
+            continue
+        mapping = {}
+        for (v,) in cur.execute('SELECT DISTINCT "%s" FROM "%s" WHERE "%s" IS NOT NULL AND "%s" != ""'
+                                % (c, t, c, c)):
+            nv = _CR.canon_model(v)
+            if nv and nv != v:
+                mapping[v] = nv
+        if not mapping:
+            continue
+        rows = sum(cur.execute('SELECT COUNT(*) FROM "%s" WHERE "%s" = ?' % (t, c), (o,)).fetchone()[0]
+                   for o in mapping)
+        plan.append({"table": t, "column": c, "values": len(mapping), "rows": rows})
+    tot = sum(x["rows"] for x in plan)
+    if not quiet:
+        print("=" * 68)
+        print("NORMALIZE CASE (%s)" % ("DRY-RUN: план, ничего не меняется" if dry_run else "ИТОГ"))
+        print("=" * 68)
+        for x in plan:
+            print("   %-14s %-9s значений %-6s строк %s"
+                  % (x["table"], x["column"], x["values"], x["rows"]))
+        print("   ИТОГО строк к переводу в UPPER: %d (таблиц: %d)" % (tot, len(plan)))
+    if dry_run:
+        con.close()
+        return {"dry_run": True, "db": p, "total_rows": tot, "plan": plan}
+    if not tot:
+        if not quiet:
+            print("  выравнивать нечего")
+        con.close()
+        return {"dry_run": False, "db": p, "total_rows": 0, "plan": plan, "changed": 0}
+    try:                                          # бэкап обязателен
+        ts = datetime.datetime.now().strftime("%Y%m%d_%H%M%S")
+        bdir = os.path.join(os.path.dirname(p), "backup")
+        os.makedirs(bdir, exist_ok=True)
+        bpath = os.path.join(bdir, "pre_normalize_%s.db" % ts)
+        shutil.copy2(p, bpath)
+        if not quiet:
+            print("бэкап перед normalize:", bpath)
+    except Exception as e:                        # noqa: BLE001
+        print("БЭКАП НЕ СДЕЛАН (%s) — normalize ОТМЕНЁН" % e)
+        con.close()
+        return None
+    try:
+        schema_snapshot(p)
+    except Exception as e:                        # noqa: BLE001
+        if not quiet:
+            print("снимок схемы не сделан (%s) — продолжаю" % e)
+    changed = 0
+    for x in plan:
+        t, c = x["table"], x["column"]
+        for (v,) in cur.execute('SELECT DISTINCT "%s" FROM "%s" WHERE "%s" IS NOT NULL AND "%s" != ""'
+                                % (c, t, c, c)):
+            nv = _CR.canon_model(v)
+            if not nv or nv == v:
+                continue
+            try:
+                cur.execute('UPDATE "%s" SET "%s"=? WHERE "%s"=?' % (t, c, c), (nv, v))
+                changed += cur.rowcount
+            except sqlite3.Error:                 # конфликт уникального индекса → дедуп и повтор
+                try:
+                    cur.execute('DELETE FROM "%s" WHERE rowid NOT IN '
+                                '(SELECT MIN(rowid) FROM "%s" GROUP BY "%s")' % (t, t, c))
+                    cur.execute('UPDATE "%s" SET "%s"=? WHERE "%s"=?' % (t, c, c), (nv, v))
+                    changed += cur.rowcount
+                except sqlite3.Error as e2:
+                    if not quiet:
+                        print("  %s.%s: не удалось (%s)" % (t, c, e2))
+    con.commit()
+    con.close()
+    if not quiet:
+        print("переведено строк: %d" % changed)
+        print("Дальше: `check --full` покажет, сколько осталось реальных ORPHAN.")
+        print("=" * 68)
+    return {"dry_run": False, "db": p, "total_rows": tot, "changed": changed,
+            "plan": plan, "backup": bpath}
+
+
+
     """Перестроить индексы + ANALYZE (ускорение запросов)."""
     p = _arg_db(db)
     con = connect_safe(p)
@@ -1956,5 +2086,7 @@ if __name__ == "__main__":
         repair(dry_run=("--apply" not in sys.argv))
     elif cmd == "compact":
         compact_unknown_fields(dry_run=("--apply" not in sys.argv))
+    elif cmd == "normalize":
+        normalize_case(dry_run=("--apply" not in sys.argv))
     else:
         print(__doc__)

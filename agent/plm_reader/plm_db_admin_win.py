@@ -106,6 +106,10 @@ class _DBAdminWindow(tk.Toplevel):
                 "Обрежет СТАРЫЕ длинные хвосты в unknown_fields до 512 символов, "
                 "~−1.1 ГБ; затем нажмите «Vacuum».",
                 self.act_compact, strong=True)
+        add_btn("Выровнять регистр имён (V193)",
+                "Приведёт имена моделей к единому UPPER (убирает ложные «висячие» связи). "
+                "План — через Dry-Run; затем нажмите Vacuum.",
+                self.act_normalize, strong=True)
         add_btn("Сжать файл базы (Vacuum)",
                 "Может занять время; перезаписывает файл базы (бэкап не создаётся).",
                 self.act_vacuum, strong=True)
@@ -252,6 +256,20 @@ class _DBAdminWindow(tk.Toplevel):
             return
         self._run("Сжатие дампов unknown_fields",
                   lambda: plm_database.compact_unknown_fields(self.db_path, dry_run=False))
+
+    def act_normalize(self):
+        """V193: выравнивание регистра имён моделей к единому UPPER-канону."""
+        import plm_database
+        if not messagebox.askyesno(
+                "Выровнять регистр имён (V193)",
+                "Имена моделей будут приведены к единому UPPER-канону во всех ключевых колонках.\n\n"
+                "• Сначала создаётся БЭКАП базы.\n"
+                "• Архивная история (changes/history/arch_*) НЕ трогается.\n"
+                "• Строки не удаляются (кроме технических дублей при конфликте ключа).\n\n"
+                "Продолжить?"):
+            return
+        self._run("Выравнивание регистра имён",
+                  lambda: plm_database.normalize_case(self.db_path, dry_run=False))
 
     def act_vacuum(self):
         """Сжать файл базы (VACUUM) с подтверждением."""

@@ -178,16 +178,24 @@ def build(check_only=False, engine_mod=None):
                 continue                     # встречная уже есть — не дублируем
             k = inh[(a, b)]
             back = BACK_INHERIT.get(k, "обратное " + k)
+            from creo_read import canon_model as _cm      # V193: единый канон имён
+            _ca, _cb = _cm(a), _cm(b)
+            if not _ca or not _cb:
+                continue                                  # обрывок («-00», «-001-002») — не пишем
             con.execute("INSERT INTO derived (child,base,kind,source,origin) VALUES (?,?,?,?,?)",
-                        (b, a, back, "built", BUILT))
+                        (_cb, _ca, back, "built", BUILT))
             res["by_kind"][back] = res["by_kind"].get(back, 0) + 1
         for (a, b) in sorted(asm):
             if (b, a) in asm or (a, b) in bidir:
                 continue
             s = asm[(a, b)]
             back = BACK_LINKS.get(s, "входимость")
+            from creo_read import canon_model as _cm      # V193: единый канон имён
+            _ca, _cb = _cm(a), _cm(b)
+            if not _ca or not _cb:
+                continue
             con.execute("INSERT INTO links (parent,child,qty,source,origin) VALUES (?,?,?,?,?)",
-                        (b, a, 1, back, BUILT))
+                        (_cb, _ca, 1, back, BUILT))
             res["by_kind"][back] = res["by_kind"].get(back, 0) + 1
         con.commit()
         res["built_total"] = con.execute(

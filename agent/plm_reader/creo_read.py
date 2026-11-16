@@ -38,6 +38,24 @@ def stem(name: str) -> str:
             break
     return re.sub(r"\.\d+$", "", n)
 
+def canon_model(s) -> str:
+    """ЕДИНЫЙ КАНОН ИМЕНИ МОДЕЛИ (V193): stem → отбросить обрывки → UPPER.
+
+    ЗАЧЕМ: замер по базе шары — `snapshots.model` хранился СТРОЧНЫМИ, а `links.child`/`params.model`
+    ПРОПИСНЫМИ ⇒ 910 127 строк `params` и 142 774 `links` числились «висячими», хотя это одни и те же
+    изделия. Здесь — ОДНА точка правды; все писатели зовут `canon_model`.
+    ⚠️ SQLite `upper()` в этой сборке ASCII-only (ICU нет) — регистр поднимает Python, не SQL.
+    """
+    try:
+        t = stem(str(s or "").strip())
+    except Exception:
+        t = str(s or "").strip()
+    t = (t or "").strip()
+    if not t or t.startswith("-"):      # обрывок парсера («-00», «-001-002.PRT»): не имя модели
+        return ""
+    return t.upper()
+
+
 def read(path: str) -> bytes:
     with open(path, "rb") as f:
         return f.read()

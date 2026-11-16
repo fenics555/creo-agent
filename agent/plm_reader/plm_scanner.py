@@ -1635,7 +1635,9 @@ def write_item(con, path, boxes):
     if not boxes:
         return 0
     pp = path_parts(path)
-    m = pp["model"]
+    # 🔴 V193: ЕДИНЫЙ КАНОН имени модели (UPPER) — иначе `snapshots.model` (строчные) не сходится
+    # с `params.model`/`links.child` (прописные) и связи/спецификация «висят».
+    m = _CR.canon_model(pp["model"]) or str(pp["model"] or "").strip()
     n = 0
 
     # 🔴🔴 V160.4 (ВЛАДЕЛЕЦ: «база раздулась до 48 ГБ, жесткий умрёт»): ОЧИСТКА ПЕРЕД ЗАПИСЬЮ.
@@ -1786,7 +1788,7 @@ def write_item(con, path, boxes):
     if pp["ext"] == "asm" and (_lk.get("components") or []):
         con.execute("DELETE FROM links WHERE parent=? AND source='asm_comp'", (m,))
         for _c in _lk.get("components") or []:
-            _cn = _CR.stem(_c.get("name") or "")
+            _cn = _CR.canon_model(_c.get("name") or "")   # V193: канон (UPPER) + отсев обрывков
             # 🔴 V188: ЖЁСТКИЙ ЗАПРЕТ САМО-СВЯЗИ (без регистра): модель не ссылается сама на себя.
             if _cn and _stem_low(_cn) != _stem_low(m):
                 con.execute("INSERT INTO links(parent,child,qty,source,kind) VALUES (?,?,?,?,?)",
@@ -1795,7 +1797,7 @@ def write_item(con, path, boxes):
     if pp["ext"] == "drw" and (_lk.get("model_names") or []):
         con.execute("DELETE FROM links WHERE parent=? AND source='dwg'", (m,))
         for _dn in _lk.get("model_names") or []:
-            _dc = _CR.stem(_dn or "")
+            _dc = _CR.canon_model(_dn or "")              # V193: канон (UPPER) + отсев обрывков
             # 🔴 V188: ЖЁСТКИЙ ЗАПРЕТ САМО-СВЯЗИ (без регистра).
             if _dc and _stem_low(_dc) != _stem_low(m):
                 con.execute("INSERT INTO links(parent,child,qty,source,kind) VALUES (?,?,?,?,?)",

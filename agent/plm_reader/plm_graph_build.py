@@ -144,20 +144,25 @@ def build(check_only=False, engine_mod=None):
                         and any(ch.isalpha() for ch in _nm)):
                     nodes[_nm] = [_nm, "", "", 0, 0.0, "", "", ""]
 
+        from creo_read import canon_model as _cm          # V193: единый канон имён (UPPER)
         nrows, n_kinds = [], {}
         for m, (mm, path, folder, size, vol, mat, creo, rev) in nodes.items():
-            kind = _kind_of_model(mm, path)
+            _mm = _cm(mm) or mm
+            if not _mm:
+                continue
+            kind = _kind_of_model(_mm, path)
             n_kinds[kind] = n_kinds.get(kind, 0) + 1
             has_media = 1 if (path and path.lower() in media_paths) else 0
-            nrows.append((mm, kind, folder, path, size, vol, mat, creo, rev,
+            nrows.append((_mm, kind, folder, path, size, vol, mat, creo, rev,
                           down.get(mm, 0), up.get(mm, 0), has_media))
         con.executemany(
             "INSERT OR REPLACE INTO %s (model,kind,folder,path,size,volume,material,creo,rev,"
             "n_down,n_up,has_media) VALUES (?,?,?,?,?,?,?,?,?,?,?,?)" % NODES, nrows)
         res["nodes"] = len(nrows)
 
-        erows = [(e["from"], e["to"], e["kind"], e["dir"], e.get("origin", "real"),
+        erows = [(_cm(e["from"]) or "", _cm(e["to"]) or "", e["kind"], e["dir"], e.get("origin", "real"),
                   int(e.get("qty") or 1), e.get("channel", "")) for e in edges_raw]
+        erows = [r for r in erows if r[0] and r[1] and r[0] != r[1]]   # V193: канон + без пустых/петель
         con.executemany(
             'INSERT INTO %s ("from","to",kind,dir,origin,qty,channel) VALUES (?,?,?,?,?,?,?)' % EDGES,
             erows)
