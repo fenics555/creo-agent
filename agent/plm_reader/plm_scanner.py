@@ -1103,7 +1103,7 @@ def extract_matrices(raw, anchors):
     try:
         bbox = _CR.outline_bbox_mm(raw)
         if bbox:
-            out.append({"field": "outline_mm", "dims":, "values": list(bbox)})
+            out.append({"field": "outline_mm", "dims": (2, 3), "values": list(bbox)})
     except Exception:
         pass
     pos = raw.find(b"\xf9")
