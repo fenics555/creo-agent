@@ -133,7 +133,7 @@ def connect_safe(p, timeout=30, retries=5):
 # ════════════════════════════════════════════════════════════════════════════════
 def schema_snapshot(db_path=None):
     """Сохранить DDL всех объектов из sqlite_master в JSON рядом с базой."""
-    p = db_path or _live_db()
+    p = _arg_db(db_path)
     if not p or not os.path.isfile(p):
         print("база не найдена:", p)
         return None
@@ -367,7 +367,7 @@ def schema_version(db=None):
 
 
 def set_schema_version(v, db=None):
-    p = db or _live_db()
+    p = _arg_db(db)
     con = connect_safe(p)
     con.execute("CREATE TABLE IF NOT EXISTS meta (k TEXT PRIMARY KEY, v TEXT)")
     con.execute("INSERT OR REPLACE INTO meta VALUES ('schema_version', ?)", (str(int(v)),))
@@ -513,7 +513,7 @@ def _live_db():
 
 def stats(db=None):
     """Статистика боевой базы."""
-    p = db or _live_db()
+    p = _arg_db(db)
     if not p or not os.path.isfile(p):
         print("боевая база не найдена")
         return
@@ -528,12 +528,18 @@ def stats(db=None):
 
 
 def _indexes_on(cur, table):
-    """Возвращает множество имён колонок, по которым есть индексы (включая составные)."""
+    """Возвращает множество имён колонок, по которым есть индексы (включая составные).
+
+    🔴 V186-фикс: список индексов МАТЕРИАЛИЗУЕТСЯ через fetchall() ДО вложенного
+    PRAGMA index_info на ТОМ ЖЕ курсоре. Иначе повторный execute сбрасывает внешний
+    курсор, и читается только ПЕРВЫЙ индекс таблицы (грабля: пропуск индексов).
+    """
     idx_cols = set()
     try:
-        for row in cur.execute("PRAGMA index_list(%s)" % table):
+        idx_rows = cur.execute("PRAGMA index_list(%s)" % table).fetchall()
+        for row in idx_rows:
             idx_name = row[1]
-            for colrow in cur.execute("PRAGMA index_info(%s)" % idx_name):
+            for colrow in cur.execute("PRAGMA index_info(%s)" % idx_name).fetchall():
                 idx_cols.add(colrow[2])
     except sqlite3.Error:
         pass
@@ -770,7 +776,7 @@ def check(db=None, full=False, use_cache=True):
     (орфанные ссылки, дубли, само-связи, пустые ключи) и recommend_vacuum.
     Кэшируется в .plm_check_cache.json (TTL 5 мин), если use_cache=True.
     """
-    p = db or _live_db()
+    p = _arg_db(db)
     if use_cache:
         cached = _load_check_cache(p)
         if cached is not None:
@@ -858,7 +864,7 @@ def check(db=None, full=False, use_cache=True):
 
 def indexes(db=None):
     """Перестроить индексы + ANALYZE (ускорение запросов)."""
-    p = db or _live_db()
+    p = _arg_db(db)
     con = connect_safe(p)
     t0 = time.perf_counter()
     con.execute("REINDEX")
@@ -870,7 +876,7 @@ def indexes(db=None):
 
 def vacuum(db=None):
     """Сжать базу (дефрагментация)."""
-    p = db or _live_db()
+    p = _arg_db(db)
     before = os.path.getsize(p)
     con = connect_safe(p)
     t0 = time.perf_counter()
@@ -886,7 +892,7 @@ def backup(db=None):
     import engine
     import shutil
     import datetime
-    p = db or _live_db()
+    p = _arg_db(db)
     bdir = engine._backup_dir()
     os.makedirs(bdir, exist_ok=True)
     ts = datetime.datetime.now().strftime("%Y%m%d_%H%M%S")
@@ -903,7 +909,7 @@ def export_schema_docs(db_path=None, out_dir=None):
     Читает конфигурацию .tbls.yml (если есть) и генерирует документацию
     на чистом Python (без внешней программы tbls.exe).
     """
-    p = db_path or _live_db()
+    p = _arg_db(db_path)
     if not p or not os.path.isfile(p):
         print("база не найдена:", p)
         return False
@@ -1047,13 +1053,13 @@ if __name__ == "__main__":
     elif cmd == "indexes":
         indexes()
     elif cmd == "ensure-indexes":
-        ensure_indexes(arg)
+        ensure_indexes(arg if (arg and not arg.startswith("--")) else None)
     elif cmd == "vacuum":
         vacuum()
     elif cmd == "backup":
         backup()
     elif cmd == "schema-snapshot":
-        schema_snapshot(arg)
+        schema_snapshot(arg if (arg and not arg.startswith("--")) else None)
     elif cmd == "export-docs":
         export_schema_docs()
     else:
