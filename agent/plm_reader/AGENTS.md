@@ -24,5 +24,7 @@
 # 7. РЕЛИЗНЫЙ ЧЕКЛИСТ (V196, обязателен): py_compile -> selftest -> make_version_json --verify
 #    -> ТЕСТЫ (tests/test_v195_names.py, tests/test_links_channels.py) -> APP_VERSION -> make_version_json
 #    -> адресный git add/commit/push. БЕЗ зелёных тестов версию НЕ выкатывать.
-#    (Инцидент V195: версия ушла на шару без сквозной проверки ЗАПИСИ — так нельзя.)
+# 8. ОПЕРАЦИИ: читать `PLM_OPERATIONS.md` (как работает конвейер; КОГДА НУЖЕН ПЕРЕСКАН, а когда
+#    достаточно `normalize` + `repair`). Не переоткрывать это заново — §5 там.
+
 

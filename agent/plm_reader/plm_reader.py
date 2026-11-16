@@ -41,7 +41,7 @@ if __name__ == "__main__":
     import sys as _sys
     _sys.modules.setdefault("plm_reader", _sys.modules["__main__"])
 
-APP_VERSION = "V202"      # 🔴 V202: repair снимает обрывки/пустые ключи (normalize+repair заменяют перескан)
+APP_VERSION = "V203"      # 🔴 V203: добавлен PLM_OPERATIONS.md (операционная инструкция; когда перескан нужен)
                           #        БАГ (живой прогон владельца 16.11.2026): «к переводу 865 039 строк,
                           #        переведено 36». ПРИЧИНА: `UPDATE` выполнялся на ТОМ ЖЕ курсоре, что
                           #        итерировал `SELECT DISTINCT` ⇒ итератор сбрасывался и цикл обрывался.
