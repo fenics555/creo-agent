@@ -135,7 +135,9 @@ def params(raw: bytes, toc=None) -> dict:
             name = smart_decode(m.group(1))
             ptype = m.group(3)
             payload = m.group(4)
-            if not name or name in out:
+            if not name or name in out or "\ufffd" in name:
+                continue
+            if re.match(r"^Rz\d+$", name, re.I):
                 continue
             if name.startswith(("PRO_MP_", "PTC_UNITS", "PTC_FAILURE_", "PTC_FATIGUE_", "PTC_INITIAL_BEND_", "PTC_MATERIAL_SUB_TYPE")):
                 continue
@@ -143,7 +145,7 @@ def params(raw: bytes, toc=None) -> dict:
                 continue
             if ptype == b"3":
                 val = smart_decode(payload)
-                if val and val != "value(s_val)":
+                if val and val != "value(s_val)" and "\ufffd" not in val:
                     out[name] = " ".join(val.split())
             elif ptype == b"2" and len(payload) >= 8:
                 try:

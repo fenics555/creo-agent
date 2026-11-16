@@ -765,7 +765,11 @@ def extract_params(raw, anchors):
         if v1 < 0:
             continue
         val = _creo_clean(raw[v0:v1].decode("utf-8", "replace"))
-        if not nm or "\x00" in val or nm in seen:
+        if not nm or "\x00" in val or "\ufffd" in val or nm in seen:
+            continue
+        if nm == "USER" or (nm.startswith("Rz") and nm[2:].isdigit()):
+            continue
+        if any(ord(ch) < 32 for ch in val):
             continue
         if nm.startswith(("PRO_MP_", "PTC_UNITS", "PTC_FAILURE_", "PTC_FATIGUE_", "PTC_INITIAL_BEND_", "PTC_MATERIAL_SUB_TYPE")):
             continue
@@ -1181,7 +1185,7 @@ def pack(raw, anchors, feat_dict, pdes=None, pname=None, model=""):
             "revdate": passport["ts"],                 # 🔴 V160: дата = modif_time
         },
         "mass_props": mass,                 # масса/объём/площадь (§175, первое тело)
-        "bodies": extract_bodies(raw, anchors),        # ★ ТЕЛА (§177) — по одному на тело
+        "bodies": [] if path_kind == "DRAWING" else extract_bodies(raw, anchors),        # ★ ТЕЛА (§177) — по одному на тело
         "materials": extract_materials(raw, anchors),  # ★ МАТЕРИАЛЫ (§176/§177)
         "master_mat": extract_master(raw, anchors),    # ★ МАСТЕР-МАТЕРИАЛ (один)
         "features": extract_features(raw, anchors, feat_dict),      # дерево (§171)

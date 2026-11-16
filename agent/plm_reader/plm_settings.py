@@ -7,9 +7,9 @@ import re
 import datetime
 
 _HERE = os.path.dirname(os.path.abspath(__file__))
-DATA_DIR = os.path.join(_HERE, "db")
-SETTINGS_DIR = os.path.join(_HERE, "settings")
-SETTINGS_FILE = os.path.join(SETTINGS_DIR, "settings.json")
+DATA_DIR = os.environ.get("PLM_DATA_DIR") or os.path.join(_HERE, "db")
+SETTINGS_FILE = os.environ.get("PLM_SETTINGS") or os.path.join(_HERE, "settings", "settings.json")
+SETTINGS_DIR = os.path.dirname(SETTINGS_FILE)
 
 os.makedirs(DATA_DIR, exist_ok=True)
 os.makedirs(SETTINGS_DIR, exist_ok=True)

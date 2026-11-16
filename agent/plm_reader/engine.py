@@ -63,8 +63,9 @@ def set_base_dir(path):
 
     Меняет всё, что завязано на папку: сама база, замок скана, кэш и бэкапы.
     Звать ДО первого обращения к базе (окно зовёт сразу после чтения настроек)."""
-    global BASE_DIR, DB, LOCK_FILE
+    global BASE_DIR, DB, LOCK_FILE, _EXPLICIT_BASE
     d = (path or "").strip()
+    _EXPLICIT_BASE = bool(d)
     BASE_DIR = os.path.abspath(d) if d else os.path.join(HERE, "db")
     DB = os.environ.get("PLM_DB") or os.path.join(BASE_DIR, "plm_reader.db")
     try:                                     # замок всегда РЯДОМ с базой, а не в папке инструмента
@@ -1278,6 +1279,12 @@ def active_db():
     СТАЛО: главный — `plm_reader.db` («последняя копия», её и публикует `_publish`), versioned —
     только резерв (если главного нет). Это и есть ДОГМА «БАЗА — ОДНА».
     """
+    if os.environ.get("PLM_DB"):
+        return os.environ["PLM_DB"]
+    if os.environ.get("PLM_DATA_DIR"):
+        return os.path.join(os.environ["PLM_DATA_DIR"], "plm_reader.db")
+    if globals().get("_EXPLICIT_BASE"):
+        return DB
     dirs = _db_search_dirs()
     for d in dirs:
         cand, main = [], []

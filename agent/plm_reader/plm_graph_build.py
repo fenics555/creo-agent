@@ -72,11 +72,19 @@ def build(check_only=False, engine_mod=None):
             m = (row[0] or "").strip()
             if not m or L.is_service(m):
                 continue
+            _, r_path, r_folder, r_size, r_vol, r_mat, r_creo, r_rev = row
             cur = nodes.get(m)
-            # путь-представитель: самый свежий по размеру (у модели много версий)
-            if cur is None or int(row[3] or 0) >= int(cur[4] or 0):
-                nodes[m] = [m, row[1] or "", row[2] or "", row[3] or 0,
-                            float(row[4] or 0), row[5] or "", row[6] or "", row[7] or ""]
+            _rk = {"чертёж": 1, "деталь": 2, "сборка": 3, "мануфактуринг": 4}
+            new_r = _rk.get(_kind_of_model(m, r_path), 0)
+            if cur is None:
+                nodes[m] = [m, r_path or "", r_folder or "", int(r_size or 0),
+                            float(r_vol or 0), r_mat or "", r_creo or "", r_rev or ""]
+            else:
+                _, c_path, _, c_size, *_ = cur
+                old_r = _rk.get(_kind_of_model(m, c_path), 0)
+                if new_r > old_r or (new_r == old_r and int(r_size or 0) >= int(c_size or 0)):
+                    nodes[m] = [m, r_path or "", r_folder or "", int(r_size or 0),
+                                float(r_vol or 0), r_mat or "", r_creo or "", r_rev or ""]
         # ── счётчики связей у узла (вниз/вверх) — честными проходами, без временных меток
         down, up = {}, {}
         for e in edges_raw:
