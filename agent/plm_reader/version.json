@@ -1,8 +1,8 @@
 {
- "version": "V207",
- "version_num": 207,
+ "version": "V208",
+ "version_num": 208,
  "date": "16.11.2026",
- "notes": "V207: doctor orphan scope + canon trailing dot; plm_facade.py; STATE V207",
+ "notes": "V208: compact idempotent (marker counted in budget); no false repeat",
  "schema_version": 4,
  "remove": [
   "_probe_scan137.py",
@@ -12,12 +12,12 @@
  ],
  "files": {
   "plm_facade.py": "f774c603b236e038a26ad78d5d523c0fdbf1f85ed2f099a072a02a09b7980b15",
-  "PLM_OPERATIONS.md": "ffef94fe55cbb675481371db2ebf95af2031a343f42eeb704ac8b823a8f9728f",
+  "PLM_OPERATIONS.md": "83b76c14e80ae28677838e905e5bc32b91d7820d4e0c6853f2a7c05cbaedd507",
   "plm_creo_parse.py": "129b2f665f8d3c3bbd5d5d242abe850cd59b7ee7384a4f7fae2cd6be55fded76",
   "plm_schema.py": "f76c639df83f8792e2436103e08a7c927bce58743b649b1b2b4b097ba203634c",
   "plm_asm_parse.py": "1060821b47a95eec3c11964295d776536e12613c07e7e76d23cee231ad7bea7c",
   "engine.py": "d0d18986d5219054700b8d30506d3c78d738b7e44c98ba9aaab0e08661de5b53",
-  "plm_reader.py": "4901a804ea15e9bdb2c8ff72369a354fbddc6a46faa1218d55bdf7bd397145f8",
+  "plm_reader.py": "23de5305352c2e003cfaff84c14e33beb8768c4a538c0758423dcf02ec1b3ee5",
   "plm_toolwin.py": "4e4f412f9c71b6b97b9e52128174e9288b043a32cce1527e98bcdb589e03b4ee",
   "plm_history.py": "e028c211022463898073cea2c03f395632029ae13448723425fae39b996e4027",
   "plm_parse.py": "c6bb33a412b6b606ad402e3eb78cd49246b77738b69d82be1b6218a1358c0312",
@@ -38,11 +38,11 @@
   "plm_queries.py": "3fa963038b75cc5551bb7d7bbc3ced5760c03188fe77d47d393c145c390f1977",
   "plm_links.py": "698df65db4fb7571d086cb4343cb8d8391aead559caf96db4715c44e2f397ffe",
   "plm_build_links.py": "ee15ddfe7d8ac2355a73bd3f67a60da66ce8f3551499dd6d5ebceb4f3f0ce66f",
-  "plm_database.py": "46d4e0fa5e4eee4a95be1438bb7e01297b608e417e847b1d98b9701dc0110ab4",
+  "plm_database.py": "7d977313e2a5f50c878c9d3af2b260ea4cb5beadeba64b672bbbe6d74e3c0c61",
   "plm_graph_build.py": "0016ff6bffc83f05547975a9a11be863e7611f1d1cbc0fe9e09830b7c47d0c9d",
   "plm_scanner.py": "8ac13395647dbdf48a7dd0748e6a22ca7f99dcb8283d33ca30862066861f3c79",
   "plm_db_admin_win.py": "066c4a70b50d2924dca2fe2b481ed41b0e5dc0a9821fbc85a7ec447fb1ed0feb",
-  "STATE.md": "35e20b4511f7377bc37af048448ca57617204b0da0926162358487fa58b8d15c",
+  "STATE.md": "2ba7fcb088f8826db1a6570dc3b188b98a562cac554b2f7fc43b1e1e791fe8b1",
   "CONCEPT_PLM.md": "6addb5c97847d55b261a2890e8f08a6efc4a2ca468c8d090f357b1b8c2c4ab61"
  }
 }

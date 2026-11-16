@@ -1760,7 +1760,8 @@ def _uf_plan(cur):
     try:
         row = cur.execute(
             "SELECT COUNT(*), COALESCE(SUM(LENGTH(model)), 0) FROM unknown_fields "
-            "WHERE model IS NOT NULL AND LENGTH(model) > ?", (UF_VALUE_MAX,)).fetchone()
+            "WHERE model IS NOT NULL AND LENGTH(model) > ? AND model NOT LIKE ?",
+            (UF_VALUE_MAX, "%(обрезано%")).fetchone()
     except sqlite3.Error:
         return None
     n = row[0] or 0
@@ -1832,9 +1833,13 @@ def compact_unknown_fields(db_path=None, dry_run=True, quiet=False):
         if not quiet:
             print("снимок схемы не сделан (%s) — продолжаю" % e)
 
+    # V208: обрезка ДО бюджета с учётом маркера → итог ≤ UF_VALUE_MAX. Иначе маркер (+16)
+    # делал строку «длиннее 512» и следующий прогон «обрезал» её заново (ложный повтор).
+    _mark = "…(обрезано V191)"
+    _budget = max(0, UF_VALUE_MAX - len(_mark))
     cur.execute("UPDATE unknown_fields SET model = substr(model, 1, ?) || ? "
-                "WHERE model IS NOT NULL AND LENGTH(model) > ?",
-                (UF_VALUE_MAX, "…(обрезано V191)", UF_VALUE_MAX))
+                "WHERE model IS NOT NULL AND LENGTH(model) > ? AND model NOT LIKE ?",
+                (_budget, _mark, UF_VALUE_MAX, "%(обрезано%"))
     truncated = cur.rowcount
     con.commit()
     after = _uf_plan(cur)
