@@ -92,7 +92,7 @@ SCHEMA = {
 LINK_COLS = {"model", "path", "item", "instance", "parent", "child", "base", "from", "to"}
 
 # Путь к конфигурации tbls для генерации документации
-TBL_CONFIG_PATH = os.path.join(os.path.dirname(HERE), "..", "..", "..", "repo", "Creo", "PLM", "db_schema", ".tbls.yml")
+TBL_CONFIG_PATH = os.path.join(os.path.dirname(HERE), "..", "..", "repo", "Creo", "PLM", "db_schema", ".tbls.yml")
 TBL_CONFIG_PATH = os.path.abspath(TBL_CONFIG_PATH)
 
 
@@ -528,12 +528,12 @@ def check(db=None, full=False):
     con.close()
 
     if errors:
-        print("❌ ОШИБКИ СХЕМЫ:")
+        print("[!] ОШИБКИ СХЕМЫ:")
         for e in errors:
             print("  -", e)
         ok = False
     if warnings:
-        print("⚠️ ПРЕДУПРЕЖДЕНИЯ:")
+        print("[*] ПРЕДУПРЕЖДЕНИЯ:")
         for w in warnings:
             print("  -", w)
     if not errors and not warnings:
@@ -594,7 +594,7 @@ def export_schema_docs(db_path=None, out_dir=None):
         return False
 
     if out_dir is None:
-        out_dir = os.path.join(os.path.dirname(p), "docs_schema")
+        out_dir = os.path.join(os.path.dirname(HERE), "docs_schema")
     os.makedirs(out_dir, exist_ok=True)
 
     con = sqlite3.connect(p)
