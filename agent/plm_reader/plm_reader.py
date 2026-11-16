@@ -41,7 +41,15 @@ if __name__ == "__main__":
     import sys as _sys
     _sys.modules.setdefault("plm_reader", _sys.modules["__main__"])
 
-APP_VERSION = "V190"      # 🔴 V190: ИСПРАВЛЕН МАНИФЕСТ ОБНОВЛЕНИЯ (сбой «SHA-256 несовпадение ['STATE.md']»).
+APP_VERSION = "V191"      # 🔴 V191: compact unknown_fields + кнопка в окне + гейт публикации + pre-push.
+                          #        `plm_database.compact_unknown_fields` (+ CLI `compact [--apply]`):
+                          #        режет СТАРЫЕ длинные дампы `unknown_fields` до 512 символов (БЭКАП +
+                          #        schema_snapshot; ключи и счётчики сохраняются; место вернёт VACUUM).
+                          #        ГЕЙТ: `validate()` и `engine._publish()` БЛОКИРУЮТ публикацию черновика
+                          #        с само-связями `links` (parent==child).
+                          #        GUI: кнопка «Сжать дампы unknown_fields» в окне «Аудит / БД».
+                          #        Локальный `.git/hooks/pre-push`: selftest + `make_version_json --verify`.
+                          # 🔴 V190: ИСПРАВЛЕН МАНИФЕСТ ОБНОВЛЕНИЯ (сбой «SHA-256 несовпадение ['STATE.md']»).
                           #        ПРИЧИНА V189: `version.json` пересобрали ДО правки артефакта кодировки
                           #        в `STATE.md` → хеш в манифесте не совпал с файлом. Лечение:
                           #        пересобран манифест ПОСЛЕ ВСЕХ правок + добавлена САМОПРОВЕРКА

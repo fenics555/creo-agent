@@ -28,6 +28,7 @@ plm_database.py — DATABASE: обслуживание базы ПЛМ (влад
     python plm_database.py doctor  [--db ПУТЬ]      — ПОДРОБНЫЙ диагноз базы (СТРОГО READ-ONLY)
     python plm_database.py selftest                 — встроенный регресс-тест (временная БД)
     python plm_database.py repair [--apply] [--db ПУТЬ] — ОЧИСТКА связей (dry-run по умолчанию)
+    python plm_database.py compact [--apply] [--db ПУТЬ] — ОБРЕЗКА длинных дампов unknown_fields
 
 КОДЫ ВОЗВРАТА `check`: 0 — чисто, 1 — предупреждения, 2 — ошибки.
 Флаг `--json` — структурированный вывод с кодами проблем (ORPHAN / DUPLICATE /
@@ -152,6 +153,10 @@ ARCHIVE_TABLES = ("changes", "history", "arch_dims", "arch_dim_ch")
 
 # V187: машинные коды проблем (для `check --json`)
 CHECK_CODES = ("ORPHAN", "DUPLICATE", "SELF_LINK", "EMPTY_KEY", "MISSING_INDEX", "EXTRA_COLUMN")
+
+# V191: потолок значения в `unknown_fields` (как UF_FIELD_MAX в сканере).
+# Причина: дамп ~1300 имён полей на файл ≈ 20 КБ/строку → таблица раздулась до 1185 МБ.
+UF_VALUE_MAX = 512
 
 # Путь к конфигурации tbls для генерации документации
 TBL_CONFIG_PATH = os.path.join(os.path.dirname(HERE), "..", "..", "repo", "Creo", "PLM", "db_schema", ".tbls.yml")
@@ -536,6 +541,17 @@ def validate(draft):
         empty = cur.execute("SELECT COUNT(*) FROM items WHERE model IS NULL OR model=''").fetchone()[0]
         if empty:
             res["errors"].append("items с пустым model: %d" % empty)
+    except sqlite3.Error:
+        pass
+    # 🔴 V191: ГЕЙТ КАЧЕСТВА `links` — само-связи в черновике БЛОКИРУЮТ публикацию
+    # (модель не может состоять сама из себя; такие строки портят входимость и граф).
+    try:
+        if "links" in tabs:
+            self_links = cur.execute(
+                "SELECT COUNT(*) FROM links WHERE lower(parent) = lower(child)").fetchone()[0]
+            if self_links:
+                res["errors"].append(
+                    "links: %d само-связей (parent == child) — публикация запрещена" % self_links)
     except sqlite3.Error:
         pass
     con.close()
@@ -1216,6 +1232,11 @@ def cmd_selftest():
         # V188: засев graph_edges (само-связь + дубль) — для проверки repair
         cur.executemany('INSERT INTO graph_edges("from","to",kind,qty) VALUES(?,?,?,?)',
                         [("X", "X", "k", 1), ("Y", "Z", "k", 1), ("Y", "Z", "k", 2)])
+        # V191: засев unknown_fields (длинный дамп) — для проверки compact
+        cur.execute('CREATE TABLE IF NOT EXISTS unknown_fields '
+                    '(path TEXT, model TEXT, name TEXT, count INTEGER)')
+        cur.execute("INSERT INTO unknown_fields(path,model,name,count) VALUES(?,?,?,?)",
+                    ("/big", "x" * 2000, "__ALL__", 1300))
         con.commit()
         con.close()
         set_schema_version(SCHEMA_VERSION, dbf)
@@ -1290,6 +1311,25 @@ def cmd_selftest():
                                 % (self_l, dup_l, self_g, dup_g))
             if not rep.get("backup"):
                 problems.append("repair --apply: не сделан бэкап")
+
+        # V191: compact unknown_fields — dry-run (не меняет) и --apply (обрезает)
+        cp_plan = compact_unknown_fields(dbf, dry_run=True, quiet=True)
+        if not cp_plan or not cp_plan.get("plan") or cp_plan["plan"]["long_rows"] < 1:
+            problems.append("compact: dry-run не нашёл длинных строк unknown_fields")
+        before_len = _cnt("SELECT MAX(LENGTH(model)) FROM unknown_fields")
+        cp_res = compact_unknown_fields(dbf, dry_run=False, quiet=True)
+        if not cp_res or not cp_res.get("truncated"):
+            problems.append("compact --apply: строки не обрезаны")
+        else:
+            after_len = _cnt("SELECT MAX(LENGTH(model)) FROM unknown_fields")
+            if after_len > 512 + 40:
+                problems.append("compact: значение осталось длинным (%s)" % after_len)
+            if before_len <= after_len:
+                problems.append("compact: длина не уменьшилась (%s -> %s)" % (before_len, after_len))
+            if _cnt("SELECT COUNT(*) FROM unknown_fields WHERE name='__ALL__'") < 1:
+                problems.append("compact: потеряны записи unknown_fields")
+            if not cp_res.get("backup"):
+                problems.append("compact --apply: не сделан бэкап")
     finally:
         shutil.rmtree(tmp, ignore_errors=True)
     if os.path.isdir(tmp):
@@ -1458,6 +1498,108 @@ def repair(db_path=None, dry_run=True, quiet=False):
         print("УДАЛЕНО:", deleted)
     return {"dry_run": False, "db": p, "plan": plan, "after": after,
             "deleted": deleted, "backup": bpath}
+
+
+
+def _uf_plan(cur):
+    """План сжатия `unknown_fields`: сколько строк длиннее потолка и сколько байт освободится."""
+    if not _has_table(cur, "unknown_fields"):
+        return None
+    cols = [c[1] for c in cur.execute("PRAGMA table_info(unknown_fields)")]
+    if "model" not in cols:
+        return None
+    try:
+        row = cur.execute(
+            "SELECT COUNT(*), COALESCE(SUM(LENGTH(model)), 0) FROM unknown_fields "
+            "WHERE model IS NOT NULL AND LENGTH(model) > ?", (UF_VALUE_MAX,)).fetchone()
+    except sqlite3.Error:
+        return None
+    n = row[0] or 0
+    total = int(row[1] or 0)
+    freed = max(0, total - n * UF_VALUE_MAX)
+    return {"rows_total": _table_row_count(cur, "unknown_fields") or 0,
+            "long_rows": n, "bytes_long": total, "freed_bytes": freed,
+            "freed_mb": round(freed / 1024.0 / 1024.0, 1)}
+
+
+def compact_unknown_fields(db_path=None, dry_run=True, quiet=False):
+    """ОБРЕЗАТЬ старые длинные хвосты `unknown_fields` (столбец `model`) до `UF_VALUE_MAX`.
+
+    🔴 ЗАЧЕМ: дамп всех имён полей ≈ 20 КБ/строку → таблица раздулась до 1185 МБ
+    (59 447 строк). Ключи (`path`, `name`) и счётчики (`count`) СОХРАНЯЮТСЯ — теряется
+    лишь обрезанный хвост JSON, полное ЧИСЛО полей остаётся в `count`.
+
+    По умолчанию `dry_run=True` — только показывает план. При `dry_run=False`:
+    обязательный БЭКАП + `schema_snapshot`, затем обрезка. Освобождённое место в файле
+    вернёт `vacuum` (SQLite не уменьшает файл сам).
+    Архивные таблицы (`changes/history/arch_dims/arch_dim_ch`) НЕ затрагиваются.
+    """
+    p = _arg_db(db_path)
+    if not p or not os.path.isfile(p):
+        print("база не найдена:", p)
+        return None
+    con = connect_safe(p)
+    cur = con.cursor()
+    plan = _uf_plan(cur)
+    if plan is None:
+        if not quiet:
+            print("таблица unknown_fields не найдена — нечего сжимать")
+        con.close()
+        return {"dry_run": dry_run, "db": p, "plan": None}
+    if not quiet:
+        print("=" * 68)
+        print("COMPACT unknown_fields (%s)" % ("DRY-RUN: план, ничего не меняется"
+                                               if dry_run else "ИТОГ"))
+        print("=" * 68)
+        print("  строк всего %-9s | длиннее %d символов: %-7s | освободится ≈ %.1f МБ"
+              % (plan["rows_total"], UF_VALUE_MAX, plan["long_rows"], plan["freed_mb"]))
+    if dry_run:
+        if not quiet:
+            print("  Место в файле вернёт команда VACUUM (запустить после сжатия).")
+        con.close()
+        return {"dry_run": True, "db": p, "plan": plan}
+    if not plan["long_rows"]:
+        if not quiet:
+            print("  нечего обрезать")
+        con.close()
+        return {"dry_run": False, "db": p, "plan": plan, "truncated": 0}
+
+    # ── APPLY: бэкап обязателен ──
+    try:
+        ts = datetime.datetime.now().strftime("%Y%m%d_%H%M%S")
+        bdir = os.path.join(os.path.dirname(p), "backup")
+        os.makedirs(bdir, exist_ok=True)
+        bpath = os.path.join(bdir, "pre_compact_%s.db" % ts)
+        shutil.copy2(p, bpath)
+        if not quiet:
+            print("бэкап перед compact:", bpath)
+    except Exception as e:                       # noqa: BLE001
+        print("БЭКАП НЕ СДЕЛАН (%s) — compact ОТМЕНЁН" % e)
+        con.close()
+        return None
+    try:
+        schema_snapshot(p)
+    except Exception as e:                       # noqa: BLE001
+        if not quiet:
+            print("снимок схемы не сделан (%s) — продолжаю" % e)
+
+    cur.execute("UPDATE unknown_fields SET model = substr(model, 1, ?) || ? "
+                "WHERE model IS NOT NULL AND LENGTH(model) > ?",
+                (UF_VALUE_MAX, "…(обрезано V191)", UF_VALUE_MAX))
+    truncated = cur.rowcount
+    con.commit()
+    after = _uf_plan(cur)
+    con.close()
+    if not quiet:
+        print("обрезано строк: %d" % truncated)
+        if after:
+            print("  после сжатия: строк всего %s | длиннее потолка %s"
+                  % (after["rows_total"], after["long_rows"]))
+        print("  Теперь нажмите «Сжать файл базы (Vacuum)», чтобы вернуть ≈ %.1f МБ на диске."
+              % (plan["freed_bytes"] / 1024.0 / 1024.0))
+        print("=" * 68)
+    return {"dry_run": False, "db": p, "plan": plan, "after": after,
+            "truncated": truncated, "backup": bpath}
 
 
 
@@ -1669,5 +1811,7 @@ if __name__ == "__main__":
         sys.exit(0 if cmd_selftest() else 1)
     elif cmd == "repair":
         repair(dry_run=("--apply" not in sys.argv))
+    elif cmd == "compact":
+        compact_unknown_fields(dry_run=("--apply" not in sys.argv))
     else:
         print(__doc__)

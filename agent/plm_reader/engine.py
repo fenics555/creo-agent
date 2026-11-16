@@ -2284,6 +2284,26 @@ def _publish(draft, to_mirror=True):
     `to_mirror=False` — НЕ копировать в зеркала (обычный инкрементальный скан: зеркало обновляем
     только после ПОЛНОГО скана, настройка `mirror_full_only`)."""
     import shutil
+    # 🔴 V191: ГЕЙТ КАЧЕСТВА `links` ПЕРЕД ПУБЛИКАЦИЕЙ — само-связи (parent == child) запрещены.
+    # Модель не может состоять сама из себя: такие строки портят входимость и граф.
+    # Черновик грязный → НИЧЕГО не публикуем (бэкап/копии не создаются), владелец чинит и повторяет.
+    try:
+        import sqlite3 as _sq
+        _cc = _sq.connect(draft)
+        try:
+            _ns = _cc.execute(
+                "SELECT COUNT(*) FROM links WHERE lower(parent) = lower(child)").fetchone()[0]
+        except _sq.Error:
+            _ns = 0
+        finally:
+            _cc.close()
+        if _ns:
+            log("publish: ОТКАЗ — в черновике %d само-связей links (parent==child)" % _ns)
+            print("ПУБЛИКАЦИЯ ОТМЕНЕНА: в черновике %d само-связей в links "
+                  "(повторите скан или очистите черновик)" % _ns)
+            return None
+    except Exception as _e:                      # noqa: BLE001
+        log("publish: проверка links не удалась (%s) — продолжаю" % _e)
     ts = datetime.datetime.now().strftime("%Y%m%d_%H%M%S")
     d = _base_dir()
     os.makedirs(d, exist_ok=True)

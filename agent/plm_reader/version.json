@@ -1,8 +1,8 @@
 {
- "version": "V190",
- "version_num": 190,
+ "version": "V191",
+ "version_num": 191,
  "date": "16.11.2026",
- "notes": "V190: исправлен манифест обновления (SHA STATE.md) + самопроверка make_version_json.py --verify",
+ "notes": "V191: compact unknown_fields (сжатие старых дампов) + гейт публикации links + кнопка в окне аудита + pre-push hook",
  "schema_version": 4,
  "remove": [
   "_probe_scan137.py",
@@ -11,8 +11,8 @@
   "scanner_write.py"
  ],
  "files": {
-  "engine.py": "987c546c1e2902750a54bfc466157a8471bf5b09d51b908a9b5fb5da0c3d8a41",
-  "plm_reader.py": "039f0745c4801be870573830863caf543f5bf0872b2e7879bb5ea158f2abdf64",
+  "engine.py": "427da3cbb3d1cef8d1a3b14eb60954b6bb98b14814e51c7bd9d7925c0d84e45d",
+  "plm_reader.py": "b919bdb4cc12a549297df7797a8b612f73879438d37c2f6a2d19996b8f6eccdc",
   "plm_toolwin.py": "4e4f412f9c71b6b97b9e52128174e9288b043a32cce1527e98bcdb589e03b4ee",
   "plm_history.py": "e028c211022463898073cea2c03f395632029ae13448723425fae39b996e4027",
   "plm_parse.py": "c6bb33a412b6b606ad402e3eb78cd49246b77738b69d82be1b6218a1358c0312",
@@ -33,11 +33,11 @@
   "plm_queries.py": "3fa963038b75cc5551bb7d7bbc3ced5760c03188fe77d47d393c145c390f1977",
   "plm_links.py": "698df65db4fb7571d086cb4343cb8d8391aead559caf96db4715c44e2f397ffe",
   "plm_build_links.py": "b4ee4671a1a468174b9296ba402aa79daa719ce2336b5ba7a2fc5fdb7c4a50a8",
-  "plm_database.py": "fc5c19901a2e6c2601e1fd9825b34afd2ac582de68b97964101dbb52cda2ca53",
+  "plm_database.py": "359731ec17569735c6bc8ded9b4859857bd7181f5ddb6edecfc89f658f6c7e6c",
   "plm_graph_build.py": "cf2ffe41b90bcdc4fce49185dc8b3edcceae5b64c8f33052c01fce91ba27fcce",
   "plm_scanner.py": "67c8f9204e371a7e11fa3b6739efada1d416f7647e63bb5afc87ec3c5fa775bf",
-  "plm_db_admin_win.py": "064322d518df1814fd2b9737826c0dd41a8f88cda7e77322270a2b3cfc647053",
-  "STATE.md": "a4678377f0d7259dff40006dc088a03e4c8eb883e6243bf2ba2f27a5a1e75ebe",
+  "plm_db_admin_win.py": "61b6dfc0e3aa4883b1904d4d2fde1b9103217bea072d1cf59f2752741771214e",
+  "STATE.md": "8d4a65ae3c541c54773e1c0171e494a197b40a590c9fc4fe9738199c8046cad1",
   "CONCEPT_PLM.md": "6addb5c97847d55b261a2890e8f08a6efc4a2ca468c8d090f357b1b8c2c4ab61"
  }
 }

@@ -11,7 +11,8 @@
   4) План очистки дублей (dry-run) — plm_database.repair(dry_run=True);
   5) Очистить дубли и само-связи — plm_database.repair(dry_run=False) + БЭКАП,
      затем колбэк on_after_repair() (пересборка связей и графа);
-  6) Сжать файл базы         — plm_database.vacuum.
+  6) Сжать дампы unknown_fields  — plm_database.compact_unknown_fields(dry_run=False) + БЭКАП;
+  7) Сжать файл базы         — plm_database.vacuum.
 
 Все длительные операции — в фоновом потоке (окно не зависает), кнопки на время
 блокируются; отчёт — в скроллируемом поле моноширинным шрифтом; кнопка
@@ -101,6 +102,10 @@ class _DBAdminWindow(tk.Toplevel):
                 "СОЗДАЁТ БЭКАП и удаляет дубли/само-связи в links/graph_edges. "
                 "Архивная история (changes/history/arch_*) сохраняется.",
                 self.act_repair_apply, strong=True)
+        add_btn("Сжать дампы unknown_fields",
+                "Обрежет СТАРЫЕ длинные хвосты в unknown_fields до 512 символов, "
+                "~−1.1 ГБ; затем нажмите «Vacuum».",
+                self.act_compact, strong=True)
         add_btn("Сжать файл базы (Vacuum)",
                 "Может занять время; перезаписывает файл базы (бэкап не создаётся).",
                 self.act_vacuum, strong=True)
@@ -232,6 +237,21 @@ class _DBAdminWindow(tk.Toplevel):
         self._run("Очистка дублей и само-связей",
                   lambda: plm_database.repair(self.db_path, dry_run=False),
                   after=self.on_after_repair)
+
+    def act_compact(self):
+        """Сжатие СТАРЫХ длинных дампов `unknown_fields` (с подтверждением)."""
+        import plm_database
+        if not messagebox.askyesno(
+                "Сжать дампы unknown_fields",
+                "Будут ОБРЕЗАНЫ длинные значения (столбец `model`) в таблице unknown_fields —\n"
+                "до 512 символов (сохраняются ключи и счётчики полей).\n\n"
+                "• Таблица раздулась из-за сырых JSON-дампов (~20 КБ на файл).\n"
+                "• Сначала создаётся БЭКАП базы.\n"
+                "• Место на диске вернёт последующая команда Vacuum.\n\n"
+                "Продолжить?"):
+            return
+        self._run("Сжатие дампов unknown_fields",
+                  lambda: plm_database.compact_unknown_fields(self.db_path, dry_run=False))
 
     def act_vacuum(self):
         """Сжать файл базы (VACUUM) с подтверждением."""
