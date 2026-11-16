@@ -2,7 +2,7 @@
  "version": "V207",
  "version_num": 207,
  "date": "16.11.2026",
- "notes": "V207: doctor orphan scope (live/outside/archive) + canon trailing dot; plm_facade.py (query wrappers)",
+ "notes": "V207: doctor orphan scope + canon trailing dot; plm_facade.py; STATE V207",
  "schema_version": 4,
  "remove": [
   "_probe_scan137.py",
@@ -42,7 +42,7 @@
   "plm_graph_build.py": "0016ff6bffc83f05547975a9a11be863e7611f1d1cbc0fe9e09830b7c47d0c9d",
   "plm_scanner.py": "8ac13395647dbdf48a7dd0748e6a22ca7f99dcb8283d33ca30862066861f3c79",
   "plm_db_admin_win.py": "066c4a70b50d2924dca2fe2b481ed41b0e5dc0a9821fbc85a7ec447fb1ed0feb",
-  "STATE.md": "6d702a300e10513f28d7ca0babd6221ce268ff607423279e436725ad722e5e36",
+  "STATE.md": "35e20b4511f7377bc37af048448ca57617204b0da0926162358487fa58b8d15c",
   "CONCEPT_PLM.md": "6addb5c97847d55b261a2890e8f08a6efc4a2ca468c8d090f357b1b8c2c4ab61"
  }
 }
