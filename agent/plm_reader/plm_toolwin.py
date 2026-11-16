@@ -624,7 +624,9 @@ def run_gui():
         ("Дополнительно", lambda: show_facts()),
         ("Состав в CSV", lambda: export_bom()),   # V83: BOM текущего изделия нижнего окна
         ("Лог", lambda: show_log()),              # V159: открыть engine.log (владелец: «лога нет»)
-    ], per_col=5)   # V159: 10 кнопок = РОВНО 5+5 = ДВА столбца (было 4 → 3-й столбец обрезался)
+        # V189: графическое окно обслуживания/аудита БД — кнопки вместо CLI-команд.
+        ("Аудит / БД…", lambda: _open_db_admin()),
+    ], per_col=6)   # V189: 11 кнопок = 6+5 = ДВА столбца (было 10 = 5+5; добавлена «Аудит / БД…»)
     def _upd_status(text):
         try:
             root.after(0, lambda: lbl.config(text=text))
@@ -904,6 +906,39 @@ def run_gui():
         ttk.Button(win, text="🔍 Показать детали-одиночки (кандидаты на архив)",
                    command=_show_orphans).pack(pady=(0, 6))
         ttk.Button(win, text="Закрыть", command=win.destroy).pack(pady=(0, 8))
+
+    def _open_db_admin():
+        """V189: окно «Обслуживание и аудит БД» — кнопки вместо CLI-команд."""
+        try:
+            import engine as eng
+            import plm_db_admin_win
+            plm_db_admin_win.open_db_admin_window(
+                root, db_path=eng.active_db(), on_after_repair=_after_repair)
+        except Exception as e:                    # noqa: BLE001
+            try:
+                messagebox.showwarning("Аудит / БД", "Не удалось открыть окно: %s" % e)
+            except Exception:
+                pass
+
+    def _after_repair():
+        """V189: после очистки БД — пересборка связей и графа (в фоне), затем обновление окна."""
+        def work():
+            try:
+                import plm_build_links
+                plm_build_links.report(plm_build_links.build())
+                import plm_graph_build
+                plm_graph_build.report(plm_graph_build.build())
+            except Exception as e:                # noqa: BLE001
+                try:
+                    import engine as eng
+                    eng.log("db_admin: пересборка связей/графа не удалась: %s" % e)
+                except Exception:
+                    pass
+            try:
+                root.after(0, lambda: refresh_from_db("после очистки БД"))
+            except Exception:
+                pass
+        threading.Thread(target=work, daemon=True).start()
 
     def _show_orphans():
         """Окно со списком моделей, которые нигде не используются (V114)."""
