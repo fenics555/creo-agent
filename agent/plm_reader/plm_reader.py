@@ -41,7 +41,7 @@ if __name__ == "__main__":
     import sys as _sys
     _sys.modules.setdefault("plm_reader", _sys.modules["__main__"])
 
-APP_VERSION = "V201"      # 🔴 V201: парсеры Creo вынесены в plm_creo_parse.py (распил, этап 1-бис)
+APP_VERSION = "V202"      # 🔴 V202: repair снимает обрывки/пустые ключи (normalize+repair заменяют перескан)
                           #        БАГ (живой прогон владельца 16.11.2026): «к переводу 865 039 строк,
                           #        переведено 36». ПРИЧИНА: `UPDATE` выполнялся на ТОМ ЖЕ курсоре, что
                           #        итерировал `SELECT DISTINCT` ⇒ итератор сбрасывался и цикл обрывался.

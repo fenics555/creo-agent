@@ -1690,6 +1690,23 @@ def repair(db_path=None, dry_run=True, quiet=False):
         deleted["graph_self"] = cur.rowcount
         deleted["graph_dup"] = _dedupe_table(cur, "graph_edges",
                                              ["from", "to", "kind"], "qty")
+    # V202: СНЯТЬ СТРОКИ-ОБРЫВКИ (имя, канон которого пуст: «-00», «-001-001.PRT»)
+    # и ПУСТЫЕ ключи — иначе они вечно висят («нормализация» их не трогает).
+    import creo_read as _CRr
+    for _t, _a, _b in (("links", "parent", "child"), ("derived", "child", "base"),
+                       ("graph_edges", "from", "to")):
+        if not _has_table(cur, _t):
+            continue
+        cur.execute('DELETE FROM "%s" WHERE "%s" IS NULL OR "%s"=\'\' OR "%s" IS NULL OR "%s"=\'\''
+                    % (_t, _a, _a, _b, _b))
+        deleted["%s_empty" % _t] = cur.rowcount
+        _fr = 0
+        for _rid, _x, _y in cur.execute('SELECT rowid, "%s", "%s" FROM "%s"'
+                                       % (_a, _b, _t)).fetchall():
+            if not _CRr.canon_model(_x) or not _CRr.canon_model(_y):
+                cur.execute('DELETE FROM "%s" WHERE rowid=?' % _t, (_rid,))
+                _fr += 1
+        deleted["%s_frag" % _t] = _fr
     con.commit()
     after = _repair_plan(cur)
     con.close()
