@@ -137,9 +137,13 @@ def params(raw: bytes, toc=None) -> dict:
             payload = m.group(4)
             if not name or name in out:
                 continue
+            if name.startswith(("PRO_MP_", "PTC_UNITS", "PTC_FAILURE_", "PTC_FATIGUE_", "PTC_INITIAL_BEND_", "PTC_MATERIAL_SUB_TYPE")):
+                continue
+            if name.startswith("Rz") and name[2:].isdigit():
+                continue
             if ptype == b"3":
                 val = smart_decode(payload)
-                if val:
+                if val and val != "value(s_val)":
                     out[name] = " ".join(val.split())
             elif ptype == b"2" and len(payload) >= 8:
                 try:

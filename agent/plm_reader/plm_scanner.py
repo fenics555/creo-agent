@@ -743,7 +743,7 @@ def extract_params(raw, anchors):
         for nm, val in (_CR.params(raw) or {}).items():
             if not nm or nm in seen:
                 continue
-            if nm.startswith(("PRO_MP_ALT_", "PTC_FAILURE_", "PTC_FATIGUE_", "PTC_INITIAL_BEND_", "PTC_MATERIAL_SUB_TYPE")):
+            if nm.startswith(("PRO_MP_", "PTC_UNITS", "PTC_FAILURE_", "PTC_FATIGUE_", "PTC_INITIAL_BEND_", "PTC_MATERIAL_SUB_TYPE")):
                 continue
             seen.add(nm)
             out.append((nm, _clean_creo_font(str(val)) if val else "~пусто"))
@@ -767,7 +767,7 @@ def extract_params(raw, anchors):
         val = _creo_clean(raw[v0:v1].decode("utf-8", "replace"))
         if not nm or "\x00" in val or nm in seen:
             continue
-        if nm.startswith(("PRO_MP_ALT_", "PTC_FAILURE_", "PTC_FATIGUE_", "PTC_INITIAL_BEND_", "PTC_MATERIAL_SUB_TYPE")):
+        if nm.startswith(("PRO_MP_", "PTC_UNITS", "PTC_FAILURE_", "PTC_FATIGUE_", "PTC_INITIAL_BEND_", "PTC_MATERIAL_SUB_TYPE")):
             continue
         # ⚠️ ОСОЗНАННОЕ РЕШЕНИЕ (04.11.2026, замер: пустых 18.2/файл = 10 %):
         # параметр с ПУСТЫМ значением — это ОБЪЯВЛЕННАЯ, но незаполненная схема
