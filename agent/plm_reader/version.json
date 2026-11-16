@@ -1,8 +1,8 @@
 {
- "version": "V179",
- "version_num": 179,
- "date": "05.11.2026",
- "notes": "V179: ВЕРНУЛ СВЯЗИ ЧЕРТЁЖ->МОДЕЛЬ (их снесла миграция). ДЕФЕКТ (владелец: 'где же чертежи?'): в базе source=dwg было ВСЕГО 3 при 13071 чертеже. ПРИЧИНА: миграция _mig_2_to_3 чистила двойников через DELETE FROM links WHERE child LIKE '%.ASM' (и .PRT/.DRW), а сканер пишет связи dwg/mfg ИМЕНЕМ С РАСШИРЕНИЕМ (extract_links -> model_names = 23-1013GRI-M2.ASM) => ВСЕ dwg попадали под маску и удалялись. ДОКАЗАНО на копии: do_scan(full=True) даёт 822 dwg на 2687 файлах, а в боевой осталось 3. ЛЕЧЕНИЕ: миграция чистит двойников только среди plm_tree/asm_comp/family/mentions; dwg/mfg НЕ трогает (имя с расширением ЗАКОННО). ВАЖНО: чтобы dwg вернулись - нужен ПЕРЕСКАН (Перечитать всё): сканер пишет dwg только для прочитанных файлов, а при кэше идёт continue ДО записи связей. ПЛЮС V178: фильтры типов в HTML (kindCode - единый код prt/asm/drw/mfg; добавлен фильтр чертежи). ПЛЮС V177: БАЗА ОДНА (active_db -> plm_reader.db - окно и достройка в одном файле). ПЛЮС V176: чистка пропавших файлов (4787) + защита истории от WinError 3.",
+ "version": "V180",
+ "version_num": 180,
+ "date": "16.11.2026",
+ "notes": "",
  "schema_version": 4,
  "remove": [
   "_probe_scan137.py",
@@ -12,7 +12,7 @@
  ],
  "files": {
   "engine.py": "883327f0e32fe7b2348a6230ee570e89aba9c9b747c4d72383c276bf74d5f088",
-  "plm_reader.py": "84b0b9cec691deca70bcacd67f6349d42a6fd4d4e0dd55b6db54f204d39279a9",
+  "plm_reader.py": "e0ee8bf3f0feabd98721e326f073dd6357bf33d80ba71bb1aacfdc7321ea2f98",
   "plm_toolwin.py": "2afd65e09ef0736841f894558a45dc0536890897346ad3dfe68e5f0aa0415df8",
   "plm_history.py": "e028c211022463898073cea2c03f395632029ae13448723425fae39b996e4027",
   "plm_parse.py": "c6bb33a412b6b606ad402e3eb78cd49246b77738b69d82be1b6218a1358c0312",
@@ -20,7 +20,7 @@
   "plm_settings.py": "9c9b9aa0117a1b1f3cc02a01ceca9dbde860b3f3e1a8e2b3fa624fb55e97d94f",
   "plm_scan.py": "e32d610e33932afaee4c952cb0b4564801508f0568d4360d7d039ffacb856f48",
   "plm_paths_window.py": "c1bb60b36fbe7fe86e5213680978eab41ac1d1c722d7fd58fae4820155a3833a",
-  "creo_read.py": "b0049e9456f7c86791610b3543d475121e00a86a359438158feb53e13b921152",
+  "creo_read.py": "bc3662bbeeb66e33824c8c88fc728e97156785912c6010007c863c973bd135a1",
   "README.md": "6745b837e945a9e32d991575c7e34e70212205866f5a6ffd153e2bd4edf2280c",
   "SHARE_copy.bat": "4eccb549a17251392337aeabbc3ef76233dfa3072beadff9d158cd6e932622ee",
   "plm_reader.bat": "bdd125397db3ac7e7432dbdb078a6a811ed4913fca02b062edb27907032fca3d",
@@ -35,7 +35,7 @@
   "plm_build_links.py": "b4ee4671a1a468174b9296ba402aa79daa719ce2336b5ba7a2fc5fdb7c4a50a8",
   "plm_database.py": "a744ce6f22197129e3149b197eae07e33492f124f2a55aa75f0f2916b46b88a1",
   "plm_graph_build.py": "7e3ccf9e59e6cd98029b8dc2ec9473831169ba82b82ed2d8a3670b0f2e5be7ed",
-  "plm_scanner.py": "f07fe0c2582e7324e9d026ef73293e7a5a3330aa2bbf362363ec8a64d4589663",
+  "plm_scanner.py": "2cb0fe5d24c21a40186f1c7835c26c8678aeaa5b84c0d9eb3baeb41ff3bd2ff1",
   "STATE.md": "b9197aac54c7238a70c4383ef7384ade9e6834f2c05df094ba71a2cc7608405d",
   "CONCEPT_PLM.md": "6addb5c97847d55b261a2890e8f08a6efc4a2ca468c8d090f357b1b8c2c4ab61",
   "PLAN_ONE_SCANNER.md": "5ad0843add56f20e8964eeda205466bc621a004039bb034928a64b40039e7f14"

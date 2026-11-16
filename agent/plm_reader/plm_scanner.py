@@ -264,6 +264,12 @@ _RE_TOC_LINE = re.compile(
     re.M)
 
 
+
+def _clean_creo_font(s: str) -> str:
+    if not s:
+        return s
+    return s.replace("\x01n\x02", "Ø").replace("\x01$", "°").replace("\x01", "").replace("\x02", "")
+
 def read_toc(raw):
     """
     КАРТА файла: {СЕКЦИЯ: (смещение, длина)} — из `#UGC_TOC`.
