@@ -1,16 +1,25 @@
 # -*- coding: utf-8 -*-
 """plm_settings.py — вынесено из plm_reader.py распилом (см. СПЕКА_РАСПИЛА_PLM_READER.md)."""
-from plm_reader import (
-    DATA_DIR,
-    SETTINGS_DIR,
-    SETTINGS_FILE,
-    datetime,
-    json,
-    log_line,
-    os,
-    re,
-)
+import os
+import sys
+import json
+import re
+import datetime
 
+_HERE = os.path.dirname(os.path.abspath(__file__))
+DATA_DIR = os.path.join(_HERE, "db")
+SETTINGS_DIR = os.path.join(_HERE, "settings")
+SETTINGS_FILE = os.path.join(SETTINGS_DIR, "settings.json")
+
+os.makedirs(DATA_DIR, exist_ok=True)
+os.makedirs(SETTINGS_DIR, exist_ok=True)
+
+def log_line(msg):
+    try:
+        from plm_dbview import log_line as _real_log_line
+        _real_log_line(f"[plm_settings] {msg}")
+    except (ImportError, ModuleNotFoundError):
+        print(f"[plm_settings] {msg}")
 
 CURRENT_SETTINGS_VERSION = 3   # увеличивать при КАЖДОМ структурном изменении настроек (см. _settings_migrations)
 DEFAULT_SETTINGS = {
