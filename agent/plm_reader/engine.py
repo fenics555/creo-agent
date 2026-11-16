@@ -3857,6 +3857,36 @@ def sync_by_manifest(files, timeout=15, remove=None, schema_version=None):
         except Exception as e:                       # noqa: BLE001
             result["migrated"] = {"error": str(e)}
             log("update: миграция схемы не выполнена: %s" % e)
+        # ── 🔴 V205: АВТО-ОБСЛУЖИВАНИЕ БАЗЫ ПОСЛЕ ОБНОВЛЕНИЯ (закон владельца:
+        #  «в обновление внедрять очистку/сжатие/выравнивание автоматически»).
+        #  Порядок: канон имён → снятие дублей/само-связей/обрывков → компакт дампов →
+        #  VACUUM (по настройке). Каждая операция делает бэкап. Сбои не ломают обновление.
+        try:
+            _cfg2 = scan_config() or {}
+            if bool(_cfg2.get("auto_maintenance", True)):
+                import plm_database as _DBm
+                _mdb = os.path.join(HERE, "db", "plm_reader.db")
+                _mdb = _mdb if os.path.isfile(_mdb) else None
+                _mr = {}
+                for _nm, _fn in (("normalize", _DBm.normalize_case),
+                                 ("repair", _DBm.repair),
+                                 ("compact", _DBm.compact_unknown_fields)):
+                    try:
+                        _mr[_nm] = _fn(_mdb, dry_run=False, quiet=True)
+                    except Exception as _x:          # noqa: BLE001
+                        _mr[_nm] = {"error": str(_x)}
+                if bool(_cfg2.get("auto_vacuum", True)):
+                    try:
+                        _DBm.vacuum(_mdb)
+                        _mr["vacuum"] = True
+                    except Exception as _x:          # noqa: BLE001
+                        _mr["vacuum"] = {"error": str(_x)}
+                result["maintenance"] = _mr
+                log("update: авто-обслуживание базы выполнено (normalize/repair/compact%s)"
+                    % ("/vacuum" if _mr.get("vacuum") else ""))
+        except Exception as _me:                     # noqa: BLE001
+            result["maintenance"] = {"error": str(_me)}
+            log("update: авто-обслуживание не выполнено: %s" % _me)
         # V109: ГЛАВНАЯ ГРАБЛЯ ШАРЫ. `CREO_GRAPH.html` и `CREO_GRAPH_data.js` НЕ идут в git
         # (в .gitignore: собираются на месте) — поэтому после обновления на шаре оставалась
         # СТАРАЯ страница: без новых превью и без истории. Владелец видел «нет картинок».

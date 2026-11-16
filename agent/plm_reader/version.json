@@ -1,8 +1,8 @@
 {
- "version": "V204",
- "version_num": 204,
+ "version": "V205",
+ "version_num": 205,
  "date": "16.11.2026",
- "notes": "V204: NORM_TARGETS covers bodies.model/drawing.model (normalize all names)",
+ "notes": "V205: auto-maintenance on update (normalize/repair/compact/vacuum)",
  "schema_version": 4,
  "remove": [
   "_probe_scan137.py",
@@ -11,12 +11,12 @@
   "scanner_write.py"
  ],
  "files": {
-  "PLM_OPERATIONS.md": "f4ea171f05616050373f2a781f1fe3727c9e926b0206afcf5141c43e7e104cf0",
+  "PLM_OPERATIONS.md": "6216d52f7260d9fad8a0eff73177ad7d7d2ae7ece2d63b88728f03efc8d2492d",
   "plm_creo_parse.py": "129b2f665f8d3c3bbd5d5d242abe850cd59b7ee7384a4f7fae2cd6be55fded76",
   "plm_schema.py": "f76c639df83f8792e2436103e08a7c927bce58743b649b1b2b4b097ba203634c",
   "plm_asm_parse.py": "1060821b47a95eec3c11964295d776536e12613c07e7e76d23cee231ad7bea7c",
-  "engine.py": "ae3f6919b767a8bd3bb1409bd67e38b4b711063229c6adf28c0655e29ebc5d7d",
-  "plm_reader.py": "c45e841aa41e3a9acfff0557a7560162fb348e262ee483c7d58ef11d0a6dad7d",
+  "engine.py": "18a338653a32dc6bfddc337a3d96d118422f9820380f88b2b85c75f2e51bc11e",
+  "plm_reader.py": "c91df789e2bde96a45b12417396b2e98226f7dcd0f6959c6fdb00886b058208d",
   "plm_toolwin.py": "4e4f412f9c71b6b97b9e52128174e9288b043a32cce1527e98bcdb589e03b4ee",
   "plm_history.py": "e028c211022463898073cea2c03f395632029ae13448723425fae39b996e4027",
   "plm_parse.py": "c6bb33a412b6b606ad402e3eb78cd49246b77738b69d82be1b6218a1358c0312",

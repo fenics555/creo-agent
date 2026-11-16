@@ -41,7 +41,7 @@ if __name__ == "__main__":
     import sys as _sys
     _sys.modules.setdefault("plm_reader", _sys.modules["__main__"])
 
-APP_VERSION = "V204"      # 🔴 V204: NORM_TARGETS + bodies.model/drawing.model (нормализация покрывает все имена)
+APP_VERSION = "V205"      # 🔴 V205: авто-обслуживание базы при обновлении (normalize/repair/compact/vacuum)
                           #        БАГ (живой прогон владельца 16.11.2026): «к переводу 865 039 строк,
                           #        переведено 36». ПРИЧИНА: `UPDATE` выполнялся на ТОМ ЖЕ курсоре, что
                           #        итерировал `SELECT DISTINCT` ⇒ итератор сбрасывался и цикл обрывался.
