@@ -4327,6 +4327,9 @@ def sync_by_manifest(files, timeout=15, remove=None, schema_version=None):
         os.makedirs(snap, exist_ok=True)
         tmp_dir = os.path.join(snap, "_new")
         os.makedirs(tmp_dir, exist_ok=True)
+
+        # ── ФАЗА 1: скачать все файлы во временную папку и проверить ВСЕ SHA-256 ──
+        sha_mismatches = []
         for name, want in (files or {}).items():
             if os.path.basename(name) != name:          # без путей — только имена файлов
                 continue
@@ -4335,17 +4338,26 @@ def sync_by_manifest(files, timeout=15, remove=None, schema_version=None):
             with open(tmp, "wb") as f:
                 f.write(raw)
             if want and _sha256_file(tmp).lower() != str(want).lower():
-                # 06.10.2026: НЕ рушим всё обновление из-за устаревшего SHA одного файла
-                # (манифест мог отстать от кода) — ставим как есть и предупреждаем.
-                result["warnings"].append(name)
-                log("update: SHA256 не совпал: %s (ставлю как есть)" % name)
+                sha_mismatches.append(name)
+                log("update: SHA256 НЕ совпал: %s" % name)
+
+        if sha_mismatches:
+            result["error"] = "SHA-256 несовпадение: %s" % sha_mismatches
+            log("update: ОТМЕНА обновления из-за несовпадения SHA: %s" % sha_mismatches)
+            try:
+                shutil.rmtree(tmp_dir, ignore_errors=True)
+            except Exception:
+                pass
+            return result
+
+        # ── ФАЗА 2: атомарная замена рабочих файлов (os.replace вместо shutil.move) ──
         for name in (files or {}):
             if os.path.basename(name) != name:
                 continue
             target = os.path.join(HERE, name)
             if os.path.isfile(target):
-                shutil.copy2(target, os.path.join(snap, name))
-            shutil.move(os.path.join(tmp_dir, name), target)
+                shutil.copy2(target, os.path.join(snap, name))  # резерв для отката
+            os.replace(os.path.join(tmp_dir, name), target)
             result["updated"].append(name)
         # ── 🔴 V160: УДАЛЕНИЕ УСТАРЕВШИХ (список манифеста, ЛЮБОЕ расширение) ────────
         os.makedirs(obsolete_dir, exist_ok=True)
@@ -4437,6 +4449,21 @@ def sync_by_manifest(files, timeout=15, remove=None, schema_version=None):
     except Exception as e:
         result["error"] = str(e)
         log("update: ОШИБКА %s" % e)
+        # ── Откат из снимка: восстановить заменённые файлы ──
+        try:
+            for name in result.get("updated", []):
+                src = os.path.join(snap, name)
+                dst = os.path.join(HERE, name)
+                if os.path.isfile(src):
+                    os.replace(src, dst)            # вернуть исходный
+                elif os.path.isfile(dst):
+                    try:
+                        os.remove(dst)              # файл был новым — удалить
+                    except OSError:
+                        pass
+            log("update: откат из снимка %s" % snap)
+        except Exception as re:
+            log("update: ОШИБКА ОТКАТА %s" % re)
         return result
 
 

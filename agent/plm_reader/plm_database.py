@@ -61,6 +61,40 @@ SCHEMA_VERSION = 4          # ← версия схемы, которую ждё
                             # при обновлении. Слово владельца: «программу обновляют ДРУГИЕ ЛЮДИ,
                             # как они что-то почистят?» — вот так: миграцией, а не руками.
 
+# ════════════════════════════════════════════════════════════════════════════════
+# ЭТАЛОН СХЕМЫ — ожидаемые таблицы и колонки (для diff-аудита в `check`)
+# ═══════════════════════════════════════════════════════════════════════════════
+SCHEMA = {
+    "snapshots":   ["path", "model", "folder", "size", "mtime", "volume", "material", "name", "designation", "rev", "author", "revdate", "role", "seen", "hist", "creo", "created", "pdata"],
+    "params":      ["path", "model", "name", "type", "value"],
+    "bodies":      ["path", "model", "folder", "version", "body_id", "seq", "volume", "density", "surfarea", "mass"],
+    "materials":   ["path", "model", "name", "description", "mtype", "density", "n_props", "system"],
+    "master_mat":  ["path", "model", "current_material", "master_name", "reported_name", "has_master"],
+    "matrices":    ["path", "model", "field", "dims", "vals"],
+    "components":  ["path", "model", "comp", "count", "kind"],
+    "drawing":     ["path", "model", "source_models", "states", "uniq_name", "sheet_size"],
+    "features":    ["path", "model", "feat_id", "defs", "typenum", "typename", "symbol_key", "parent_id", "seq"],
+    "dimensions":  ["path", "model", "feat_id", "dim_type", "nominal", "tol_class", "tol_type", "bound", "dim_name"],
+    "dim_all":     ["path", "model", "feat_id", "nominal", "idx"],
+    "equations":   ["path", "model", "kind", "name", "expression", "old_val", "new_val", "feat_id"],
+    "health":      ["path", "model", "regen", "reg_status", "inactive", "geom_rev"],
+    "history":     ["path", "model", "ts", "user", "computer", "creo", "rev", "action", "ts_int"],
+    "changes":     ["id", "item", "rev", "kind", "descr", "who", "ts"],
+    "family":      ["generic", "instance", "params", "source"],
+    "graph_nodes": ["model", "kind", "folder", "path", "size", "volume", "material", "creo", "rev", "n_down", "n_up", "has_media"],
+    "graph_edges": ["from", "to", "kind", "dir", "origin", "qty", "channel"],
+    "links":       ["parent", "child", "qty", "source", "origin", "kind"],
+    "derived":     ["child", "base", "kind", "source", "origin"],
+    "arch_dims":   ["arch_date", "model", "dims"],
+}
+
+# Колонки, по которым должны быть индексы (связующие ключи между таблицами)
+LINK_COLS = {"model", "path", "item", "instance", "parent", "child", "base", "from", "to"}
+
+# Путь к конфигурации tbls для генерации документации
+TBL_CONFIG_PATH = os.path.join(os.path.dirname(HERE), "..", "..", "..", "repo", "Creo", "PLM", "db_schema", ".tbls.yml")
+TBL_CONFIG_PATH = os.path.abspath(TBL_CONFIG_PATH)
+
 
 def _has_col(cur, table, col):
     """Есть ли колонка `col` в таблице `table` (без падения на отсутствии)."""
@@ -432,14 +466,79 @@ def stats(db=None):
     con.close()
 
 
-def check(db=None):
-    """Проверка целостности (PRAGMA integrity_check)."""
+def _indexes_on(cur, table):
+    """Возвращает множество имён колонок, по которым есть индексы (включая составные)."""
+    idx_cols = set()
+    try:
+        for row in cur.execute("PRAGMA index_list(%s)" % table):
+            idx_name = row[1]
+            for colrow in cur.execute("PRAGMA index_info(%s)" % idx_name):
+                idx_cols.add(colrow[2])
+    except sqlite3.Error:
+        pass
+    return idx_cols
+
+
+def check(db=None, full=False):
+    """Проверка целостности: PRAGMA integrity_check + индексы + diff схемы.
+
+    Если full=True — сверяет живые колонки с эталоном SCHEMA
+    и проверяет наличие индексов на связующих колонках.
+    """
     p = db or _live_db()
     con = sqlite3.connect(p)
+    cur = con.cursor()
     r = con.execute("PRAGMA integrity_check").fetchone()[0]
     print("integrity_check:", r)
+    ok = r == "ok"
+    errors = []
+    warnings = []
+
+    if full:
+        for t in SCHEMA:
+            if not _has_table(cur, t):
+                continue
+            idx_cols = _indexes_on(cur, t)
+            live_cols = [c[1] for c in cur.execute("PRAGMA table_info(%s)" % t)]
+            missing_idx = [c for c in live_cols if c in LINK_COLS and c not in idx_cols]
+            if missing_idx:
+                warnings.append(
+                    "таблица %s: нет индексов на связующих колонках %s"
+                    % (t, missing_idx)
+                )
+
+        for t, expected_cols in SCHEMA.items():
+            if not _has_table(cur, t):
+                warnings.append("таблица %s отсутствует в базе" % t)
+                continue
+            live_cols = [c[1] for c in cur.execute("PRAGMA table_info(%s)" % t)]
+            missing = [c for c in expected_cols if c not in live_cols]
+            extra = [c for c in live_cols if c not in expected_cols]
+            if missing:
+                errors.append("таблица %s: отсутствуют колонки %s" % (t, missing))
+            if extra:
+                warnings.append("таблица %s: лишние колонки %s" % (t, extra))
+
+        v_db = schema_version(p)
+        if v_db != SCHEMA_VERSION:
+            warnings.append(
+                "версия схемы БД (%d) != версии кода (%d)" % (v_db, SCHEMA_VERSION)
+            )
+
     con.close()
-    return r == "ok"
+
+    if errors:
+        print("❌ ОШИБКИ СХЕМЫ:")
+        for e in errors:
+            print("  -", e)
+        ok = False
+    if warnings:
+        print("⚠️ ПРЕДУПРЕЖДЕНИЯ:")
+        for w in warnings:
+            print("  -", w)
+    if not errors and not warnings:
+        print("проверка пройдена — замечаний нет")
+    return ok
 
 
 def indexes(db=None):
@@ -483,13 +582,132 @@ def backup(db=None):
     return dst
 
 
+def export_schema_docs(db_path=None, out_dir=None):
+    """Генерация schema_passport.md + 4 Mermaid ER-диаграммы по viewpoint.
+
+    Читает конфигурацию .tbls.yml (если есть) и генерирует документацию
+    на чистом Python (без внешней программы tbls.exe).
+    """
+    p = db_path or _live_db()
+    if not p or not os.path.isfile(p):
+        print("база не найдена:", p)
+        return False
+
+    if out_dir is None:
+        out_dir = os.path.join(os.path.dirname(p), "docs_schema")
+    os.makedirs(out_dir, exist_ok=True)
+
+    con = sqlite3.connect(p)
+    cur = con.cursor()
+    cur.execute(
+        "SELECT name FROM sqlite_master WHERE type='table' AND name NOT LIKE 'sqlite_%' ORDER BY name"
+    )
+    all_tables = [r[0] for r in cur.fetchall()]
+
+    table_cols = {}
+    for t in all_tables:
+        cur.execute("PRAGMA table_info(%s)" % t)
+        table_cols[t] = [r[1] for r in cur.fetchall()]
+
+    relations = []
+    viewpoints = []
+    comments = {}
+    if os.path.isfile(TBL_CONFIG_PATH):
+        try:
+            import yaml  # type: ignore
+            with open(TBL_CONFIG_PATH, "r", encoding="utf-8") as f:
+                cfg = yaml.safe_load(f) or {}
+            relations = cfg.get("relations", []) or []
+            viewpoints = cfg.get("viewpoints", []) or []
+            for c in cfg.get("comments", []) or []:
+                comments[c["table"]] = c
+        except Exception as _e:
+            print("не удалось прочитать .tbls.yml:", _e)
+
+    rel_map = {}
+    for rel in relations:
+        t = rel["table"]
+        cols = rel["columns"]
+        pt = rel["parentTable"]
+        pcols = rel["parentColumns"]
+        for c, pc in zip(cols, pcols):
+            rel_map.setdefault(t, []).append((pt, c, pc))
+
+    lines = []
+    lines.append("# Паспорт схемы базы PLM Reader")
+    lines.append("")
+    lines.append("Источник: `%s`" % p)
+    lines.append("Всего таблиц: %d" % len(all_tables))
+    lines.append("")
+    lines.append("## Таблицы")
+    lines.append("")
+    for t in all_tables:
+        cols = table_cols.get(t, [])
+        comment = comments.get(t, {})
+        tc = comment.get("tableComment", "")
+        lines.append("### `%s`" % t)
+        if tc:
+            lines.append("")
+            lines.append(tc)
+            lines.append("")
+        lines.append("| Колонка |")
+        lines.append("|---------|")
+        for c in cols:
+            lines.append("| `%s` |" % c)
+        child_rels = rel_map.get(t, [])
+        if child_rels:
+            lines.append("")
+            lines.append("Связи (из этой таблицы):")
+            for pt, cc, pc in child_rels:
+                lines.append("- `%s.%s` → `%s.%s`" % (t, cc, pt, pc))
+        lines.append("")
+
+    passport_path = os.path.join(out_dir, "schema_passport.md")
+    with open(passport_path, "w", encoding="utf-8") as f:
+        f.write("\n".join(lines))
+    print("паспорт схемы:", passport_path)
+
+    def _mermaid(vp_name, tables):
+        out = ["erDiagram", ""]
+        for t in tables:
+            if t not in table_cols:
+                continue
+            out.append("    %s {" % t)
+            for c in table_cols[t]:
+                out.append("        string %s" % c)
+            out.append("    }")
+            out.append("")
+        for t in tables:
+            for pt, cc, pc in rel_map.get(t, []):
+                if pt in tables:
+                    out.append("    %s ||--o{{ %s : \"%s → %s\"" % (t, pt, cc, pc))
+        if not any(rel_map.get(t, []) for t in tables):
+            out.append("    %% нет связей в этом ракурсе")
+        return "\n".join(out)
+
+    for vp in viewpoints:
+        name = vp.get("name", "view")
+        tables = vp.get("tables", [])
+        safe = name.replace(" ", "_").replace("&", "and").replace("/", "_")
+        mmd_path = os.path.join(out_dir, "er_%s.mmd" % safe)
+        with open(mmd_path, "w", encoding="utf-8") as f:
+            f.write(_mermaid(name, tables))
+        print("mermaid ER:", mmd_path)
+
+    con.close()
+    return True
+
+
 if __name__ == "__main__":
     cmd = sys.argv[1] if len(sys.argv) > 1 else "stats"
     arg = sys.argv[2] if len(sys.argv) > 2 else None
     if cmd == "stats":
         stats()
     elif cmd == "check":
-        check()
+        full = "--full" in sys.argv
+        check(full=full)
+    elif cmd == "check-full":
+        check(full=True)
     elif cmd == "schema":
         schema()
     elif cmd == "migrate":
@@ -515,5 +733,7 @@ if __name__ == "__main__":
         vacuum()
     elif cmd == "backup":
         backup()
+    elif cmd == "export-docs":
+        export_schema_docs()
     else:
         print(__doc__)
