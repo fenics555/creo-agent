@@ -1,9 +1,5 @@
 # -*- coding: utf-8 -*-
-r"""creo_read — ЕДИНЫЙ ЧИТАТЕЛЬ ФАЙЛОВ CREO «В ЛОБ» (общая библиотека дома).
-
-Одна реализация чтения — её используют инструменты (`plm_tree`, `plm_reader`), чтобы не плодить
-копии парсера. Creo не нужен, только стандартная библиотека.
-"""
+r"""creo_read  ЕДИНЫЙ САМОДОСТАТОЧНЫЙ ЧИТАТЕЛЬ ФАЙЛОВ CREO В ЛОБ (V181)."""
 import datetime
 import os
 import re
@@ -12,189 +8,299 @@ from collections import Counter
 
 TAIL = re.compile(rb"\xf7(.)\xe3([0-9]{1,7})\x00\x00(.{0,220}?)\x00((?:Creo )?[0-9][0-9.]*)\x00", re.S)
 STAMP = re.compile(rb"\xf7\x14([\x20-\x7e\xc0-\xff]{1,24}?)\x00\xe2(.)(.)(.)(.)(.)(.)", re.S)
-NAME_B = re.compile(rb"[\x00-\x1f\x80-\xff]([A-Za-z0-9][A-Za-z0-9_\-\.]{3,47}\.(?:PRT|ASM))",
-                    re.IGNORECASE)
+NAME_B = re.compile(rb"[\x00-\x1f\x80-\xff]([A-Za-z0-9][A-Za-z0-9_\-\.]{3,47}\.(?:PRT|ASM))", re.IGNORECASE)
 
+def clean_creo_font(s: str) -> str:
+    if not s:
+        return ""
+    return s.replace("\x01n\x02", "Ø").replace("\x01$", "").replace("\x01", "").replace("\x02", "")
 
-def stem(name):
-    """Имя файла → код модели (верхний регистр, без версии и расширения)."""
-    n = name.upper()
-    for ext in (".PRT", ".ASM", ".DRW", ".NEU", ".SEC", ".M_P", ".PRT.", ".ASM."):
+def smart_decode(data: bytes) -> str:
+    if not data:
+        return ""
+    clean = data.strip(b"\x00\x13\x19\x1b\x1e\xe3\xe0\xe1\xe2\xf6\xf7\x01\x02\x03\x04\x05\x06\x07\x08\x09\x0a\x0b\x0c\x0d\x1c")
+    if not clean:
+        return ""
+    try:
+        s = clean.decode("utf-8")
+    except UnicodeDecodeError:
+        s = clean.decode("cp1251", errors="replace")
+    return clean_creo_font(s).strip()
+
+def smart_decode_strip(data: bytes) -> str:
+    return smart_decode(data).strip("\x00")
+
+def stem(name: str) -> str:
+    n = (name or "").upper()
+    for ext in (".PRT", ".ASM", ".DRW", ".MFG", ".NEU", ".SEC", ".M_P", ".PRT.", ".ASM."):
         if ext in n:
-            n = n.split(ext)[0]
+            n = n.split(ext).pop(0)
             break
     return re.sub(r"\.\d+$", "", n)
 
-
-def read(path):
+def read(path: str) -> bytes:
     with open(path, "rb") as f:
         return f.read()
 
-
-def parse_toc(raw):
-    """Оглавление секций файла: {имя: (offset, length)} по цепочке NEXT_TOC_ENTRY."""
-    out, pos = {}, raw.find(b"#UGC_TOC")
-    for _ in range(20):
-        if pos < 0:
-            break
-        p = raw.find(b"\n", pos)
-        nxt = -1
-        while True:
-            e = raw.find(b"\n", p + 1)
-            if e < 0:
-                break
-            line = raw[p + 1:e].decode("ascii", "replace").strip()
-            p = e
-            if line.startswith("NEXT_TOC_ENTRY"):
-                nxt = int(line.split()[1], 16)
-                break
-            m = re.match(r"^([A-Za-z_][A-Za-z0-9_:]{1,40}) ([0-9a-f]{2,8}) ([0-9a-f]{2,8})"
-                         r"(?: ([0-9a-f]{2,8}))?(.*)$", line)
-            if m and (not m.group(5).strip() or m.group(5).strip()[0] in "0123456789-"):
-                ln = int(m.group(4), 16) if m.group(4) else int(m.group(3), 16)
-                out[m.group(1)] = (int(m.group(2), 16), max(ln, 1))
-        if nxt < 0 or nxt >= len(raw):
-            break
-        pos = nxt
+def parse_toc(raw: bytes) -> dict:
+    fsize = len(raw)
+    out = {}
+    entry_re = re.compile(
+        rb"(?:^|[\r\n\x00])([A-Za-z0-9_:#.-]{2,64})\s+"
+        rb"([0-9a-fA-F]{2,8})\s+([0-9a-fA-F]{1,8})\s+([0-9a-fA-F]{1,8})\s+"
+        rb"(\d{3,5})\s+(-?\d+)\s+(-?\d+)\s+([0-9a-fA-F]{4})\s+([0-9a-fA-F]{4})"
+    )
+    for m in re.finditer(rb"#UGC_TOC", raw):
+        chunk = raw[m.start():min(fsize, m.start() + 16384)]
+        for em in entry_re.finditer(chunk):
+            name = em.group(1).decode("ascii", "ignore")
+            off = int(em.group(2), 16)
+            ln = int(em.group(3), 16)
+            if off + ln <= fsize and name != "NEXT_TOC_ENTRY" and name not in out:
+                out[name] = (off, max(ln, 1))
     return out
 
-
-def real(raw, key):
-    """Числовое поле `e0 02 <имя> 00 ed <8 байт BE double>` (объём, масса)."""
-    m = re.search(rb"\xe0\x02" + key.encode() + rb"\x00\xed", raw)
+def real(raw: bytes, key: str):
+    m = re.search(rb"\xe0\x02" + key.encode("ascii", "ignore") + rb"\x00\xed", raw)
     if not m or m.end() + 8 > len(raw):
         return None
     try:
-        return struct.unpack(">d", raw[m.end():m.end() + 8])[0]
+        val, = struct.unpack(">d", raw[m.end():m.end() + 8])
+        return val
     except Exception:
         return None
 
-
-def params(raw, toc):
-    """Параметры изделия из NeuPrtSld (`<имя>\\0 e2 33 <текст>`)."""
-    out = {}
-    if "NeuPrtSld" not in toc:
-        return out
-    off, ln = toc["NeuPrtSld"][0], toc["NeuPrtSld"][1]
-    for m in re.finditer(rb"([\x20-\xff]{3,32})\x00\xe2\x33(.{0,60}?)\x00", raw[off:off + ln], re.S):
-        t = re.search(r"[\w]+$", m.group(1).decode("utf-8", "replace"))
+def read_creo_num(buf: bytes, pos: int):
+    if pos >= len(buf):
+        return 0, None
+    tag = buf[pos]
+    if tag in (0x28, 0x9B):
+        return 1, 0.0
+    if tag == 0xED and pos + 9 <= len(buf):
         try:
-            v = m.group(2).decode("utf-8")
-        except UnicodeDecodeError:
-            continue
-        if t and v and "\x00" not in v:
-            out.setdefault(t.group(0), " ".join(v.split()))
+            val, = struct.unpack(">d", buf[pos + 1:pos + 9])
+            if abs(val) < 1e12:
+                return 9, val
+        except Exception:
+            pass
+        return 9, None
+    if tag in (0x2F, 0x48) and pos + 3 <= len(buf):
+        b1, b2 = buf[pos + 1], buf[pos + 2]
+        E = (b1 >> 4) & 0x0F
+        F = ((b1 & 0x0F) << 8) | b2
+        val = (2.0 ** (E + 1)) * (1.0 + F / 4096.0)
+        return 3, (-val if tag == 0x48 else val)
+    if tag in (0x2D, 0x46) and pos + 8 <= len(buf):
+        b1, b2 = buf[pos + 1], buf[pos + 2]
+        E = (b1 >> 4) & 0x0F
+        F_hi = ((b1 & 0x0F) << 8) | b2
+        F_lo = int.from_bytes(buf[pos + 3:pos + 8], "big")
+        val = (2.0 ** (E + 1)) * (1.0 + (F_hi + F_lo / float(1 << 40)) / 4096.0)
+        return 8, (-val if tag == 0x46 else val)
+    return 1, None
+
+def outline_bbox_mm(raw: bytes):
+    m = re.search(rb"outline\x00\xf9\x02\x03(.{48})", raw, re.S)
+    if not m:
+        return None
+    buf = m.group(1)
+    pos, nums = 0, []
+    while len(nums) < 6 and pos < len(buf):
+        st, v = read_creo_num(buf, pos)
+        if v is not None:
+            nums.append(v)
+        pos += st
+    if len(nums) == 6:
+        xmin, ymin, zmin, xmax, ymax, zmax = nums
+        dx, dy, dz = round(abs(xmax - xmin), 2), round(abs(ymax - ymin), 2), round(abs(zmax - zmin), 2)
+        if 0 < max(dx, dy, dz) < 1e6:
+            return (dx, dy, dz)
+    return None
+def params(raw: bytes, toc=None) -> dict:
+    out = {}
+    if toc is None:
+        toc = parse_toc(raw)
+    chunks = []
+    if "LargeText" in toc:
+        off, ln = toc["LargeText"]
+        chunks.append(raw[off:off + ln])
+    if "NeuPrtSld" in toc:
+        off, ln = toc["NeuPrtSld"]
+        chunks.append(raw[off:off + ln])
+    if not chunks:
+        chunks.append(raw)
+    param_re = re.compile(rb"\xe3([A-Za-z_\x80-\xff][A-Za-z0-9_\x80-\xff]{1,60})\x00([^\xe3]{1,24}?)\xe3(.)([^\x00]{1,160}?)\x00")
+    for ch in chunks:
+        for m in param_re.finditer(ch):
+            name = smart_decode(m.group(1))
+            ptype = m.group(3)
+            payload = m.group(4)
+            if not name or name in out:
+                continue
+            if ptype == b"3":
+                val = smart_decode(payload)
+                if val:
+                    out[name] = " ".join(val.split())
+            elif ptype == b"2" and len(payload) >= 8:
+                try:
+                    num, = struct.unpack(">d", payload[:8])
+                    if abs(num) < 1e15:
+                        out[name] = str(round(num, 6)).rstrip("0").rstrip(".")
+                except Exception:
+                    pass
     return out
 
+def param(raw: bytes, names_list, default="") -> str:
+    if isinstance(names_list, str):
+        names_list = [names_list]
+    pr = params(raw)
+    upper = {k.upper(): v for k, v in pr.items()}
+    for nm in names_list or ():
+        k = (nm or "").strip()
+        if not k:
+            continue
+        v = pr.get(k) or upper.get(k.upper())
+        if v:
+            return str(v)
+    return default
 
-def role(raw, stems=frozenset(), me=""):
-    """Роль изделия по правилам §8.5 (имя файла НЕ признак):
-    `MFG` — сборка `ASSEM_MFG`; `nasled.<база>` — `MERGE_BASE_PART` (отражение/отливка);
-    `proizv.<родитель>` — `ref_part_tab.name` из ТОЙ ЖЕ папки (у обычной детали там шаблонный
-    `MM_ASSY`/`SBORKA_MM` — не роль, поэтому сверяем с именами папки)."""
-    if b"ASSEM_MFG" in raw[:400]:
-        return "MFG"
+def compose(raw: bytes, rule: str) -> str:
+    if not rule:
+        return ""
+    pr = params(raw)
+    upper = {k.upper(): v for k, v in pr.items()}
+    out, i, n = [], 0, len(rule)
+    while i < n:
+        c = rule[i]
+        if c == "{":
+            j = rule.find("}", i)
+            if j < 0:
+                break
+            key = rule[i + 1:j].strip()
+            val = pr.get(key) or upper.get(key.upper()) or ""
+            if val:
+                out.append(str(val))
+            i = j + 1
+        elif c == '"':
+            j = rule.find('"', i + 1)
+            if j < 0:
+                break
+            out.append(rule[i + 1:j])
+            i = j + 1
+        elif c == "+":
+            i += 1
+        elif c.isspace():
+            out.append(" ")
+            i += 1
+        else:
+            j = i
+            while j < n and rule[j] not in '{+"':
+                j += 1
+            out.append(rule[i:j])
+            i = j
+    return " ".join("".join(out).split())
+
+_SOF = {0xC0, 0xC1, 0xC2, 0xC3}
+
+def jpeg_size(blob: bytes):
+    i, n = 2, len(blob)
+    while i + 4 < n:
+        if blob[i] != 0xFF:
+            break
+        mk = blob[i + 1]
+        if mk in (0xD8, 0xD9) or (0xD0 <= mk <= 0xD7):
+            i += 2
+            continue
+        ln = (blob[i + 2] << 8) | blob[i + 3]
+        if mk in _SOF and i + 9 <= n:
+            h = (blob[i + 5] << 8) | blob[i + 6]
+            w = (blob[i + 7] << 8) | blob[i + 8]
+            return w, h
+        i += 2 + ln
+    return 0, 0
+
+def _find_jpg(raw: bytes):
+    out, pos = [], 0
+    while True:
+        s = raw.find(b"\xff\xd8\xff", pos)
+        if s < 0: break
+        e = raw.find(b"\xff\xd9", s + 4)
+        if e < 0: break
+        blob = raw[s:e + 2]
+        if 500 <= len(blob) <= 2_000_000:
+            w, h = jpeg_size(blob)
+            if w >= 32 and h >= 32:
+                out.append((blob, "jpg"))
+        pos = e + 2
+    return out
+
+def _find_bmp(raw: bytes):
+    out, pos = [], 0
+    while True:
+        s = raw.find(b"BM", pos)
+        if s < 0 or s + 26 > len(raw): break
+        fsize, res1, res2, off = struct.unpack_from("<IHHI", raw, s + 2)
+        if res1 == 0 and res2 == 0 and 54 <= off < fsize <= 4_000_000 and s + fsize <= len(raw):
+            w, h = struct.unpack_from("<ii", raw, s + 18)
+            if 32 <= abs(w) <= 4000 and 32 <= abs(h) <= 4000:
+                out.append((raw[s:s + fsize], "bmp"))
+                pos = s + fsize
+                continue
+        pos = s + 2
+    return out
+
+def cut_preview(raw: bytes, want="all"):
+    if not raw: return []
+    res = []
+    if want in ("all", "jpg", "pict"): res.extend(_find_jpg(raw))
+    if want in ("all", "bmp", "draw"): res.extend(_find_bmp(raw))
+    return res
+
+def role(raw: bytes, stems=frozenset(), me=""):
+    if b"ASSEM_MFG" in raw[:400]: return "MFG"
     if b"MERGE_BASE_PART" in raw:
         m = re.search(rb"MERGE_BASE_PART.{0,80}?([A-Za-z0-9_\-]{5,40})\x00", raw, re.S)
         base = m.group(1).decode("latin-1") if m else ""
-        if base and base.upper() not in ("MM_ASSY", "MM_PART"):
-            return "nasled." + base
+        if base and base.upper() not in ("MM_ASSY", "MM_PART"): return "nasled." + base
     for m in re.finditer(rb"ref_part_tab\x00", raw):
         nm = re.search(rb"name\x00([A-Za-z0-9_\-\.]{4,47})\x00", raw[m.end():m.end() + 200])
         if nm:
             s = stem(nm.group(1).decode("latin-1"))
-            if s != me and (not stems or s in stems):
-                return "proizv." + nm.group(1).decode("latin-1")
+            if s != me and (not stems or s in stems): return "proizv." + nm.group(1).decode("latin-1")
     return ""
 
-
-def user_time(raw):
-    """Все пары (позиция, пользователь, дата) из истории — по убыванию позиции."""
+def user_time(raw: bytes):
     out = []
     for m in STAMP.finditer(raw):
-        s, mi, h, d, mo, y = (b[0] for b in m.groups()[1:])
-        try:
-            dt = datetime.datetime(1900 + y, mo + 1, d, h, mi, s)
-        except ValueError:
-            continue
+        s, mi, h, d, mo, y = (b for b in m.groups()[1:])
+        try: dt = datetime.datetime(1900 + y, mo + 1, d, h, mi, s)
+        except ValueError: continue
         if 1990 <= dt.year <= 2030:
-            try:
-                who = m.group(1).decode("utf-8")
-            except UnicodeDecodeError:
-                who = m.group(1).decode("cp1251", "replace")
+            try: who = m.group(1).decode("utf-8")
+            except UnicodeDecodeError: who = m.group(1).decode("cp1251", "replace")
             out.append((m.start(), who, dt))
     return sorted(set(out))
 
-
-def last_hist(raw):
-    """Последняя запись истории: (ревизия, пользователь, дата 'дд.мм.гг чч:мм')."""
+def last_hist(raw: bytes):
     st, last = user_time(raw), None
     for t in TAIL.finditer(raw):
         prev = [s for s in st if s[0] < t.start()]
-        last = (t.group(2).decode(), prev[-1][1] if prev else "",
-                prev[-1][2].strftime("%d.%m.%y %H:%M") if prev else "")
+        if prev:
+            last_s = prev.pop()
+            last = (t.group(2).decode(), last_s[1], last_s[2].strftime("%d.%m.%y %H:%M"))
+        else:
+            last = (t.group(2).decode(), "", "")
     return last
 
-
-def names(raw):
-    """Имена моделей внутри файла (расширение срезано) и сколько раз встречаются (входимость)."""
+def names(raw: bytes):
     c = Counter()
     for m in NAME_B.finditer(raw):
         c[stem(m.group(1).decode("latin-1"))] += 1
     return c
 
+def get_structural_data(raw: bytes) -> dict:
+    return {"outline_mm": outline_bbox_mm(raw), "params": params(raw)}
 
-def passport(path, stems=()):
-    """Паспорт модели из файла (Creo не нужен)."""
-    raw = read(path)
-    pr = params(raw, parse_toc(raw))
-    vol = real(raw, "volume") or real(raw, "mtrl_volume")
-    nm = names(raw)
-    refs = {c: nm[c] for c in nm if c != stem(os.path.basename(path)) and c in stems and len(c) >= 5}
-    h = last_hist(raw) or ("", "", "")
-    return {"path": path, "size": len(raw), "mtime": os.path.getmtime(path),
-            "volume": vol or 0.0, "material": pr.get("PTC_MASTER_MATERIAL") or "",
-            "name": pr.get("\u041d\u0410\u0418\u041c\u0415\u041d\u041e\u0412\u0410\u041d\u0418\u0415") or "",
-            "designation": pr.get("\u041e\u0411\u041e\u0417\u041d\u0410\u0427\u0415\u041d\u0418\u0415") or "",
-            "rev": h[0], "author": h[1], "revdate": h[2],
-            "role": role(raw, stems, stem(os.path.basename(path))), "refs": refs}
-
-def smart_decode(data):
-    """Декодирует данные: сначала UTF-8, если ошибка — cp1251."""
-    try:
-        return data.decode('utf-8')
-    except UnicodeDecodeError:
-        try:
-            return data.decode('cp1251')
-        except UnicodeDecodeError:
-            return data.decode('ascii', errors='replace')
-
-
-def smart_decode_strip(data):
-    """Декодирует и удаляет NUL-байты."""
-    return smart_decode(data).strip('\x00')
-
-
-def get_structural_data(raw):
-    return {}
-
-
-def extract_family_info(raw):
-    data = get_structural_data(raw)
-    return data.get("family_table", [])
-
-
-def extract_drw_fields(raw):
-    data = get_structural_data(raw)
-    return data.get("drawing_info", {"sheets": [], "format": ""})
-
-
-def extract_mfg_fields(raw):
-    data = get_structural_data(raw)
-    return data.get("mfg_info", {"operation_id": "", "workpiece": ""})
-
-
-# --- Missing functions for engine.py compatibility ---
-def param(raw, names, default=""): return default
-def compose(raw, text): return text
-def cut_preview(raw, want): return ""
+def extract_family_info(raw: bytes): return []
+def extract_drw_fields(raw: bytes): return {"sheets": [], "format": ""}
+def extract_mfg_fields(raw: bytes): return {"operation_id": "", "workpiece": ""}

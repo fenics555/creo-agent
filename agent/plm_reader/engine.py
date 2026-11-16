@@ -1026,17 +1026,7 @@ def save_media(raw, media_dir, want="all", mode="auto", limit=2):
 # дублировать логику в двух местах ЗАПРЕЩЕНО (догма §85: одна правда).
 # Живой путь скана: `do_scan` → `plm_scanner.scan_item_new` → `new_to_old` + `write_item`.
 # --- ЕДИНЫЙ ЧИТАТЕЛЬ: своя вложенная копия creo_read (папка самодостаточна) ---
-try:
-    import importlib.util
-    _CR_PATH = r"D:\AI\tools\agent\creo_read.py"
-    if os.path.exists(_CR_PATH):
-        spec = importlib.util.spec_from_file_location("creo_read", _CR_PATH)
-        _CR = importlib.util.module_from_spec(spec)
-        spec.loader.exec_module(_CR)
-    else:
-        import creo_read as _CR
-except Exception:
-    import creo_read as _CR
+import creo_read as _CR
 
 stem = _CR.stem
 parse_toc = _CR.parse_toc

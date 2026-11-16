@@ -757,6 +757,8 @@ def extract_params(raw, anchors):
         val = _creo_clean(raw[v0:v1].decode("utf-8", "replace"))
         if not nm or "\x00" in val or nm in seen:
             continue
+        if nm.startswith(("PRO_MP_ALT_", "PTC_FAILURE_", "PTC_FATIGUE_", "PTC_INITIAL_BEND_", "PTC_MATERIAL_SUB_TYPE")):
+            continue
         # ⚠️ ОСОЗНАННОЕ РЕШЕНИЕ (04.11.2026, замер: пустых 18.2/файл = 10 %):
         # параметр с ПУСТЫМ значением — это ОБЪЯВЛЕННАЯ, но незаполненная схема
         # (`НАИМЕНОВАНИЕ\x00\x27\x88\x20\xe33\x00` — тег и сразу конец). Закон владельца:
@@ -1214,6 +1216,7 @@ def scan_item_new(path, feat_dict, pdes=None, pname=None):
                                "mtime": _mtime, "created": _ctime, "seen": "",
                                "volume": _mp.get("VOLUME"), "role": _role,
                                "hist": 0})
+    boxes["_raw"] = raw
     boxes["_meta"] = {"path": path, "size": len(raw), "anchors": len(anchors),
                       "toc": {k: {"off": v[0], "len": v[1]} for k, v in toc.items()}}
     return boxes
@@ -1291,7 +1294,7 @@ def new_to_old(path, boxes):
     # `MFG` / `nasled.<родитель>` / `proizv.<родитель>` по СОДЕРЖИМОМУ (creo_read.role).
     # Сверка 03.11.2026: `kind` давал 'ASSEMBLY' вместо 'MFG', 'PART' вместо 'proizv.X'.
     try:
-        _raw = read_file(path, dump_dir=None)
+        _raw = boxes.get("_raw") or read_file(path, dump_dir=None)
         _role = _CR.role(_raw, frozenset(), os.path.basename(path)) if _raw else ""
     except Exception:
         _role = ""
@@ -1300,7 +1303,7 @@ def new_to_old(path, boxes):
     # потому что rev_string — служебная строка, а не ревизия. Эталон берёт последнюю запись
     # истории: (ревизия, пользователь, дата правки).
     try:
-        _raw2 = _raw if "_raw" in dir() and _raw else read_file(path)
+        _raw2 = _raw
         _h = _CR.last_hist(_raw2) or ("", "", "")
     except Exception:
         _h = ("", "", "")
@@ -1319,7 +1322,7 @@ def new_to_old(path, boxes):
     # `creo_read.user_time()` даёт (позиция, пользователь, дата) — все записи журнала.
     _hist2 = []
     try:
-        _raw3 = _raw if "_raw" in dir() and _raw else read_file(path)
+        _raw3 = _raw
         for _pos, _who, _dt in (_CR.user_time(_raw3) or []):
             _hist2.append({"user": _who or "USER", "computer": "", "creo": "",
                            "ts": _dt.strftime("%d.%m.%Y %H:%M:%S") if _dt else "",

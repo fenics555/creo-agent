@@ -4825,6 +4825,7 @@ def run_gui():
                     except Exception:
                         pass
                     btn.config(state="normal")
+                    b_refull.config(state="normal")
                     b_stop.config(state="disabled")
                     return
         except queue.Empty:
@@ -4906,6 +4907,7 @@ def run_gui():
                 "latest_only": var_lat.get(), "full": _full}
         lbl.config(text=("ПОЛНЫЙ скан (перечитать всё)…" if _full else "скан изменённого…"))
         btn.config(state="disabled")
+        b_refull.config(state="disabled")
         b_stop.config(state="normal")
         root._plm_stop = False
         root._plm_scan_active = True          # пока скан идёт — автообновление не мешает
