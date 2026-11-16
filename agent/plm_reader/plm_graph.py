@@ -919,10 +919,10 @@ def collect_from_graph_db(media_dir=None):
             _k = _norm(_m)
             if not _k:
                 continue
-            cur = snap_meta.setdefault(_k, ["", "", ""])
-            if _des and not cur: cur = _des
-            if _nam and not cur: cur = _nam
-            if _mat and not cur: cur = _mat
+            cur = snap_meta.setdefault(_k, {"des": "", "nam": "", "mat": ""})
+            if _des and not cur["des"]: cur["des"] = str(_des)
+            if _nam and not cur["nam"]: cur["nam"] = str(_nam)
+            if _mat and not cur["mat"]: cur["mat"] = str(_mat)
     except Exception:
         pass
     try:
@@ -947,16 +947,13 @@ def collect_from_graph_db(media_dir=None):
         pass
     try:
         for _m, _vals in con.execute(
-                "SELECT model, vals FROM matrices WHERE field='outline'"):
+                "SELECT model, vals FROM matrices WHERE field='outline_mm'"):
             _k = _norm(_m)
             if _k and _vals and "Габарит (XYZ), мм" not in dims_by_model[_k]:
                 arr = json.loads(_vals)
-                if isinstance(arr, list) and len(arr) >= 6:
-                    dx = round(abs(float(arr) - float(arr)), 1)
-                    dy = round(abs(float(arr) - float(arr)), 1)
-                    dz = round(abs(float(arr) - float(arr)), 1)
-                    if 0 < max(dx, dy, dz) < 1e6:
-                        dims_by_model[_k]["Габарит (XYZ), мм"] = f"{dx}  {dy}  {dz}"
+                if isinstance(arr, list) and len(arr) == 3:
+                    dx, dy, dz = arr
+                    dims_by_model[_k]["Габарит (XYZ), мм"] = f"{dx}  {dy}  {dz}"
     except Exception:
         pass
     try:
@@ -1049,9 +1046,9 @@ def collect_from_graph_db(media_dir=None):
                         # 🔴 V153: ПАРАМЕТРЫ (`arch_dims`) · ИХ ИСТОРИЯ (`arch_dim_ch`) ·
                         # ИСТОРИЯ ФАЙЛА (`changes`) — как в `collect_by_path`; иначе пусто.
                         "dm": (lambda _base_dm, _sm: dict(
-                            [(k, v) for k, v in (("Обозначение", _sm), ("Наименование", _sm), ("Материал", _sm)) if v]
+                            [(k, v) for k, v in (("Обозначение", _sm.get("des")), ("Наименование", _sm.get("nam")), ("Материал", _sm.get("mat"))) if v]
                             + list(_base_dm.items())
-                        ))(dims_by_model.get(m) or dims_by_model.get(_nm_show) or {}, snap_meta.get(m) or ["", "", ""]),
+                        ))(dims_by_model.get(m) or dims_by_model.get(_nm_show) or {}, snap_meta.get(m) or {}),
                         "dch": (dimch_by_model.get(m) or dimch_by_model.get(_nm_show) or [])[:40],
                         "h": (hist.get(m) or hist.get(_nm_show) or [])[:40]}
             # 🔴🔴 V145 КРИТИЧНО: ключи `o`/`n` НЕ создаём! В `build_html` они означают НЕ соседей,

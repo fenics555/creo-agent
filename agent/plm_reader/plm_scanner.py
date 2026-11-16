@@ -739,6 +739,16 @@ def extract_params(raw, anchors):
     БЕЗ регекспа с откатом. Результат тот же (эталон 23/файл сохранён).
     """
     out, seen = [], set()
+    try:
+        for nm, val in (_CR.params(raw) or {}).items():
+            if not nm or nm in seen:
+                continue
+            if nm.startswith(("PRO_MP_ALT_", "PTC_FAILURE_", "PTC_FATIGUE_", "PTC_INITIAL_BEND_", "PTC_MATERIAL_SUB_TYPE")):
+                continue
+            seen.add(nm)
+            out.append((nm, _clean_creo_font(str(val)) if val else "~пусто"))
+    except Exception:
+        pass
     # 🔴 ФОРМАТ (проверено на живых файлах 04.11.2026, сравнение СТАРОГО и НОВОГО кода):
     #   <ИМЯ>\x00 \xe2\x33 (\xf7[\x1c-\x1f])? <ЗНАЧЕНИЕ> \x00
     # ВАЖНО: имя стоит ПЕРЕД тегом `\xe2\x33`, а не после — моя первая попытка
@@ -1090,6 +1100,12 @@ def extract_matrices(raw, anchors):
     """
     out = []
     _seenm = set()
+    try:
+        bbox = _CR.outline_bbox_mm(raw)
+        if bbox:
+            out.append({"field": "outline_mm", "dims":, "values": list(bbox)})
+    except Exception:
+        pass
     pos = raw.find(b"\xf9")
     while pos >= 0:
         j = pos - 1

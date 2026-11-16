@@ -1,6 +1,6 @@
 {
- "version": "V181",
- "version_num": 181,
+ "version": "V182",
+ "version_num": 182,
  "date": "16.11.2026",
  "notes": "",
  "schema_version": 4,
@@ -12,7 +12,7 @@
  ],
  "files": {
   "engine.py": "d413b795f2cf0670168f100024c2e4f3b60b02933789a8f0333aa3686898943c",
-  "plm_reader.py": "7818bc2cf51f29bbbbf9f1041c0ecdc96a393b7aa10a998776c3bfa1ef3be009",
+  "plm_reader.py": "f55e89e7116c5a22dfb957e9458aafdea935bb1f2fdb81d6da960cacc6484072",
   "plm_toolwin.py": "bc62e556ac71a999b119b8b457745ffa9c856c07158b81c9b4b244ff11bb2834",
   "plm_history.py": "e028c211022463898073cea2c03f395632029ae13448723425fae39b996e4027",
   "plm_parse.py": "c6bb33a412b6b606ad402e3eb78cd49246b77738b69d82be1b6218a1358c0312",
@@ -28,14 +28,14 @@
   "make_version_json.py": "46e61c40aa176624dcf04adf3c32d93905150c74fff9f6eae06773bef4d4fed7",
   ".gitignore": "1d8966472d122b0575a00737bd3ef9e55b732824753dcaff8464f11b44f53104",
   "AGENTS.md": "fdb656d93c9cfc1a69a7ee0f39261aaed704fa587c65c76dac1a1f369107ec92",
-  "plm_graph.py": "029ff3bd05c607d0c37276e0864095ecaa3808a6e981ddf0dd51257ec9ecb8f7",
+  "plm_graph.py": "badcd909d5871b18f4154e3e9431070558599502ecd8e75d5eef9dc92456b6aa",
   "plm_graph_page.html": "dcf6863eaac2f5a5f8426cbfa4dffeb16605b01196d8582fd5d97cd35de1d849",
   "plm_queries.py": "3fa963038b75cc5551bb7d7bbc3ced5760c03188fe77d47d393c145c390f1977",
   "plm_links.py": "698df65db4fb7571d086cb4343cb8d8391aead559caf96db4715c44e2f397ffe",
   "plm_build_links.py": "b4ee4671a1a468174b9296ba402aa79daa719ce2336b5ba7a2fc5fdb7c4a50a8",
   "plm_database.py": "a744ce6f22197129e3149b197eae07e33492f124f2a55aa75f0f2916b46b88a1",
   "plm_graph_build.py": "7e3ccf9e59e6cd98029b8dc2ec9473831169ba82b82ed2d8a3670b0f2e5be7ed",
-  "plm_scanner.py": "07788fabd9ad053002b9a5d901e28b0361f54ddb855481bdbd9b9436e11e668b",
+  "plm_scanner.py": "11e67738159528a51df567cd59c078ff414c6ce1680bd42f985547e8cb183b93",
   "STATE.md": "b9197aac54c7238a70c4383ef7384ade9e6834f2c05df094ba71a2cc7608405d",
   "CONCEPT_PLM.md": "6addb5c97847d55b261a2890e8f08a6efc4a2ca468c8d090f357b1b8c2c4ab61"
  }
