@@ -1,8 +1,8 @@
 {
- "version": "V193",
- "version_num": 193,
+ "version": "V194",
+ "version_num": 194,
  "date": "16.11.2026",
- "notes": "V193: ODNO IMYA - canon_model + audit ORPHAN_CASE/ORPHAN + normalize_case + GUI",
+ "notes": "V194: fix normalize_case apply (same-cursor bug)",
  "schema_version": 4,
  "remove": [
   "_probe_scan137.py",
@@ -12,7 +12,7 @@
  ],
  "files": {
   "engine.py": "685a314c0cac669bfccbc449c2c173951cad75597a774cfb6dbe6385d2042520",
-  "plm_reader.py": "f7ed57d14e9bc5c4ff1af708774e39053dddc09bd59ea56a88bb62cb353bf009",
+  "plm_reader.py": "02061980846fb93d8431490d175b28eabd257803174e55bd974e0b41a9688347",
   "plm_toolwin.py": "4e4f412f9c71b6b97b9e52128174e9288b043a32cce1527e98bcdb589e03b4ee",
   "plm_history.py": "e028c211022463898073cea2c03f395632029ae13448723425fae39b996e4027",
   "plm_parse.py": "c6bb33a412b6b606ad402e3eb78cd49246b77738b69d82be1b6218a1358c0312",
@@ -33,7 +33,7 @@
   "plm_queries.py": "3fa963038b75cc5551bb7d7bbc3ced5760c03188fe77d47d393c145c390f1977",
   "plm_links.py": "698df65db4fb7571d086cb4343cb8d8391aead559caf96db4715c44e2f397ffe",
   "plm_build_links.py": "2f80457d1f0304eeee38bcb20f5e032e343bd30c6f3095f038a8c95c5474126a",
-  "plm_database.py": "e64c0f6ecde1135e4c358eae5a1c6b77bcf8487b5b8fa7e89ab3cb2de2ec7cce",
+  "plm_database.py": "bc4915945594e637f5d3aa3ae50c7b1c81e7e738e8623c69877e6ca61c8155ee",
   "plm_graph_build.py": "8e3bf1729eaf23234c81b64a3ade0d77e713259a67ee42be1dadb64a5b372429",
   "plm_scanner.py": "8ac13395647dbdf48a7dd0748e6a22ca7f99dcb8283d33ca30862066861f3c79",
   "plm_db_admin_win.py": "066c4a70b50d2924dca2fe2b481ed41b0e5dc0a9821fbc85a7ec447fb1ed0feb",

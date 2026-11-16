@@ -1849,8 +1849,13 @@ def normalize_case(db_path=None, dry_run=True, quiet=False):
     changed = 0
     for x in plan:
         t, c = x["table"], x["column"]
-        for (v,) in cur.execute('SELECT DISTINCT "%s" FROM "%s" WHERE "%s" IS NOT NULL AND "%s" != ""'
-                                % (c, t, c, c)):
+        # 🔴 FIX: список значений ОБЯЗАН быть материализован ДО UPDATE — иначе `UPDATE` на том же
+        # курсоре сбрасывает итератор DISTINCT, и цикл обрывается (баг: «к переводу 865 039 /
+        # переведено 36»).
+        vals = [r[0] for r in cur.execute(
+            'SELECT DISTINCT "%s" FROM "%s" WHERE "%s" IS NOT NULL AND "%s" != ""'
+            % (c, t, c, c)).fetchall()]
+        for v in vals:
             nv = _CR.canon_model(v)
             if not nv or nv == v:
                 continue
