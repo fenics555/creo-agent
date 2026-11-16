@@ -1742,6 +1742,33 @@ def write_item(con, path, boxes):
         n += 1
 
     # --- МАТРИЦЫ / ГАБАРИТЫ (§181) ---
+    # --- ПАРАМЕТРЫ (params) ---
+    con.execute("DELETE FROM params WHERE path=?", (path,))
+    for _pn, _pv in boxes.get("params") or []:
+        if _pv and _pv != "~пусто" and not any(ord(ch) < 32 for ch in str(_pv)):
+            con.execute("INSERT INTO params(path,model,name,type,value) VALUES (?,?,?,?,?)",
+                        (path, m, _pn, "str", str(_pv)))
+            n += 1
+
+    # --- СВЯЗИ ДЛЯ ГРАФА (links: asm_comp + dwg со снятием расширения через _CR.stem) ---
+    _lk = boxes.get("links") or {}
+    if pp["ext"] == "asm" and (_lk.get("components") or []):
+        con.execute("DELETE FROM links WHERE parent=? AND source='asm_comp'", (m,))
+        for _c in _lk.get("components") or []:
+            _cn = _CR.stem(_c.get("name") or "")
+            if _cn and _cn != m:
+                con.execute("INSERT INTO links(parent,child,qty,source,kind) VALUES (?,?,?,?,?)",
+                            (m, _cn, int(_c.get("count") or 1), "asm_comp", "состав"))
+                n += 1
+    if pp["ext"] == "drw" and (_lk.get("model_names") or []):
+        con.execute("DELETE FROM links WHERE parent=? AND source='dwg'", (m,))
+        for _dn in _lk.get("model_names") or []:
+            _dc = _CR.stem(_dn or "")
+            if _dc and _dc != m:
+                con.execute("INSERT INTO links(parent,child,qty,source,kind) VALUES (?,?,?,?,?)",
+                            (m, _dc, 1, "dwg", "чертёж"))
+                n += 1
+
     import json as _json
     for mx in boxes.get("matrices") or []:
         con.execute("INSERT INTO matrices(path,model,field,dims,vals) VALUES (?,?,?,?,?)",
