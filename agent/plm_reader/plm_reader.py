@@ -41,7 +41,7 @@ if __name__ == "__main__":
     import sys as _sys
     _sys.modules.setdefault("plm_reader", _sys.modules["__main__"])
 
-APP_VERSION = "V195"      # 🔴 V194: ФИКС `normalize_case` — применение выравнивания регистра.
+APP_VERSION = "V196"      # 🔴 V196: канон имён в каналах engine.do_scan + регресс-тест записи
                           #        БАГ (живой прогон владельца 16.11.2026): «к переводу 865 039 строк,
                           #        переведено 36». ПРИЧИНА: `UPDATE` выполнялся на ТОМ ЖЕ курсоре, что
                           #        итерировал `SELECT DISTINCT` ⇒ итератор сбрасывался и цикл обрывался.

@@ -2866,11 +2866,14 @@ def do_scan(roots, max_mb, limit, depth=None, progress_cb=None, stop_cb=None, fu
         is_asm = ".asm" in path.lower()
         if is_asm:
             for child, qty in it["refs"].items():
-                if (s, child) in seen:
+                _cc = _CR.canon_model(child)      # V196: канон имени ребёнка
+                if not _cc or _cc == _CR.canon_model(s):
+                    continue                      # обрывок/само-связь не пишем
+                if (s, _cc) in seen:
                     continue
-                seen.add((s, child))
+                seen.add((s, _cc))
                 con.execute("INSERT INTO links (parent,child,qty,source,kind) VALUES (?,?,?,?,?)",
-                            (s, child, qty, "plm_tree", "состав"))
+                            (s, _cc, qty, "plm_tree", "состав"))
         else:
             # деталь/чертёж: вхождение имени — не состав. Пишем отдельным источником `mentions`,
             # чтобы данные НЕ терялись (видно в SQL), но в состав/граф по умолчанию не попадали.
@@ -2886,11 +2889,14 @@ def do_scan(roots, max_mb, limit, depth=None, progress_cb=None, stop_cb=None, fu
             for child, qty in (it["refs"].items() if _wment else ()):
                 if str(child).upper() in _NOT_PARENTS:
                     continue
-                if (s, child) in seen:
+                _cc = _CR.canon_model(child)      # V196: канон имени ребёнка
+                if not _cc or _cc == _CR.canon_model(s):
                     continue
-                seen.add((s, child))
+                if (s, _cc) in seen:
+                    continue
+                seen.add((s, _cc))
                 con.execute("INSERT INTO links (parent,child,qty,source,kind) VALUES (?,?,?,?,?)",
-                            (s, child, qty, "mentions", "упоминание"))
+                            (s, _cc, qty, "mentions", "упоминание"))
         # СВЯЗИ ИЗ СТРУКТУРЫ ФАЙЛА (эта сессия): состав .asm и модели .asm-обработки. Идут своим
         # источником `asm_comp`, а «имя по вхождению» остаётся как было (`plm_tree`) — их видно
         # отдельно в SQL, поэтому связь можно ПРОВЕРИТЬ, а не верить ей (грабля «приёмка по строкам»).
@@ -2898,8 +2904,11 @@ def do_scan(roots, max_mb, limit, depth=None, progress_cb=None, stop_cb=None, fu
         if parts:
             con.execute("DELETE FROM links WHERE parent=? AND source='asm_comp'", (s,))
             for child, _role, qty in parts:
+                _cc = _CR.canon_model(child)      # V196: канон имени ребёнка
+                if not _cc or _cc == _CR.canon_model(s):
+                    continue
                 con.execute("INSERT INTO links (parent,child,qty,source,kind) VALUES (?,?,?,?,?)",
-                            (s, child, qty or 1, "asm_comp", _role or "состав"))
+                            (s, _cc, qty or 1, "asm_comp", _role or "состав"))
         # 🔴🔴 04.11.2026 (спека владельца): ЧЕРТЁЖ → МОДЕЛЬ и МАНУФАКТУРИНГ → ИЗДЕЛИЕ.
         # Каналы ЧИТАЮТСЯ сканером (`_boxes["links"]["model_names"]` и `["ref_models"]`),
         # а в `links` НЕ писались — потому в базе не было ни пары `drw`.
@@ -2911,13 +2920,19 @@ def do_scan(roots, max_mb, limit, depth=None, progress_cb=None, stop_cb=None, fu
         if _dwg or _mfg:
             con.execute("DELETE FROM links WHERE parent=? AND source IN ('dwg','mfg')", (s,))
             for _ch in _dwg:
+                _cc = _CR.canon_model(_ch)        # V196: канон (снять .PRT/.ASM, обрывки)
+                if not _cc or _cc == _CR.canon_model(s):
+                    continue
                 con.execute(
                     "INSERT INTO links (parent,child,qty,source,kind) VALUES (?,?,?,?,?)",
-                    (s, _ch, 1, "dwg", "чертёж"))
+                    (s, _cc, 1, "dwg", "чертёж"))
             for _ch in _mfg:
+                _cc = _CR.canon_model(_ch)
+                if not _cc or _cc == _CR.canon_model(s):
+                    continue
                 con.execute(
                     "INSERT INTO links (parent,child,qty,source,kind) VALUES (?,?,?,?,?)",
-                    (s, _ch, 1, "mfg", "мануфактуринг"))
+                    (s, _cc, 1, "mfg", "мануфактуринг"))
         # ── V125: ВСЕ ПАРАМЕТРЫ МОДЕЛИ (имя + тип + значение) и ТАБЛИЦА СЕМЕЙСТВА ─────────────
         # Владелец: «хранить как все параметры детали, так и все параметры исполнения, тогда
         # связи будут реальные и выводиться будут без плясок». Пишем по ПУТИ файла (как snapshots).

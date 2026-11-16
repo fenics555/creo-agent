@@ -21,4 +21,8 @@
 # Подробности: README.md (шапка «ПРАВИЛО ДИСКОВ»), D:\AI\repo\Powershell\SKILL_plm_reader_sync.md.
 #
 # Инцидент 14.10.2026: V88 уехала на шару ручным запуском sync_to_share «по регламенту»
-# из эстафеты - владелец это запретил; регламент и скилл исправлены.
+# 7. РЕЛИЗНЫЙ ЧЕКЛИСТ (V196, обязателен): py_compile -> selftest -> make_version_json --verify
+#    -> ТЕСТЫ (tests/test_v195_names.py, tests/test_links_channels.py) -> APP_VERSION -> make_version_json
+#    -> адресный git add/commit/push. БЕЗ зелёных тестов версию НЕ выкатывать.
+#    (Инцидент V195: версия ушла на шару без сквозной проверки ЗАПИСИ — так нельзя.)
+

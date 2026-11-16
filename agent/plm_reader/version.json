@@ -1,8 +1,8 @@
 {
- "version": "V195",
- "version_num": 195,
+ "version": "V196",
+ "version_num": 196,
  "date": "16.11.2026",
- "notes": "V195: stem() strips .XPR/.TPH/.CRC/.IDX/.STK/.DSN/.MRD/.PDF/.FRM/.LAY (xpr key == snapshots) ; build_links self-guard ; graph_edges dedup",
+ "notes": "V196: canon of child names in engine.do_scan channels (plm_tree/mentions/asm_comp/dwg/mfg) + self-guard; drop PLAN_ONE_SCANNER; release gate tests",
  "schema_version": 4,
  "remove": [
   "_probe_scan137.py",
@@ -11,8 +11,8 @@
   "scanner_write.py"
  ],
  "files": {
-  "engine.py": "685a314c0cac669bfccbc449c2c173951cad75597a774cfb6dbe6385d2042520",
-  "plm_reader.py": "a73b41c026a623ba5afdd89dbad6bb6d9872532682da444eccb24affd918cf9d",
+  "engine.py": "7e392e218c2b663be4fb7fb78b7ccfa2757f9b516efccd91531e62334af219db",
+  "plm_reader.py": "05384db2448d433e6b017374cdce261b1156956e233b07b3293bad37cfe7f6cb",
   "plm_toolwin.py": "4e4f412f9c71b6b97b9e52128174e9288b043a32cce1527e98bcdb589e03b4ee",
   "plm_history.py": "e028c211022463898073cea2c03f395632029ae13448723425fae39b996e4027",
   "plm_parse.py": "c6bb33a412b6b606ad402e3eb78cd49246b77738b69d82be1b6218a1358c0312",
@@ -25,9 +25,9 @@
   "SHARE_copy.bat": "4eccb549a17251392337aeabbc3ef76233dfa3072beadff9d158cd6e932622ee",
   "plm_reader.bat": "bdd125397db3ac7e7432dbdb078a6a811ed4913fca02b062edb27907032fca3d",
   "plm_reader_gui.bat": "9f695898d5db6431e840784b9587c75304ca9e526b06f79d4b44ab026663bd20",
-  "make_version_json.py": "0f8d284596e009534686018a971e093c901137def9f5350594627e750f251390",
+  "make_version_json.py": "b13b83245c0f9a9f745e5bf2646b0d829785790d230120d22c7cfe17ffafc7da",
   ".gitignore": "1d8966472d122b0575a00737bd3ef9e55b732824753dcaff8464f11b44f53104",
-  "AGENTS.md": "fdb656d93c9cfc1a69a7ee0f39261aaed704fa587c65c76dac1a1f369107ec92",
+  "AGENTS.md": "70317f19e9ffcb7b726665aba960e40fbf8481f3d698506b3c38ee6e6b687b89",
   "plm_graph.py": "badcd909d5871b18f4154e3e9431070558599502ecd8e75d5eef9dc92456b6aa",
   "plm_graph_page.html": "dcf6863eaac2f5a5f8426cbfa4dffeb16605b01196d8582fd5d97cd35de1d849",
   "plm_queries.py": "3fa963038b75cc5551bb7d7bbc3ced5760c03188fe77d47d393c145c390f1977",
@@ -37,7 +37,7 @@
   "plm_graph_build.py": "ee9b622433494ee865ee1e451aa5f8464829b599a7c3936a6e0fe9af81e5d6d5",
   "plm_scanner.py": "8ac13395647dbdf48a7dd0748e6a22ca7f99dcb8283d33ca30862066861f3c79",
   "plm_db_admin_win.py": "066c4a70b50d2924dca2fe2b481ed41b0e5dc0a9821fbc85a7ec447fb1ed0feb",
-  "STATE.md": "009cb4311473dc3b0e6ead6d6747ee4be7e41aebe177e44f1741c9e8802327fa",
+  "STATE.md": "870d1ae96605c77f6cba17880cd5dc3d129278e9986afe6586cc1f8774f95c04",
   "CONCEPT_PLM.md": "6addb5c97847d55b261a2890e8f08a6efc4a2ca468c8d090f357b1b8c2c4ab61"
  }
 }
