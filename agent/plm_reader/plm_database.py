@@ -34,6 +34,7 @@ plm_database.py — DATABASE: обслуживание базы ПЛМ (влад
     🔴 Данные (заполнение новых колонок) — ОТДЕЛЬНЫМ проходом (сканер), не в миграции.
 """
 import datetime
+import json
 import os
 import shutil
 import sqlite3
@@ -94,6 +95,56 @@ LINK_COLS = {"model", "path", "item", "instance", "parent", "child", "base", "fr
 # Путь к конфигурации tbls для генерации документации
 TBL_CONFIG_PATH = os.path.join(os.path.dirname(HERE), "..", "..", "repo", "Creo", "PLM", "db_schema", ".tbls.yml")
 TBL_CONFIG_PATH = os.path.abspath(TBL_CONFIG_PATH)
+
+# ════════════════════════════════════════════════════════════════════════════════
+# Г. Защита от сетевых блокировок (connect_safe): timeout + retry, journal_mode=DELETE
+# ════════════════════════════════════════════════════════════════════════════════
+def connect_safe(p, timeout=30, retries=5):
+    """Подключение к SQLite с таймаутом и повторами при 'database is locked'.
+
+    Для совместимости с сетевой шарой SMB используем journal_mode=DELETE (без WAL).
+    """
+    last_err = None
+    for i in range(retries):
+        try:
+            con = sqlite3.connect(p, timeout=timeout)
+            # journal_mode=DELETE — безопаснее на SMB, чем WAL
+            try:
+                con.execute("PRAGMA journal_mode=DELETE").fetchone()
+            except sqlite3.Error:
+                pass
+            return con
+        except sqlite3.OperationalError as e:
+            last_err = e
+            msg = str(e).lower()
+            if "database is locked" in msg or "locked" in msg:
+                time.sleep(0.5 * (i + 1))
+                continue
+            raise
+    raise last_err
+
+
+# ════════════════════════════════════════════════════════════════════════════════
+# Д. Снимок схемы перед миграцией (schema_snapshot): DDL -> JSON рядом с БД
+# ════════════════════════════════════════════════════════════════════════════════
+def schema_snapshot(db_path=None):
+    """Сохранить DDL всех объектов из sqlite_master в JSON рядом с базой."""
+    p = db_path or _live_db()
+    if not p or not os.path.isfile(p):
+        print("база не найдена:", p)
+        return None
+    con = sqlite3.connect(p)
+    cur = con.cursor()
+    cur.execute("SELECT type, name, sql FROM sqlite_master WHERE sql IS NOT NULL")
+    snapshot = {}
+    for typ, name, sql in cur.fetchall():
+        snapshot.setdefault(typ, []).append({"name": name, "sql": sql})
+    con.close()
+    snap_path = p + ".schema_snapshot.json"
+    with open(snap_path, "w", encoding="utf-8") as f:
+        json.dump(snapshot, f, ensure_ascii=False, indent=2)
+    print("снимок схемы:", snap_path)
+    return snap_path
 
 
 def _has_col(cur, table, col):
@@ -479,14 +530,252 @@ def _indexes_on(cur, table):
     return idx_cols
 
 
-def check(db=None, full=False):
-    """Проверка целостности: PRAGMA integrity_check + индексы + diff схемы.
+def _qcol(name):
+    """Экранировать имя колонки в двойные кавычки (для reserved words: from, to)."""
+    return '"%s"' % name
 
-    Если full=True — сверяет живые колонки с эталоном SCHEMA
-    и проверяет наличие индексов на связующих колонках.
+
+def _check_orphan_references(cur, warnings):
+    """Подсчёт висячих ссылок: ключи в дочерних таблицах, которых нет в родительской."""
+    pairs = [
+        ("params", "model", "snapshots", "model"),
+        ("params", "path", "snapshots", "path"),
+        ("bodies", "model", "snapshots", "model"),
+        ("bodies", "path", "snapshots", "path"),
+        ("materials", "model", "snapshots", "model"),
+        ("materials", "path", "snapshots", "path"),
+        ("master_mat", "model", "snapshots", "model"),
+        ("master_mat", "path", "snapshots", "path"),
+        ("matrices", "model", "snapshots", "model"),
+        ("matrices", "path", "snapshots", "path"),
+        ("components", "model", "snapshots", "model"),
+        ("components", "path", "snapshots", "path"),
+        ("drawing", "model", "snapshots", "model"),
+        ("drawing", "path", "snapshots", "path"),
+        ("features", "model", "snapshots", "model"),
+        ("features", "path", "snapshots", "path"),
+        ("dimensions", "model", "snapshots", "model"),
+        ("dimensions", "path", "snapshots", "path"),
+        ("dim_all", "model", "snapshots", "model"),
+        ("dim_all", "path", "snapshots", "path"),
+        ("equations", "model", "snapshots", "model"),
+        ("equations", "path", "snapshots", "path"),
+        ("health", "model", "snapshots", "model"),
+        ("health", "path", "snapshots", "path"),
+        ("history", "model", "snapshots", "model"),
+        ("history", "path", "snapshots", "path"),
+        ("arch_dims", "model", "snapshots", "model"),
+        ("arch_dim_ch", "model", "snapshots", "model"),
+        ("graph_nodes", "model", "snapshots", "model"),
+        ("graph_nodes", "path", "snapshots", "path"),
+        ("changes", "item", "snapshots", "model"),
+        ("family", "instance", "snapshots", "model"),
+        ("links", "parent", "snapshots", "model"),
+        ("links", "child", "snapshots", "model"),
+        ("derived", "base", "snapshots", "model"),
+        ("derived", "child", "snapshots", "model"),
+        ("graph_edges", "from", "graph_nodes", "model"),
+        ("graph_edges", "to", "graph_nodes", "model"),
+    ]
+    for child_t, child_c, parent_t, parent_c in pairs:
+        if not _has_table(cur, child_t) or not _has_table(cur, parent_t):
+            continue
+        try:
+            n = cur.execute(
+                'SELECT COUNT(*) FROM [%s] WHERE %s IS NOT NULL AND %s != "" '
+                'AND %s NOT IN (SELECT %s FROM [%s])'
+                % (child_t, _qcol(child_c), _qcol(child_c), _qcol(child_c), _qcol(parent_c), parent_t)
+            ).fetchone()[0]
+        except sqlite3.Error:
+            continue
+        if n:
+            warnings.append(
+                "орфанные ссылки: %s.%s -> %s.%s (%d строк без родителя)"
+                % (child_t, child_c, parent_t, parent_c, n)
+            )
+
+
+def _check_duplicate_links(cur, warnings):
+    """Поиск дублей связей и само-связей в links / graph_edges."""
+    if _has_table(cur, "links"):
+        try:
+            dups = cur.execute(
+                'SELECT parent, child, COUNT(*) FROM links GROUP BY parent, child HAVING COUNT(*) > 1'
+            ).fetchall()
+            if dups:
+                warnings.append("дубли в links: %d пар (parent, child) повторяются" % len(dups))
+        except sqlite3.Error:
+            pass
+        try:
+            self_links = cur.execute(
+                "SELECT COUNT(*) FROM links WHERE lower(parent) = lower(child)"
+            ).fetchone()[0]
+            if self_links:
+                warnings.append("само-связи в links: %d строк (parent == child)" % self_links)
+        except sqlite3.Error:
+            pass
+    if _has_table(cur, "graph_edges"):
+        try:
+            dups = cur.execute(
+                'SELECT "from", "to", COUNT(*) FROM graph_edges GROUP BY "from", "to" HAVING COUNT(*) > 1'
+            ).fetchall()
+            if dups:
+                warnings.append("дубли в graph_edges: %d пар (from, to) повторяются" % len(dups))
+        except sqlite3.Error:
+            pass
+        try:
+            self_links = cur.execute(
+                'SELECT COUNT(*) FROM graph_edges WHERE "from" = "to"'
+            ).fetchone()[0]
+            if self_links:
+                warnings.append("само-связи в graph_edges: %d строк (from == to)" % self_links)
+        except sqlite3.Error:
+            pass
+
+
+def _check_empty_keys(cur, warnings):
+    """Поиск пустых ключевых колонок (model, path) в таблицах-ссылках."""
+    for t in ("snapshots", "params", "bodies", "materials", "master_mat", "matrices",
+              "components", "drawing", "features", "dimensions", "dim_all", "equations",
+              "health", "history", "graph_nodes"):
+        if not _has_table(cur, t):
+            continue
+        for col in ("model", "path"):
+            try:
+                n = cur.execute(
+                    'SELECT COUNT(*) FROM [%s] WHERE %s IS NULL OR %s = ""'
+                    % (t, _qcol(col), _qcol(col))
+                ).fetchone()[0]
+            except sqlite3.Error:
+                continue
+            if n:
+                warnings.append("пустые ключи: %s.%s = NULL/'' (%d строк)" % (t, col, n))
+
+
+# ════════════════════════════════════════════════════════════════════════════════
+# В. Оценка фрагментации (recommend_vacuum): freelist_count / page_count > 30%
+# ════════════════════════════════════════════════════════════════════════════════
+def recommend_vacuum(db=None):
+    """Предупреждение, если доля пустых страниц > 30%."""
+    p = _arg_db(db)
+    if not p or not os.path.isfile(p):
+        return
+    con = sqlite3.connect(p)
+    cur = con.cursor()
+    try:
+        free = cur.execute("PRAGMA freelist_count").fetchone()[0]
+        page_size = cur.execute("PRAGMA page_size").fetchone()[0]
+        page_count = cur.execute("PRAGMA page_count").fetchone()[0]
+    except sqlite3.Error:
+        con.close()
+        return
+    con.close()
+    if page_count == 0:
+        return
+    pct = free * 100.0 / page_count
+    if pct > 30:
+        free_mb = free * page_size / 1024 / 1024
+        total_mb = page_count * page_size / 1024 / 1024
+        print("[*] РЕКОМЕНДАЦИЯ VACUUM: пустых страниц %.1f%% (%.1f МБ из %.1f МБ)"
+              % (pct, free_mb, total_mb))
+
+
+# ════════════════════════════════════════════════════════════════════════════════
+# Б. Автоиндексация (ensure_indexes): CREATE INDEX IF NOT EXISTS на LINK_COLS
+# ════════════════════════════════════════════════════════════════════════════════
+def ensure_indexes(db=None):
+    """Создать индексы на всех связующих колонках (LINK_COLS), где их нет."""
+    p = _arg_db(db)
+    if not p or not os.path.isfile(p):
+        print("база не найдена:", p)
+        return
+    con = sqlite3.connect(p)
+    cur = con.cursor()
+    created = 0
+    for t in SCHEMA:
+        if not _has_table(cur, t):
+            continue
+        live_cols = [c[1] for c in cur.execute("PRAGMA table_info(%s)" % t)]
+        idx_cols = _indexes_on(cur, t)
+        for col in live_cols:
+            if col in LINK_COLS and col not in idx_cols:
+                idx_name = "idx_%s_%s" % (t, col)
+                try:
+                    cur.execute(
+                        'CREATE INDEX IF NOT EXISTS "%s" ON "%s"("%s")' % (idx_name, t, col)
+                    )
+                    created += 1
+                except sqlite3.Error:
+                    pass
+    con.commit()
+    con.close()
+    print("создано индексов: %d" % created)
+
+
+# ════════════════════════════════════════════════════════════════════════════════
+# Ж. Кэш проверки схемы (TTL 5 мин): .plm_check_cache.json рядом с БД
+# ════════════════════════════════════════════════════════════════════════════════
+CHECK_CACHE_TTL = 300  # 5 минут
+
+
+def _check_cache_path(db_path):
+    return db_path + ".plm_check_cache.json"
+
+
+def _load_check_cache(db_path):
+    cp = _check_cache_path(db_path)
+    if not os.path.isfile(cp):
+        return None
+    try:
+        with open(cp, "r", encoding="utf-8") as f:
+            data = json.load(f)
+        db_mtime = os.path.getmtime(db_path)
+        v_db = schema_version(db_path)
+        if (data.get("db_mtime") == db_mtime
+                and data.get("schema_version") == v_db):
+            age = time.time() - data.get("ts", 0)
+            if age < CHECK_CACHE_TTL:
+                return data
+    except Exception:
+        pass
+    return None
+
+
+def _save_check_cache(db_path, data):
+    cp = _check_cache_path(db_path)
+    data["ts"] = time.time()
+    try:
+        data["db_mtime"] = os.path.getmtime(db_path)
+    except OSError:
+        data["db_mtime"] = None
+    data["schema_version"] = schema_version(db_path)
+    data["ttl"] = CHECK_CACHE_TTL
+    with open(cp, "w", encoding="utf-8") as f:
+        json.dump(data, f, ensure_ascii=False, indent=2)
+def check(db=None, full=False, use_cache=True):
+    """Проверка целостности: PRAGMA integrity_check + индексы + diff схемы + аудит данных.
+
+    Если full=True — сверяет живые колонки с эталоном SCHEMA,
+    проверяет индексы на связующих колонках, запускает аудит данных
+    (орфанные ссылки, дубли, само-связи, пустые ключи) и recommend_vacuum.
+    Кэшируется в .plm_check_cache.json (TTL 5 мин), если use_cache=True.
     """
     p = db or _live_db()
-    con = sqlite3.connect(p)
+    if use_cache:
+        cached = _load_check_cache(p)
+        if cached is not None:
+            print("[cache] результат проверки из кэша (TTL %d с):" % CHECK_CACHE_TTL)
+            if cached.get("errors"):
+                for e in cached["errors"]:
+                    print("  [!] ОШИБКА:", e)
+            if cached.get("warnings"):
+                for w in cached["warnings"]:
+                    print("  [*] предупреждение:", w)
+            if not cached.get("errors") and not cached.get("warnings"):
+                print("проверка пройдена — замечаний нет")
+            return cached.get("ok", False)
+
+    con = connect_safe(p)
     cur = con.cursor()
     r = con.execute("PRAGMA integrity_check").fetchone()[0]
     print("integrity_check:", r)
@@ -495,6 +784,7 @@ def check(db=None, full=False):
     warnings = []
 
     if full:
+        # ── 1. Индексы на связующих колонках ──
         for t in SCHEMA:
             if not _has_table(cur, t):
                 continue
@@ -507,6 +797,7 @@ def check(db=None, full=False):
                     % (t, missing_idx)
                 )
 
+        # ── 2. Diff живой схемы с эталоном SCHEMA ──
         for t, expected_cols in SCHEMA.items():
             if not _has_table(cur, t):
                 warnings.append("таблица %s отсутствует в базе" % t)
@@ -519,13 +810,27 @@ def check(db=None, full=False):
             if extra:
                 warnings.append("таблица %s: лишние колонки %s" % (t, extra))
 
+        # ── 3. Версия схемы ──
         v_db = schema_version(p)
         if v_db != SCHEMA_VERSION:
             warnings.append(
                 "версия схемы БД (%d) != версии кода (%d)" % (v_db, SCHEMA_VERSION)
             )
 
+        # ── А. Аудит целостности данных ──
+        _check_orphan_references(cur, warnings)
+        _check_duplicate_links(cur, warnings)
+        _check_empty_keys(cur, warnings)
+
     con.close()
+
+    # ── В. Оценка фрагментации ──
+    if full:
+        recommend_vacuum(p)
+
+    result = {"ok": ok, "errors": errors, "warnings": warnings}
+    if use_cache:
+        _save_check_cache(p, result)
 
     if errors:
         print("[!] ОШИБКИ СХЕМЫ:")
