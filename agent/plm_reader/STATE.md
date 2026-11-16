@@ -1,7 +1,24 @@
 # STATE — ЖИВОЕ СОСТОЯНИЕ PLM READER (обновлять при КАЖДОМ шаге)
 
 > Правило: «Сессия смертна. Всё, что не в файле — потеряно».
-> **Обновлено:** 16.11.2026 · **V200** · ТЕМА: ОДНО ИМЯ (единый канон имён + регистр-аудит + normalизация)
+> **Обновлено:** 16.11.2026 · **V201** · ТЕМА: ОДНО ИМЯ (единый канон имён + регистр-аудит + normalизация)
+
+## ✅ V201 (16.11.2026): распил, этап 1-бис — парсеры Creo вынесены
+
+```
+ИСПРАВЛЕНО (V201):
+  • РАСПИЛ, этап 1-бис: парсеры Creo вынесены из engine.py в новый `plm_creo_parse.py`
+    (`creo_params`, `family_of`, `creo_history`, `creo_mass_props`, `creo_dimensions`,
+     `creo_features`, `creo_equations`, `creo_materials`, `creo_health`, `_creo_clean`,
+     `_e32_decode`, `_feattype_dict`, константы `CREO_TYPES`/`CREO_VAL_TAG`/`_RX_*`).
+     Логика НЕ менялась; в engine — обратный импорт. Замер: engine.py 4402 -> 4002 строк.
+  • ГРАБЛЯ, найденная тестом: `_RX_HIST_FULL` (остался в engine) использует `_CREO_PC_MARK`
+     ВЫШЕ строки импорта -> NameError. Импорт перенесён в НАЧАЛО файла (после `import creo_read`).
+  • APP_VERSION = V201; новый модуль в CODE_FILES.
+ТЕСТЫ: + tests/test_creo_parse_split.py (реэкспорт имён + вызовы).
+ОСТАЛОСЬ (владелец, GUI на Z:): перескан -> repair --apply -> перестроить граф -> journal_mode=DELETE -> чистка db\backup.
+```
+
 
 ## ✅ V200 (16.11.2026): распил, этап 1 — парсеры сборки вынесены
 

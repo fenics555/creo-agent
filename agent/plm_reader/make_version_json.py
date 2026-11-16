@@ -16,6 +16,7 @@ HERE = os.path.dirname(os.path.abspath(__file__))
 
 # Что входит в поставку (файлы кода). Всё, чего нет в манифесте, при обновлении уедет в obsolete\.
 CODE_FILES = [
+    "plm_creo_parse.py",                          # V201: парсеры Creo (вынесены из engine.py)
     "plm_schema.py",                             # V199: DDL-схема (вынесена из engine.py)
     "plm_asm_parse.py",                          # V200: парсер состава сборки (вынесен из engine.py)
     "plm_schema.py",                             # V199: DDL-схема (вынесена из engine.py)
