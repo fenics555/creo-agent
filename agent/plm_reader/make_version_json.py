@@ -122,5 +122,34 @@ def main():
           % (ver, num, manifest["schema_version"], len(manifest["remove"]), len(files), out))
 
 
+def verify(manifest_path=None):
+    """V190: САМОПРОВЕРКА манифеста — сверить version.json с файлами на диске.
+
+    Зачем: релиз V189 сломался ровно на этом — манифест пересобрали ДО правки файла,
+    и у клиента «SHA-256 несовпадение: ['STATE.md']». Проверка ловит такое сразу.
+    Возвращает список расхождений (пусто = всё сходится).
+    """
+    path = manifest_path or os.path.join(HERE, "version.json")
+    if not os.path.isfile(path):
+        print("verify: манифеста нет:", path)
+        return ["<нет version.json>"]
+    with open(path, encoding="utf-8") as f:
+        man = json.load(f)
+    bad = []
+    for name, h in (man.get("files") or {}).items():
+        p = os.path.join(HERE, name)
+        if not os.path.isfile(p):
+            bad.append(name + " (нет файла)")
+        elif sha256(p) != h:
+            bad.append(name)
+    if bad:
+        print("verify: РАСХОЖДЕНИЯ (%d): %s" % (len(bad), ", ".join(bad)))
+    else:
+        print("verify: манифест совпадает с диском (%d файлов)" % len(man.get("files") or {}))
+    return bad
+
+
 if __name__ == "__main__":
+    if "--verify" in sys.argv:
+        sys.exit(1 if verify() else 0)
     main()

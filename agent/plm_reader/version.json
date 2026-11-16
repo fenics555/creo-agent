@@ -1,8 +1,8 @@
 {
- "version": "V189",
- "version_num": 189,
+ "version": "V190",
+ "version_num": 190,
  "date": "16.11.2026",
- "notes": "V189: графическое окно обслуживания/аудита БД (plm_db_admin_win) + кнопка «Аудит / БД…» в панели инструментов",
+ "notes": "V190: исправлен манифест обновления (SHA STATE.md) + самопроверка make_version_json.py --verify",
  "schema_version": 4,
  "remove": [
   "_probe_scan137.py",
@@ -12,7 +12,7 @@
  ],
  "files": {
   "engine.py": "987c546c1e2902750a54bfc466157a8471bf5b09d51b908a9b5fb5da0c3d8a41",
-  "plm_reader.py": "16d812c99a942e7f71d4907f49ce17fbf6d3881b0a41027da224f4b3ee1dcbd9",
+  "plm_reader.py": "039f0745c4801be870573830863caf543f5bf0872b2e7879bb5ea158f2abdf64",
   "plm_toolwin.py": "4e4f412f9c71b6b97b9e52128174e9288b043a32cce1527e98bcdb589e03b4ee",
   "plm_history.py": "e028c211022463898073cea2c03f395632029ae13448723425fae39b996e4027",
   "plm_parse.py": "c6bb33a412b6b606ad402e3eb78cd49246b77738b69d82be1b6218a1358c0312",
@@ -25,7 +25,7 @@
   "SHARE_copy.bat": "4eccb549a17251392337aeabbc3ef76233dfa3072beadff9d158cd6e932622ee",
   "plm_reader.bat": "bdd125397db3ac7e7432dbdb078a6a811ed4913fca02b062edb27907032fca3d",
   "plm_reader_gui.bat": "9f695898d5db6431e840784b9587c75304ca9e526b06f79d4b44ab026663bd20",
-  "make_version_json.py": "3fb97d78494d27fd841565d7a6b7fb100ca77bebb837fe52b1e80b410c06a31c",
+  "make_version_json.py": "0f8d284596e009534686018a971e093c901137def9f5350594627e750f251390",
   ".gitignore": "1d8966472d122b0575a00737bd3ef9e55b732824753dcaff8464f11b44f53104",
   "AGENTS.md": "fdb656d93c9cfc1a69a7ee0f39261aaed704fa587c65c76dac1a1f369107ec92",
   "plm_graph.py": "badcd909d5871b18f4154e3e9431070558599502ecd8e75d5eef9dc92456b6aa",
@@ -37,7 +37,7 @@
   "plm_graph_build.py": "cf2ffe41b90bcdc4fce49185dc8b3edcceae5b64c8f33052c01fce91ba27fcce",
   "plm_scanner.py": "67c8f9204e371a7e11fa3b6739efada1d416f7647e63bb5afc87ec3c5fa775bf",
   "plm_db_admin_win.py": "064322d518df1814fd2b9737826c0dd41a8f88cda7e77322270a2b3cfc647053",
-  "STATE.md": "4f164ba38da9d79067408a232fae474a4dd8f804df104bd7284c07bc3b3c826b",
+  "STATE.md": "a4678377f0d7259dff40006dc088a03e4c8eb883e6243bf2ba2f27a5a1e75ebe",
   "CONCEPT_PLM.md": "6addb5c97847d55b261a2890e8f08a6efc4a2ca468c8d090f357b1b8c2c4ab61"
  }
 }
