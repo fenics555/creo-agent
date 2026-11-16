@@ -1,8 +1,8 @@
 {
- "version": "V194",
- "version_num": 194,
+ "version": "V195",
+ "version_num": 195,
  "date": "16.11.2026",
- "notes": "V194: fix normalize_case apply (same-cursor bug)",
+ "notes": "V195: stem() strips .XPR/.TPH/.CRC/.IDX/.STK/.DSN/.MRD/.PDF/.FRM/.LAY (xpr key == snapshots) ; build_links self-guard ; graph_edges dedup",
  "schema_version": 4,
  "remove": [
   "_probe_scan137.py",
@@ -12,7 +12,7 @@
  ],
  "files": {
   "engine.py": "685a314c0cac669bfccbc449c2c173951cad75597a774cfb6dbe6385d2042520",
-  "plm_reader.py": "02061980846fb93d8431490d175b28eabd257803174e55bd974e0b41a9688347",
+  "plm_reader.py": "a73b41c026a623ba5afdd89dbad6bb6d9872532682da444eccb24affd918cf9d",
   "plm_toolwin.py": "4e4f412f9c71b6b97b9e52128174e9288b043a32cce1527e98bcdb589e03b4ee",
   "plm_history.py": "e028c211022463898073cea2c03f395632029ae13448723425fae39b996e4027",
   "plm_parse.py": "c6bb33a412b6b606ad402e3eb78cd49246b77738b69d82be1b6218a1358c0312",
@@ -20,7 +20,7 @@
   "plm_settings.py": "ea319ab27d451799f0f2196344b13a3ce6a4388599f4f9052c952c6de83ee5e6",
   "plm_scan.py": "e32d610e33932afaee4c952cb0b4564801508f0568d4360d7d039ffacb856f48",
   "plm_paths_window.py": "c1bb60b36fbe7fe86e5213680978eab41ac1d1c722d7fd58fae4820155a3833a",
-  "creo_read.py": "7f27ca31422e6a592897eb5a547299785eecc0de9f6b48d68bb0caa20c0ff46e",
+  "creo_read.py": "925da4477446c8d8d3dd626c9de26ba73e1576a099267357d779df67a99efc85",
   "README.md": "bb1f4c0e2d493cd947240cb452b582bf49c293aa5a58f10db9284a4d9b0a612a",
   "SHARE_copy.bat": "4eccb549a17251392337aeabbc3ef76233dfa3072beadff9d158cd6e932622ee",
   "plm_reader.bat": "bdd125397db3ac7e7432dbdb078a6a811ed4913fca02b062edb27907032fca3d",
@@ -32,12 +32,12 @@
   "plm_graph_page.html": "dcf6863eaac2f5a5f8426cbfa4dffeb16605b01196d8582fd5d97cd35de1d849",
   "plm_queries.py": "3fa963038b75cc5551bb7d7bbc3ced5760c03188fe77d47d393c145c390f1977",
   "plm_links.py": "698df65db4fb7571d086cb4343cb8d8391aead559caf96db4715c44e2f397ffe",
-  "plm_build_links.py": "2f80457d1f0304eeee38bcb20f5e032e343bd30c6f3095f038a8c95c5474126a",
+  "plm_build_links.py": "ee15ddfe7d8ac2355a73bd3f67a60da66ce8f3551499dd6d5ebceb4f3f0ce66f",
   "plm_database.py": "bc4915945594e637f5d3aa3ae50c7b1c81e7e738e8623c69877e6ca61c8155ee",
-  "plm_graph_build.py": "8e3bf1729eaf23234c81b64a3ade0d77e713259a67ee42be1dadb64a5b372429",
+  "plm_graph_build.py": "ee9b622433494ee865ee1e451aa5f8464829b599a7c3936a6e0fe9af81e5d6d5",
   "plm_scanner.py": "8ac13395647dbdf48a7dd0748e6a22ca7f99dcb8283d33ca30862066861f3c79",
   "plm_db_admin_win.py": "066c4a70b50d2924dca2fe2b481ed41b0e5dc0a9821fbc85a7ec447fb1ed0feb",
-  "STATE.md": "e749501c69f5d9049d4e90eb7fe093bccfa9549235abf9f34b6b59b7343b479a",
+  "STATE.md": "009cb4311473dc3b0e6ead6d6747ee4be7e41aebe177e44f1741c9e8802327fa",
   "CONCEPT_PLM.md": "6addb5c97847d55b261a2890e8f08a6efc4a2ca468c8d090f357b1b8c2c4ab61"
  }
 }

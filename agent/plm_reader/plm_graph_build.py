@@ -163,6 +163,8 @@ def build(check_only=False, engine_mod=None):
         erows = [(_cm(e["from"]) or "", _cm(e["to"]) or "", e["kind"], e["dir"], e.get("origin", "real"),
                   int(e.get("qty") or 1), e.get("channel", "")) for e in edges_raw]
         erows = [r for r in erows if r[0] and r[1] and r[0] != r[1]]   # V193: канон + без пустых/петель
+        _seen_e = set()
+        erows = [r for r in erows if not (r in _seen_e or _seen_e.add(r))]
         con.executemany(
             'INSERT INTO %s ("from","to",kind,dir,origin,qty,channel) VALUES (?,?,?,?,?,?,?)' % EDGES,
             erows)

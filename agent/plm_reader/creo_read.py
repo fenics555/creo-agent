@@ -32,7 +32,12 @@ def smart_decode_strip(data: bytes) -> str:
 
 def stem(name: str) -> str:
     n = (name or "").upper()
-    for ext in (".PRT", ".ASM", ".DRW", ".MFG", ".NEU", ".SEC", ".M_P", ".PRT.", ".ASM."):
+    # V195: набор расширений = как в `plm_scanner.path_parts` (было упущено `.XPR` и вспомогательные):
+    # из-за этого `engine.do_scan` (s = stem(basename)) писал `params.model`/`links.parent` для `.xpr`
+    # С расширением («ER20-A.XPR»), тогда как `snapshots.model` — без него («ER20-A») ⇒ 387 835 «фантомов».
+    for ext in (".PRT", ".ASM", ".DRW", ".MFG", ".NEU", ".SEC", ".M_P",
+                ".XPR", ".TPH", ".CRC", ".IDX", ".STK", ".DSN", ".MRD", ".PDF", ".FRM", ".LAY",
+                ".PRT.", ".ASM."):
         if ext in n:
             n = n.split(ext).pop(0)
             break

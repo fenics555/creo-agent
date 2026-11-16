@@ -182,6 +182,8 @@ def build(check_only=False, engine_mod=None):
             _ca, _cb = _cm(a), _cm(b)
             if not _ca or not _cb:
                 continue                                  # обрывок («-00», «-001-002») — не пишем
+            if _ca == _cb:
+                continue                    # V195: САМО-СВЯЗЬ (a == b) не достраиваем
             con.execute("INSERT INTO derived (child,base,kind,source,origin) VALUES (?,?,?,?,?)",
                         (_cb, _ca, back, "built", BUILT))
             res["by_kind"][back] = res["by_kind"].get(back, 0) + 1
@@ -194,6 +196,8 @@ def build(check_only=False, engine_mod=None):
             _ca, _cb = _cm(a), _cm(b)
             if not _ca or not _cb:
                 continue
+            if _ca == _cb:
+                continue                    # V195: САМО-СВЯЗЬ (a == b) не достраиваем
             con.execute("INSERT INTO links (parent,child,qty,source,origin) VALUES (?,?,?,?,?)",
                         (_cb, _ca, 1, back, BUILT))
             res["by_kind"][back] = res["by_kind"].get(back, 0) + 1
