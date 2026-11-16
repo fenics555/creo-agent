@@ -1159,7 +1159,7 @@ CREATE TABLE IF NOT EXISTS graph_edges ("from" TEXT, "to" TEXT, kind TEXT, dir T
 CREATE TABLE IF NOT EXISTS graph_metrics (k TEXT PRIMARY KEY, v TEXT);
 
 CREATE TABLE IF NOT EXISTS arch_dims (model TEXT, arch_date TEXT, dims TEXT);
-CREATE TABLE IF NOT EXISTS arch_dim_ch (model TEXT, arch_date TEXT, ch TEXT);
+CREATE TABLE IF NOT EXISTS arch_dim_ch (arch_date TEXT, model TEXT, dim TEXT, old_val TEXT, new_val TEXT, kind TEXT);
 
 -- Indexes (always after tables)
 """

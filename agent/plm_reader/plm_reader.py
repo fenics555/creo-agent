@@ -41,7 +41,18 @@ if __name__ == "__main__":
     import sys as _sys
     _sys.modules.setdefault("plm_reader", _sys.modules["__main__"])
 
-APP_VERSION = "V191"      # 🔴 V191: compact unknown_fields + кнопка в окне + гейт публикации + pre-push.
+APP_VERSION = "V192"      # 🔴 V192: «ЭТАЛОН = РЕАЛЬНОСТЬ» — эталон схемы догнал все 31 таблицу.
+                          #        SCHEMA: +10 таблиц (items, item_ver, props, folders, tools,
+                          #        mass_props, unknown_fields, graph_metrics, meta, arch_dim_ch) и
+                          #        +4 колонки snapshots (file_name/file_ext/file_version/version) —
+                          #        ушёл ложный шум EXTRA_COLUMN, ensure_indexes видит новые таблицы,
+                          #        LINK_COLS + item_key. DDL `arch_dim_ch` в engine.py исправлен
+                          #        (реальные 6 колонок вместо устаревших 3).
+                          #        ДУБЛИ: `check`/`doctor` считают ключом КАК `repair`
+                          #        (links parent,child,source,kind · graph_edges from,to,kind) —
+                          #        ложные 10 359/3 130 ушли; мультиканальные пары — отдельная
+                          #        нейтральная статистика. selftest: 31/31, MISSING_TABLE, индексы.
+                          # 🔴 V191: compact unknown_fields + кнопка в окне + гейт публикации + pre-push.
                           #        `plm_database.compact_unknown_fields` (+ CLI `compact [--apply]`):
                           #        режет СТАРЫЕ длинные дампы `unknown_fields` до 512 символов (БЭКАП +
                           #        schema_snapshot; ключи и счётчики сохраняются; место вернёт VACUUM).

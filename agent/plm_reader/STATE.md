@@ -1,7 +1,32 @@
 # STATE — ЖИВОЕ СОСТОЯНИЕ PLM READER (обновлять при КАЖДОМ шаге)
 
 > Правило: «Сессия смертна. Всё, что не в файле — потеряно».
-> **Обновлено:** 16.11.2026 · **V191** · ТЕМА: COMPACT unknown_fields + ГЕЙТ ПУБЛИКАЦИИ + PRE-PUSH
+> **Обновлено:** 16.11.2026 · **V192** · ТЕМА: ЭТАЛОН = РЕАЛЬНОСТЬ (31/31 таблица) + КЛЮЧ ДУБЛЕЙ = КАК В REPAIR
+
+## ✅ V192 (16.11.2026): эталон схемы догнал реальность; дубли считаются одним ключом
+
+```
+СИМПТОМ (живой вывод владельца): `doctor`/`check` кричат «10 359 дублей пар (parent,child)» и
+  «3 130 дублей (from,to)», а `repair --dry-run` — «0»; `ensure-indexes: создано 0`, хотя индексов нет.
+ПРИЧИНА (замер): 1) РАЗНЫЕ КЛЮЧИ — doctor/check считали дубли по 2 колонкам, `repair` по 4
+  (parent,child,source,kind). Замер: все 10 359 пар имеют РАЗНЫЕ `source` (dwg 9905 · mentions 9529 ·
+  mfg/plm_tree/asm_comp …) ⇒ это НЕ дубли, а МУЛЬТИКАНАЛЬНЫЕ пары (норма).
+  2) ЭТАЛОН ОТСТАВАЛ: `SCHEMA` знал 21 таблицу, в базе 31 ⇒ «слепая зона». `ensure_indexes`
+  ходит ТОЛЬКО по `SCHEMA` ⇒ `folders.parent`, `tools.model`, `unknown_fields.model` не индексировались.
+ЛЕЧЕНИЕ:
+  • SCHEMA: +10 таблиц (items, item_ver, props, folders, tools, mass_props, unknown_fields,
+    graph_metrics, meta, arch_dim_ch) и +4 колонки `snapshots` (file_name/file_ext/file_version/version)
+    ⇒ ушёл ложный шум EXTRA_COLUMN; LINK_COLS + item_key.
+  • ДУБЛИ: `check`/`doctor` считают тем же ключом, что `repair`; мультиканальные пары — отдельная
+    НЕЙТРАЛЬНАЯ статистика в `doctor` (не предупреждение).
+  • `_run_check`: подтверждена проверка MISSING_TABLE (в эталоне 31 таблица).
+  • `engine.py`: DDL `arch_dim_ch` исправлен (реальные 6 колонок: arch_date,model,dim,old_val,new_val,kind
+    вместо устаревших model,arch_date,ch — читатели plm_graph/plm_history ждали именно 6).
+  • selftest: +31/31 таблиц, отсутствие ложного дубля на мультиканальных, индексы в новых таблицах, MISSING_TABLE.
+ПРОГОНЫ: py_compile OK; selftest -> SELFTEST OK; version.json пересобран + --verify чист.
+СБОРКА: APP_VERSION = "V192"; push (pre-push hook прогонит selftest + verify).
+```
+
 
 ## ✅ V191 (16.11.2026): сжатие дампов, гейт качества и локальный гейт перед push
 

@@ -78,7 +78,9 @@ SCHEMA_VERSION = 4          # ← версия схемы, которую ждё
 # ЭТАЛОН СХЕМЫ — ожидаемые таблицы и колонки (для diff-аудита в `check`)
 # ═══════════════════════════════════════════════════════════════════════════════
 SCHEMA = {
-    "snapshots":   ["path", "model", "folder", "size", "mtime", "volume", "material", "name", "designation", "rev", "author", "revdate", "role", "seen", "hist", "creo", "created", "pdata"],
+    # 🔴 V192: +4 колонки, которые пишет СКАНЕР и добавляет миграция (`file_name/file_ext/
+    # file_version/version`) — раньше давали ложный шум «лишние колонки» в `check`.
+    "snapshots":   ["path", "model", "folder", "size", "mtime", "volume", "material", "name", "designation", "rev", "author", "revdate", "role", "seen", "hist", "creo", "created", "pdata", "file_name", "file_ext", "file_version", "version"],
     "params":      ["path", "model", "name", "type", "value"],
     "bodies":      ["path", "model", "folder", "version", "body_id", "seq", "volume", "density", "surfarea", "mass"],
     "materials":   ["path", "model", "name", "description", "mtype", "density", "n_props", "system"],
@@ -99,10 +101,27 @@ SCHEMA = {
     "links":       ["parent", "child", "qty", "source", "origin", "kind"],
     "derived":     ["child", "base", "kind", "source", "origin"],
     "arch_dims":   ["arch_date", "model", "dims"],
+    # ══ 🔴🔴 V192 «ЭТАЛОН = РЕАЛЬНОСТЬ»: эти 10 таблиц ПИШУТ сканер/построители, но их НЕ БЫЛО
+    # в эталоне ⇒ `check`/`ensure_indexes`/`doctor` их не видели («слепая зона»: 21 из 31).
+    # Колонки — замер по живой базе (`PRAGMA table_info`), сверено с DDL в `engine.SCHEMA`.
+    "items":          ["item_key", "model", "folder", "n_files", "n_versions", "exts", "last_mtime"],
+    "item_ver":       ["item_key", "version", "ext"],
+    "props":          ["child", "prop", "value", "source"],
+    "folders":        ["path", "parent", "depth", "models", "files", "seen"],
+    "tools":          ["path", "model", "tool_id", "n_params", "assem"],
+    "mass_props":     ["path", "model", "name", "value"],
+    "unknown_fields": ["path", "model", "name", "count"],
+    "graph_metrics":  ["k", "v"],
+    "meta":           ["k", "v"],
+    # `arch_dim_ch`: РЕАЛЬНО 6 колонок (замер + читатели plm_graph/plm_history). DDL в `engine.py`
+    # был устаревшим (3 колонки с `ch`) — исправлен синхронно в V192.
+    "arch_dim_ch":    ["arch_date", "model", "dim", "old_val", "new_val", "kind"],
 }
 
 # Колонки, по которым должны быть индексы (связующие ключи между таблицами)
-LINK_COLS = {"model", "path", "item", "instance", "parent", "child", "base", "from", "to"}
+LINK_COLS = {"model", "path", "item", "instance", "parent", "child", "base", "from", "to",
+             # 🔴 V192: связующий ключ изделий (`items`/`item_ver`) — раньше индекса не получал.
+             "item_key"}
 
 # ════════════════════════════════════════════════════════════════════════════════
 # V187: ЕДИНЫЙ ИСТОЧНИК для аудита висячих ссылок (используют `check` и `doctor`)
@@ -652,12 +671,23 @@ def _check_duplicate_links(cur, issues):
     """Поиск дублей связей и само-связей в links / graph_edges (коды DUPLICATE / SELF_LINK)."""
     if _has_table(cur, "links"):
         try:
-            dups = cur.execute(
-                'SELECT parent, child, COUNT(*) FROM links GROUP BY parent, child HAVING COUNT(*) > 1'
-            ).fetchall()
+            # 🔴 V192: ключ дубля = КАК В `repair` (parent,child,source,kind). Раньше считалось
+            # по (parent,child) ⇒ ЛОЖНЫЕ «дубли»: одна пара законно живёт в разных КАНАЛАХ
+            # (`dwg` + `mentions` + `asm_comp`). Такие пары — не мусор (см. doctor «мультиканальные»).
+            _key = []
+            try:
+                _cols = [c[1] for c in cur.execute("PRAGMA table_info(links)")]
+                _key = [c for c in ("parent", "child", "source", "kind") if c in _cols]
+                _ke = ", ".join('"%s"' % c for c in _key)
+                dups = cur.execute(
+                    "SELECT COUNT(*) FROM (SELECT %s FROM links GROUP BY %s HAVING COUNT(*) > 1)"
+                    % (_ke, _ke)).fetchone()[0]
+            except sqlite3.Error:
+                dups = 0
             if dups:
                 issues.append({"code": "DUPLICATE", "severity": "warning", "table": "links",
-                               "message": "дубли в links: %d пар (parent, child) повторяются" % len(dups)})
+                               "message": "дубли в links: %d групп по (%s) — тем же ключом чистит `repair`"
+                               % (dups, ", ".join(_key))})
         except sqlite3.Error:
             pass
         try:
@@ -671,12 +701,22 @@ def _check_duplicate_links(cur, issues):
             pass
     if _has_table(cur, "graph_edges"):
         try:
-            dups = cur.execute(
-                'SELECT "from", "to", COUNT(*) FROM graph_edges GROUP BY "from", "to" HAVING COUNT(*) > 1'
-            ).fetchall()
+            # 🔴 V192: ключ дубля = КАК В `repair`: ("from","to",kind) — иначе ложные срабатывания
+            # на парах с разными видами связи (structure + copy + mfg …).
+            _key = []
+            try:
+                _cols = [c[1] for c in cur.execute("PRAGMA table_info(graph_edges)")]
+                _key = [c for c in ("from", "to", "kind") if c in _cols]
+                _ke = ", ".join('"%s"' % c for c in _key)
+                dups = cur.execute(
+                    "SELECT COUNT(*) FROM (SELECT %s FROM graph_edges GROUP BY %s HAVING COUNT(*) > 1)"
+                    % (_ke, _ke)).fetchone()[0]
+            except sqlite3.Error:
+                dups = 0
             if dups:
                 issues.append({"code": "DUPLICATE", "severity": "warning", "table": "graph_edges",
-                               "message": "дубли в graph_edges: %d пар (from, to) повторяются" % len(dups)})
+                               "message": "дубли в graph_edges: %d групп по (%s) — тем же ключом чистит `repair`"
+                               % (dups, ", ".join(_key))})
         except sqlite3.Error:
             pass
         try:
@@ -1026,21 +1066,39 @@ def _orphan_counts(cur):
 
 
 def _links_diag(cur, table):
-    """Диагностика дублей пар и само-связей для `links` / `graph_edges`."""
+    """Диагностика связей: НАСТОЯЩИЕ дубли (ключ как в `repair`) + мультиканальные пары.
+
+    🔴 V192: ключ дубля = `links(parent,child,source,kind)` / `graph_edges("from","to",kind)` —
+    ТЕМ ЖЕ ключом чистит `repair`. Раньше считалось по 2 колонкам ⇒ ложные «дубли»:
+    одна пара законно приходит разными КАНАЛАМИ (`dwg` + `mentions` + `asm_comp`).
+    """
     if not _has_table(cur, table):
         return {"present": False}
     a, b = ("parent", "child") if table == "links" else ("from", "to")
+    chan = "source" if table == "links" else "kind"
     d = {"present": True}
     try:
+        cols = [c[1] for c in cur.execute("PRAGMA table_info(%s)" % table)]
         d["rows"] = _table_row_count(cur, table) or 0
-        d["distinct_pairs"] = cur.execute(
-            'SELECT COUNT(*) FROM (SELECT DISTINCT "%s", "%s" FROM "%s")' % (a, b, table)
-        ).fetchone()[0]
-        d["dup_pairs"] = cur.execute(
-            'SELECT COUNT(*) FROM (SELECT "%s", "%s" FROM "%s" '
-            'GROUP BY "%s", "%s" HAVING COUNT(*) > 1)' % (a, b, table, a, b)
-        ).fetchone()[0]
-        d["dup_extra_rows"] = max(0, d["rows"] - d["distinct_pairs"])
+        key = [c for c in (("parent", "child", "source", "kind") if table == "links"
+                           else ("from", "to", "kind")) if c in cols]
+        d["key"] = key
+        if len(key) >= 2:
+            kexpr = ", ".join('"%s"' % c for c in key)
+            d["dup_pairs"] = cur.execute(
+                'SELECT COUNT(*) FROM (SELECT %s FROM "%s" GROUP BY %s HAVING COUNT(*) > 1)'
+                % (kexpr, table, kexpr)).fetchone()[0]
+            d["distinct_keys"] = cur.execute(
+                'SELECT COUNT(*) FROM (SELECT DISTINCT %s FROM "%s")' % (kexpr, table)).fetchone()[0]
+            d["dup_extra_rows"] = max(0, d["rows"] - d["distinct_keys"])
+        if chan in cols:
+            # «мультиканальные»: одна пара в РАЗНЫХ каналах — это НОРМА, а не дубль
+            d["multi_channel"] = cur.execute(
+                'SELECT COUNT(*) FROM (SELECT "%s", "%s" FROM "%s" GROUP BY "%s", "%s" '
+                'HAVING COUNT(DISTINCT "%s") > 1)' % (a, b, table, a, b, chan)).fetchone()[0]
+            d["pair_repeats"] = cur.execute(
+                'SELECT COUNT(*) FROM (SELECT "%s", "%s" FROM "%s" GROUP BY "%s", "%s" '
+                'HAVING COUNT(*) > 1)' % (a, b, table, a, b)).fetchone()[0]
         d["self_links"] = cur.execute(
             'SELECT COUNT(*) FROM "%s" WHERE lower("%s") = lower("%s")' % (table, a, b)
         ).fetchone()[0]
@@ -1156,14 +1214,18 @@ def _print_doctor(res):
         print("   %s.%s -> %s.%s : %d строк"
               % (o["table"], o["column"], o["parent"], o["parent_column"], o["count"]))
     print("")
-    print("-- СВЯЗИ links / graph_edges --")
+    print("-- СВЯЗИ links / graph_edges (ключ дубля = как в `repair`) --")
     for key in ("links", "graph_edges"):
         d = res.get(key, {})
         if not d.get("present"):
             print("   %s: таблицы нет" % key)
             continue
-        print("   %-12s строк %-9s | дублей пар %-7s | само-связей %s"
-              % (key, d.get("rows"), d.get("dup_pairs"), d.get("self_links")))
+        print("   %-12s строк %-9s | НАСТОЯЩИХ дублей %-6s | само-связей %-5s | мультиканальных пар %s"
+              % (key, d.get("rows"), d.get("dup_pairs"), d.get("self_links"),
+                 d.get("multi_channel")))
+        if d.get("multi_channel"):
+            print("        └ мультиканальные = НОРМА (одна пара связей приходит разными каналами);")
+            print("          ключ (%s) ⇒ удалять нечего." % ", ".join(d.get("key") or []))
     print("")
     print("-- КАНДИДАТЫ НА БЕЗОПАСНУЮ ДЕДУПЛИКАЦИЮ (историю НЕ трогают) --")
     if not res.get("safe_dedup"):
@@ -1330,6 +1392,56 @@ def cmd_selftest():
                 problems.append("compact: потеряны записи unknown_fields")
             if not cp_res.get("backup"):
                 problems.append("compact --apply: не сделан бэкап")
+
+        # ── V192 «ЭТАЛОН = РЕАЛЬНОСТЬ» ────────────────────────────────────────
+        def _rows(sql):
+            _c = connect_safe(dbf)
+            try:
+                return _c.execute(sql).fetchall()
+            finally:
+                _c.close()
+
+        names = set(r[0] for r in _rows(
+            "SELECT name FROM sqlite_master WHERE type='table'"))
+        missing = sorted(set(SCHEMA) - names)
+        if missing:
+            problems.append("SCHEMA: таблицы эталона не созданы (%d): %s"
+                            % (len(missing), ", ".join(missing)))
+        if len(SCHEMA) != 31:
+            problems.append("SCHEMA: ожидалось 31 таблица, в эталоне %d" % len(SCHEMA))
+        if "file_name" not in SCHEMA.get("snapshots", []):
+            problems.append("SCHEMA.snapshots: нет колонки file_name (шум EXTRA_COLUMN вернётся)")
+
+        # мультиканальные пары (одна пара, разные source) — НЕ дубли
+        _c = connect_safe(dbf)
+        _c.executemany('INSERT INTO links(parent,child,qty,source,kind) VALUES(?,?,?,?,?)',
+                       [("M", "N", 1, "dwg", "чертёж"), ("M", "N", 1, "mentions", "упоминание")])
+        _c.commit()
+        _c.close()
+        doc2 = _doctor_data(dbf)
+        lk2 = doc2.get("links", {})
+        if not lk2.get("multi_channel"):
+            problems.append("doctor: мультиканальные пары не найдены")
+        if lk2.get("dup_pairs"):
+            problems.append("doctor: ложные дубли по (parent,child) остались (%s)" % lk2.get("dup_pairs"))
+
+        # индексы в НОВЫХ таблицах эталона (после ensure_indexes)
+        have_uf = set()
+        for row in _rows("PRAGMA index_list(unknown_fields)"):
+            for ic in _rows('PRAGMA index_info("%s")' % row[1]):
+                have_uf.add(ic[2])
+        if "model" not in have_uf:
+            problems.append("ensure_indexes: нет индекса по unknown_fields(model)")
+
+        # MISSING_TABLE: урезанная база (одна таблица) обязана дать код
+        dbf2 = os.path.join(tmp, "t2.db")
+        _c2 = connect_safe(dbf2)
+        _c2.execute("CREATE TABLE snapshots (path TEXT, model TEXT)")
+        _c2.commit()
+        _c2.close()
+        res3 = _run_check(dbf2, full=True, use_cache=False)
+        if "MISSING_TABLE" not in set(i["code"] for i in res3["issues"]):
+            problems.append("check: MISSING_TABLE не сработал на урезанной базе")
     finally:
         shutil.rmtree(tmp, ignore_errors=True)
     if os.path.isdir(tmp):
