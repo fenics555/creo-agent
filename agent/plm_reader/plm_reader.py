@@ -41,7 +41,17 @@ if __name__ == "__main__":
     import sys as _sys
     _sys.modules.setdefault("plm_reader", _sys.modules["__main__"])
 
-APP_VERSION = "V186"      # 🔴 V186: полный аудит БД по мотивам tbls: аудит целостности данных
+APP_VERSION = "V187"      # 🔴 V187: диагностика и регресс-тест базы.
+                          #        `doctor` — подробный READ-ONLY диагноз: объём крупных таблиц (оценка),
+                          #        висячие записи, дубли связей/само-связи, разделение
+                          #        «кандидаты на дедупликацию» ↔ «архивные исторические (Purge-safe)»,
+                          #        статус meta.schema_version.
+                          #        `check --json` + КОДЫ ВОЗВРАТА (0/1/2): ORPHAN, DUPLICATE, SELF_LINK,
+                          #        EMPTY_KEY, MISSING_INDEX, EXTRA_COLUMN.
+                          #        Фикс кэша: `ensure_indexes` сбрасывает `.plm_check_cache.json`
+                          #        (иначе повторный `check --full` «флапал» MISSING_INDEX).
+                          #        `selftest` — встроенный регресс-тест на временной БД (без следов).
+                          # 🔴 V186: полный аудит БД по мотивам tbls: аудит целостности данных
                           #        (орфанные ссылки, дубли, само-связи, пустые ключи),
                           #        автоиндексация (ensure-indexes), снимок схемы (schema-snapshot),
                           #        connect_safe (retry при database is locked), recommend_vacuum,

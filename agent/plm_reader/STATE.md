@@ -1,7 +1,39 @@
 # STATE — ЖИВОЕ СОСТОЯНИЕ PLM READER (обновлять при КАЖДОМ шаге)
 
 > Правило: «Сессия смертна. Всё, что не в файле — потеряно».
-> **Обновлено:** 04.11.2026 · **V168** · ТЕМА: МАНИФЕСТ ДОГОНЯЕТ КОД + СВЯЗИ + ЗАМОК + ГРАФ
+> **Обновлено:** 16.11.2026 · **V187** · ТЕМА: ДИАГНОСТИКА БАЗЫ (doctor) + `check --json` + `selftest`
+
+## ✅ V187 (16.11.2026): ДИАГНОСТИКА БАЗЫ + МАШИННЫЙ `check --json` + `selftest`
+
+```
+ЦЕЛЬ (задача владельца): автономная сборка релиза V187 — диагностика и защита данных.
+ЧТО СДЕЛАНО (plm_database.py, чистый Python, без внешних зависимостей):
+  • `doctor` (cmd_doctor / doctor(db_path)) — ПОДРОБНЫЙ ДИАГНОЗ, СТРОГО READ-ONLY
+    (подключение URI `mode=ro` — ничего не пишет и не удаляет):
+      – состояние `meta.schema_version` (база ↔ код) с понятным статусом;
+      – объём крупных таблиц в МБ — ОЦЕНКА (в сборке SQLite `dbstat` НЕДОСТУПЕН:
+        `no such table: dbstat` → строк × средняя длина строки по выборке 300);
+      – висячие записи (`model`/`item` нет в `snapshots`) по таблицам;
+      – дубли пар `(parent,child)` и само-связи в `links` / `graph_edges`;
+      – ЧЁТКОЕ РАЗДЕЛЕНИЕ: «кандидаты на безопасную дедупликацию» ↔
+        «архивные исторические таблицы Purge-safe (changes/history/arch_dims/arch_dim_ch)».
+  • `check --json` + КОДЫ ВОЗВРАТА (0 — чисто, 1 — предупреждения, 2 — ошибки):
+    ядро `_run_check` пишет структурированные проблемы с кодами
+    ORPHAN / DUPLICATE / SELF_LINK / EMPTY_KEY / MISSING_INDEX / EXTRA_COLUMN
+    (+ служебные MISSING_COLUMN / MISSING_TABLE / SCHEMA_VERSION / INTEGRITY / NO_DB).
+  • ФИКС КЭША: `ensure_indexes` сбрасывает `.plm_check_cache.json` — повторный
+    `check --full` сразу видит созданные индексы (без «флапа» MISSING_INDEX).
+  • `selftest` (cmd_selftest) — регресс-тест на ВРЕМЕННОЙ БД (SCHEMA, ensure_indexes
+    + сброс кэша, check --full, doctor read-only, export_schema_docs), без следов на диске.
+СБОРКА: APP_VERSION = "V187"; `python -m py_compile` по изменённым файлам — OK.
+ПРОГОНЫ: `selftest` → SELFTEST OK (0 проблем); `check --json --db <нет>` → JSON + EXIT=2.
+ЖИВОЙ DOCTOR (эталон db\\plm_reader.db, только чтение, 1652.6 МБ):
+  SCHEMA база=0 код=4 → ВНИМАНИЕ: база старее кода, нужна миграция.
+  Крупные: history 1 492 401 ≈302 МБ · params 1 135 928 ≈229 МБ · changes 569 225 ≈34 МБ.
+  links: 82 290 строк · дублей пар 11 562 · само-связей 401 (кандидаты на дедуп).
+  Архив (Purge-safe, НЕ удалять): changes · history · arch_dims · arch_dim_ch.
+```
+
 
 ## ✅ V168 (04.11.2026): МАНИФЕСТ `version.json` ДОГОНЯЕТ КОД
 

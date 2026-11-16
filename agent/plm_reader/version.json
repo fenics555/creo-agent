@@ -1,8 +1,8 @@
 {
- "version": "V186",
- "version_num": 186,
+ "version": "V187",
+ "version_num": 187,
  "date": "16.11.2026",
- "notes": "V186: полный аудит БД по мотивам tbls (орфанные ссылки, дубли, само-связи, пустые ключи), автоиндексация ensure-indexes, снимок схемы schema-snapshot, connect_safe (retry + journal_mode=DELETE), recommend_vacuum, кэш проверки .plm_check_cache.json (TTL 5 мин, --no-cache); фикс _indexes_on (материализация index_list) и унификация --db во всех командах",
+ "notes": "V187: doctor (read-only диагностика БД) + check --json с кодами и exit codes + фикс кэша ensure_indexes + selftest",
  "schema_version": 4,
  "remove": [
   "_probe_scan137.py",
@@ -12,7 +12,7 @@
  ],
  "files": {
   "engine.py": "987c546c1e2902750a54bfc466157a8471bf5b09d51b908a9b5fb5da0c3d8a41",
-  "plm_reader.py": "712e7b067c3b4d92a5d76abcfb4b27be783e19fc6134b28454a2e2be5629580f",
+  "plm_reader.py": "4f40504376582fcb1b276dc03d682ef9755c3404cd29a89732b6563acc8dbb86",
   "plm_toolwin.py": "bc62e556ac71a999b119b8b457745ffa9c856c07158b81c9b4b244ff11bb2834",
   "plm_history.py": "e028c211022463898073cea2c03f395632029ae13448723425fae39b996e4027",
   "plm_parse.py": "c6bb33a412b6b606ad402e3eb78cd49246b77738b69d82be1b6218a1358c0312",
@@ -33,10 +33,10 @@
   "plm_queries.py": "3fa963038b75cc5551bb7d7bbc3ced5760c03188fe77d47d393c145c390f1977",
   "plm_links.py": "698df65db4fb7571d086cb4343cb8d8391aead559caf96db4715c44e2f397ffe",
   "plm_build_links.py": "b4ee4671a1a468174b9296ba402aa79daa719ce2336b5ba7a2fc5fdb7c4a50a8",
-  "plm_database.py": "3b394daa097bbc00504f67ae4d28d462653fac92e8fc67be74823a2543e6b4cd",
+  "plm_database.py": "3824960bdc7d09be688efdb7b8498d4351a63c3182d674cc657a07422e026c76",
   "plm_graph_build.py": "cf2ffe41b90bcdc4fce49185dc8b3edcceae5b64c8f33052c01fce91ba27fcce",
   "plm_scanner.py": "96fca655e63814eb3b9aa1a4797069753ac3466e9b8e0959f317111ea1994732",
-  "STATE.md": "b9197aac54c7238a70c4383ef7384ade9e6834f2c05df094ba71a2cc7608405d",
+  "STATE.md": "62fba8f9ab31eb0bc1aa13e4c8675023c3cfe9fe52c994fd8ac1546796915e6c",
   "CONCEPT_PLM.md": "6addb5c97847d55b261a2890e8f08a6efc4a2ca468c8d090f357b1b8c2c4ab61"
  }
 }

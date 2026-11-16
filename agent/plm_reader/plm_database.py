@@ -25,6 +25,12 @@ plm_database.py — DATABASE: обслуживание базы ПЛМ (влад
     python plm_database.py vacuum                   — сжать базу
     python plm_database.py backup                   — бэкап боевой базы
     python plm_database.py export-docs              — паспорт схемы + 4 Mermaid ER-диаграммы
+    python plm_database.py doctor  [--db ПУТЬ]      — ПОДРОБНЫЙ диагноз базы (СТРОГО READ-ONLY)
+    python plm_database.py selftest                 — встроенный регресс-тест (временная БД)
+
+КОДЫ ВОЗВРАТА `check`: 0 — чисто, 1 — предупреждения, 2 — ошибки.
+Флаг `--json` — структурированный вывод с кодами проблем (ORPHAN / DUPLICATE /
+SELF_LINK / EMPTY_KEY / MISSING_INDEX / EXTRA_COLUMN).
 
 МИГРАЦИИ (ЗАКОН, живое состояние схемы):
     Схема ВЕРСИОНИРУЕТСЯ: `meta.schema_version` (в базе) ↔ `SCHEMA_VERSION` (в коде).
@@ -95,6 +101,56 @@ SCHEMA = {
 
 # Колонки, по которым должны быть индексы (связующие ключи между таблицами)
 LINK_COLS = {"model", "path", "item", "instance", "parent", "child", "base", "from", "to"}
+
+# ════════════════════════════════════════════════════════════════════════════════
+# V187: ЕДИНЫЙ ИСТОЧНИК для аудита висячих ссылок (используют `check` и `doctor`)
+# ════════════════════════════════════════════════════════════════════════════════
+ORPHAN_PAIRS = [
+    ("params", "model", "snapshots", "model"),
+    ("params", "path", "snapshots", "path"),
+    ("bodies", "model", "snapshots", "model"),
+    ("bodies", "path", "snapshots", "path"),
+    ("materials", "model", "snapshots", "model"),
+    ("materials", "path", "snapshots", "path"),
+    ("master_mat", "model", "snapshots", "model"),
+    ("master_mat", "path", "snapshots", "path"),
+    ("matrices", "model", "snapshots", "model"),
+    ("matrices", "path", "snapshots", "path"),
+    ("components", "model", "snapshots", "model"),
+    ("components", "path", "snapshots", "path"),
+    ("drawing", "model", "snapshots", "model"),
+    ("drawing", "path", "snapshots", "path"),
+    ("features", "model", "snapshots", "model"),
+    ("features", "path", "snapshots", "path"),
+    ("dimensions", "model", "snapshots", "model"),
+    ("dimensions", "path", "snapshots", "path"),
+    ("dim_all", "model", "snapshots", "model"),
+    ("dim_all", "path", "snapshots", "path"),
+    ("equations", "model", "snapshots", "model"),
+    ("equations", "path", "snapshots", "path"),
+    ("health", "model", "snapshots", "model"),
+    ("health", "path", "snapshots", "path"),
+    ("history", "model", "snapshots", "model"),
+    ("history", "path", "snapshots", "path"),
+    ("arch_dims", "model", "snapshots", "model"),
+    ("arch_dim_ch", "model", "snapshots", "model"),
+    ("graph_nodes", "model", "snapshots", "model"),
+    ("graph_nodes", "path", "snapshots", "path"),
+    ("changes", "item", "snapshots", "model"),
+    ("family", "instance", "snapshots", "model"),
+    ("links", "parent", "snapshots", "model"),
+    ("links", "child", "snapshots", "model"),
+    ("derived", "base", "snapshots", "model"),
+    ("derived", "child", "snapshots", "model"),
+    ("graph_edges", "from", "graph_nodes", "model"),
+    ("graph_edges", "to", "graph_nodes", "model"),
+]
+
+# V187: АРХИВНЫЕ ИСТОРИЧЕСКИЕ таблицы — Purge-safe: удалять НЕЛЬЗЯ (это история).
+ARCHIVE_TABLES = ("changes", "history", "arch_dims", "arch_dim_ch")
+
+# V187: машинные коды проблем (для `check --json`)
+CHECK_CODES = ("ORPHAN", "DUPLICATE", "SELF_LINK", "EMPTY_KEY", "MISSING_INDEX", "EXTRA_COLUMN")
 
 # Путь к конфигурации tbls для генерации документации
 TBL_CONFIG_PATH = os.path.join(os.path.dirname(HERE), "..", "..", "repo", "Creo", "PLM", "db_schema", ".tbls.yml")
@@ -551,48 +607,13 @@ def _qcol(name):
     return '"%s"' % name
 
 
-def _check_orphan_references(cur, warnings):
-    """Подсчёт висячих ссылок: ключи в дочерних таблицах, которых нет в родительской."""
-    pairs = [
-        ("params", "model", "snapshots", "model"),
-        ("params", "path", "snapshots", "path"),
-        ("bodies", "model", "snapshots", "model"),
-        ("bodies", "path", "snapshots", "path"),
-        ("materials", "model", "snapshots", "model"),
-        ("materials", "path", "snapshots", "path"),
-        ("master_mat", "model", "snapshots", "model"),
-        ("master_mat", "path", "snapshots", "path"),
-        ("matrices", "model", "snapshots", "model"),
-        ("matrices", "path", "snapshots", "path"),
-        ("components", "model", "snapshots", "model"),
-        ("components", "path", "snapshots", "path"),
-        ("drawing", "model", "snapshots", "model"),
-        ("drawing", "path", "snapshots", "path"),
-        ("features", "model", "snapshots", "model"),
-        ("features", "path", "snapshots", "path"),
-        ("dimensions", "model", "snapshots", "model"),
-        ("dimensions", "path", "snapshots", "path"),
-        ("dim_all", "model", "snapshots", "model"),
-        ("dim_all", "path", "snapshots", "path"),
-        ("equations", "model", "snapshots", "model"),
-        ("equations", "path", "snapshots", "path"),
-        ("health", "model", "snapshots", "model"),
-        ("health", "path", "snapshots", "path"),
-        ("history", "model", "snapshots", "model"),
-        ("history", "path", "snapshots", "path"),
-        ("arch_dims", "model", "snapshots", "model"),
-        ("arch_dim_ch", "model", "snapshots", "model"),
-        ("graph_nodes", "model", "snapshots", "model"),
-        ("graph_nodes", "path", "snapshots", "path"),
-        ("changes", "item", "snapshots", "model"),
-        ("family", "instance", "snapshots", "model"),
-        ("links", "parent", "snapshots", "model"),
-        ("links", "child", "snapshots", "model"),
-        ("derived", "base", "snapshots", "model"),
-        ("derived", "child", "snapshots", "model"),
-        ("graph_edges", "from", "graph_nodes", "model"),
-        ("graph_edges", "to", "graph_nodes", "model"),
-    ]
+def _check_orphan_references(cur, issues):
+    """Подсчёт висячих ссылок: ключи в дочерних таблицах, которых нет в родительской.
+
+    V187: пишет СТРУКТУРИРОВАННЫЕ проблемы (код ORPHAN) в `issues` для `check --json`.
+    Список пар — единый источник `ORPHAN_PAIRS` (его же использует `doctor`).
+    """
+    pairs = ORPHAN_PAIRS
     for child_t, child_c, parent_t, parent_c in pairs:
         if not _has_table(cur, child_t) or not _has_table(cur, parent_t):
             continue
@@ -605,21 +626,21 @@ def _check_orphan_references(cur, warnings):
         except sqlite3.Error:
             continue
         if n:
-            warnings.append(
-                "орфанные ссылки: %s.%s -> %s.%s (%d строк без родителя)"
-                % (child_t, child_c, parent_t, parent_c, n)
-            )
+            issues.append({"code": "ORPHAN", "severity": "warning", "table": child_t,
+                             "message": "орфанные ссылки: %s.%s -> %s.%s (%d строк без родителя)"
+                             % (child_t, child_c, parent_t, parent_c, n)})
 
 
-def _check_duplicate_links(cur, warnings):
-    """Поиск дублей связей и само-связей в links / graph_edges."""
+def _check_duplicate_links(cur, issues):
+    """Поиск дублей связей и само-связей в links / graph_edges (коды DUPLICATE / SELF_LINK)."""
     if _has_table(cur, "links"):
         try:
             dups = cur.execute(
                 'SELECT parent, child, COUNT(*) FROM links GROUP BY parent, child HAVING COUNT(*) > 1'
             ).fetchall()
             if dups:
-                warnings.append("дубли в links: %d пар (parent, child) повторяются" % len(dups))
+                issues.append({"code": "DUPLICATE", "severity": "warning", "table": "links",
+                               "message": "дубли в links: %d пар (parent, child) повторяются" % len(dups)})
         except sqlite3.Error:
             pass
         try:
@@ -627,7 +648,8 @@ def _check_duplicate_links(cur, warnings):
                 "SELECT COUNT(*) FROM links WHERE lower(parent) = lower(child)"
             ).fetchone()[0]
             if self_links:
-                warnings.append("само-связи в links: %d строк (parent == child)" % self_links)
+                issues.append({"code": "SELF_LINK", "severity": "warning", "table": "links",
+                               "message": "само-связи в links: %d строк (parent == child)" % self_links})
         except sqlite3.Error:
             pass
     if _has_table(cur, "graph_edges"):
@@ -636,7 +658,8 @@ def _check_duplicate_links(cur, warnings):
                 'SELECT "from", "to", COUNT(*) FROM graph_edges GROUP BY "from", "to" HAVING COUNT(*) > 1'
             ).fetchall()
             if dups:
-                warnings.append("дубли в graph_edges: %d пар (from, to) повторяются" % len(dups))
+                issues.append({"code": "DUPLICATE", "severity": "warning", "table": "graph_edges",
+                               "message": "дубли в graph_edges: %d пар (from, to) повторяются" % len(dups)})
         except sqlite3.Error:
             pass
         try:
@@ -644,13 +667,14 @@ def _check_duplicate_links(cur, warnings):
                 'SELECT COUNT(*) FROM graph_edges WHERE "from" = "to"'
             ).fetchone()[0]
             if self_links:
-                warnings.append("само-связи в graph_edges: %d строк (from == to)" % self_links)
+                issues.append({"code": "SELF_LINK", "severity": "warning", "table": "graph_edges",
+                               "message": "само-связи в graph_edges: %d строк (from == to)" % self_links})
         except sqlite3.Error:
             pass
 
 
-def _check_empty_keys(cur, warnings):
-    """Поиск пустых ключевых колонок (model, path) в таблицах-ссылках."""
+def _check_empty_keys(cur, issues):
+    """Поиск пустых ключевых колонок (model, path) в таблицах-ссылках (код EMPTY_KEY)."""
     for t in ("snapshots", "params", "bodies", "materials", "master_mat", "matrices",
               "components", "drawing", "features", "dimensions", "dim_all", "equations",
               "health", "history", "graph_nodes"):
@@ -665,17 +689,21 @@ def _check_empty_keys(cur, warnings):
             except sqlite3.Error:
                 continue
             if n:
-                warnings.append("пустые ключи: %s.%s = NULL/'' (%d строк)" % (t, col, n))
+                issues.append({"code": "EMPTY_KEY", "severity": "warning", "table": t,
+                               "message": "пустые ключи: %s.%s = NULL/'' (%d строк)" % (t, col, n)})
 
 
 # ════════════════════════════════════════════════════════════════════════════════
 # В. Оценка фрагментации (recommend_vacuum): freelist_count / page_count > 30%
 # ════════════════════════════════════════════════════════════════════════════════
-def recommend_vacuum(db=None):
-    """Предупреждение, если доля пустых страниц > 30%."""
-    p = _arg_db(db)
+def _fragmentation(p):
+    """Оценка фрагментации: (доля_пустых_%, пусто_МБ, всего_МБ) либо None.
+
+    V187: вычисление вынесено из `recommend_vacuum`, чтобы `check --json` мог вернуть
+    эти данные машинно (без печати).
+    """
     if not p or not os.path.isfile(p):
-        return
+        return None
     con = connect_safe(p)
     cur = con.cursor()
     try:
@@ -684,16 +712,19 @@ def recommend_vacuum(db=None):
         page_count = cur.execute("PRAGMA page_count").fetchone()[0]
     except sqlite3.Error:
         con.close()
-        return
+        return None
     con.close()
-    if page_count == 0:
-        return
+    if not page_count:
+        return None
     pct = free * 100.0 / page_count
-    if pct > 30:
-        free_mb = free * page_size / 1024 / 1024
-        total_mb = page_count * page_size / 1024 / 1024
-        print("[*] РЕКОМЕНДАЦИЯ VACUUM: пустых страниц %.1f%% (%.1f МБ из %.1f МБ)"
-              % (pct, free_mb, total_mb))
+    return (pct, free * page_size / 1024 / 1024, page_count * page_size / 1024 / 1024)
+
+
+def recommend_vacuum(db=None):
+    """Предупреждение, если доля пустых страниц > 30%."""
+    f = _fragmentation(_arg_db(db))
+    if f and f[0] > 30:
+        print("[*] РЕКОМЕНДАЦИЯ VACUUM: пустых страниц %.1f%% (%.1f МБ из %.1f МБ)" % f)
 
 
 # ════════════════════════════════════════════════════════════════════════════════
@@ -726,6 +757,16 @@ def ensure_indexes(db=None):
     con.commit()
     con.close()
     print("создано индексов: %d" % created)
+    # 🔴 V187: СБРОС КЭША ПРОВЕРКИ. Без этого повторный `check --full` в течение TTL (5 мин)
+    # отдавал бы из кэша старый вердикт «нет индексов» (флап MISSING_INDEX), хотя индексы
+    # уже созданы. Кэш — не данные: удаляем файл проверки, он пересоздастся при нужде.
+    cache = _check_cache_path(p)
+    if os.path.isfile(cache):
+        try:
+            os.remove(cache)
+            print("кэш проверки сброшен:", os.path.basename(cache))
+        except OSError as e:
+            print("кэш проверки сбросить не удалось (%s)" % e)
 
 
 # ════════════════════════════════════════════════════════════════════════════════
@@ -768,36 +809,36 @@ def _save_check_cache(db_path, data):
     data["ttl"] = CHECK_CACHE_TTL
     with open(cp, "w", encoding="utf-8") as f:
         json.dump(data, f, ensure_ascii=False, indent=2)
-def check(db=None, full=False, use_cache=True):
-    """Проверка целостности: PRAGMA integrity_check + индексы + diff схемы + аудит данных.
 
-    Если full=True — сверяет живые колонки с эталоном SCHEMA,
-    проверяет индексы на связующих колонках, запускает аудит данных
-    (орфанные ссылки, дубли, само-связи, пустые ключи) и recommend_vacuum.
-    Кэшируется в .plm_check_cache.json (TTL 5 мин), если use_cache=True.
+
+def _run_check(db=None, full=False, use_cache=True):
+    """Ядро проверки целостности → dict результата (БЕЗ печати; машинные КОДЫ проблем).
+
+    V187. Коды проблем: ORPHAN, DUPLICATE, SELF_LINK, EMPTY_KEY, MISSING_INDEX,
+    EXTRA_COLUMN (+ служебные MISSING_COLUMN, MISSING_TABLE, SCHEMA_VERSION,
+    INTEGRITY, NO_DB). Каждая проблема — dict: {code, severity, table, message}.
     """
     p = _arg_db(db)
+    if not p or not os.path.isfile(p):
+        msg = "база не найдена: %s" % p
+        return {"db": p, "present": False, "ok": False, "cached": False,
+                "integrity": None, "schema_db": None, "schema_code": SCHEMA_VERSION,
+                "issues": [{"code": "NO_DB", "severity": "error", "table": None, "message": msg}],
+                "errors": [msg], "warnings": [], "fragmentation": None}
     if use_cache:
         cached = _load_check_cache(p)
-        if cached is not None:
-            print("[cache] результат проверки из кэша (TTL %d с):" % CHECK_CACHE_TTL)
-            if cached.get("errors"):
-                for e in cached["errors"]:
-                    print("  [!] ОШИБКА:", e)
-            if cached.get("warnings"):
-                for w in cached["warnings"]:
-                    print("  [*] предупреждение:", w)
-            if not cached.get("errors") and not cached.get("warnings"):
-                print("проверка пройдена — замечаний нет")
-            return cached.get("ok", False)
+        if cached is not None and "issues" in cached:
+            cached = dict(cached)
+            cached["cached"] = True
+            return cached
 
     con = connect_safe(p)
     cur = con.cursor()
-    r = con.execute("PRAGMA integrity_check").fetchone()[0]
-    print("integrity_check:", r)
-    ok = r == "ok"
-    errors = []
-    warnings = []
+    integrity = cur.execute("PRAGMA integrity_check").fetchone()[0]
+    issues = []
+    if integrity != "ok":
+        issues.append({"code": "INTEGRITY", "severity": "error", "table": None,
+                       "message": "integrity_check: %s" % integrity})
 
     if full:
         # ── 1. Индексы на связующих колонках ──
@@ -808,58 +849,423 @@ def check(db=None, full=False, use_cache=True):
             live_cols = [c[1] for c in cur.execute("PRAGMA table_info(%s)" % t)]
             missing_idx = [c for c in live_cols if c in LINK_COLS and c not in idx_cols]
             if missing_idx:
-                warnings.append(
-                    "таблица %s: нет индексов на связующих колонках %s"
-                    % (t, missing_idx)
-                )
+                issues.append({"code": "MISSING_INDEX", "severity": "warning", "table": t,
+                               "message": "таблица %s: нет индексов на связующих колонках %s"
+                               % (t, missing_idx)})
 
         # ── 2. Diff живой схемы с эталоном SCHEMA ──
         for t, expected_cols in SCHEMA.items():
             if not _has_table(cur, t):
-                warnings.append("таблица %s отсутствует в базе" % t)
+                issues.append({"code": "MISSING_TABLE", "severity": "error", "table": t,
+                               "message": "таблица %s отсутствует в базе" % t})
                 continue
             live_cols = [c[1] for c in cur.execute("PRAGMA table_info(%s)" % t)]
             missing = [c for c in expected_cols if c not in live_cols]
             extra = [c for c in live_cols if c not in expected_cols]
             if missing:
-                errors.append("таблица %s: отсутствуют колонки %s" % (t, missing))
+                issues.append({"code": "MISSING_COLUMN", "severity": "error", "table": t,
+                               "message": "таблица %s: отсутствуют колонки %s" % (t, missing)})
             if extra:
-                warnings.append("таблица %s: лишние колонки %s" % (t, extra))
+                issues.append({"code": "EXTRA_COLUMN", "severity": "warning", "table": t,
+                               "message": "таблица %s: лишние колонки %s" % (t, extra)})
 
         # ── 3. Версия схемы ──
         v_db = schema_version(p)
         if v_db != SCHEMA_VERSION:
-            warnings.append(
-                "версия схемы БД (%d) != версии кода (%d)" % (v_db, SCHEMA_VERSION)
-            )
+            issues.append({"code": "SCHEMA_VERSION", "severity": "warning", "table": None,
+                           "message": "версия схемы БД (%s) != версии кода (%d)" % (v_db, SCHEMA_VERSION)})
 
         # ── А. Аудит целостности данных ──
-        _check_orphan_references(cur, warnings)
-        _check_duplicate_links(cur, warnings)
-        _check_empty_keys(cur, warnings)
+        _check_orphan_references(cur, issues)
+        _check_duplicate_links(cur, issues)
+        _check_empty_keys(cur, issues)
 
     con.close()
 
-    # ── В. Оценка фрагментации ──
-    if full:
-        recommend_vacuum(p)
+    # ── В. Оценка фрагментации (машинно, без печати) ──
+    frag = _fragmentation(p) if full else None
 
-    result = {"ok": ok, "errors": errors, "warnings": warnings}
+    errors = [i["message"] for i in issues if i["severity"] == "error"]
+    warnings = [i["message"] for i in issues if i["severity"] == "warning"]
+    result = {"db": p, "present": True, "ok": not errors, "cached": False,
+              "integrity": integrity, "schema_db": schema_version(p),
+              "schema_code": SCHEMA_VERSION, "issues": issues,
+              "errors": errors, "warnings": warnings, "fragmentation": frag}
     if use_cache:
         _save_check_cache(p, result)
+    return result
 
+
+def _print_check(res):
+    """Человекочитаемый вывод результата проверки."""
+    if not res.get("present"):
+        print(res["errors"][0] if res.get("errors") else "база не найдена")
+        return
+    if res.get("cached"):
+        print("[cache] результат проверки из кэша (TTL %d с):" % CHECK_CACHE_TTL)
+    else:
+        print("integrity_check:", res["integrity"])
+    errors = res.get("errors") or []
+    warnings = res.get("warnings") or []
     if errors:
         print("[!] ОШИБКИ СХЕМЫ:")
         for e in errors:
             print("  -", e)
-        ok = False
     if warnings:
         print("[*] ПРЕДУПРЕЖДЕНИЯ:")
         for w in warnings:
             print("  -", w)
     if not errors and not warnings:
         print("проверка пройдена — замечаний нет")
-    return ok
+    frag = res.get("fragmentation")
+    if frag and frag[0] > 30:
+        print("[*] РЕКОМЕНДАЦИЯ VACUUM: пустых страниц %.1f%% (%.1f МБ из %.1f МБ)" % frag)
+
+
+def check(db=None, full=False, use_cache=True):
+    """Проверка целостности (совместимость: печатает отчёт и возвращает ok).
+
+    Для машинного вида (коды проблем + exit code) CLI использует `_run_check` и
+    `check_exit_code`.
+    """
+    res = _run_check(db=db, full=full, use_cache=use_cache)
+    _print_check(res)
+    return res["ok"]
+
+
+def check_exit_code(res):
+    """Код возврата CLI: 0 — чисто, 1 — предупреждения, 2 — ошибки."""
+    if res.get("errors"):
+        return 2
+    if res.get("warnings"):
+        return 1
+    return 0
+
+
+def _ro_connect(p):
+    """READ-ONLY подключение (URI `mode=ro`) — гарантия, что `doctor` НИЧЕГО не меняет.
+
+    Обычный `connect_safe` может переключить `journal_mode` (запись в заголовок БД).
+    Для строго read-only диагностики открываем базу в режиме только чтения.
+    """
+    from pathlib import Path
+    uri = Path(p).resolve().as_uri() + "?mode=ro"
+    return sqlite3.connect(uri, uri=True, timeout=30)
+
+
+def _live_tables(cur):
+    """Имена пользовательских таблиц базы."""
+    return [r[0] for r in cur.execute(
+        "SELECT name FROM sqlite_master WHERE type='table' AND name NOT LIKE 'sqlite_%' ORDER BY name")]
+
+
+def _table_row_count(cur, table):
+    """Число строк таблицы (или None, если таблицы нет)."""
+    try:
+        return cur.execute('SELECT COUNT(*) FROM "%s"' % table).fetchone()[0]
+    except sqlite3.Error:
+        return None
+
+
+def _estimate_table_mb(cur, table, cols, sample=300):
+    """ОЦЕНКА объёма таблицы в МБ → (мб, строк).
+
+    В этой сборке SQLite виртуальная таблица `dbstat` НЕДОСТУПНА (`no such table: dbstat`),
+    поэтому объём оценивается как `строк × средняя длина строки по выборке sample`.
+    Значение приблизительное (без служебных накладных расходов) — в отчёте помечено «≈».
+    """
+    cnt = _table_row_count(cur, table)
+    if not cnt:
+        return 0.0, (cnt or 0)
+    try:
+        sel = ", ".join('COALESCE(LENGTH("%s"),0)' % c for c in cols)
+        rows = cur.execute('SELECT %s FROM "%s" LIMIT %d' % (sel, table, sample)).fetchall()
+    except sqlite3.Error:
+        return 0.0, cnt
+    if not rows:
+        return 0.0, cnt
+    avg = sum(sum(r) for r in rows) / float(len(rows))
+    return (cnt * avg) / 1024.0 / 1024.0, cnt
+
+
+def _orphan_counts(cur):
+    """Висячие записи по парам ORPHAN_PAIRS → [{table,column,parent,parent_column,count}]."""
+    out = []
+    for child_t, child_c, parent_t, parent_c in ORPHAN_PAIRS:
+        if not _has_table(cur, child_t) or not _has_table(cur, parent_t):
+            continue
+        try:
+            n = cur.execute(
+                'SELECT COUNT(*) FROM [%s] WHERE %s IS NOT NULL AND %s != "" '
+                'AND %s NOT IN (SELECT %s FROM [%s])'
+                % (child_t, _qcol(child_c), _qcol(child_c), _qcol(child_c), _qcol(parent_c), parent_t)
+            ).fetchone()[0]
+        except sqlite3.Error:
+            continue
+        if n:
+            out.append({"table": child_t, "column": child_c,
+                        "parent": parent_t, "parent_column": parent_c, "count": n})
+    return out
+
+
+def _links_diag(cur, table):
+    """Диагностика дублей пар и само-связей для `links` / `graph_edges`."""
+    if not _has_table(cur, table):
+        return {"present": False}
+    a, b = ("parent", "child") if table == "links" else ("from", "to")
+    d = {"present": True}
+    try:
+        d["rows"] = _table_row_count(cur, table) or 0
+        d["distinct_pairs"] = cur.execute(
+            'SELECT COUNT(*) FROM (SELECT DISTINCT "%s", "%s" FROM "%s")' % (a, b, table)
+        ).fetchone()[0]
+        d["dup_pairs"] = cur.execute(
+            'SELECT COUNT(*) FROM (SELECT "%s", "%s" FROM "%s" '
+            'GROUP BY "%s", "%s" HAVING COUNT(*) > 1)' % (a, b, table, a, b)
+        ).fetchone()[0]
+        d["dup_extra_rows"] = max(0, d["rows"] - d["distinct_pairs"])
+        d["self_links"] = cur.execute(
+            'SELECT COUNT(*) FROM "%s" WHERE lower("%s") = lower("%s")' % (table, a, b)
+        ).fetchone()[0]
+    except sqlite3.Error as e:
+        d["error"] = str(e)
+    return d
+
+
+
+def _doctor_data(db_path=None):
+    """Собирает диагноз базы (СТРОГО READ-ONLY, без печати) → dict."""
+    p = _arg_db(db_path)
+    res = {"db": p, "present": True, "read_only": True,
+           "archive_tables": list(ARCHIVE_TABLES),
+           "tables": [], "orphans": [], "safe_dedup": [], "archive": [],
+           "links": {}, "graph_edges": {}, "meta": {}}
+    if not p or not os.path.isfile(p):
+        res["present"] = False
+        res["error"] = "база не найдена: %s" % p
+        return res
+    res["file_mb"] = round(os.path.getsize(p) / 1024.0 / 1024.0, 1)
+    try:
+        con = _ro_connect(p)
+    except sqlite3.Error as e:                       # noqa: BLE001
+        res["present"] = False
+        res["error"] = "база не открылась только для чтения: %s" % e
+        return res
+    cur = con.cursor()
+    try:
+        # ── meta / schema_version ──
+        has_meta = _has_table(cur, "meta")
+        v_db = 0
+        if has_meta:
+            row = cur.execute("SELECT v FROM meta WHERE k='schema_version'").fetchone()
+            v_db = int(row[0]) if row and str(row[0]).isdigit() else 0
+        if not has_meta:
+            status = "СТОП: таблицы meta нет (старая схема — нужна миграция)"
+        elif v_db == SCHEMA_VERSION:
+            status = "OK: schema_version=%d совпадает с кодом" % v_db
+        elif v_db < SCHEMA_VERSION:
+            status = "ВНИМАНИЕ: база старее кода (%d < %d) — нужна миграция" % (v_db, SCHEMA_VERSION)
+        else:
+            status = "СТОП: база новее программы (%d > %d) — ничего не менять" % (v_db, SCHEMA_VERSION)
+        res["meta"] = {"has_table": has_meta, "schema_version": v_db,
+                       "schema_version_code": SCHEMA_VERSION, "status": status}
+
+        # ── объём крупных таблиц (ОЦЕНКА) ──
+        sizes = []
+        for t in _live_tables(cur):
+            if t == "meta":
+                continue
+            cols = [c[1] for c in cur.execute("PRAGMA table_info(%s)" % t)]
+            mb, cnt = _estimate_table_mb(cur, t, cols)
+            sizes.append({"table": t, "rows": cnt or 0, "est_mb": round(mb, 1)})
+        sizes.sort(key=lambda d: d["est_mb"], reverse=True)
+        res["tables"] = sizes
+
+        # ── висячие записи ──
+        res["orphans"] = _orphan_counts(cur)
+
+        # ── дубли / само-связи ──
+        res["links"] = _links_diag(cur, "links")
+        res["graph_edges"] = _links_diag(cur, "graph_edges")
+
+        # ── архивные (Purge-safe) — только счёт строк, НЕ удаляем ──
+        for t in ARCHIVE_TABLES:
+            if _has_table(cur, t):
+                res["archive"].append({"table": t, "rows": _table_row_count(cur, t) or 0})
+    finally:
+        con.close()
+
+    # ── классификация: что можно чистить безопасно ──
+    lk = res["links"]
+    if lk.get("present"):
+        if lk.get("dup_pairs"):
+            res["safe_dedup"].append(
+                "links: убрать %d дублей пар (parent,child) — сверх %d лишних строк"
+                % (lk["dup_pairs"], lk.get("dup_extra_rows", 0)))
+        if lk.get("self_links"):
+            res["safe_dedup"].append("links: убрать %d само-связей (parent == child)" % lk["self_links"])
+    ge = res["graph_edges"]
+    if ge.get("present"):
+        if ge.get("dup_pairs"):
+            res["safe_dedup"].append("graph_edges: убрать %d дублей пар (from,to)" % ge["dup_pairs"])
+        if ge.get("self_links"):
+            res["safe_dedup"].append("graph_edges: убрать %d само-связей (from == to)" % ge["self_links"])
+    return res
+
+
+
+def _print_doctor(res):
+    """Человекочитаемый отчёт `doctor`."""
+    print("=" * 72)
+    print("DOCTOR — диагностика базы PLM (СТРОГО READ-ONLY, ничего не меняется)")
+    print("=" * 72)
+    if not res.get("present"):
+        print(res.get("error"))
+        return
+    print("БАЗА   :", res["db"])
+    print("РАЗМЕР : %.1f МБ" % res.get("file_mb", 0.0))
+    m = res.get("meta", {})
+    print("SCHEMA : база=%s код=%s" % (m.get("schema_version"), m.get("schema_version_code")))
+    print("СТАТУС :", m.get("status"))
+    print("")
+    print("-- КРУПНЫЕ ТАБЛИЦЫ (объём ≈, оценка по выборке) --")
+    for d in res.get("tables", [])[:15]:
+        print("   %-16s строк %-10d ≈ %.1f МБ" % (d["table"], d["rows"], d["est_mb"]))
+    print("")
+    print("-- ВИСЯЧИЕ ЗАПИСИ (ключ отсутствует в snapshots) --")
+    if not res.get("orphans"):
+        print("   нет")
+    for o in res.get("orphans", []):
+        print("   %s.%s -> %s.%s : %d строк"
+              % (o["table"], o["column"], o["parent"], o["parent_column"], o["count"]))
+    print("")
+    print("-- СВЯЗИ links / graph_edges --")
+    for key in ("links", "graph_edges"):
+        d = res.get(key, {})
+        if not d.get("present"):
+            print("   %s: таблицы нет" % key)
+            continue
+        print("   %-12s строк %-9s | дублей пар %-7s | само-связей %s"
+              % (key, d.get("rows"), d.get("dup_pairs"), d.get("self_links")))
+    print("")
+    print("-- КАНДИДАТЫ НА БЕЗОПАСНУЮ ДЕДУПЛИКАЦИЮ (историю НЕ трогают) --")
+    if not res.get("safe_dedup"):
+        print("   чисто — дублей пар и само-связей нет")
+    for s in res.get("safe_dedup", []):
+        print("   *", s)
+    print("")
+    print("-- АРХИВНЫЕ ИСТОРИЧЕСКИЕ ТАБЛИЦЫ (Purge-safe: УДАЛЯТЬ НЕЛЬЗЯ) --")
+    if not res.get("archive"):
+        print("   (таких таблиц в базе нет)")
+    for a in res.get("archive", []):
+        print("   %-16s строк %s" % (a["table"], a["rows"]))
+    print("=" * 72)
+
+
+def doctor(db_path=None, as_json=False):
+    """ПОДРОБНЫЙ ДИАГНОЗ базы (СТРОГО READ-ONLY) → dict результата.
+
+    Показывает: состояние `meta.schema_version`; объём крупных таблиц (оценка, МБ);
+    висячие записи; дубли связей и само-связи; и ЧЁТКО РАЗДЕЛЯЕТ:
+      • кандидаты на безопасную дедупликацию (дубли `links`, само-связи),
+      • архивные исторические таблицы `Purge-safe`
+        (changes/history/arch_dims/arch_dim_ch), которые удалять НЕЛЬЗЯ.
+    """
+    res = _doctor_data(db_path)
+    if as_json:
+        print(json.dumps(res, ensure_ascii=False, indent=2))
+    else:
+        _print_doctor(res)
+    return res
+
+
+def cmd_doctor():
+    """CLI-обёртка `doctor` (путь читается из `--db`, флаг `--json` поддержан)."""
+    return doctor(as_json="--json" in sys.argv)
+
+
+
+def cmd_selftest():
+    """Встроенный регресс-тест на ВРЕМЕННОЙ БД (без следов на диске).
+
+    Проверяет: `SCHEMA`, `ensure_indexes` (со сбросом кэша проверки), `check --full`
+    (наличие машинных кодов проблем), `doctor` (read-only) и `export_schema_docs`.
+    Печатает итог `SELFTEST OK` / `SELFTEST FAIL`. Возвращает bool.
+    """
+    import shutil
+    import tempfile
+    problems = []
+    tmp = tempfile.mkdtemp(prefix="plm_selftest_")
+    try:
+        dbf = os.path.join(tmp, "t.db")
+        con = connect_safe(dbf)
+        cur = con.cursor()
+        # SCHEMA: создаём все таблицы эталона
+        for t, cols in SCHEMA.items():
+            cur.execute('CREATE TABLE IF NOT EXISTS "%s" (%s)'
+                        % (t, ", ".join('"%s" TEXT' % c for c in cols)))
+        cur.executemany('INSERT INTO snapshots(model,path) VALUES(?,?)',
+                        [("A", "/a"), ("B", "/b")])
+        # дубль пары + само-связь + орфан (C нет в snapshots)
+        cur.executemany('INSERT INTO links(parent,child,qty) VALUES(?,?,?)',
+                        [("A", "B", 1), ("A", "B", 2), ("A", "A", 5), ("B", "C", 1)])
+        # пустой ключ + орфан
+        cur.executemany('INSERT INTO params(model,path,name) VALUES(?,?,?)',
+                        [("", "/x", "p1"), ("ZZ", "/z", "p2")])
+        con.commit()
+        con.close()
+        set_schema_version(SCHEMA_VERSION, dbf)
+        if schema_version(dbf) != SCHEMA_VERSION:
+            problems.append("SCHEMA: schema_version базы != коду")
+
+        # ensure_indexes + сброс кэша проверки
+        cache = _check_cache_path(dbf)
+        with open(cache, "w", encoding="utf-8") as f:
+            f.write("{}")
+        ensure_indexes(dbf)
+        if os.path.isfile(cache):
+            problems.append("ensure_indexes: кэш проверки НЕ сброшен")
+
+        # check --full: коды данных видны; индексы уже есть (нет флапа MISSING_INDEX)
+        res = _run_check(dbf, full=True, use_cache=False)
+        codes = set(i["code"] for i in res["issues"])
+        if "MISSING_INDEX" in codes:
+            problems.append("check --full: индексы не видны после ensure_indexes (флап кэша)")
+        for need in ("DUPLICATE", "SELF_LINK", "EMPTY_KEY", "ORPHAN"):
+            if need not in codes:
+                problems.append("check --full: не найден код %s" % need)
+
+        # doctor: read-only (размер файла не меняется) + видит орфаны
+        before = os.path.getsize(dbf)
+        doc = _doctor_data(dbf)
+        after = os.path.getsize(dbf)
+        if before != after:
+            problems.append("doctor: база ИЗМЕНИЛАСЬ (не read-only)")
+        if not doc.get("orphans"):
+            problems.append("doctor: висячие записи не найдены")
+        if not doc.get("safe_dedup"):
+            problems.append("doctor: кандидаты на дедупликацию не найдены")
+
+        # export_schema_docs в temp
+        docs = os.path.join(tmp, "docs")
+        if not export_schema_docs(dbf, out_dir=docs):
+            problems.append("export_schema_docs: вернул False")
+        elif not os.path.isfile(os.path.join(docs, "schema_passport.md")):
+            problems.append("export_schema_docs: нет schema_passport.md")
+    finally:
+        shutil.rmtree(tmp, ignore_errors=True)
+    if os.path.isdir(tmp):
+        problems.append("не удалось убрать временную папку: %s" % tmp)
+    print("=" * 60)
+    print("SELFTEST: проблем %d" % len(problems))
+    for pb in problems:
+        print("  [!]", pb)
+    if problems:
+        print("SELFTEST FAIL")
+        return False
+    print("SELFTEST OK")
+    return True
+
 
 
 def indexes(db=None):
@@ -1024,13 +1430,15 @@ if __name__ == "__main__":
     arg = sys.argv[2] if len(sys.argv) > 2 else None
     if cmd == "stats":
         stats()
-    elif cmd == "check":
-        full = "--full" in sys.argv
+    elif cmd in ("check", "check-full"):
+        full = (cmd == "check-full") or ("--full" in sys.argv)
         use_cache = "--no-cache" not in sys.argv
-        check(full=full, use_cache=use_cache)
-    elif cmd == "check-full":
-        use_cache = "--no-cache" not in sys.argv
-        check(full=True, use_cache=use_cache)
+        res = _run_check(full=full, use_cache=use_cache)
+        if "--json" in sys.argv:
+            print(json.dumps(res, ensure_ascii=False, indent=2))
+        else:
+            _print_check(res)
+        sys.exit(check_exit_code(res))
     elif cmd == "schema":
         schema()
     elif cmd == "migrate":
@@ -1062,5 +1470,9 @@ if __name__ == "__main__":
         schema_snapshot(arg if (arg and not arg.startswith("--")) else None)
     elif cmd == "export-docs":
         export_schema_docs()
+    elif cmd == "doctor":
+        cmd_doctor()
+    elif cmd == "selftest":
+        sys.exit(0 if cmd_selftest() else 1)
     else:
         print(__doc__)
