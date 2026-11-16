@@ -18,9 +18,13 @@ plm_database.py — DATABASE: обслуживание базы ПЛМ (влад
     python plm_database.py migrate [--db ПУТЬ]   — ПРИВЕСТИ БАЗУ К СХЕМЕ (шаг за шагом)
     python plm_database.py validate <draft.db>   — проверка черновика
     python plm_database.py publish <draft.db>    — публикация в боевую
-    python plm_database.py indexes               — REINDEX + ANALYZE
-    python plm_database.py vacuum                — сжать базу
-    python plm_database.py backup                — бэкап боевой базы
+    python plm_database.py check [--full] [--no-cache] — целостность + индексы + diff схемы + аудит данных
+    python plm_database.py schema-snapshot          — снимок DDL схемы в JSON (перед миграцией)
+    python plm_database.py ensure-indexes           — создать индексы на связующих колонках
+    python plm_database.py indexes                  — REINDEX + ANALYZE
+    python plm_database.py vacuum                   — сжать базу
+    python plm_database.py backup                   — бэкап боевой базы
+    python plm_database.py export-docs              — паспорт схемы + 4 Mermaid ER-диаграммы
 
 МИГРАЦИИ (ЗАКОН, живое состояние схемы):
     Схема ВЕРСИОНИРУЕТСЯ: `meta.schema_version` (в базе) ↔ `SCHEMA_VERSION` (в коде).
@@ -133,7 +137,7 @@ def schema_snapshot(db_path=None):
     if not p or not os.path.isfile(p):
         print("база не найдена:", p)
         return None
-    con = sqlite3.connect(p)
+    con = connect_safe(p)
     cur = con.cursor()
     cur.execute("SELECT type, name, sql FROM sqlite_master WHERE sql IS NOT NULL")
     snapshot = {}
@@ -350,7 +354,7 @@ def schema_version(db=None):
     p = _arg_db(db)
     if not p or not os.path.isfile(p):
         return None
-    con = sqlite3.connect(p)
+    con = connect_safe(p)
     try:
         if not _has_table(con.cursor(), "meta"):
             return 0
@@ -364,7 +368,7 @@ def schema_version(db=None):
 
 def set_schema_version(v, db=None):
     p = db or _live_db()
-    con = sqlite3.connect(p)
+    con = connect_safe(p)
     con.execute("CREATE TABLE IF NOT EXISTS meta (k TEXT PRIMARY KEY, v TEXT)")
     con.execute("INSERT OR REPLACE INTO meta VALUES ('schema_version', ?)", (str(int(v)),))
     con.commit()
@@ -412,6 +416,12 @@ def migrate(db=None, quiet=False):
         if not quiet:
             print("схема актуальна (версия %d) — миграция не нужна" % v)
         return v, v
+    # Д. Снимок схемы (DDL -> JSON) ДО миграции — для отката при ошибке
+    try:
+        schema_snapshot(p)
+    except Exception as e:                       # noqa: BLE001
+        if not quiet:
+            print("снимок схемы не сделан (%s) — продолжаю" % e)
     # БЭКАП (обязательно!)
     try:
         ts = datetime.datetime.now().strftime("%Y%m%d_%H%M%S")
@@ -425,7 +435,7 @@ def migrate(db=None, quiet=False):
         print("БЭКАП НЕ СДЕЛАН (%s) — миграция ОТМЕНЕНА" % e)
         return v, v
     v0 = v
-    con = sqlite3.connect(p)
+    con = connect_safe(p)
     for frm, fn in sorted(MIGRATIONS):
         if v <= frm < SCHEMA_VERSION:
             try:
@@ -507,7 +517,7 @@ def stats(db=None):
     if not p or not os.path.isfile(p):
         print("боевая база не найдена")
         return
-    con = sqlite3.connect(p)
+    con = connect_safe(p)
     cur = con.cursor()
     print("БАЗА:", p, "|", round(os.path.getsize(p) / 1024 / 1024, 1), "МБ")
     for n in [r[0] for r in cur.execute(
@@ -660,7 +670,7 @@ def recommend_vacuum(db=None):
     p = _arg_db(db)
     if not p or not os.path.isfile(p):
         return
-    con = sqlite3.connect(p)
+    con = connect_safe(p)
     cur = con.cursor()
     try:
         free = cur.execute("PRAGMA freelist_count").fetchone()[0]
@@ -689,7 +699,7 @@ def ensure_indexes(db=None):
     if not p or not os.path.isfile(p):
         print("база не найдена:", p)
         return
-    con = sqlite3.connect(p)
+    con = connect_safe(p)
     cur = con.cursor()
     created = 0
     for t in SCHEMA:
@@ -849,7 +859,7 @@ def check(db=None, full=False, use_cache=True):
 def indexes(db=None):
     """Перестроить индексы + ANALYZE (ускорение запросов)."""
     p = db or _live_db()
-    con = sqlite3.connect(p)
+    con = connect_safe(p)
     t0 = time.perf_counter()
     con.execute("REINDEX")
     con.execute("ANALYZE")
@@ -862,7 +872,7 @@ def vacuum(db=None):
     """Сжать базу (дефрагментация)."""
     p = db or _live_db()
     before = os.path.getsize(p)
-    con = sqlite3.connect(p)
+    con = connect_safe(p)
     t0 = time.perf_counter()
     con.execute("VACUUM")
     con.close()
@@ -902,7 +912,7 @@ def export_schema_docs(db_path=None, out_dir=None):
         out_dir = os.path.join(os.path.dirname(HERE), "docs_schema")
     os.makedirs(out_dir, exist_ok=True)
 
-    con = sqlite3.connect(p)
+    con = connect_safe(p)
     cur = con.cursor()
     cur.execute(
         "SELECT name FROM sqlite_master WHERE type='table' AND name NOT LIKE 'sqlite_%' ORDER BY name"
@@ -1010,9 +1020,11 @@ if __name__ == "__main__":
         stats()
     elif cmd == "check":
         full = "--full" in sys.argv
-        check(full=full)
+        use_cache = "--no-cache" not in sys.argv
+        check(full=full, use_cache=use_cache)
     elif cmd == "check-full":
-        check(full=True)
+        use_cache = "--no-cache" not in sys.argv
+        check(full=True, use_cache=use_cache)
     elif cmd == "schema":
         schema()
     elif cmd == "migrate":
@@ -1034,10 +1046,14 @@ if __name__ == "__main__":
         publish(arg)
     elif cmd == "indexes":
         indexes()
+    elif cmd == "ensure-indexes":
+        ensure_indexes(arg)
     elif cmd == "vacuum":
         vacuum()
     elif cmd == "backup":
         backup()
+    elif cmd == "schema-snapshot":
+        schema_snapshot(arg)
     elif cmd == "export-docs":
         export_schema_docs()
     else:

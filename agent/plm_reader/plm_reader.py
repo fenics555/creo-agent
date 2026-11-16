@@ -41,9 +41,11 @@ if __name__ == "__main__":
     import sys as _sys
     _sys.modules.setdefault("plm_reader", _sys.modules["__main__"])
 
-APP_VERSION = "V185"      # 🔴 V185: линтер схемы (индексы + diff vs SCHEMA), export-docs,
-                          #        двухфазное атомарное обновление (SHA-256 до замены,
-                          #        os.replace + откат из снимка).
+APP_VERSION = "V186"      # 🔴 V186: полный аудит БД по мотивам tbls: аудит целостности данных
+                          #        (орфанные ссылки, дубли, само-связи, пустые ключи),
+                          #        автоиндексация (ensure-indexes), снимок схемы (schema-snapshot),
+                          #        connect_safe (retry при database is locked), recommend_vacuum,
+                          #        кэш проверки .plm_check_cache.json (TTL 5 мин, --no-cache).
                           # 🔴 V179 (05.11.2026): ВЕРНУЛ СВЯЗИ ЧЕРТЁЖ→МОДЕЛЬ (их снесла миграция).
                           # 🔴 ЖИВОЙ ДЕФЕКТ (владелец: «где же чертежи? почему у детали нет чертежа?»):
                           #    в базе `links` со `source='dwg'` было ВСЕГО **3** при **13 071 чертеже**.
