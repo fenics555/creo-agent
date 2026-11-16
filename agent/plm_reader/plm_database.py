@@ -27,6 +27,7 @@ plm_database.py — DATABASE: обслуживание базы ПЛМ (влад
     python plm_database.py export-docs              — паспорт схемы + 4 Mermaid ER-диаграммы
     python plm_database.py doctor  [--db ПУТЬ]      — ПОДРОБНЫЙ диагноз базы (СТРОГО READ-ONLY)
     python plm_database.py selftest                 — встроенный регресс-тест (временная БД)
+    python plm_database.py repair [--apply] [--db ПУТЬ] — ОЧИСТКА связей (dry-run по умолчанию)
 
 КОДЫ ВОЗВРАТА `check`: 0 — чисто, 1 — предупреждения, 2 — ошибки.
 Флаг `--json` — структурированный вывод с кодами проблем (ORPHAN / DUPLICATE /
@@ -1212,6 +1213,9 @@ def cmd_selftest():
         # пустой ключ + орфан
         cur.executemany('INSERT INTO params(model,path,name) VALUES(?,?,?)',
                         [("", "/x", "p1"), ("ZZ", "/z", "p2")])
+        # V188: засев graph_edges (само-связь + дубль) — для проверки repair
+        cur.executemany('INSERT INTO graph_edges("from","to",kind,qty) VALUES(?,?,?,?)',
+                        [("X", "X", "k", 1), ("Y", "Z", "k", 1), ("Y", "Z", "k", 2)])
         con.commit()
         con.close()
         set_schema_version(SCHEMA_VERSION, dbf)
@@ -1252,6 +1256,40 @@ def cmd_selftest():
             problems.append("export_schema_docs: вернул False")
         elif not os.path.isfile(os.path.join(docs, "schema_passport.md")):
             problems.append("export_schema_docs: нет schema_passport.md")
+
+        # V188: repair --dry-run (база НЕ меняется) и --apply (чистит связи)
+        def _cnt(sql):
+            _c = connect_safe(dbf)
+            try:
+                return _c.execute(sql).fetchone()[0]
+            finally:
+                _c.close()
+
+        links0 = _cnt("SELECT COUNT(*) FROM links")
+        edges0 = _cnt("SELECT COUNT(*) FROM graph_edges")
+        plan = repair(dbf, dry_run=True, quiet=True)
+        if (links0, edges0) != (_cnt("SELECT COUNT(*) FROM links"),
+                                _cnt("SELECT COUNT(*) FROM graph_edges")):
+            problems.append("repair --dry-run: база ИЗМЕНИЛАСЬ (должна быть read-only)")
+        lk_plan = (plan or {}).get("plan", {}).get("links") or {}
+        if not (lk_plan.get("self_links") or lk_plan.get("dup_groups")):
+            problems.append("repair dry-run: не нашёл дублей/само-связей в links")
+
+        rep = repair(dbf, dry_run=False, quiet=True)
+        if not rep or rep.get("deleted") is None:
+            problems.append("repair --apply: не выполнено")
+        else:
+            self_l = _cnt("SELECT COUNT(*) FROM links WHERE lower(parent) = lower(child)")
+            dup_l = _cnt("SELECT COUNT(*) FROM (SELECT parent,child,source,kind FROM links "
+                         "GROUP BY parent,child,source,kind HAVING COUNT(*) > 1)")
+            self_g = _cnt('SELECT COUNT(*) FROM graph_edges WHERE "from" = "to"')
+            dup_g = _cnt('SELECT COUNT(*) FROM (SELECT "from","to",kind FROM graph_edges '
+                         'GROUP BY "from","to",kind HAVING COUNT(*) > 1)')
+            if self_l or dup_l or self_g or dup_g:
+                problems.append("repair --apply: остались связи (links %s/%s, graph %s/%s)"
+                                % (self_l, dup_l, self_g, dup_g))
+            if not rep.get("backup"):
+                problems.append("repair --apply: не сделан бэкап")
     finally:
         shutil.rmtree(tmp, ignore_errors=True)
     if os.path.isdir(tmp):
@@ -1265,6 +1303,161 @@ def cmd_selftest():
         return False
     print("SELFTEST OK")
     return True
+
+
+
+def _repair_plan(cur):
+    """План очистки: само-связи и дубли в `links` / `graph_edges` (СТРОГО read-only).
+
+    Архивные таблицы (`changes`, `history`, `arch_dims`, `arch_dim_ch`) НЕ рассматриваются —
+    они Purge-safe и очистке НЕ подлежат.
+    """
+    plan = {}
+    specs = (("links", ("parent", "child"), "source", ("parent", "child", "source", "kind")),
+             ("graph_edges", ('"from"', '"to"'), "kind", ('"from"', '"to"', "kind")))
+    for table, self_cols, _extra, key_cols in specs:
+        if not _has_table(cur, table):
+            plan[table] = None
+            continue
+        cols = [c[1] for c in cur.execute("PRAGMA table_info(%s)" % table)]
+        info = {"rows_before": _table_row_count(cur, table) or 0,
+                "self_links": 0, "dup_groups": 0, "dup_extra": 0}
+        a = self_cols[0].strip('"')
+        b = self_cols[1].strip('"')
+        try:
+            info["self_links"] = cur.execute(
+                'SELECT COUNT(*) FROM "%s" WHERE lower("%s") = lower("%s")' % (table, a, b)
+            ).fetchone()[0]
+        except sqlite3.Error:
+            pass
+        # ключ дедупликации — только из реально существующих колонок
+        use_cols = [c for c in key_cols if c.strip('"') in cols]
+        if len(use_cols) >= 2:
+            kexpr = ", ".join('"%s"' % c.strip('"') for c in use_cols)
+            try:
+                row = cur.execute(
+                    "SELECT COUNT(*), COALESCE(SUM(cnt - 1), 0) FROM ("
+                    "SELECT COUNT(*) AS cnt FROM \"%s\" GROUP BY %s HAVING COUNT(*) > 1)"
+                    % (table, kexpr)
+                ).fetchone()
+                info["dup_groups"] = row[0] or 0
+                info["dup_extra"] = int(row[1] or 0)
+            except sqlite3.Error:
+                pass
+        plan[table] = info
+    return plan
+
+
+def _dedupe_table(cur, table, key_cols, qty_col=None):
+    """Удалить дубли по `key_cols`, оставив ОДНУ строку с МАКСИМАЛЬНЫМ `qty`.
+
+    Возвращает число удалённых строк. Через оконную функцию ROW_NUMBER (SQLite ≥ 3.25).
+    """
+    cols = [c[1] for c in cur.execute("PRAGMA table_info(%s)" % table)]
+    key = [c for c in key_cols if c in cols]
+    if len(key) < 2:
+        return 0
+    kexpr = ", ".join('"%s"' % c for c in key)
+    if qty_col and qty_col in cols:
+        order = 'CAST(COALESCE("%s", 0) AS INTEGER) DESC, rowid' % qty_col
+    else:
+        order = "rowid"
+    before = _table_row_count(cur, table) or 0
+    try:
+        cur.execute(
+            'DELETE FROM "%s" WHERE rowid NOT IN ('
+            '  SELECT rowid FROM ('
+            '    SELECT rowid, ROW_NUMBER() OVER (PARTITION BY %s ORDER BY %s) AS rn FROM "%s"'
+            '  ) WHERE rn = 1)' % (table, kexpr, order, table))
+    except sqlite3.Error as e:
+        print("  дубли %s не удалены (%s)" % (table, e))
+        return 0
+    after = _table_row_count(cur, table) or 0
+    return max(0, before - after)
+
+
+
+def _print_repair_plan(plan, dry_run=True, title="REPAIR — очистка связей"):
+    """Печать плана/итога очистки."""
+    print("=" * 68)
+    print("%s (%s)" % (title, "DRY-RUN: план, ничего не меняется" if dry_run else "ИТОГ"))
+    print("=" * 68)
+    for t in ("links", "graph_edges"):
+        d = plan.get(t)
+        if not d:
+            print("  %-12s: таблицы нет" % t)
+            continue
+        print("  %-12s строк %-9s | само-связей %-7s | дублей групп %-7s (лишних строк %s)"
+              % (t, d.get("rows_before"), d.get("self_links"),
+                 d.get("dup_groups"), d.get("dup_extra")))
+    print("  Архивные таблицы (changes · history · arch_dims · arch_dim_ch) НЕ трогаются (Purge-safe).")
+    print("=" * 68)
+
+
+def repair(db_path=None, dry_run=True, quiet=False):
+    """ОЧИСТКА СВЯЗЕЙ: само-связи и дубли в `links` / `graph_edges`.
+
+    🔴 ПО УМОЛЧАНИЮ `dry_run=True` — только показывает план, базу НЕ меняет.
+    При `dry_run=False` (`--apply`): обязательный БЭКАП + `schema_snapshot`, затем:
+      • удаляются само-связи (`parent == child`) в `links`;
+      • удаляются дубли `(parent, child, source, kind)` в `links`, остаётся 1 строка
+        с максимальным `qty`;
+      • удаляются само-связи (`from == to`) и дубли `(from, to, kind)` в `graph_edges`;
+      • АРХИВНЫЕ таблицы (`changes`, `history`, `arch_dims`, `arch_dim_ch`) и орфаны
+        в них — НЕ трогаются (Purge-safe).
+    Возвращает dict с планом, итогом и числом удалённых строк.
+    """
+    p = _arg_db(db_path)
+    if not p or not os.path.isfile(p):
+        print("база не найдена:", p)
+        return None
+    con = connect_safe(p)
+    cur = con.cursor()
+    plan = _repair_plan(cur)
+    if not quiet:
+        _print_repair_plan(plan, dry_run=dry_run)
+    if dry_run:
+        con.close()
+        return {"dry_run": True, "db": p, "plan": plan, "deleted": None}
+
+    # ── APPLY: бэкап обязателен ──
+    try:
+        ts = datetime.datetime.now().strftime("%Y%m%d_%H%M%S")
+        bdir = os.path.join(os.path.dirname(p), "backup")
+        os.makedirs(bdir, exist_ok=True)
+        bpath = os.path.join(bdir, "pre_repair_%s.db" % ts)
+        shutil.copy2(p, bpath)
+        if not quiet:
+            print("бэкап перед repair:", bpath)
+    except Exception as e:                       # noqa: BLE001
+        print("БЭКАП НЕ СДЕЛАН (%s) — repair ОТМЕНЁН" % e)
+        con.close()
+        return {"dry_run": False, "db": p, "plan": plan, "deleted": None, "error": str(e)}
+    try:
+        schema_snapshot(p)
+    except Exception as e:                       # noqa: BLE001
+        if not quiet:
+            print("снимок схемы не сделан (%s) — продолжаю" % e)
+
+    deleted = {}
+    if _has_table(cur, "links"):
+        cur.execute('DELETE FROM links WHERE lower(parent) = lower(child)')
+        deleted["links_self"] = cur.rowcount
+        deleted["links_dup"] = _dedupe_table(cur, "links",
+                                             ["parent", "child", "source", "kind"], "qty")
+    if _has_table(cur, "graph_edges"):
+        cur.execute('DELETE FROM graph_edges WHERE "from" = "to"')
+        deleted["graph_self"] = cur.rowcount
+        deleted["graph_dup"] = _dedupe_table(cur, "graph_edges",
+                                             ["from", "to", "kind"], "qty")
+    con.commit()
+    after = _repair_plan(cur)
+    con.close()
+    if not quiet:
+        _print_repair_plan(after, dry_run=False)
+        print("УДАЛЕНО:", deleted)
+    return {"dry_run": False, "db": p, "plan": plan, "after": after,
+            "deleted": deleted, "backup": bpath}
 
 
 
@@ -1474,5 +1667,7 @@ if __name__ == "__main__":
         cmd_doctor()
     elif cmd == "selftest":
         sys.exit(0 if cmd_selftest() else 1)
+    elif cmd == "repair":
+        repair(dry_run=("--apply" not in sys.argv))
     else:
         print(__doc__)

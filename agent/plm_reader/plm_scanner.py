@@ -617,10 +617,20 @@ _RX_MODEL_REFS = re.compile(
     rb"Model_refs.{0,60}?object_type\x00(.)\xe0\x0aname\x00([\x20-\x7e\x80-\xff]{3,60})\x00", re.S)
 
 
-def extract_links(raw, anchors):
+def _stem_low(name):
+    """Нормализованное имя модели для сравнения «сам на себя» (стем без регистра)."""
+    try:
+        return (_CR.stem(name or "") or "").lower()
+    except Exception:
+        return (name or "").strip().lower()
+
+
+def extract_links(raw, anchors, model=""):
     """Связи: derived · copy_from · model_names · components (состав сборки).
 
     ⚡ ОПТИМИЗАЦИЯ: имена моделей ищем ТОЛЬКО в .asm/.drw (в .prt их нет).
+    🔴 V188: при заданном `model` ЖЁСТКО вырезаются само-ссылки (модель → сама себя) —
+    это один из источников 15 908 само-связей в боевой базе.
     """
     out = {"derived": [], "copy_from": "", "model_names": [], "components": [],
            "ref_models": [], "model_refs": []}
@@ -688,6 +698,16 @@ def extract_links(raw, anchors):
             comp[nm] = comp.get(nm, 0) + 1
         out["components"] = [{"name": n, "count": c} for n, c in
                              sorted(comp.items(), key=lambda x: -x[1])]
+    # 🔴 V188: ЖЁСТКАЯ ЗАЧИСТКА САМО-ССЫЛОК (модель → сама себя) во ВСЕХ каналах.
+    if model:
+        _ms = _stem_low(model)
+        out["derived"] = [d for d in out["derived"] if _stem_low(d) != _ms]
+        out["model_names"] = [n for n in out["model_names"] if _stem_low(n) != _ms]
+        out["model_refs"] = [n for n in out["model_refs"] if _stem_low(n) != _ms]
+        out["ref_models"] = [n for n in out["ref_models"] if _stem_low(n) != _ms]
+        out["components"] = [c for c in out["components"] if _stem_low(c.get("name")) != _ms]
+        if _stem_low(out.get("copy_from")) == _ms:
+            out["copy_from"] = ""
     return out
 
 
@@ -1159,7 +1179,7 @@ def pack(raw, anchors, feat_dict, pdes=None, pname=None, model=""):
 
     passport = extract_passport(raw, anchors, pdes=pdes, pname=pname, model=model)
     mass = extract_mass(raw, anchors)
-    links = extract_links(raw, anchors)
+    links = extract_links(raw, anchors, model=model)
     master = extract_master(raw, anchors)          # 🔴 V160: материал берём ЗДЕСЬ
     # 🔴 ЖИВОЙ ДЕФЕКТ (найден пробой 03.11.2026): `extract_passport` НЕ заполняет `material`
     # (там только `system_mtrl`/`mtype`) ⇒ в снапшот шла ПУСТОТА (замер: 0 из 30 файлов).
@@ -1600,6 +1620,12 @@ def open_draft(db=None):
     return con, p
 
 
+# 🔴 V188: ПОТОЛОК РАЗМЕРА СЫРОГО ДАМПА `unknown_fields` (замер владельца: 59 447 строк = 1185.1 МБ;
+# причина — JSON со ~1300 имён полей на КАЖДЫЙ файл, ≈20 КБ/строку). Режем поле до 512 символов;
+# ПОЛНЫЙ счётчик полей (`len(_uf)`) сохраняем — видно, СКОЛЬКО полей было.
+UF_FIELD_MAX = 512
+
+
 def write_item(con, path, boxes):
     """
     Записать ОДИН разобранный файл в черновик (одна транзакция).
@@ -1737,6 +1763,11 @@ def write_item(con, path, boxes):
             _payload = _json.dumps(_uf, ensure_ascii=False, sort_keys=True)
         except Exception:
             _payload = ""
+        # 🔴 V188: ОГРАНИЧЕНИЕ РАЗМЕРА СЫРОГО ДАМПА. Без этого одна строка ≈20 КБ
+        # (JSON ~1300 имён полей), и таблица раздувается до гигабайтов. Счётчик полей
+        # `len(_uf)` сохраняем ПОЛНЫМ — «сколько полей было» видно, обрезан лишь хвост.
+        if len(_payload) > UF_FIELD_MAX:
+            _payload = _payload[:UF_FIELD_MAX] + "…(обрезано V188)"
         con.execute("INSERT INTO unknown_fields(path,model,name,count) VALUES (?,?,?,?)",
                     (path, _payload, "__ALL__", len(_uf)))
         n += 1
@@ -1756,7 +1787,8 @@ def write_item(con, path, boxes):
         con.execute("DELETE FROM links WHERE parent=? AND source='asm_comp'", (m,))
         for _c in _lk.get("components") or []:
             _cn = _CR.stem(_c.get("name") or "")
-            if _cn and _cn != m:
+            # 🔴 V188: ЖЁСТКИЙ ЗАПРЕТ САМО-СВЯЗИ (без регистра): модель не ссылается сама на себя.
+            if _cn and _stem_low(_cn) != _stem_low(m):
                 con.execute("INSERT INTO links(parent,child,qty,source,kind) VALUES (?,?,?,?,?)",
                             (m, _cn, int(_c.get("count") or 1), "asm_comp", "состав"))
                 n += 1
@@ -1764,7 +1796,8 @@ def write_item(con, path, boxes):
         con.execute("DELETE FROM links WHERE parent=? AND source='dwg'", (m,))
         for _dn in _lk.get("model_names") or []:
             _dc = _CR.stem(_dn or "")
-            if _dc and _dc != m:
+            # 🔴 V188: ЖЁСТКИЙ ЗАПРЕТ САМО-СВЯЗИ (без регистра).
+            if _dc and _stem_low(_dc) != _stem_low(m):
                 con.execute("INSERT INTO links(parent,child,qty,source,kind) VALUES (?,?,?,?,?)",
                             (m, _dc, 1, "dwg", "чертёж"))
                 n += 1

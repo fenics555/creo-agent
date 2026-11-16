@@ -41,7 +41,16 @@ if __name__ == "__main__":
     import sys as _sys
     _sys.modules.setdefault("plm_reader", _sys.modules["__main__"])
 
-APP_VERSION = "V187"      # 🔴 V187: диагностика и регресс-тест базы.
+APP_VERSION = "V188"      # 🔴 V188: очистка связей + защита от само-ссылок и раздувания.
+                          #        `repair [--apply]` (plm_database): dry-run по умолчанию; при
+                          #        `--apply` — бэкап + schema_snapshot, затем удаление само-связей
+                          #        (`parent==child`) и дублей `(parent,child,source,kind)` в `links`
+                          #        (остаётся 1 с максимальным `qty`), само-связей/дублей в `graph_edges`;
+                          #        архивные (changes/history/arch_dims/arch_dim_ch) НЕ трогаются (Purge-safe).
+                          #        Сканер (`plm_scanner.py`): жёсткий фильтр `child != parent`
+                          #        в `write_item`/`extract_links`; потолок дампа `unknown_fields` = 512.
+                          #        `selftest`: + проверки repair --dry-run и --apply.
+                          # 🔴 V187: диагностика и регресс-тест базы.
                           #        `doctor` — подробный READ-ONLY диагноз: объём крупных таблиц (оценка),
                           #        висячие записи, дубли связей/само-связи, разделение
                           #        «кандидаты на дедупликацию» ↔ «архивные исторические (Purge-safe)»,
