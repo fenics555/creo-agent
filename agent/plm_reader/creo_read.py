@@ -55,7 +55,7 @@ def canon_model(s) -> str:
         t = stem(str(s or "").strip())
     except Exception:
         t = str(s or "").strip()
-    t = (t or "").strip()
+    t = (t or "").strip().rstrip(".").strip()   # V206: снять хвостовую точку-артефакт («0-2500.»)
     if not t or t.startswith("-"):      # обрывок парсера («-00», «-001-002.PRT»): не имя модели
         return ""
     return t.upper()

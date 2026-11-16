@@ -3239,11 +3239,6 @@ def _passport_better(new_row, new_mt, old_row, old_mt):
     return (new_mt or 0) > (old_mt or 0)
 
 
-def model_info(*args, **kwargs):
-    """ПОСТРОИТЕЛЬ — ВЫНЕСЕН в `plm_queries.py` (V140: сканер не строит).
-    Обёртка оставлена для совместимости: старые вызовы работают без правок."""
-    import plm_queries as _q
-    return getattr(_q, "model_info")(*args, **kwargs)
 
 
 def role_of(model):
@@ -3258,15 +3253,12 @@ def role_of(model):
         return ""
 
 
-def mfg_models(*args, **kwargs):
-    """ПОСТРОИТЕЛЬ — ВЫНЕСЕН в `plm_queries.py` (V140: сканер не строит).
-    Обёртка оставлена для совместимости: старые вызовы работают без правок."""
-    import plm_queries as _q
-    return getattr(_q, "mfg_models")(*args, **kwargs)
 
 
 from plm_asm_parse import (_hash_like, P_ASM_COMP, P_ASM_D, P_ASM_IDS,  # noqa: F401
                            ASM_SERVICE, asm_components, _internal_id)  # V200: вынесено
+from plm_facade import (model_info, mfg_models, derived_bases, derived_children, derived_map, plm_tree_data, count_tops, models_info, plm_tops, plm_children, plm_instances, plm_parents, plm_up_data, plm_down_data, full_tree_lines, made_of_list, do_where, do_tree, do_rename_plan)  # noqa: F401  # V207: обёртки plm_queries вынесены
+
 
 
 def role_bases(model):
@@ -3281,46 +3273,16 @@ def role_bases(model):
     return out
 
 
-def derived_bases(*args, **kwargs):
-    """ПОСТРОИТЕЛЬ — ВЫНЕСЕН в `plm_queries.py` (V140: сканер не строит).
-    Обёртка оставлена для совместимости: старые вызовы работают без правок."""
-    import plm_queries as _q
-    return getattr(_q, "derived_bases")(*args, **kwargs)
 
 
-def derived_children(*args, **kwargs):
-    """ПОСТРОИТЕЛЬ — ВЫНЕСЕН в `plm_queries.py` (V140: сканер не строит).
-    Обёртка оставлена для совместимости: старые вызовы работают без правок."""
-    import plm_queries as _q
-    return getattr(_q, "derived_children")(*args, **kwargs)
 
 
-def derived_map(*args, **kwargs):
-    """ПОСТРОИТЕЛЬ — ВЫНЕСЕН в `plm_queries.py` (V140: сканер не строит).
-    Обёртка оставлена для совместимости: старые вызовы работают без правок."""
-    import plm_queries as _q
-    return getattr(_q, "derived_map")(*args, **kwargs)
 
 
-def plm_tree_data(*args, **kwargs):
-    """ПОСТРОИТЕЛЬ — ВЫНЕСЕН в `plm_queries.py` (V140: сканер не строит).
-    Обёртка оставлена для совместимости: старые вызовы работают без правок."""
-    import plm_queries as _q
-    return getattr(_q, "plm_tree_data")(*args, **kwargs)
 
 
-def count_tops(*args, **kwargs):
-    """ПОСТРОИТЕЛЬ — ВЫНЕСЕН в `plm_queries.py` (V140: сканер не строит).
-    Обёртка оставлена для совместимости: старые вызовы работают без правок."""
-    import plm_queries as _q
-    return getattr(_q, "count_tops")(*args, **kwargs)
 
 
-def models_info(*args, **kwargs):
-    """ПОСТРОИТЕЛЬ — ВЫНЕСЕН в `plm_queries.py` (V140: сканер не строит).
-    Обёртка оставлена для совместимости: старые вызовы работают без правок."""
-    import plm_queries as _q
-    return getattr(_q, "models_info")(*args, **kwargs)
 
 
 def models_kind(models):
@@ -3356,11 +3318,6 @@ def models_kind(models):
     return out
 
 
-def plm_tops(*args, **kwargs):
-    """ПОСТРОИТЕЛЬ — ВЫНЕСЕН в `plm_queries.py` (V140: сканер не строит).
-    Обёртка оставлена для совместимости: старые вызовы работают без правок."""
-    import plm_queries as _q
-    return getattr(_q, "plm_tops")(*args, **kwargs)
 
 
 _SERVICE_STEMS = None
@@ -3508,39 +3465,14 @@ def service_stems():
     return out
 
 
-def plm_children(*args, **kwargs):
-    """ПОСТРОИТЕЛЬ — ВЫНЕСЕН в `plm_queries.py` (V140: сканер не строит).
-    Обёртка оставлена для совместимости: старые вызовы работают без правок."""
-    import plm_queries as _q
-    return getattr(_q, "plm_children")(*args, **kwargs)
 
 
-def plm_instances(*args, **kwargs):
-    """ПОСТРОИТЕЛЬ — ВЫНЕСЕН в `plm_queries.py` (V140: сканер не строит).
-    Обёртка оставлена для совместимости: старые вызовы работают без правок."""
-    import plm_queries as _q
-    return getattr(_q, "plm_instances")(*args, **kwargs)
 
 
-def plm_parents(*args, **kwargs):
-    """ПОСТРОИТЕЛЬ — ВЫНЕСЕН в `plm_queries.py` (V140: сканер не строит).
-    Обёртка оставлена для совместимости: старые вызовы работают без правок."""
-    import plm_queries as _q
-    return getattr(_q, "plm_parents")(*args, **kwargs)
 
 
-def plm_up_data(*args, **kwargs):
-    """ПОСТРОИТЕЛЬ — ВЫНЕСЕН в `plm_queries.py` (V140: сканер не строит).
-    Обёртка оставлена для совместимости: старые вызовы работают без правок."""
-    import plm_queries as _q
-    return getattr(_q, "plm_up_data")(*args, **kwargs)
 
 
-def plm_down_data(*args, **kwargs):
-    """ПОСТРОИТЕЛЬ — ВЫНЕСЕН в `plm_queries.py` (V140: сканер не строит).
-    Обёртка оставлена для совместимости: старые вызовы работают без правок."""
-    import plm_queries as _q
-    return getattr(_q, "plm_down_data")(*args, **kwargs)
 
 
 def find_plm_models(text, limit=400):
@@ -3582,11 +3514,6 @@ def _up(m, depth, level, seen):
         _up(p, depth - 1, level + 1, seen)
 
 
-def full_tree_lines(*args, **kwargs):
-    """ПОСТРОИТЕЛЬ — ВЫНЕСЕН в `plm_queries.py` (V140: сканер не строит).
-    Обёртка оставлена для совместимости: старые вызовы работают без правок."""
-    import plm_queries as _q
-    return getattr(_q, "full_tree_lines")(*args, **kwargs)
 
 
 def do_full_tree(model, depth=6):
@@ -3599,18 +3526,8 @@ def do_full_tree(model, depth=6):
         print(t)
 
 
-def made_of_list(*args, **kwargs):
-    """ПОСТРОИТЕЛЬ — ВЫНЕСЕН в `plm_queries.py` (V140: сканер не строит).
-    Обёртка оставлена для совместимости: старые вызовы работают без правок."""
-    import plm_queries as _q
-    return getattr(_q, "made_of_list")(*args, **kwargs)
 
 
-def do_where(*args, **kwargs):
-    """ПОСТРОИТЕЛЬ — ВЫНЕСЕН в `plm_queries.py` (V140: сканер не строит).
-    Обёртка оставлена для совместимости: старые вызовы работают без правок."""
-    import plm_queries as _q
-    return getattr(_q, "do_where")(*args, **kwargs)
 
 
 def do_changes(n):
@@ -3623,18 +3540,8 @@ def do_changes(n):
         print("   %s  %-30s rev%-8s %-7s %s" % (ts, item, rev, kind, descr[:70]))
 
 
-def do_tree(*args, **kwargs):
-    """ПОСТРОИТЕЛЬ — ВЫНЕСЕН в `plm_queries.py` (V140: сканер не строит).
-    Обёртка оставлена для совместимости: старые вызовы работают без правок."""
-    import plm_queries as _q
-    return getattr(_q, "do_tree")(*args, **kwargs)
 
 
-def do_rename_plan(*args, **kwargs):
-    """ПОСТРОИТЕЛЬ — ВЫНЕСЕН в `plm_queries.py` (V140: сканер не строит).
-    Обёртка оставлена для совместимости: старые вызовы работают без правок."""
-    import plm_queries as _q
-    return getattr(_q, "do_rename_plan")(*args, **kwargs)
 
 
 # --- АВТООБНОВЛЕНИЕ ЧЕРЕЗ РЕПОЗИТОРИЙ (V31) ---

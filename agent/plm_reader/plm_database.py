@@ -172,7 +172,7 @@ ORPHAN_PAIRS = [
 ARCHIVE_TABLES = ("changes", "history", "arch_dims", "arch_dim_ch")
 
 # V187: машинные коды проблем (для `check --json`)
-CHECK_CODES = ("ORPHAN", "DUPLICATE", "SELF_LINK", "EMPTY_KEY", "MISSING_INDEX", "EXTRA_COLUMN")
+CHECK_CODES = ("ORPHAN", "ORPHAN_EXT", "DUPLICATE", "SELF_LINK", "EMPTY_KEY", "MISSING_INDEX", "EXTRA_COLUMN")
 
 # V191: потолок значения в `unknown_fields` (как UF_FIELD_MAX в сканере).
 # Причина: дамп ~1300 имён полей на файл ≈ 20 КБ/строку → таблица раздулась до 1185 МБ.
@@ -685,6 +685,11 @@ def _check_orphan_references(cur, issues):
                 issues.append({"code": "ORPHAN", "severity": "warning", "table": child_t,
                                "message": "орфанные ссылки: %s.%s -> %s.%s (%d строк без родителя)"
                                % (child_t, child_c, parent_t, parent_c, n_real)})
+                _nout = _orphan_outside(cur, child_t, child_c, parent_t, parent_c)
+                if _nout:
+                    issues.append({"code": "ORPHAN_EXT", "severity": "info", "table": child_t,
+                                   "message": "вне области скана: %s.%s -> %s.%s (%d строк — нет и в items)"
+                                   % (child_t, child_c, parent_t, parent_c, _nout)})
 
 
 def _check_duplicate_links(cur, issues):
@@ -1074,6 +1079,21 @@ def _estimate_table_mb(cur, table, cols, sample=300):
     return (cnt * avg) / 1024.0 / 1024.0, cnt
 
 
+def _orphan_outside(cur, child_t, child_c, parent_t, parent_c):
+    """V206: сколько висячих — ВНЕ ОБЛАСТИ СКАНА (нет ни в snapshots, ни в items)."""
+    if not _has_table(cur, "items"):
+        return 0
+    try:
+        return cur.execute(
+            'SELECT COUNT(*) FROM [%s] WHERE %s IS NOT NULL AND %s != "" '
+            'AND %s NOT IN (SELECT %s FROM [%s]) AND %s NOT IN (SELECT model FROM items)'
+            % (child_t, _qcol(child_c), _qcol(child_c), _qcol(child_c),
+               _qcol(parent_c), parent_t, _qcol(child_c))
+        ).fetchone()[0]
+    except sqlite3.Error:
+        return 0
+
+
 def _orphan_counts(cur):
     """Висячие записи по парам ORPHAN_PAIRS → [{table,column,parent,parent_column,count}]."""
     out = []
@@ -1101,7 +1121,8 @@ def _orphan_counts(cur):
                 n_case = 0
             out.append({"table": child_t, "column": child_c, "parent": parent_t,
                         "parent_column": parent_c, "count": n, "case": n_case,
-                        "real": max(0, n - n_case)})
+                        "real": max(0, n - n_case),
+                        "outside": _orphan_outside(cur, child_t, child_c, parent_t, parent_c)})
     return out
 
 
@@ -1203,6 +1224,9 @@ def _doctor_data(db_path=None):
                                if o["table"] not in _arch and o["parent"] not in _arch]
         res["orphans_archive"] = [o for o in res["orphans"]
                                   if o["table"] in _arch or o["parent"] in _arch]
+        res["orphans_outside"] = [o for o in res["orphans"] if o.get("outside")]
+        res["orphans_live"] = [o for o in res["orphans_live"]
+                               if (o.get("real", o["count"]) - o.get("outside", 0)) > 0]
         # V198: расхождение НАБОРОВ моделей (снимки/связи/граф) — признак «разных генераций».
         res["model_sets"] = {
             "snapshots": _table_distinct(cur, "snapshots", "model"),
@@ -1259,6 +1283,13 @@ def _print_doctor(res):
     for d in res.get("tables", [])[:15]:
         print("   %-16s строк %-10d ≈ %.1f МБ" % (d["table"], d["rows"], d["est_mb"]))
     print("")
+    print("-- ВИСЯЧИЕ — ВНЕ ОБЛАСТИ СКАНА (нет ни в snapshots, ни в items: НЕ дефект) --")
+    _ou = res.get("orphans_outside", [])
+    if not _ou:
+        print("   нет")
+    for o in _ou:
+        print("   %s.%s -> %s.%s : %d строк"
+              % (o["table"], o["column"], o["parent"], o["parent_column"], o.get("outside", 0)))
     print("-- ВИСЯЧИЕ ЗАПИСИ — ЖИВЫЕ (ключ отсутствует в snapshots) --")
     _lv = res.get("orphans_live", res.get("orphans", []))
     if not _lv:
@@ -1266,7 +1297,8 @@ def _print_doctor(res):
     for o in _lv:
         print("   %s.%s -> %s.%s : %d строк (регистр %s / реально нет %s)"
               % (o["table"], o["column"], o["parent"], o["parent_column"], o["count"],
-                 o.get("case", 0), o.get("real", o["count"])))
+                 o.get("case", 0),
+                 max(0, o.get("real", o["count"]) - o.get("outside", 0))))
     print("-- ВИСЯЧИЕ ЗАПИСИ — АРХИВНЫЕ (Purge-safe: НЕ трогаем) --")
     _ar = res.get("orphans_archive", [])
     if not _ar:
