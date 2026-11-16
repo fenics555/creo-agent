@@ -1,8 +1,8 @@
 {
- "version": "V196",
- "version_num": 196,
+ "version": "V197",
+ "version_num": 197,
  "date": "16.11.2026",
- "notes": "V196: canon of child names in engine.do_scan channels (plm_tree/mentions/asm_comp/dwg/mfg) + self-guard; drop PLAN_ONE_SCANNER; release gate tests",
+ "notes": "V197: graph symmetry (edge endpoints become nodes); doctor splits live/archive orphans; graph test in gate",
  "schema_version": 4,
  "remove": [
   "_probe_scan137.py",
@@ -12,7 +12,7 @@
  ],
  "files": {
   "engine.py": "7e392e218c2b663be4fb7fb78b7ccfa2757f9b516efccd91531e62334af219db",
-  "plm_reader.py": "05384db2448d433e6b017374cdce261b1156956e233b07b3293bad37cfe7f6cb",
+  "plm_reader.py": "eaf7e73415b37e14e15d973ebbaa6d5f1432399e212c1c5a1f517b5d6ffa6417",
   "plm_toolwin.py": "4e4f412f9c71b6b97b9e52128174e9288b043a32cce1527e98bcdb589e03b4ee",
   "plm_history.py": "e028c211022463898073cea2c03f395632029ae13448723425fae39b996e4027",
   "plm_parse.py": "c6bb33a412b6b606ad402e3eb78cd49246b77738b69d82be1b6218a1358c0312",
@@ -33,11 +33,11 @@
   "plm_queries.py": "3fa963038b75cc5551bb7d7bbc3ced5760c03188fe77d47d393c145c390f1977",
   "plm_links.py": "698df65db4fb7571d086cb4343cb8d8391aead559caf96db4715c44e2f397ffe",
   "plm_build_links.py": "ee15ddfe7d8ac2355a73bd3f67a60da66ce8f3551499dd6d5ebceb4f3f0ce66f",
-  "plm_database.py": "bc4915945594e637f5d3aa3ae50c7b1c81e7e738e8623c69877e6ca61c8155ee",
-  "plm_graph_build.py": "ee9b622433494ee865ee1e451aa5f8464829b599a7c3936a6e0fe9af81e5d6d5",
+  "plm_database.py": "e2087b8f0904b064f75294b0dde5b7995ff810e1f90a01a7daa0edb7c5889b5e",
+  "plm_graph_build.py": "0016ff6bffc83f05547975a9a11be863e7611f1d1cbc0fe9e09830b7c47d0c9d",
   "plm_scanner.py": "8ac13395647dbdf48a7dd0748e6a22ca7f99dcb8283d33ca30862066861f3c79",
   "plm_db_admin_win.py": "066c4a70b50d2924dca2fe2b481ed41b0e5dc0a9821fbc85a7ec447fb1ed0feb",
-  "STATE.md": "870d1ae96605c77f6cba17880cd5dc3d129278e9986afe6586cc1f8774f95c04",
+  "STATE.md": "68d9d9bc35512b0c41a8b851eca987beca04d47c8ed6bc566eacd51a983c3e8d",
   "CONCEPT_PLM.md": "6addb5c97847d55b261a2890e8f08a6efc4a2ca468c8d090f357b1b8c2c4ab61"
  }
 }

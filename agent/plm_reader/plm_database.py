@@ -1187,8 +1187,13 @@ def _doctor_data(db_path=None):
         sizes.sort(key=lambda d: d["est_mb"], reverse=True)
         res["tables"] = sizes
 
-        # ── висячие записи ──
+        # ── висячие записи (V197: отдельно «живые» и «архивные» Purge-safe) ──
         res["orphans"] = _orphan_counts(cur)
+        _arch = set(ARCHIVE_TABLES)
+        res["orphans_live"] = [o for o in res["orphans"]
+                               if o["table"] not in _arch and o["parent"] not in _arch]
+        res["orphans_archive"] = [o for o in res["orphans"]
+                                  if o["table"] in _arch or o["parent"] in _arch]
 
         # ── дубли / само-связи ──
         res["links"] = _links_diag(cur, "links")
@@ -1238,13 +1243,21 @@ def _print_doctor(res):
     for d in res.get("tables", [])[:15]:
         print("   %-16s строк %-10d ≈ %.1f МБ" % (d["table"], d["rows"], d["est_mb"]))
     print("")
-    print("-- ВИСЯЧИЕ ЗАПИСИ (ключ отсутствует в snapshots) --")
-    if not res.get("orphans"):
+    print("-- ВИСЯЧИЕ ЗАПИСИ — ЖИВЫЕ (ключ отсутствует в snapshots) --")
+    _lv = res.get("orphans_live", res.get("orphans", []))
+    if not _lv:
         print("   нет")
-    for o in res.get("orphans", []):
+    for o in _lv:
         print("   %s.%s -> %s.%s : %d строк (регистр %s / реально нет %s)"
               % (o["table"], o["column"], o["parent"], o["parent_column"], o["count"],
                  o.get("case", 0), o.get("real", o["count"])))
+    print("-- ВИСЯЧИЕ ЗАПИСИ — АРХИВНЫЕ (Purge-safe: НЕ трогаем) --")
+    _ar = res.get("orphans_archive", [])
+    if not _ar:
+        print("   нет")
+    for o in _ar:
+        print("   %s.%s -> %s.%s : %d строк"
+              % (o["table"], o["column"], o["parent"], o["parent_column"], o["count"]))
     print("")
     print("-- СВЯЗИ links / graph_edges (ключ дубля = как в `repair`) --")
     for key in ("links", "graph_edges"):

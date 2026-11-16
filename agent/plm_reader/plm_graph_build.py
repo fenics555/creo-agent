@@ -143,6 +143,14 @@ def build(check_only=False, engine_mod=None):
                         and not _num_rx.match(_nm) and len(_nm) >= 3
                         and any(ch.isalpha() for ch in _nm)):
                     nodes[_nm] = [_nm, "", "", 0, 0.0, "", "", ""]
+        # V197: СИММЕТРИЯ ГРАФА — цель КАЖДОГО ребра становится узлом (иначе from/to «висят»).
+        for _e in edges_raw:
+            for _side in ("from", "to"):
+                _nm = _e[_side]
+                if (_nm and _nm not in nodes and not L.is_service(_nm)
+                        and not _num_rx.match(_nm) and len(_nm) >= 3
+                        and any(ch.isalpha() for ch in _nm)):
+                    nodes[_nm] = [_nm, "", "", 0, 0.0, "", "", ""]
 
         from creo_read import canon_model as _cm          # V193: единый канон имён (UPPER)
         nrows, n_kinds = [], {}
