@@ -1045,7 +1045,7 @@ CREATE TABLE IF NOT EXISTS snapshots (
   path TEXT PRIMARY KEY, model TEXT, folder TEXT, size INTEGER, mtime REAL, volume REAL,
   material TEXT, name TEXT, designation TEXT, rev TEXT, author TEXT, revdate TEXT,
   role TEXT, seen TEXT, hist INTEGER, creo TEXT, created REAL,
-  file_name TEXT, file_ext TEXT, file_version INTEGER);
+  file_name TEXT, file_ext TEXT, file_version INTEGER, version INTEGER);
 CREATE TABLE IF NOT EXISTS changes (
   id INTEGER PRIMARY KEY AUTOINCREMENT, item TEXT, rev TEXT, kind TEXT, descr TEXT,
   who TEXT, ts TEXT);
@@ -1161,63 +1161,6 @@ CREATE TABLE IF NOT EXISTS arch_dims (model TEXT, arch_date TEXT, dims TEXT);
 CREATE TABLE IF NOT EXISTS arch_dim_ch (model TEXT, arch_date TEXT, ch TEXT);
 
 -- Indexes (always after tables)
-CREATE INDEX IF NOT EXISTS ix_snap_model ON snapshots(model);
-CREATE INDEX IF NOT EXISTS ix_snap_folder ON snapshots(folder);
-CREATE INDEX IF NOT EXISTS ix_snap_des ON snapshots(designation);
-CREATE INDEX IF NOT EXISTS ix_snap_fname ON snapshots(file_name);
-CREATE INDEX IF NOT EXISTS ix_snap_fext ON snapshots(file_ext);
-CREATE INDEX IF NOT EXISTS ix_links_child ON links(child);
-CREATE INDEX IF NOT EXISTS ix_derived_child ON derived(child);
-CREATE INDEX IF NOT EXISTS ix_derived_base ON derived(base);
-CREATE INDEX IF NOT EXISTS ix_props_child ON props(child);
-CREATE INDEX IF NOT EXISTS ix_props_prop ON props(prop);
-CREATE INDEX IF NOT EXISTS ix_params_model ON params(model);
-CREATE INDEX IF NOT EXISTS ix_params_name ON params(name);
-CREATE INDEX IF NOT EXISTS ix_params_path ON params(path);
-CREATE INDEX IF NOT EXISTS ix_family_generic ON family(generic);
-CREATE INDEX IF NOT EXISTS ix_family_instance ON family(instance);
-CREATE INDEX IF NOT EXISTS ix_history_model ON history(model);
-CREATE INDEX IF NOT EXISTS ix_history_path ON history(path);
-CREATE INDEX IF NOT EXISTS ix_history_comp ON history(computer);
-CREATE INDEX IF NOT EXISTS ix_health_model ON health(model);
-CREATE INDEX IF NOT EXISTS ix_mp_model ON mass_props(model);
-CREATE INDEX IF NOT EXISTS ix_mp_name ON mass_props(name);
-CREATE INDEX IF NOT EXISTS ix_mp_path ON mass_props(path);
-CREATE INDEX IF NOT EXISTS ix_dim_model ON dimensions(model);
-CREATE INDEX IF NOT EXISTS ix_dim_feat ON dimensions(feat_id);
-CREATE INDEX IF NOT EXISTS ix_dim_path ON dimensions(path);
-CREATE INDEX IF NOT EXISTS ix_feat_model ON features(model);
-CREATE INDEX IF NOT EXISTS ix_feat_id ON features(feat_id);
-CREATE INDEX IF NOT EXISTS ix_feat_path ON features(path);
-CREATE INDEX IF NOT EXISTS ix_eq_model ON equations(model);
-CREATE INDEX IF NOT EXISTS ix_eq_kind ON equations(kind);
-CREATE INDEX IF NOT EXISTS ix_eq_path ON equations(path);
-CREATE INDEX IF NOT EXISTS ix_mat_model ON materials(model);
-CREATE INDEX IF NOT EXISTS ix_mat_name ON materials(name);
-CREATE INDEX IF NOT EXISTS ix_mat_path ON materials(path);
-CREATE INDEX IF NOT EXISTS ix_changes_item ON changes(item);
-CREATE INDEX IF NOT EXISTS ix_changes_ts ON changes(ts);
-CREATE INDEX IF NOT EXISTS ix_items_model ON items(model);
-CREATE INDEX IF NOT EXISTS ix_bodies_model ON bodies(model);
-CREATE INDEX IF NOT EXISTS ix_uf_path ON unknown_fields(path);
-CREATE INDEX IF NOT EXISTS ix_snap_path     ON snapshots(path);
-CREATE INDEX IF NOT EXISTS ix_matrices_path ON matrices(path);
-CREATE INDEX IF NOT EXISTS ix_dimall_path   ON dim_all(path);
-CREATE INDEX IF NOT EXISTS ix_bodies_path   ON bodies(path);
-CREATE INDEX IF NOT EXISTS ix_mastermat_path ON master_mat(path);
-CREATE INDEX IF NOT EXISTS ix_drawing_path  ON drawing(path);
-CREATE INDEX IF NOT EXISTS ix_tools_path    ON tools(path);
-CREATE INDEX IF NOT EXISTS ix_derived_child ON derived(child);
-CREATE INDEX IF NOT EXISTS ix_derived_base  ON derived(base);
-CREATE INDEX IF NOT EXISTS ix_props_child   ON props(child);
-CREATE INDEX IF NOT EXISTS ix_archdims_date ON arch_dims(arch_date);
-CREATE INDEX IF NOT EXISTS ix_archdimch_date ON arch_dim_ch(arch_date);
-CREATE INDEX IF NOT EXISTS ix_components_path ON components(path);
-CREATE INDEX IF NOT EXISTS ix_gn_kind ON graph_nodes(kind);
-CREATE INDEX IF NOT EXISTS ix_gn_folder ON graph_nodes(folder);
-CREATE INDEX IF NOT EXISTS ix_ge_from ON graph_edges("from");
-CREATE INDEX IF NOT EXISTS ix_ge_to ON graph_edges("to");
-CREATE INDEX IF NOT EXISTS ix_ge_kind ON graph_edges(kind);
 """
 
 
@@ -1427,7 +1370,9 @@ def connect(ro=False, db=None):
         # мануфактуринг / входимость). РАНЬШЕ вид был свален в `source`, и «чертёж→модель» было
         # не отличить от состава. У `derived` колонка `kind` есть — теперь и у `links`.
         # Кардинальность 1:N (у модели 2–4 чертежа) через `qty` НЕ выражается — вид решает.
-        for _tbl, _col, _typ in (("links", "kind", "TEXT"), ("family", "source", "TEXT"),
+        for _tbl, _col, _typ in (("snapshots", "file_name", "TEXT"), ("snapshots", "file_ext", "TEXT"),
+                                 ("snapshots", "version", "INTEGER"), ("snapshots", "file_version", "INTEGER"),
+                                 ("links", "kind", "TEXT"), ("family", "source", "TEXT"),
                                  ("history", "ts_int", "INTEGER")):
             _c = [r[1] for r in con.execute("PRAGMA table_info(%s)" % _tbl)]
             if _c and _col not in _c:
