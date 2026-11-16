@@ -1,8 +1,8 @@
 {
- "version": "V203",
- "version_num": 203,
+ "version": "V204",
+ "version_num": 204,
  "date": "16.11.2026",
- "notes": "V203: add PLM_OPERATIONS.md (how it works; when rescan is needed vs normalize+repair)",
+ "notes": "V204: NORM_TARGETS covers bodies.model/drawing.model (normalize all names)",
  "schema_version": 4,
  "remove": [
   "_probe_scan137.py",
@@ -11,12 +11,12 @@
   "scanner_write.py"
  ],
  "files": {
-  "PLM_OPERATIONS.md": "0cc50edd8288da8628f00fe944756e16a0a3e2df2bf9aa2f231d4283dc2f4d35",
+  "PLM_OPERATIONS.md": "f4ea171f05616050373f2a781f1fe3727c9e926b0206afcf5141c43e7e104cf0",
   "plm_creo_parse.py": "129b2f665f8d3c3bbd5d5d242abe850cd59b7ee7384a4f7fae2cd6be55fded76",
   "plm_schema.py": "f76c639df83f8792e2436103e08a7c927bce58743b649b1b2b4b097ba203634c",
   "plm_asm_parse.py": "1060821b47a95eec3c11964295d776536e12613c07e7e76d23cee231ad7bea7c",
   "engine.py": "ae3f6919b767a8bd3bb1409bd67e38b4b711063229c6adf28c0655e29ebc5d7d",
-  "plm_reader.py": "8405a180043bd13e2364de0256bde7e895b6e76e69d7192bbf3fbbf2a356db16",
+  "plm_reader.py": "c45e841aa41e3a9acfff0557a7560162fb348e262ee483c7d58ef11d0a6dad7d",
   "plm_toolwin.py": "4e4f412f9c71b6b97b9e52128174e9288b043a32cce1527e98bcdb589e03b4ee",
   "plm_history.py": "e028c211022463898073cea2c03f395632029ae13448723425fae39b996e4027",
   "plm_parse.py": "c6bb33a412b6b606ad402e3eb78cd49246b77738b69d82be1b6218a1358c0312",
@@ -37,7 +37,7 @@
   "plm_queries.py": "3fa963038b75cc5551bb7d7bbc3ced5760c03188fe77d47d393c145c390f1977",
   "plm_links.py": "698df65db4fb7571d086cb4343cb8d8391aead559caf96db4715c44e2f397ffe",
   "plm_build_links.py": "ee15ddfe7d8ac2355a73bd3f67a60da66ce8f3551499dd6d5ebceb4f3f0ce66f",
-  "plm_database.py": "daf5ff777bf2cf0c6117956cd485dc7f7281610f27d569eb26110ba5680adcf4",
+  "plm_database.py": "44f1a711664d6f7da04a039c1022b1739495c15e2afd1bac8b526aa37bc7e43d",
   "plm_graph_build.py": "0016ff6bffc83f05547975a9a11be863e7611f1d1cbc0fe9e09830b7c47d0c9d",
   "plm_scanner.py": "8ac13395647dbdf48a7dd0748e6a22ca7f99dcb8283d33ca30862066861f3c79",
   "plm_db_admin_win.py": "066c4a70b50d2924dca2fe2b481ed41b0e5dc0a9821fbc85a7ec447fb1ed0feb",

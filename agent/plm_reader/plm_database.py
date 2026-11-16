@@ -1828,7 +1828,8 @@ NORM_TARGETS = (
     ("components", "model"), ("props", "child"), ("tools", "model"), ("items", "model"),
     ("mass_props", "model"), ("materials", "model"), ("matrices", "model"), ("dim_all", "model"),
     ("dimensions", "model"), ("features", "model"), ("equations", "model"), ("health", "model"),
-    ("master_mat", "model"), ("graph_nodes", "model"), ("graph_edges", "from"), ("graph_edges", "to"),
+    ("master_mat", "model"), ("bodies", "model"), ("drawing", "model"),   # V204: были пропущены
+    ("graph_nodes", "model"), ("graph_edges", "from"), ("graph_edges", "to"),
 )
 
 
