@@ -1188,7 +1188,6 @@ CREATE TABLE IF NOT EXISTS matrices (path TEXT, model TEXT, field TEXT, dims TEX
 CREATE INDEX IF NOT EXISTS ix_snap_path     ON snapshots(path);
 CREATE INDEX IF NOT EXISTS ix_matrices_path ON matrices(path);
 CREATE INDEX IF NOT EXISTS ix_dimall_path   ON dim_all(path);
-CREATE INDEX IF NOT EXISTS ix_components_path ON components(path);
 CREATE INDEX IF NOT EXISTS ix_bodies_path   ON bodies(path);
 CREATE INDEX IF NOT EXISTS ix_mastermat_path ON master_mat(path);
 CREATE INDEX IF NOT EXISTS ix_drawing_path  ON drawing(path);
@@ -1205,6 +1204,7 @@ CREATE INDEX IF NOT EXISTS ix_archdimch_date ON arch_dim_ch(arch_date);
 CREATE TABLE IF NOT EXISTS drawing (path TEXT PRIMARY KEY, model TEXT, source_models TEXT,
   states TEXT, uniq_name TEXT, sheet_size TEXT);
 CREATE TABLE IF NOT EXISTS components (path TEXT, model TEXT, comp TEXT, count INTEGER, kind TEXT);
+CREATE INDEX IF NOT EXISTS ix_components_path ON components(path);
 
 -- 🔴🔴 V142 (30.10.2026, слово владельца): ГРАФ-ПОСТРОИТЕЛЬ — СВОИ ТАБЛИЦЫ.
 -- «ГРАФ-построитель по единой базе по системе ЧИТАЕТ ВСЁ, ПИШЕТ ТОЛЬКО В СВОЁ. Делает полный
