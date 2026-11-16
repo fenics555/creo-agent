@@ -1,8 +1,8 @@
 {
- "version": "V198",
- "version_num": 198,
+ "version": "V199",
+ "version_num": 199,
  "date": "16.11.2026",
- "notes": "V198: doctor shows model-set divergence (unified generation diagnostic)",
+ "notes": "V199: SCHEMA -> plm_schema.py (split stage 0); rotate ALL backup families (pre_*); backup test in gate",
  "schema_version": 4,
  "remove": [
   "_probe_scan137.py",
@@ -11,8 +11,9 @@
   "scanner_write.py"
  ],
  "files": {
-  "engine.py": "7e392e218c2b663be4fb7fb78b7ccfa2757f9b516efccd91531e62334af219db",
-  "plm_reader.py": "ba764cbc2c5e2da69a0f2cd77d6d27b66221b531d062a88e03a21d57babcec5b",
+  "plm_schema.py": "f76c639df83f8792e2436103e08a7c927bce58743b649b1b2b4b097ba203634c",
+  "engine.py": "3c63384913698bd7a57962ff00db54e9f943306c4d369529d2b2615def71d627",
+  "plm_reader.py": "335de5d4bcba14518187c75de0ff21fbb6e0788fabc2b0a83285f50fe4bad26e",
   "plm_toolwin.py": "4e4f412f9c71b6b97b9e52128174e9288b043a32cce1527e98bcdb589e03b4ee",
   "plm_history.py": "e028c211022463898073cea2c03f395632029ae13448723425fae39b996e4027",
   "plm_parse.py": "c6bb33a412b6b606ad402e3eb78cd49246b77738b69d82be1b6218a1358c0312",
@@ -25,7 +26,7 @@
   "SHARE_copy.bat": "4eccb549a17251392337aeabbc3ef76233dfa3072beadff9d158cd6e932622ee",
   "plm_reader.bat": "bdd125397db3ac7e7432dbdb078a6a811ed4913fca02b062edb27907032fca3d",
   "plm_reader_gui.bat": "9f695898d5db6431e840784b9587c75304ca9e526b06f79d4b44ab026663bd20",
-  "make_version_json.py": "b13b83245c0f9a9f745e5bf2646b0d829785790d230120d22c7cfe17ffafc7da",
+  "make_version_json.py": "5d71b4b4c1459e73a3ef03cd60221f14c38b4a05b05805ec33ce00c6ebb6e874",
   ".gitignore": "1d8966472d122b0575a00737bd3ef9e55b732824753dcaff8464f11b44f53104",
   "AGENTS.md": "70317f19e9ffcb7b726665aba960e40fbf8481f3d698506b3c38ee6e6b687b89",
   "plm_graph.py": "badcd909d5871b18f4154e3e9431070558599502ecd8e75d5eef9dc92456b6aa",
@@ -37,7 +38,7 @@
   "plm_graph_build.py": "0016ff6bffc83f05547975a9a11be863e7611f1d1cbc0fe9e09830b7c47d0c9d",
   "plm_scanner.py": "8ac13395647dbdf48a7dd0748e6a22ca7f99dcb8283d33ca30862066861f3c79",
   "plm_db_admin_win.py": "066c4a70b50d2924dca2fe2b481ed41b0e5dc0a9821fbc85a7ec447fb1ed0feb",
-  "STATE.md": "68d9d9bc35512b0c41a8b851eca987beca04d47c8ed6bc566eacd51a983c3e8d",
+  "STATE.md": "db6bcac045465c93f889c1030e8a1506231837484ceaf96de912253386faeebd",
   "CONCEPT_PLM.md": "6addb5c97847d55b261a2890e8f08a6efc4a2ca468c8d090f357b1b8c2c4ab61"
  }
 }
