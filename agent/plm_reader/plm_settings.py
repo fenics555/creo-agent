@@ -11,8 +11,11 @@ DATA_DIR = os.environ.get("PLM_DATA_DIR") or os.path.join(_HERE, "db")
 SETTINGS_FILE = os.environ.get("PLM_SETTINGS") or os.path.join(_HERE, "settings", "settings.json")
 SETTINGS_DIR = os.path.dirname(SETTINGS_FILE)
 
-os.makedirs(DATA_DIR, exist_ok=True)
-os.makedirs(SETTINGS_DIR, exist_ok=True)
+for _d in (DATA_DIR, SETTINGS_DIR):
+    try:
+        os.makedirs(_d, exist_ok=True)
+    except OSError:
+        pass
 
 def log_line(msg):
     try:

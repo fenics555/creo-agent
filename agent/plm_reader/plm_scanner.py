@@ -1621,7 +1621,7 @@ def write_item(con, path, boxes):
     # ТЕПЕРЬ: перед записью файла чистим ВСЕ его строки во всех таблицах «по пути» — тогда
     # перескан ЗАМЕНЯЕТ данные, а не НАКАПЛИВАЕТ. База не растёт (проверено замером).
     for _tb in ("bodies", "materials", "master_mat", "tools", "dim_all",
-                "matrices", "unknown_fields", "arch_dims", "arch_dim_ch",
+                "matrices", "unknown_fields",
                 "drawing", "equations", "mass_props", "dimensions", "features",
                 "props", "components", "derived"):
         try:
