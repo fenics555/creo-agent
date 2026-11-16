@@ -1,6 +1,6 @@
 {
- "version": "V184",
- "version_num": 184,
+ "version": "V185",
+ "version_num": 185,
  "date": "16.11.2026",
  "notes": "",
  "schema_version": 4,
@@ -11,8 +11,8 @@
   "scanner_write.py"
  ],
  "files": {
-  "engine.py": "245c97b7efca60fdd72935235f2fba38d793fefee47aaf2a6d0bdc343882bc2c",
-  "plm_reader.py": "d8d474bc48d4c60b9ed8849381de2c3ea6b11a12f7d3f1c86a9639c3c517c210",
+  "engine.py": "987c546c1e2902750a54bfc466157a8471bf5b09d51b908a9b5fb5da0c3d8a41",
+  "plm_reader.py": "0c1d8ae53ebb3f8a21306efb0fb8a7ed55b762539f4d153032262f4738ecb907",
   "plm_toolwin.py": "bc62e556ac71a999b119b8b457745ffa9c856c07158b81c9b4b244ff11bb2834",
   "plm_history.py": "e028c211022463898073cea2c03f395632029ae13448723425fae39b996e4027",
   "plm_parse.py": "c6bb33a412b6b606ad402e3eb78cd49246b77738b69d82be1b6218a1358c0312",
@@ -33,7 +33,7 @@
   "plm_queries.py": "3fa963038b75cc5551bb7d7bbc3ced5760c03188fe77d47d393c145c390f1977",
   "plm_links.py": "698df65db4fb7571d086cb4343cb8d8391aead559caf96db4715c44e2f397ffe",
   "plm_build_links.py": "b4ee4671a1a468174b9296ba402aa79daa719ce2336b5ba7a2fc5fdb7c4a50a8",
-  "plm_database.py": "a744ce6f22197129e3149b197eae07e33492f124f2a55aa75f0f2916b46b88a1",
+  "plm_database.py": "5c7e840e4fe2c7d431cb4c9b5e263b6876764be18cd26817bc7c85b61f8a876e",
   "plm_graph_build.py": "cf2ffe41b90bcdc4fce49185dc8b3edcceae5b64c8f33052c01fce91ba27fcce",
   "plm_scanner.py": "96fca655e63814eb3b9aa1a4797069753ac3466e9b8e0959f317111ea1994732",
   "STATE.md": "b9197aac54c7238a70c4383ef7384ade9e6834f2c05df094ba71a2cc7608405d",
