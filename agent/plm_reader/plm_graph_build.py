@@ -115,6 +115,8 @@ def build(check_only=False, engine_mod=None):
         # (`8b83e68bb2c0243833c5.jpg`), поэтому у ВСЕХ 24 266 узлов стало `has_media=0`
         # (владелец: «у многих файлов нет картинки»). Кэш лежит РЯДОМ С АКТИВНОЙ БАЗОЙ.
         media_paths = set()
+        media_by_stem = {}   # стебель имени файла (без версии) -> canon-путь превью, чтобы найти
+                             # картинку модели даже после переноса/смены регистра пути
         try:
             _p = os.path.join(os.path.dirname(eng.active_db() or eng.DB), "media_cache.json")
             if os.path.isfile(_p):
@@ -123,9 +125,15 @@ def build(check_only=False, engine_mod=None):
                     _mc = _json.load(_f)
                 for _k, _v in _mc.items():
                     if _v and (_v[0] or (len(_v) > 1 and _v[1])):
-                        media_paths.add(str(_k).lower())
+                        _nk = os.path.normcase(str(_k))
+                        media_paths.add(_nk)
+                        _bn = os.path.basename(_nk).upper()
+                        if _bn[-1:].isdigit() and "." in _bn:
+                            _bn = _bn.rsplit(".", 1)[0]
+                        media_by_stem.setdefault(_bn, _nk)
         except Exception:
             media_paths = set()
+            media_by_stem = {}
 
         # 🔴🔴 V152→V153 (владелец: «состав/куда входит — разная фигня, числа!»):
         # УЗЛЫ-ЦЕЛИ РЁБЕР добавляем ОСТОРОЖНО. Первая версия добавила ВСЁ подряд, включая
@@ -160,7 +168,18 @@ def build(check_only=False, engine_mod=None):
                 continue
             kind = _kind_of_model(_mm, path)
             n_kinds[kind] = n_kinds.get(kind, 0) + 1
-            has_media = 1 if (path and path.lower() in media_paths) else 0
+            _has = 0
+            if path:
+                if os.path.normcase(path) in media_paths:
+                    _has = 1
+                else:
+                    # fallback по стеблю имени (модель может быть под другим расширением/путём)
+                    _bn = os.path.basename(path).upper()
+                    if _bn[-1:].isdigit() and "." in _bn:
+                        _bn = _bn.rsplit(".", 1)[0]
+                    if _bn in media_by_stem:
+                        _has = 1
+            has_media = _has
             nrows.append((_mm, kind, folder, path, size, vol, mat, creo, rev,
                           down.get(mm, 0), up.get(mm, 0), has_media))
         con.executemany(

@@ -50,6 +50,7 @@ import threading
 import queue
 import subprocess
 import sys
+from collections import defaultdict
 
 from plm_reader import (
     APP_TITLE,
@@ -145,6 +146,9 @@ class GenealogyWindow:
         self._stack = []                        # «← Назад» — предыдущие модели окна
         self._reg = ""                          # модель, за которой окно зарегистрировано
         self.cur = ""
+        self._g_seen = set()                    # посещённые модели (граф) — защита от комбинаторного взрыва
+        self._g_max_nodes = 800                 # жёсткий лимит узлов в окне родословной
+        self._g_nodes = 0
 
         win = tk.Toplevel(parent)
         self.win = win
@@ -219,6 +223,15 @@ class GenealogyWindow:
         except Exception:
             pass
 
+    def _g_ok(self, model):
+        """Предохранитель родословной: модель не посещена и лимит max_nodes=800 не исчерпан."""
+        if not model or model in self._g_seen:
+            return False
+        if self._g_nodes >= self._g_max_nodes:
+            return False
+        self._g_seen.add(model)
+        self._g_nodes += 1
+        return True
 
     # ---- загрузка/навигация ----------------------------------------------
     def _load(self, model, push=True):
@@ -297,6 +310,8 @@ class GenealogyWindow:
             if not b:
                 self.tv.insert(node, "end", text="◄ %s: имя не найдено (в файле только код)" % kd)
                 continue
+            if not self._g_ok(b):
+                continue
             n = self.tv.insert(node, "end", text="◄ %s: %s" % (kd, b),
                                values=self._vals(b, info.get(b, self._EMPTY_INFO)))
             self._models[n] = b
@@ -312,6 +327,8 @@ class GenealogyWindow:
             kd = GenealogyWindow._BASE_KIND.get(kind, kind or "производная")
             note = " ".join(x for x in (("%.0f мм³" % vol) if vol else "",
                                         ("rev%s" % rev) if rev else "") if x)
+            if not self._g_ok(nm):
+                continue
             n = self.tv.insert(node, "end", text="▼ %s: %s" % (kd, nm),
                                values=self._vals(nm, info.get(nm, self._EMPTY_INFO), note))
             self._models[n] = nm
@@ -327,6 +344,8 @@ class GenealogyWindow:
         for c, q in kids:
             i = info.get(c, self._EMPTY_INFO)
             if (i[5] or "") != "MFG":
+                continue
+            if not self._g_ok(c):
                 continue
             n_mfg += 1
             n = self.tv.insert(node, "end", text="◆ оснастка: %s  x%d" % (c, q),
@@ -346,6 +365,8 @@ class GenealogyWindow:
         chain.pop(self._eng.stem(self.cur), None)
         info = self._eng.models_info(list(chain))
         for p in sorted(chain):
+            if not self._g_ok(p):
+                continue
             n = self.tv.insert(node, "end", text="▲ %s  x%d" % (p, chain[p]),
                                values=self._vals(p, info.get(p, self._EMPTY_INFO), "x%d" % chain[p]))
             self._models[n] = p
@@ -2324,6 +2345,13 @@ def run_gui():
     var_hide = tk.BooleanVar(value=False)      # 07.10.2026: скрыть унаследованные (перенесённые из исходной)
     ttk.Checkbutton(lhist, text="скрыть унаследованные (перенесённые при копировании)",
                     variable=var_hide, command=lambda: _hist_show()).pack(anchor="w")
+    var_hist_all = tk.BooleanVar(value=False)  # по всему изделию (prt+asm+drw)
+    ttk.Checkbutton(lhist, text="по всему изделию (prt+asm+drw)",
+                    variable=var_hist_all, command=lambda: _hist_show()).pack(anchor="w")
+    var_hist_ext = tk.StringVar(value=".prt")  # тип файла по умолчанию (если не «по всему изделию»)
+    for _ext in (".prt", ".asm", ".drw"):
+        ttk.Radiobutton(lhist, text=_ext, variable=var_hist_ext, value=_ext,
+                        command=lambda: _hist_show()).pack(anchor="w")
     HCOLS = ("Файл", "Ревизия", "Дата", "Пользователь", "Компьютер", "Версия Creo", "Что изменено")
     hbox = ttk.Frame(lhist)
     hbox.pack(fill="both", expand=True)
@@ -2613,20 +2641,9 @@ def run_gui():
             add("   неактивной геометрии", str(_hl.get("inactive") or 0))
             if _hl.get("geom_rev"):
                 add("   ревизия геометрии", _hl["geom_rev"])
-        # 06.10.2026: РАЗМЕРЫ детали и история изменений (d_dims / dim_history)
-        dims = read_dims_all(raw)
-        add("Размеров в файле", str(len(dims)) if dims else "— нет (формат или их нет)")
-        for dk in sorted(dims, key=lambda s: int(re.sub(r"\D", "", s) or 0)):
-            add("   %s, мм" % dk, _fmt(dims[dk]))
-        hist = read_history(raw)
-        if hist:
-            h0 = hist[0]
-            add("Последнее изменение (файл)", "%s: %s → %s" % (
-                h0["name"],
-                _fmt(h0["old"]) if h0["old"] is not None else "—",
-                _fmt(h0["new"])))
-        else:
-            add("Последнее изменение (файл)", "— нет блока diff_vals")
+        # 06.10.2026: размеры/история детали — ТОЛЬКО из БД (archive_dims/archive_history, ниже);
+        # чтение read_* из файла Creo через `raw` убрано: окно должно читать только базу
+        # (закон владельца 04.11.2026) и не должно падать с NameError на неопределённой `raw`.
         dims_db, hist_db = archive_dims(model)
         if dims_db:
             add("Размеров в архиве (база)", str(len(dims_db)))
@@ -2650,9 +2667,9 @@ def run_gui():
             add("АРХИВ: правок изделия", str(len(chg_db)))
             for (ts, d) in chg_db[:40]:
                 add("   %s" % (ts or "?"), (d or "")[:120])
-        dwg = dwg_models(raw)
-        add("Показывает модели (если это чертёж)", ", ".join(dwg) if dwg else "— не чертёж")
-        lpsum.config(text="%s — свойства из ФАЙЛА модели (площадь, ТТ, параметры, "
+        # «Показывает модели (если это чертёж)» — чертежи читаются сканером в базу;
+        # здесь выводим только сводку из базы, без чтения файла Creo (raw).
+        lpsum.config(text="%s — свойства из БАЗЫ (площадь, ТТ, параметры, размеры, архив)"
                           "размеры, чертежи)" % model)
 
     def _live_vals(m, i, qty=""):
@@ -2812,7 +2829,7 @@ def run_gui():
         if not up:
             ltv2.insert(un, "end", text="— ни в одну сборку не входит (верхнее изделие)")
         else:
-            _fill_up(un, model, up, info, 1, frozenset((model,)))
+            _fill_up(un, model, up, info, 1, frozenset((model,)), 400, [0])
 
         try:
             ltv2.yview_moveto(0)
@@ -2823,16 +2840,22 @@ def run_gui():
                           "пересохранена из %d · сборок вверх %d"
                      % (model, len(kids), len(inst), len(refl), len(bases), n_up))
 
-    def _fill_up(parent_node, model, up, info, depth, seen):
-        """Ветка «где используется»: рекурсивно по карте plm_up_data (все сборки, все уровни)."""
+    def _fill_up(parent_node, model, up, info, depth, seen, max_nodes=400, count=None):
+        """Ветка «где используется»: рекурсивно по карте plm_up_data (все сборки, все уровни).
+        max_nodes — жёсткий лимит узлов ветки, защита от комбинаторного взрыва на больших сборках."""
+        if count is not None and count[0] >= max_nodes:
+            return
         for p, q in up.get(model, []):
             if p in seen:
                 continue
             nn = ltv2.insert(parent_node, "end", text="%s  ↑ x%d" % (p, q),
                              values=_live_vals(p, info.get(p, ("", "", "", 0, "", "", 0, 0)), "x%d" % q))
             _LLINKS[nn] = (p, "up")
+            count[0] = count[0] + 1 if count is not None else 0
+            if count is not None and count[0] >= max_nodes:
+                return
             if depth < 8:
-                _fill_up(nn, p, up, info, depth + 1, seen | {p})
+                _fill_up(nn, p, up, info, depth + 1, seen | {p}, max_nodes, count)
 
     def ltv2_open(event=None):
         """Раскрытие узла «Дерева связей»: ленивая достройка состава/входимости по базе."""
@@ -2979,8 +3002,14 @@ def run_gui():
             con.close()
         except Exception:
             paths = []
+        # Фильтрация «История файла»: по умолчанию — конкретный тип (.prt/.asm/.drw);
+        # галочка «по всему изделию» показывает все файлы изделия вместе.
+        if not var_hist_all.get():
+            _ext = var_hist_ext.get().lower()
+            paths = [p for p in paths if p.lower().endswith(_ext)]
         if not paths:
-            lhist_sum.config(text="изделие %s: файлов в базе нет" % m)
+            lhist_sum.config(text="изделие %s: файлов типа %s в базе нет" % (m,
+                                 var_hist_ext.get().upper() if not var_hist_all.get() else "все"))
             return
         hide_inh = bool(var_hide.get())
         src, _sp, src_keys, src_found = copy_source_of(paths, settings)

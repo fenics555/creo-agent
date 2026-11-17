@@ -19,6 +19,7 @@ import re
 import sys
 from collections import Counter as _Counter
 from collections import defaultdict
+from creo_read import canon_model as canon_model
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 
@@ -931,7 +932,7 @@ def collect_from_graph_db(media_dir=None):
     try:
         for _m, _mx, _mc in con.execute(
                 "SELECT model, MAX(mtime), MAX(created) FROM snapshots GROUP BY model"):
-            _k = _norm(_m)
+            _k = canon_model(_m)
             if not _k:
                 continue
             _t = max(float(_mx or 0), float(_mc or 0))
@@ -1028,7 +1029,7 @@ def collect_from_graph_db(media_dir=None):
         for m, kind, folder, path, size, vol, creo, rev, n_down, n_up, has_media in con.execute(
                 "SELECT model,kind,folder,path,size,volume,creo,rev,n_down,n_up,has_media "
                 "FROM graph_nodes"):
-            m = _norm(m)
+            m = canon_model(m)
             if not m:
                 continue
             img, img2 = "", ""
@@ -1076,7 +1077,7 @@ def collect_from_graph_db(media_dir=None):
             # отбрасывались, и окна были ПУСТЫ («Состав (0)», «Куда входит (0)») при живых связях в базе.
         for a, b, k, d, org, q in con.execute(
                 'SELECT "from","to",kind,dir,origin,qty FROM graph_edges'):
-            a, b = _norm(a), _norm(b)
+            a, b = canon_model(a), canon_model(b)
             if not a or not b:
                 continue
             # ⚠️ `o`/`n` в узлах НЕ заполняем: `build_html` сам раскладывает связи из `edges`

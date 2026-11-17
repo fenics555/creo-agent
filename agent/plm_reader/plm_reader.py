@@ -34,7 +34,12 @@ if __name__ == "__main__":
     import sys as _sys
     _sys.modules.setdefault("plm_reader", _sys.modules["__main__"])
 
-APP_VERSION = "V217"      # 🔴 V217: скан читает ВСЕ итерации Creo (.1/.2/…), хвостовой проход
+APP_VERSION = "V218"      # 🔴 V218: исправление 5 дефектов UI и HTML-консоли по живым скриншотам владельца:
+                          #        1) defaultdict импорт (Дерево текстом) — NameError;
+                          #        2) `raw` убран из «Свойств детали» — данные только из БД (plm_queries/engine);
+                          #        3) «Дерево связей» max_nodes + «Родословная» _g_max_nodes=800 / visited;
+                          #        4) «История файла»: фильтр .prt/.asm/.drw + галка «по всему изделию»;
+                          #        5) HTML «Свежие ↓»: ts==0 в конец, canon_model для ts_by_model, normcase для has_media.
                           #        против гонки «обход ↔ сохранение», шаг уровней графа nw+95,
                           #        прозрачная сводка итераций, единый допуск mtime 1e-3.
                           #        V216: точное обнаружение изменений (size+mtime), опция

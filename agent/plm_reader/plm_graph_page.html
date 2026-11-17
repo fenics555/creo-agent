@@ -523,8 +523,11 @@ function render(){
     ? ((a,b) => (ND[a].nm || "").localeCompare(ND[b].nm || ""))
     : (mode === "linked")
       ? ((a,b) => score(b) - score(a) || (ND[a].nm || "").localeCompare(ND[b].nm || ""))
-      : ((a,b) => (ND[b].ts || 0) - (ND[a].ts || 0) ||
-                   (ND[a].nm || "").localeCompare(ND[b].nm || ""));
+      : ((a,b) => { const ta = ND[b].ts || 0, tb = ND[a].ts || 0;
+                    if (tb === 0 && ta !== 0) return -1;
+                    if (ta === 0 && tb !== 0) return 1;
+                    return ta - tb || (ND[a].nm || "").localeCompare(ND[b].nm || "");
+                  });
   const keys = Object.keys(ND).filter(matches).sort(cmp);
   shown = keys.slice(0, LIM("list_max", __LISTMAX__));
   list.innerHTML = shown.map(m => {
