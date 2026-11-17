@@ -1,8 +1,8 @@
 {
- "version": "V213",
- "version_num": 213,
+ "version": "V214",
+ "version_num": 214,
  "date": "17.11.2026",
- "notes": "V213: нижний Граф читает строй (graph_graph_layout) и размеры (graph_card_h/graph_thumb); справка что-это у Карты и Реки; даты журнала ISO+легаси; + tests/test_graph_geometry.py",
+ "notes": "Выпуск V214: бесшовный автопилот БД (auto_maintain) — тихая миграция схемы+индексы, дедуп связей, обрезка дампов unknown_fields, VACUUM при пустых страницах >35% (не чаще 1 раза в сутки); спокойный итог в строке состояния после скана; «Аудит/БД» убран из основного блока в меню «Дополнительно» (для администратора); + tests/test_auto_maintain_v214.py",
  "schema_version": 4,
  "remove": [
   "_probe_scan137.py",
@@ -12,13 +12,13 @@
  ],
  "files": {
   "plm_facade.py": "f774c603b236e038a26ad78d5d523c0fdbf1f85ed2f099a072a02a09b7980b15",
-  "PLM_OPERATIONS.md": "83b76c14e80ae28677838e905e5bc32b91d7820d4e0c6853f2a7c05cbaedd507",
+  "PLM_OPERATIONS.md": "5f80dd871942aa461748df6703d9163239669a0dfaad6d7c154a0bb4bf1b7104",
   "plm_creo_parse.py": "129b2f665f8d3c3bbd5d5d242abe850cd59b7ee7384a4f7fae2cd6be55fded76",
   "plm_schema.py": "402edc6dffbf99fafd41fd9138654a765faec0199d6650155ec888e2c11c5be0",
   "plm_asm_parse.py": "1060821b47a95eec3c11964295d776536e12613c07e7e76d23cee231ad7bea7c",
   "engine.py": "151fdd05adfa4f2942498d1f0b1e6efe7064dcc156eaa851364c789ba2f330f6",
-  "plm_reader.py": "44abd1e8d9e4ec51405877904c22e1bc90c29ae2039870769e0180bcbc27e2be",
-  "plm_toolwin.py": "4d96c984ca0d280823fc59b27fe46d8188b619c8cc2b18d932d52f09e0526a5d",
+  "plm_reader.py": "9b7a753c0d7d269005de66f8c205960c68b1126e392215f81600abf38cdf7956",
+  "plm_toolwin.py": "5cbcc9d31e939c8447cc667dcd80e473b56e96f1d970aa6a426d5de50c314e40",
   "plm_history.py": "fad8a57b19af99047cd33fb4887d63de76fe3cd496677d4e14b83902485d5818",
   "plm_parse.py": "29e06272f778fce1a1cfdae76a571267904391397f68c70f5ad7b18e7140e218",
   "plm_dbview.py": "a1473b3b37716523ef8e47616d8a63cbf3c83358907a1796e51b7c92ad3342b5",
@@ -38,11 +38,11 @@
   "plm_queries.py": "3fa963038b75cc5551bb7d7bbc3ced5760c03188fe77d47d393c145c390f1977",
   "plm_links.py": "698df65db4fb7571d086cb4343cb8d8391aead559caf96db4715c44e2f397ffe",
   "plm_build_links.py": "ee15ddfe7d8ac2355a73bd3f67a60da66ce8f3551499dd6d5ebceb4f3f0ce66f",
-  "plm_database.py": "7d977313e2a5f50c878c9d3af2b260ea4cb5beadeba64b672bbbe6d74e3c0c61",
+  "plm_database.py": "ac4e2ec436fa1187d34acd05add72d8b2a32b4144b8dae01be69b9c47e7e759f",
   "plm_graph_build.py": "0016ff6bffc83f05547975a9a11be863e7611f1d1cbc0fe9e09830b7c47d0c9d",
   "plm_scanner.py": "8ac13395647dbdf48a7dd0748e6a22ca7f99dcb8283d33ca30862066861f3c79",
   "plm_db_admin_win.py": "066c4a70b50d2924dca2fe2b481ed41b0e5dc0a9821fbc85a7ec447fb1ed0feb",
-  "STATE.md": "6fcc6481cfdc7e096facaa3d5444de7055120813dabeaf47aa27a95857d325ac",
+  "STATE.md": "86158871448b5893f3d152156c687dc8dbd488aff6aacf86559eee5de41b3fb9",
   "CONCEPT_PLM.md": "6addb5c97847d55b261a2890e8f08a6efc4a2ca468c8d090f357b1b8c2c4ab61"
  }
 }

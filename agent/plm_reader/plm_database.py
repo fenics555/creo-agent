@@ -178,6 +178,9 @@ CHECK_CODES = ("ORPHAN", "ORPHAN_EXT", "DUPLICATE", "SELF_LINK", "EMPTY_KEY", "M
 # Причина: дамп ~1300 имён полей на файл ≈ 20 КБ/строку → таблица раздулась до 1185 МБ.
 UF_VALUE_MAX = 512
 
+# V214: порог доли пустых страниц для авто-VACUUM после скана (не чаще 1 раза в сутки).
+AUTO_VACUUM_PCT = 35.0
+
 # Путь к конфигурации tbls для генерации документации
 TBL_CONFIG_PATH = os.path.join(os.path.dirname(HERE), "..", "..", "repo", "Creo", "PLM", "db_schema", ".tbls.yml")
 TBL_CONFIG_PATH = os.path.abspath(TBL_CONFIG_PATH)
@@ -1562,6 +1565,33 @@ def cmd_selftest():
         res3 = _run_check(dbf2, full=True, use_cache=False)
         if "MISSING_TABLE" not in set(i["code"] for i in res3["issues"]):
             problems.append("check: MISSING_TABLE не сработал на урезанной базе")
+
+        # ── V214: auto_maintain — один тихий проход, строковый итог, база вычищена ──
+        _c4 = connect_safe(dbf)
+        _c4.execute("INSERT INTO links(parent,child,qty,source) VALUES('Q','Q',1,'dwg')")
+        _c4.execute("INSERT INTO links(parent,child,qty,source) VALUES('R','S',1,'dwg')")
+        _c4.execute("INSERT INTO links(parent,child,qty,source) VALUES('R','S',2,'dwg')")
+        _c4.execute("INSERT INTO unknown_fields(path,model,name,count) VALUES('/b',?,'__ALL__',2)",
+                    ("y" * 3000,))
+        _c4.commit()
+        _c4.close()
+        am = auto_maintain(dbf)
+        print("auto_maintain ->", repr(am))
+        if not isinstance(am, str) or not am:
+            problems.append("auto_maintain: не вернул строку-итог")
+        else:
+            _c5 = connect_safe(dbf)
+            _slf = _c5.execute("SELECT COUNT(*) FROM links "
+                               "WHERE lower(parent) = lower(child)").fetchone()[0]
+            _dup = _c5.execute("SELECT COUNT(*) FROM (SELECT parent,child,source,kind FROM links "
+                               "GROUP BY parent,child,source,kind HAVING COUNT(*) > 1)").fetchone()[0]
+            _mx = _c5.execute("SELECT MAX(LENGTH(model)) FROM unknown_fields").fetchone()[0] or 0
+            _c5.close()
+            if _slf or _dup:
+                problems.append("auto_maintain: остались само-связи/дубли (links %s/%s)"
+                                % (_slf, _dup))
+            if _mx > UF_VALUE_MAX + 40:
+                problems.append("auto_maintain: длинный дамп не обрезан (%s)" % _mx)
     finally:
         shutil.rmtree(tmp, ignore_errors=True)
     if os.path.isdir(tmp):
@@ -1993,6 +2023,135 @@ def vacuum(db=None):
     after = os.path.getsize(p)
     print(f"VACUUM: {before/1024/1024:.1f} -> {after/1024/1024:.1f} МБ "
           f"({time.perf_counter() - t0:.1f} с)")
+
+
+# ════════════════════════════════════════════════════════════════════════════════
+# Е. БЕСШОВНОЕ АВТООБСЛУЖИВАНИЕ (V214): тихий проход после скана / при отстающей схеме
+#    Владелец: «автоматическое обслуживание БЕЗ участия инженера» — кнопок не надо.
+#    Один вход `auto_maintain()` возвращает КОРОТКУЮ строку-итог для строки состояния окна.
+# ════════════════════════════════════════════════════════════════════════════════
+def _soft_log(msg):
+    """V214: тихий лог обслуживания — в engine.log, если движок доступен (иначе молча)."""
+    try:
+        import engine
+        engine.log("auto_maintain: %s" % msg)
+    except Exception:                            # noqa: BLE001
+        pass
+
+
+def _automaint_cache_path(db_path):
+    """Файл-маркер суточного лимита VACUUM (рядом с базой, как `.plm_check_cache.json`)."""
+    return db_path + ".automaint.json"
+
+
+def _automaint_may_vacuum(db_path):
+    """VACUUM не чаще 1 раза в сутки: сверить отметку в маркере. Нет/битый — можно."""
+    p = _automaint_cache_path(db_path)
+    try:
+        if os.path.isfile(p):
+            with open(p, encoding="utf-8") as f:
+                return json.load(f).get("last_vacuum") != datetime.date.today().isoformat()
+    except (OSError, ValueError):
+        pass
+    return True
+
+
+def _automaint_mark_vacuum(db_path):
+    """Отметить, что VACUUM сделан сегодня (чтобы не тормозить частые короткие сканы)."""
+    try:
+        with open(_automaint_cache_path(db_path), "w", encoding="utf-8") as f:
+            json.dump({"last_vacuum": datetime.date.today().isoformat()}, f)
+    except OSError:
+        pass
+
+
+def _plan_has_link_work(plan):
+    """Есть ли в плане repair что удалять: само-связи или дубли (лишние строки)."""
+    for t in ("links", "graph_edges"):
+        d = (plan or {}).get(t) or {}
+        if d.get("self_links") or d.get("dup_extra"):
+            return True
+    return False
+
+
+def auto_maintain(db_path=None):
+    """V214: БЕСШОВНОЕ автообслуживание базы — один тихий проход, без участия инженера.
+
+    Выполняется в фоне после публикации скана (или при старте, если база отстаёт от схемы).
+    По надобности, НЕ ЛОМАЯ работу при сбоях:
+      1) миграция схемы (`migrate`) + индексы (`ensure_indexes`);
+      2) `repair(apply)` — если появились само-связи/дубли;
+      3) `compact_unknown_fields(apply)` — если есть дампы длиннее `UF_VALUE_MAX`;
+      4) `VACUUM` — если доля пустых страниц > `AUTO_VACUUM_PCT` (не чаще 1 раза в сутки).
+
+    Возвращает КОРОТКИЙ человекочитаемый ИТОГ одной строкой для строки состояния окна
+    («БД в норме» / «БД оптимизирована (-120 МБ)»). Исключения НЕ выбрасываются наружу:
+    сбой обслуживания не должен ломать скан.
+    """
+    try:
+        p = _arg_db(db_path)
+    except Exception:                            # noqa: BLE001
+        return "БД: не удалось определить путь"
+    if not p or not os.path.isfile(p):
+        return "БД не найдена"
+    try:
+        return _auto_maintain_inner(p)
+    except Exception as e:                       # noqa: BLE001
+        _soft_log("пропущено: %s" % e)
+        return "БД: обслуживание пропущено"
+
+
+def _auto_maintain_inner(p):
+    """Рабочая часть `auto_maintain` (вызывается внутри try). Возвращает строку-итог."""
+    did = []                                     # что реально сделали (для итога)
+    # ── 1. Схема + индексы ───────────────────────────────────────────────
+    try:
+        v0, v1 = migrate(p, quiet=True)
+        if isinstance(v0, int) and isinstance(v1, int) and v1 != v0:
+            did.append("схема %d->%d" % (v0, v1))
+    except Exception as e:                        # noqa: BLE001
+        _soft_log("migrate: %s" % e)
+    try:
+        ensure_indexes(p)
+    except Exception as e:                        # noqa: BLE001
+        _soft_log("ensure_indexes: %s" % e)
+    # ── 2. Дедупликация связей (только если есть что чистить) ────────────
+    try:
+        plan = repair(p, dry_run=True, quiet=True)
+        if _plan_has_link_work((plan or {}).get("plan")):
+            res = repair(p, dry_run=False, quiet=True)
+            dd = (res or {}).get("deleted") or {}
+            n = sum(int(x) for x in dd.values() if isinstance(x, int))
+            did.append("связи -%d" % n)
+    except Exception as e:                        # noqa: BLE001
+        _soft_log("repair: %s" % e)
+    # ── 3. Обрезка длинных дампов unknown_fields ─────────────────────────
+    try:
+        cp = compact_unknown_fields(p, dry_run=True, quiet=True)
+        if cp and (cp.get("plan") or {}).get("long_rows"):
+            compact_unknown_fields(p, dry_run=False, quiet=True)
+            did.append("дампы обрезаны")
+    except Exception as e:                        # noqa: BLE001
+        _soft_log("compact: %s" % e)
+    # ── 4. VACUUM по фрагментации (> AUTO_VACUUM_PCT, не чаще 1 раза/сутки) ──
+    try:
+        f = _fragmentation(p)
+        if f and f[0] > AUTO_VACUUM_PCT and _automaint_may_vacuum(p):
+            before = os.path.getsize(p)
+            con = connect_safe(p)
+            try:
+                con.execute("VACUUM")
+            finally:
+                con.close()
+            after = os.path.getsize(p)
+            _automaint_mark_vacuum(p)
+            freed = max(0.0, (before - after) / 1024.0 / 1024.0)
+            return "БД оптимизирована (-%.0f МБ)" % freed
+    except Exception as e:                        # noqa: BLE001
+        _soft_log("vacuum: %s" % e)
+    if did:
+        return "БД обслужена (%s)" % ", ".join(did)
+    return "БД в норме"
 
 
 def backup(db=None):

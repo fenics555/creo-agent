@@ -656,8 +656,17 @@ def run_gui():
         per_col=4 при 7 кнопках даёт РОВНО 2 столбца = 2 инструмента В СТРОКУ — влезает в узкую панель."""
         for i, (text, cmd) in enumerate(items):
             col, row = divmod(i, per_col)
-            ttk.Button(parent, text=text, width=width, command=cmd).grid(
-                row=row, column=col, sticky="ew", padx=(0 if col == 0 else 8, 0), pady=1)
+            padx = (0 if col == 0 else 8, 0)
+            if isinstance(cmd, (list, tuple)):          # V214: кнопка-МЕНЮ (напр. «Дополнительно»)
+                mb = ttk.Menubutton(parent, text=text, width=width)
+                menu = tk.Menu(mb, tearoff=0)
+                for lbl_txt, lbl_fn in cmd:
+                    menu.add_command(label=lbl_txt, command=lbl_fn)
+                mb["menu"] = menu
+                mb.grid(row=row, column=col, sticky="ew", padx=padx, pady=1)
+            else:
+                ttk.Button(parent, text=text, width=width, command=cmd).grid(
+                    row=row, column=col, sticky="ew", padx=padx, pady=1)
 
     _vgrid(grp_tools, [
         ("История выбранного", lambda: show_history()),
@@ -668,12 +677,13 @@ def run_gui():
         ("Выгрузить в CSV", lambda: export()),
         ("README", lambda: show_readme()),
         ("Проверить обновление", lambda: check_updates_ui(True)),
-        ("Дополнительно", lambda: show_facts()),
+        # V214: «Дополнительно» — теперь МЕНЮ. Технический «Аудит / БД…» убран из основного
+        # блока «ИНСТРУМЕНТЫ» (обычному инженеру он не нужен) и спрятан сюда — для администратора.
+        ("Дополнительно", [("Интересные факты по базе", lambda: show_facts()),
+                           ("Сервис базы данных (для администратора)…", lambda: _open_db_admin())]),
         ("Состав в CSV", lambda: export_bom()),   # V83: BOM текущего изделия нижнего окна
         ("Лог", lambda: show_log()),              # V159: открыть engine.log (владелец: «лога нет»)
-        # V189: графическое окно обслуживания/аудита БД — кнопки вместо CLI-команд.
-        ("Аудит / БД…", lambda: _open_db_admin()),
-    ], per_col=6)   # V189: 11 кнопок = 6+5 = ДВА столбца (было 10 = 5+5; добавлена «Аудит / БД…»)
+    ], per_col=5)   # V214: 10 кнопок = 5+5 = ДВА столбца («Аудит / БД…» перенесена в меню)
     def _upd_status(text):
         try:
             root.after(0, lambda: lbl.config(text=text))
@@ -1120,6 +1130,38 @@ def run_gui():
             pass
 
     root._plm_work = {"start": work_start, "progress": work_progress, "stop": work_stop}
+
+    def _run_auto_maintain():
+        """V214: ТИХОЕ автообслуживание БД после скана — итог одной строкой в строке состояния.
+
+        Инженер видит спокойное «БД в норме» (или «оптимизирована (-N МБ)») и НЕ заходит в
+        технические меню. Работает в фоне: VACUUM/дедуп не морозят окно. Сбои не ломают скан.
+        """
+        def work():
+            try:
+                import engine as _eng
+                import plm_database as _dbm
+                txt = _dbm.auto_maintain(_eng.active_db())
+            except Exception as e:                # noqa: BLE001
+                try:
+                    import engine as _eng2
+                    _eng2.log("auto_maintain: %s" % e)
+                except Exception:
+                    pass
+                return
+
+            def done():
+                try:
+                    cur = str(lbl.cget("text") or "")
+                    lbl.config(text=(cur + " · " + txt) if cur else txt)
+                    _busy["last"] = lbl.cget("text")
+                except Exception:
+                    pass
+            try:
+                root.after(0, done)
+            except Exception:
+                pass
+        threading.Thread(target=work, daemon=True).start()
 
     # НИЖНЯЯ ПОЛОСА (дерево производства) — прижата к низу окна, видна на ЛЮБОЙ вкладке
     lpane = ttk.Frame(vpan)
@@ -5052,6 +5094,7 @@ def run_gui():
                         work_stop("")               # индикатор выключить, текст НЕ затирать
                     else:
                         work_stop()
+                        _run_auto_maintain()        # V214: тихое автообслуживание БД после скана
                     root._plm_scan_active = False
                     try:
                         root._plm_db_stamp = _active_stamp()
