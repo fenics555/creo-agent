@@ -124,5 +124,45 @@ CREATE TABLE IF NOT EXISTS graph_metrics (k TEXT PRIMARY KEY, v TEXT);
 CREATE TABLE IF NOT EXISTS arch_dims (model TEXT, arch_date TEXT, dims TEXT);
 CREATE TABLE IF NOT EXISTS arch_dim_ch (arch_date TEXT, model TEXT, dim TEXT, old_val TEXT, new_val TEXT, kind TEXT);
 
--- Indexes (always after tables)
+-- 🔴 V209 (P2): `meta` — 31-я таблица. Раньше создавалась только миграцией `_mig_0_to_1` и
+-- движком (do_scan/publish) ⇒ на свежей базе из `connect()` её НЕ было (31/31 не сходилось).
+-- Теперь DDL == эталон `plm_database.SCHEMA` (31 таблица) с первой же секунды.
+CREATE TABLE IF NOT EXISTS meta (k TEXT PRIMARY KEY, v TEXT);
+
+-- 🔴 V209 (P3): ИНДЕКСЫ — В САМОЙ СХЕМЕ (было: только миграции `_mig_*` и схема черновика сканера;
+-- в DDL их не было, хотя комментарий обещал). Все `IF NOT EXISTS` ⇒ накат на ЛЮБУЮ старую базу
+-- безопасен (данные и архивы changes/history/arch_* не трогаются). Гарантируют, что база, поднятая
+-- только через `engine.connect()`, сразу имеет индексы (иначе `write_item` делал 17 DELETE без
+-- индекса — замедление скана ×168, см. V171).
+CREATE INDEX IF NOT EXISTS ix_snap_model     ON snapshots(model);
+CREATE INDEX IF NOT EXISTS ix_snap_folder    ON snapshots(folder);
+CREATE INDEX IF NOT EXISTS ix_snap_des       ON snapshots(designation);
+CREATE INDEX IF NOT EXISTS ix_snap_fname     ON snapshots(file_name);
+CREATE INDEX IF NOT EXISTS ix_snap_fext      ON snapshots(file_ext);
+CREATE INDEX IF NOT EXISTS ix_snap_path      ON snapshots(path);
+CREATE INDEX IF NOT EXISTS ix_bodies_model   ON bodies(model);
+CREATE INDEX IF NOT EXISTS ix_bodies_path    ON bodies(path);
+CREATE INDEX IF NOT EXISTS ix_mat_model      ON materials(model);
+CREATE INDEX IF NOT EXISTS ix_mat_name       ON materials(name);
+CREATE INDEX IF NOT EXISTS ix_mastermat_path ON master_mat(path);
+CREATE INDEX IF NOT EXISTS ix_tools_path     ON tools(path);
+CREATE INDEX IF NOT EXISTS ix_uf_path        ON unknown_fields(path);
+CREATE INDEX IF NOT EXISTS ix_uf_name        ON unknown_fields(name);
+CREATE INDEX IF NOT EXISTS ix_dima_path      ON dim_all(path);
+CREATE INDEX IF NOT EXISTS ix_dimall_path    ON dim_all(path);
+CREATE INDEX IF NOT EXISTS ix_mx_path        ON matrices(path);
+CREATE INDEX IF NOT EXISTS ix_mx_field       ON matrices(field);
+CREATE INDEX IF NOT EXISTS ix_matrices_path  ON matrices(path);
+CREATE INDEX IF NOT EXISTS ix_drw_model      ON drawing(model);
+CREATE INDEX IF NOT EXISTS ix_drawing_path   ON drawing(path);
+CREATE INDEX IF NOT EXISTS ix_cmp_path       ON components(path);
+CREATE INDEX IF NOT EXISTS ix_cmp_comp       ON components(comp);
+CREATE INDEX IF NOT EXISTS ix_components_path ON components(path);
+CREATE INDEX IF NOT EXISTS ix_items_model    ON items(model);
+CREATE INDEX IF NOT EXISTS ix_items_folder   ON items(folder);
+CREATE INDEX IF NOT EXISTS ix_derived_child  ON derived(child);
+CREATE INDEX IF NOT EXISTS ix_derived_base   ON derived(base);
+CREATE INDEX IF NOT EXISTS ix_props_child    ON props(child);
+CREATE INDEX IF NOT EXISTS ix_archdims_date  ON arch_dims(arch_date);
+CREATE INDEX IF NOT EXISTS ix_archdimch_date ON arch_dim_ch(arch_date);
 """

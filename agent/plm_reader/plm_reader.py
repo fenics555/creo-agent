@@ -30,13 +30,6 @@ import time
 # (__name__=="__main__", так его зовёт .bat), регистрируем его в sys.modules под именем 'plm_reader',
 # иначе `from plm_reader import ...` переимпортирует файл и зациклится (ImportError).
 
-
-
-
-
-
-
-
 if __name__ == "__main__":
     import sys as _sys
     _sys.modules.setdefault("plm_reader", _sys.modules["__main__"])
@@ -410,61 +403,13 @@ SETTINGS_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "setting
 SETTINGS_FILE = os.path.join(SETTINGS_DIR, "settings.json")                          # (не затираются при обновлении кода)
 CACHE_FILE = os.path.join(DATA_DIR, "scan_cache.json")
 
-
-
-
-
-
 DB_FILE = os.path.join(DATA_DIR, "plm_reader.db")
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 
 # Логи: дома — в общий D:\AI\log, на чужой машине — рядом с инструментом (переносимость)
 LOG_DIR = os.environ.get("PLM_LOG") or (
     r"D:\AI\log\plm_reader" if os.path.isdir(r"D:\AI\log")
     else os.path.join(os.path.dirname(os.path.abspath(__file__)), "log"))
 REPORTS_DIR = os.path.join(os.path.dirname(LOG_DIR), "reports")
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 
 # --- 04.10.2026: связь чертёж → модель (`model_names\0 \xf8 <байт> <ИМЯ>\0`) -------------
 # ГРАБЛИ, учтённые здесь (проверены на байтах, давали 0 % / 49 % разбора):
@@ -473,9 +418,6 @@ REPORTS_DIR = os.path.join(os.path.dirname(LOG_DIR), "reports")
 #   3) байт после \xf8 не всегда 0x01 (бывают 0x08, 0x09, 0x0B).
 # V209 (P1): определения перенесены в plm_parse.py (единственный потребитель) — импорт-реэкспорт ниже.
 
-
-
-
 # --- 04.10.2026: техтребования и ЧИСЛОВЫЕ параметры из тела файла --------------------
 # Штатный parameters() даёт 3 параметра там, где из файла читается 9: он ищет только
 # в секциях NeuPrtSld/LargeText и по другому шаблону. Ниже — проверенный разбор.
@@ -483,37 +425,11 @@ REPORTS_DIR = os.path.join(os.path.dirname(LOG_DIR), "reports")
 # служебные имена в техтребованиях: DTM1, A_1, RIGHT, ASM_DEF_CSYS …
 # V209 (P1): перенесено в plm_parse.py (см. импорт ниже).
 
-
-
-
-
-
-
-
 # --- 05.10.2026: РАЗМЕРЫ детали и ИСТОРИЯ их изменений (перенесено из archive_scan.py) ---
 # Число: 2^(E+1)*(1+F/4096), F — 12 БИТ, маркер первого байта ЛЮБОЙ.
 #   (а) значение ДО имени:   f1 f7 37 e3 32 <3 байта> … f2 f7 38 "d12" 00
 #   (б) значение ПОСЛЕ имени: d11 00 37 e3 0b 08 … <число на +9>
 # V209 (P1): перенесены в plm_parse.py (см. импорт ниже).
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 
 def latest_path(model):
     """Путь к ПОСЛЕДНЕЙ версии файла изделия из активной базы (или None).
@@ -546,36 +462,11 @@ def latest_path(model):
             return p
     return rows[0][0] if rows else None
 
-
-
-
-
-
-
-
 COLS_WIDTH = {"Обозначение": 130, "Наименование": 210, "Материал": 110, "Объём, мм³": 100,
               "Роль": 110, "Родитель": 140, "Ревизия": 80, "Записей": 80, "Версий": 70, "Дата": 120,
               "Создан": 125, "Изменён": 125, "Пользователь": 100, "Версия Creo": 110, "Файл": 215}
 
-
-
-
-
-
-
-
-
-
-
-
 # V209 (P1): перенесены в plm_history.py (см. импорт ниже).
-
-
-
-
-
-
-
 
 # ==== 07.10.2026: честная история для СКОПИРОВАННЫХ моделей ====
 import engine as eng   # движок: нужен хелперам ниже (импорт чистый — только stdlib)
@@ -584,73 +475,11 @@ import engine as eng   # движок: нужен хелперам ниже (и�
 # (ЧСЗ-Л_801_04_75-401-10). Теперь источник берём из самого файла (`from_mdl_name` — движок уже
 # умеет, `engine.copy_from_of`) и унаследованные записи показываем с ИСХОДНЫМ именем.
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 # V209 (P1): перенесено в plm_scan.py (см. импорт ниже).
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 
 # ------------------------------------------------------------------ окно истории
 
-
-
-
 # ------------------------------------------------------------------ окно
-
 
 def main():
     try:                                   # консоль cp1251 не умеет «³» — печатаем заменой, без падения
@@ -704,37 +533,6 @@ def main():
     from plm_toolwin import run_gui      # Шаг 1 распила: окно вынесено; импорт ЛЕНИВЫЙ (без цикла)
     run_gui()
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 from plm_parse import (
     DIM_AFTER_RE,
     DIM_HEAD_RE,
@@ -772,7 +570,6 @@ from plm_parse import (
     tech_notes,
 )
 
-
 from plm_dbview import (
     _active_db_file,
     _fs_date,
@@ -791,7 +588,6 @@ from plm_dbview import (
     save_cache,
 )
 
-
 from plm_settings import (
     CURRENT_SETTINGS_VERSION,
     DEFAULT_SETTINGS,
@@ -804,7 +600,6 @@ from plm_settings import (
     norm_path,
     save_settings_file,
 )
-
 
 from plm_scan import (
     VERSION_RE,
@@ -820,7 +615,6 @@ from plm_scan import (
     scan_roots,
     version_key,
 )
-
 
 from plm_history import (
     VER_COLUMNS,
@@ -847,11 +641,9 @@ from plm_history import (
     versions_window,
 )
 
-
 from plm_paths_window import (
     PathsWindow,
 )
-
 
 if __name__ == "__main__":
     main()

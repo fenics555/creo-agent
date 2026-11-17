@@ -21,7 +21,6 @@ CODE_FILES = [
     "plm_creo_parse.py",                          # V201: парсеры Creo (вынесены из engine.py)
     "plm_schema.py",                             # V199: DDL-схема (вынесена из engine.py)
     "plm_asm_parse.py",                          # V200: парсер состава сборки (вынесен из engine.py)
-    "plm_schema.py",                             # V199: DDL-схема (вынесена из engine.py)
     "engine.py", "plm_reader.py", "plm_toolwin.py", "plm_history.py", "plm_parse.py", "plm_dbview.py",
     "plm_settings.py", "plm_scan.py", "plm_paths_window.py", "creo_read.py", "README.md", "SHARE_copy.bat",
     "plm_reader.bat", "plm_reader_gui.bat", "make_version_json.py", ".gitignore", "AGENTS.md",
@@ -29,13 +28,11 @@ CODE_FILES = [
     # V140: модули, вынесенные из сканера и достройка связей (БЕЗ них приезд engine.py
     # ломает инструмент: engine вызывает plm_queries -> ImportError).
     "plm_queries.py",                            # 19 построителей запросов (вынесены из engine)
-    "plm_links.py",                              # единый источник связей (пока не внедрён)
+    "plm_links.py",                              # единый источник связей (внедрён, V144+)
     "plm_build_links.py",                        # ДОСТРОИТЕЛЬ: links(built) по базе
-    # V142: БОЕВЫЕ модули сканера БЕРУТСЯ В МАНИФЕСТ. Они лежали в debug/ (=.gitignore),
-    # поэтому физически не попадали ни в git, ни на шару — import падал молча,
-    # таблицы bodies/materials/items были ПУСТЫ, а окно писало «готов» (грабля ноги 30.10).
-    "scanner_plm.py",                            # НОВЫЙ сканер: scan_item_new (16 ящиков)
-    "scanner_write.py",                          # запись ящиков нового сканера в базу
+    # V209 (P4): `scanner_plm.py`/`scanner_write.py` УБРАНЫ из поставки — они слиты в
+    # `plm_scanner.py` (V160) и в корне отсутствуют. Остаются в REMOVED_FILES: клиенты со старых
+    # версий (V180–V208) удалят их при автообновлении (обратная совместимость сохранена).
     "plm_database.py",                           # Database: stats/check/validate/publish/indexes/vacuum/backup
     # V143: ГРАФ-ПОСТРОИТЕЛЬ — полный граф связей всей базы в свои таблицы
     # (`graph_nodes`/`graph_edges`/`graph_metrics`). Показ (HTML/окно) только ЧИТАЕТ их.

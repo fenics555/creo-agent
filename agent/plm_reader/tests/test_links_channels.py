@@ -19,6 +19,11 @@ import engine as E          # noqa: E402
 
 ROOT = r"Z:\PTC\Work\001_15 ЦТКД Электон"
 LIMIT = 30
+
+# V209 (P7): OFFLINE-УСТОЙЧИВОСТЬ гейта pre-push — если `Z:` недоступна, тест не падает, а SKIP.
+if not os.path.isdir(ROOT):
+    print("[SKIP] Z: unavailable — нет %s. Тест каналов связей пропущен (офлайн)." % ROOT)
+    sys.exit(0)
 db = os.path.join(tempfile.gettempdir(), "v196_links.db")
 for suf in ("", "-wal", "-shm", "-journal"):
     try:
