@@ -1033,7 +1033,7 @@ def collect_from_graph_db(media_dir=None):
             if not m:
                 continue
             img, img2 = "", ""
-            c = lcache.get((path or "").lower())
+            c = lcache.get(os.path.normcase(path or ""))
             if not c:
                 bn = os.path.basename((path or "").lower())
                 stem = bn.rsplit(".", 1)[0] if (bn[-1:].isdigit() and "." in bn) else bn

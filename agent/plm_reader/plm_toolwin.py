@@ -2995,6 +2995,9 @@ def run_gui():
         if not m:
             lhist_sum.config(text="выбери изделие в ЛЮБОЙ вкладке сверху — покажу историю его файлов")
             return
+        # История конкретного выделенного файла (как и остальные вкладки низа — по выделенному сверху)
+        pick_path = _last.get("pick_path") or ""
+        pick_ext = _last.get("pick_ext") or ""
         try:
             con = eng.connect()
             paths = [r[0] for r in con.execute("SELECT path FROM snapshots WHERE model=? ORDER BY path",
@@ -3002,10 +3005,15 @@ def run_gui():
             con.close()
         except Exception:
             paths = []
-        # Фильтрация «История файла»: по умолчанию — конкретный тип (.prt/.asm/.drw);
-        # галочка «по всему изделию» показывает все файлы изделия вместе.
-        if not var_hist_all.get():
-            _ext = var_hist_ext.get().lower()
+        if pick_path:
+            paths = [p for p in paths if os.path.normcase(p) == os.path.normcase(pick_path)]
+            if not paths:
+                lhist_sum.config(text="история файла «%s»: записи не найдены" % os.path.basename(pick_path))
+                return
+        elif not var_hist_all.get():
+            # Фильтрация «История файла»: по умолчанию — конкретный тип (.prt/.asm/.drw);
+            # галочка «по всему изделию» показывает все файлы изделия вместе.
+            _ext = pick_ext or var_hist_ext.get().lower()
             paths = [p for p in paths if p.lower().endswith(_ext)]
         if not paths:
             lhist_sum.config(text="изделие %s: файлов типа %s в базе нет" % (m,
@@ -3803,14 +3811,15 @@ def run_gui():
         # КАРТА ВИДОВ из готового графа: (a,b) → kind (structure/inherit/derive/copy/variant)
         kinds = {}
         try:
+            from creo_read import canon_model as _cm
             import plm_links as _L
             for e in _L.edges(eng):
-                kinds[(e["from"].lower(), e["to"].lower())] = e["kind"]
+                kinds[(_cm(e["from"]), _cm(e["to"]))] = e["kind"]
         except Exception:
             kinds = {}
 
         def _vid(a, b, default):
-            return kinds.get((str(a).lower(), str(b).lower()), default)
+            return kinds.get((_cm(a), _cm(b)), default)
 
         nodes[root] = {"kind": "root", "level": 0, "vid": ""}
         down = eng.plm_down_data(root, ddown)
@@ -4541,6 +4550,8 @@ def run_gui():
             live_auto()
             return
         p = row.get("_path") or ""
+        _last["pick_path"] = p
+        _last["pick_ext"] = os.path.splitext(p)[1].lower() if p else ""
         _bottom_show(eng.stem(os.path.basename(p)) if p else "", pick=True)
 
     tree.bind("<<TreeviewSelect>>", live_tree)
