@@ -34,7 +34,12 @@ if __name__ == "__main__":
     import sys as _sys
     _sys.modules.setdefault("plm_reader", _sys.modules["__main__"])
 
-APP_VERSION = "V215"      # 🔴 V215: Исторический декодер (rescue_legacy_data): классификация легаси-
+APP_VERSION = "V216"      # 🔴 V216: точное обнаружение обновлённых файлов в сканере (size+mtime
+                          #        точно, без «слепой зоны» ±1 с; + опция «сверять содержимое»
+                          #        scan_verify_hash) + компактная раскладка нижнего «Графа»
+                          #        (локальный ранг уровня) + автообновление и память вкладки «Река»
+                          #        + сортировка «Сначала свежие» в HTML-консоли
+                          # 🔴 V215: Исторический декодер (rescue_legacy_data): классификация легаси-
                           #        журнала changes (Purge-safe), извлечение знаний из unknown_fields
                           #        в params (INSERT OR IGNORE), ТОП-30 неразобранных полей; встроен в
                           #        auto_maintain (однократно, маркер rescue_done) + кнопка в «Аудит/БД»

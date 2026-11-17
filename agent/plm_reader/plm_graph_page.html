@@ -125,6 +125,11 @@
       <option value="img">только с превью</option>
       <option value="loose">одиночки без связей</option>
     </select>
+    <select id="sort" title="Порядок списка моделей (V216)">
+      <option value="fresh">Свежие ↓</option>
+      <option value="linked">По связям ↓</option>
+      <option value="name">По имени ↑</option>
+    </select>
   </div>
   <div id="stats"></div>
   <div id="list"></div>
@@ -506,12 +511,21 @@ function matches(m){
   window.addEventListener("touchend", () => { drag = null; });
 })();
 function render(){
-  // Сортировка: сначала «живые» узлы (связи В ОБЕ стороны) — из них граф строится,
-  // затем по общему числу связей. Так список не начинается мёртвыми шаблонами.
+  // V216: ПОРЯДОК СПИСКА — по переключателю #sort:
+  //   fresh  — «СВЕЖИЕ ↓» (ПО УМОЛЧАНИЮ): по метке времени ts (MAX(mtime/created)) по убыванию;
+  //   linked — «ПО СВЯЗЯМ ↓»: сначала «живые» (связи В ОБЕ стороны), затем по числу связей;
+  //   name   — «ПО ИМЕНИ ↑».
   const score = m => (ND[m].o.length && ND[m].n.length ? 1e9 : 0)
                    + Math.min(ND[m].o.length, 5000) + Math.min(ND[m].n.length, 5000);
-  const keys = Object.keys(ND).filter(matches).sort((a,b) =>
-    score(b) - score(a) || (ND[a].nm || "").localeCompare(ND[b].nm || ""));
+  let mode = "fresh";
+  try { mode = (document.getElementById("sort") || {}).value || "fresh"; } catch(e) {}
+  const cmp = (mode === "name")
+    ? ((a,b) => (ND[a].nm || "").localeCompare(ND[b].nm || ""))
+    : (mode === "linked")
+      ? ((a,b) => score(b) - score(a) || (ND[a].nm || "").localeCompare(ND[b].nm || ""))
+      : ((a,b) => (ND[b].ts || 0) - (ND[a].ts || 0) ||
+                   (ND[a].nm || "").localeCompare(ND[b].nm || ""));
+  const keys = Object.keys(ND).filter(matches).sort(cmp);
   shown = keys.slice(0, LIM("list_max", __LISTMAX__));
   list.innerHTML = shown.map(m => {
     const n = ND[m], linked = n.o.length + n.n.length;
@@ -523,7 +537,7 @@ function render(){
     return '<div class="row" data-m="' + m + '">' + im +
       '<div class="nm"><b>' + kindTag(n) + nm + '</b><span>' + n.v + dir +
       ' · состав ' + n.o.length + ' · входит ' + n.n.length + ' · ' +
-      (n.s/1048576).toFixed(2) + ' МБ</span></div></div>';
+      (n.s/1048576).toFixed(2) + ' МБ' + (n.dt ? ' · ' + n.dt : '') + '</span></div></div>';
   }).join("");
   // «ЖИВОЙ» статус: пока порции идут — показываем рост узлов/рёбер, потом — итог.
   const live = (LIVE.chunks > 1) ? (" · порций " + LIVE.chunks + " · узлов " + LIVE.nodes +
@@ -543,6 +557,10 @@ list.addEventListener("click", e => {
   const r = e.target.closest(".row"); if (r) show(r.dataset.m);
 });
 [q, fk, fv, fs].forEach(el => el.addEventListener("input", render));
+// V216: переключатель порядка списка моделей («Свежие ↓ / По связям ↓ / По имени ↑»).
+try { const _sort = document.getElementById("sort");
+      if (_sort) { _sort.addEventListener("change", render);
+                   _sort.addEventListener("input", render); } } catch(e) {}
 
 function show(m){
   cur = m; const n = ND[m];

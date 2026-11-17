@@ -418,7 +418,7 @@ def graph_point(xi, lv, vert, nw, nh, step):
     """
     if vert:
         return xi * (nw + 12), lv * step
-    return lv * (nw + 34), xi * step
+    return lv * (nw + 48), xi * step
 
 
 def graph_out(dx, vert, nw, nh):
@@ -426,6 +426,26 @@ def graph_out(dx, vert, nw, nh):
     if vert:
         return 0, dx * (nh // 2)
     return dx * (nw // 2), 0
+
+
+def graph_ranks(pos):
+    """V216: ЛОКАЛЬНЫЙ ранг узла ВНУТРИ его уровня для компактной раскладки нижнего «Графа».
+
+    Зачем: ось «внутри уровня» раньше несла ГЛОБАЛЬНЫЙ индекс раскладки `xi` (счётчик листьев
+    всего дерева) — узлы одного уровня разлетались по оси на тысячи пикселей, а уровни стояли
+    вплотную ⇒ карта сжималась в узкую вертикальную линию. Здесь каждому узлу даём ранг 0,1,2…
+    внутри своего уровня (порядок сохраняем по исходному `xi` — топология ветвей не рвётся).
+
+    `pos` = {узел: (xi, level)} → {узел: rank}. Тестируется отдельно (tests/test_graph_geometry).
+    """
+    by_lvl = {}
+    for n, (xi, lv) in pos.items():
+        by_lvl.setdefault(int(round(float(lv))), []).append((xi, n))
+    rank = {}
+    for _lv, lst in by_lvl.items():
+        for i, (_xi, n) in enumerate(sorted(lst)):
+            rank[n] = i
+    return rank
 
 
 def parse_change_date(s):
@@ -1309,17 +1329,18 @@ def run_gui():
         rv_step.set(str(settings.get("river_step", "неделя") or "неделя"))
     except Exception:
         rv_step.set("неделя")                    # V97: по умолчанию неделя (журнал короткий)
-    rv_step.bind("<<ComboboxSelected>>", lambda ev: _river_show(True))
+    rv_step.bind("<<ComboboxSelected>>", lambda ev: (_river_persist(), _river_show(True)))
     rv_step.pack(side="left")
     ttk.Label(rvctl, text="периодов:").pack(side="left", padx=(6, 2))
     rv_back = ttk.Spinbox(rvctl, from_=0, to=400, width=4,
-                          command=lambda: _river_show(True))
+                          command=lambda: (_river_persist(), _river_show(True)))
     try:                                         # 🔴 V212: старт из реестра («река: периодов»)
         rv_back.set(max(0, min(400, int(settings.get("river_periods", 0) or 0))))
     except Exception:
         rv_back.set(0)                           # 0 = весь журнал целиком
     rv_back.pack(side="left")
-    rv_new = ttk.Checkbutton(rvctl, text="+ новые (скан)")
+    rv_new = ttk.Checkbutton(rvctl, text="+ новые (скан)",
+                             command=lambda: (_river_persist(), _river_show(True)))
     try:                                         # 🔴 V212: старт из реестра («река: новые»)
         if settings.get("river_new"):
             rv_new.state(["selected"])
@@ -1327,12 +1348,28 @@ def run_gui():
         pass
     rv_new.pack(side="left", padx=(6, 0))
     ttk.Label(rvctl, text="топ:").pack(side="left", padx=(8, 2))
-    rv_top = ttk.Spinbox(rvctl, from_=5, to=20, width=3, command=lambda: _river_show(True))
+    rv_top = ttk.Spinbox(rvctl, from_=5, to=20, width=3,
+                         command=lambda: (_river_persist(), _river_show(True)))
     try:                                         # 🔴 V212: старт из реестра («река: потоков»)
         rv_top.set(max(5, min(20, int(settings.get("river_top", 10) or 10))))
     except Exception:
         rv_top.set(10)
     rv_top.pack(side="left")
+
+    def _river_persist():
+        """V216: запомнить панель «Река» в settings.json.
+
+        Раньше виджеты только ЧИТАЛИ реестр, а `save_ui` их не писал ⇒ при перезапуске окна
+        шаг/периоды/топ/«+ новые» сбрасывались на дефолты. Теперь пишем при любом изменении.
+        """
+        try:
+            settings.update({"river_step": rv_step.get(),
+                             "river_periods": int(rv_back.get() or 0),
+                             "river_top": int(rv_top.get() or 10),
+                             "river_new": bool(rv_new.instate(["selected"]))})
+            save_settings()
+        except Exception:
+            pass
     ttk.Button(rvctl, text="−", width=2,
                command=lambda: _river_zoom(1 / 1.25)).pack(side="left", padx=(8, 0))
     ttk.Button(rvctl, text="+", width=2, command=lambda: _river_zoom(1.25)).pack(side="left")
@@ -3935,10 +3972,19 @@ def run_gui():
                 _gap = 40
             nw = 158                                 # ширина узла (бейдж типа + подпись Consolas 9)
             _step = max(nh + 12, _gap + 8)
+            # 🔴 V216: ЛОКАЛЬНЫЙ РАНГ внутри уровня. Раньше по оси «внутри уровня» шёл ГЛОБАЛЬНЫЙ
+            # индекс раскладки (`xi` = счётчик листьев всего дерева): узлы одного уровня
+            # разлетались на тысячи пикселей, а уровни стояли вплотную ⇒ карта сжималась в
+            # узкую вертикальную линию. Теперь узлы уровня идут компактным столбиком (ранг 0,1,2…).
+            _rank = graph_ranks(pos)
 
             def _xy(xi, lv):
                 """(x-индекс раскладки, уровень) -> пиксели. Логика — в `graph_point` (тестируется)."""
                 return graph_point(xi, lv, _vert, nw, nh, _step)
+
+            def _xy_node(n):
+                """Узел -> пиксели: локальный ранг внутри уровня + уровень (V216)."""
+                return _xy(_rank.get(n, 0), pos[n][1])
 
             def _out(dx):
                 """Смещение точки выхода ребра «к соседнему уровню» — см. `graph_out`."""
@@ -3947,10 +3993,8 @@ def run_gui():
             for a, b, kind, q in edges:                 # рёбра (по уровню и СТРОЮ)
                 if a not in pos or b not in pos:
                     continue
-                xa, ya = pos[a]
-                xb, yb = pos[b]
-                x1, y1 = _xy(xa, ya)
-                x2, y2 = _xy(xb, yb)
+                x1, y1 = _xy_node(a)
+                x2, y2 = _xy_node(b)
                 if kind == "der":                        # «из чего сделана» — пунктир к корню
                     if _vert:
                         gr_canvas.create_line(x1 + nw // 2, y1, x2 - nw // 2, y2,
@@ -3987,7 +4031,7 @@ def run_gui():
 
             for n, (x, y) in pos.items():               # узлы
                 d = nodes[n]
-                px, py = _xy(x, y)
+                px, py = _xy_node(n)
                 gr_canvas.create_rectangle(px - nw // 2, py - nh // 2,
                                            px + nw // 2, py + nh // 2,
                                            fill=fills.get(d["kind"], "#eee"), outline="#555",
@@ -4813,6 +4857,13 @@ def run_gui():
             root._plm_db_stamp = stamp if stamp is not None else _active_stamp()
             if reason:
                 lbl.config(text=reason)
+            # 🔴 V216: база перечитана — кэш «Реки» устарел; если вкладка открыта, обновить сразу.
+            try:
+                _last.pop("rv_sig", None)
+                if nb.select() == str(tab_river):
+                    _river_show(True)
+            except Exception:
+                pass
         finally:
             root._plm_refreshing = False
 
@@ -4858,6 +4909,15 @@ def run_gui():
                              "recurse": var_rec.get(), "latest_only": var_lat.get(),
                              "depth": int(e_depth.get() or 0), "purge_keep": int(e_keep.get() or 2),
                              "auto_refresh": var_auto.get()})
+            # 🔴 V216: «Река» — ЗАПОМНИТЬ её панель. Раньше эти ключи НЕ сохранялись, и при
+            # перезапуске окна шаг/периоды/топ/«+ новые» сбрасывались на дефолты реестра.
+            try:
+                settings.update({"river_step": rv_step.get(),
+                                 "river_periods": int(rv_back.get() or 0),
+                                 "river_top": int(rv_top.get() or 10),
+                                 "river_new": bool(rv_new.instate(["selected"]))})
+            except Exception:
+                pass
             settings.pop("full", None)
         except Exception:
             pass
@@ -5050,7 +5110,7 @@ def run_gui():
                     _secs = time.time() - getattr(root, "_plm_t0", time.time())
                     # V107: индикатор с процентом чтения файлов
                     work_progress(msg[1], msg[2])
-                    lbl.config(text="%d / %d · прочитано %d, пропущено (уже в базе) %d · %.0f с · %s"
+                    lbl.config(text="%d / %d · прочитано %d, пропущено (без изменений) %d · %.0f с · %s"
                                % (msg[1], msg[2], msg[4], msg[5], _secs, msg[3][:40]))
                 else:
                     st = msg[2] if len(msg) > 2 else {}
@@ -5073,7 +5133,7 @@ def run_gui():
                         # «сканер не работает», а причины не видно (живой случай: NameError на 2728 файлах).
                         _ne = int(st.get("errors") or 0)
                         lbl.config(text="скан базы за %.1f с: новых %d · изменённых %d · "
-                                        "пропущено (уже в базе) %d · в базе %d, показано %d · исключено папок %d · "
+                                        "пропущено (без изменений) %d · в базе %d, показано %d · исключено папок %d · "
                                         "убрано строк %d%s%s"
                                    % (_secs, st.get("new", 0), st.get("mod", 0), st.get("skipped", 0),
                                       total, len(rows), len(exclude_list(settings.get("exclude"))),
@@ -5095,6 +5155,14 @@ def run_gui():
                     else:
                         work_stop()
                         _run_auto_maintain()        # V214: тихое автообслуживание БД после скана
+                        # 🔴 V216: журнал изменился — кэш «Реки» устарел. Если вкладка открыта,
+                        # перерисовать сразу (раньше «Река» показывала старые данные до «Обновить»).
+                        try:
+                            _last.pop("rv_sig", None)
+                            if nb.select() == str(tab_river):
+                                _river_show(True)
+                        except Exception:
+                            pass
                     root._plm_scan_active = False
                     try:
                         root._plm_db_stamp = _active_stamp()

@@ -925,6 +925,20 @@ def collect_from_graph_db(media_dir=None):
             if _mat and not cur["mat"]: cur["mat"] = str(_mat)
     except Exception:
         pass
+    # 🔴 V216: ВРЕМЯ модели (для сортировки «Сначала свежие» в HTML-списке): MAX(mtime/created).
+    import datetime as _dt
+    ts_by_model = {}
+    try:
+        for _m, _mx, _mc in con.execute(
+                "SELECT model, MAX(mtime), MAX(created) FROM snapshots GROUP BY model"):
+            _k = _norm(_m)
+            if not _k:
+                continue
+            _t = max(float(_mx or 0), float(_mc or 0))
+            if _t > ts_by_model.get(_k, 0):
+                ts_by_model[_k] = _t
+    except Exception:
+        pass
     try:
         for _m, _pn, _pv in con.execute(
                 "SELECT model, name, value FROM params WHERE name != '__EMPTY__' LIMIT 500000"):
@@ -1039,6 +1053,7 @@ def collect_from_graph_db(media_dir=None):
                 _nm_show = _Lnk.pretty_name(m)
             except Exception:
                 _nm_show = m
+            _ts = ts_by_model.get(m, 0) or ts_by_model.get(_nm_show, 0) or 0   # V216: время модели
             nodes[m] = {"nm": _nm_show, "k": _ext,
                         "t": kind or "", "p": path or "", "d": folder or "",
                         "s": size or 0, "v": vol or 0, "c": creo or "", "r": rev or "",
@@ -1050,7 +1065,11 @@ def collect_from_graph_db(media_dir=None):
                             + list(_base_dm.items())
                         ))(dims_by_model.get(m) or dims_by_model.get(_nm_show) or {}, snap_meta.get(m) or {}),
                         "dch": (dimch_by_model.get(m) or dimch_by_model.get(_nm_show) or [])[:40],
-                        "h": (hist.get(m) or hist.get(_nm_show) or [])[:40]}
+                        "h": (hist.get(m) or hist.get(_nm_show) or [])[:40],
+                        # 🔴 V216: метка времени модели для сортировки «Сначала свежие» в списке.
+                        "ts": _ts,
+                        "dt": (_dt.datetime.fromtimestamp(_ts).strftime("%d.%m.%Y %H:%M")
+                               if _ts else "")}
             # 🔴🔴 V145 КРИТИЧНО: ключи `o`/`n` НЕ создаём! В `build_html` они означают НЕ соседей,
             # а ИМЯ/ПАПКУ (`"n"` — имя модели, `"o"` — папка), и `_merge` читает `nodes[x]["n"]` как имя
             # соседа. Раньше здесь стояли `"o": [], "n": []` → `_merge` получал ПУСТОЕ имя → все связи

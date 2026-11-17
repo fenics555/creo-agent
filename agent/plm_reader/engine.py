@@ -2136,6 +2136,50 @@ def log_clear(keep_tail=2000):
         return 0
 
 
+def _scan_unchanged(old, size, mtime, ctime):
+    """V216: «файл НЕ изменился» по строке `snapshots` (old) и ФС (size/mtime/ctime).
+
+    ТОЧНОЕ сравнение — БЕЗ прежней «слепой зоны» `abs(old_mtime - mtime) < 1.0`, из-за которой
+    перезаписанный файл с тем же размером и сдвигом времени < 1 с молча пропускался
+    (владелец: «сканер пропускает обновлённые на диске файлы»). Здесь: `size` и `mtime`
+    сверяются точно (±1e-3), плюс учитывается `created`, если он сохранён с обеих сторон.
+    Пустые/нулевые `old[9]`/`old[10]` (размер/время не записаны) ⇒ файл ОБЯЗАТЕЛЬНО
+    перечитывается (не считаем «неизменным»).
+    """
+    if not old:
+        return False
+    try:
+        osz, omt = old[9], old[10]
+    except Exception:
+        return False
+    if osz in (None, "", 0) or omt in (None, "", 0):
+        return False
+    try:
+        if int(osz) != int(size):
+            return False
+        if abs(float(omt) - float(mtime)) >= 1e-3:
+            return False
+    except Exception:
+        return False
+    try:
+        ocr = old[11]
+        if ocr not in (None, "", 0) and ctime not in (None, 0):
+            if abs(float(ocr) - float(ctime)) >= 1e-3:
+                return False
+    except Exception:
+        pass
+    return True
+
+
+def _sha256_file(path, chunk=1 << 20):
+    """V216: SHA-256 файла (для настройки «сверять содержимое при совпадении даты и размера»)."""
+    h = _hashlib_media.sha256()
+    with open(path, "rb") as f:
+        for _b in iter(lambda: f.read(chunk), b""):
+            h.update(_b)
+    return h.hexdigest()
+
+
 def do_scan(roots, max_mb, limit, depth=None, progress_cb=None, stop_cb=None, full=False, db=None,
             walk_cb=None,
             param_cfg=None, exclude=None, recurse=True, latest_only=True,
@@ -2158,6 +2202,8 @@ def do_scan(roots, max_mb, limit, depth=None, progress_cb=None, stop_cb=None, fu
     ЗДЕСЬ, в своей области видимости (как и должно быть).
     """
     _cfg = _settings_json()               # V159: настройки В СВОЕЙ функции (не из чужой!)
+    # V216: опция «сверять содержимое файлов при совпадении даты и размера» (по умолчанию выкл.).
+    _verify_hash = bool(_cfg.get("scan_verify_hash", False))
     t0 = time.time()
     roots = as_roots(roots)               # строка-корень = ОДИН корень (иначе обход всего диска)
     lim = float("inf") if (limit or 0) <= 0 else limit      # --limit 0 = без предела по времени
@@ -2170,9 +2216,25 @@ def do_scan(roots, max_mb, limit, depth=None, progress_cb=None, stop_cb=None, fu
     for p, _, _, _ in files_stat:
         fstems[os.path.dirname(p)].add(stem(os.path.basename(p)))
     con = connect(db=db)
-    prev = {r[0]: r for r in con.execute(
-        "SELECT path,volume,material,name,designation,rev,author,revdate,role,size,mtime,created "
-        "FROM snapshots")}
+    # V216: ключ кэша — НОРМАЛИЗОВАННЫЙ путь (`os.path.normcase`): на Windows/сети регистр
+    # пути не должен решать, «нашлась» ли запись. Раньше ключом был путь «как в базе» —
+    # после выравнивания регистра имён (V193–V215) расхождение пути могло ломать сверку.
+    prev = {}
+    for _r in con.execute(
+            "SELECT path,volume,material,name,designation,rev,author,revdate,role,size,mtime,created "
+            "FROM snapshots"):
+        try:
+            prev[os.path.normcase(_r[0])] = _r
+        except Exception:
+            continue
+    # V216: хранилище SHA-256 (в таблице `meta`, ключ `sha:<путь>`) — только при включённой опции.
+    _sha_store = {}
+    if _verify_hash:
+        try:
+            _sha_store = {r[0]: r[1] for r in con.execute(
+                "SELECT k,v FROM meta WHERE k LIKE 'sha:%'")}
+        except Exception:
+            _sha_store = {}
     now = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
     done = new = mod = skipped = 0
     seen = set()
@@ -2205,9 +2267,19 @@ def do_scan(roots, max_mb, limit, depth=None, progress_cb=None, stop_cb=None, fu
         n += 1
         seen_paths.add(path)              # V176: запомнили — этот путь скан видел
         s = stem(os.path.basename(path))
-        old = prev.get(path)
-        if not full and old and int(old[9] or 0) == size and abs(float(old[10] or 0) - mtime) < 1.0:
-            skipped += 1                     # НЕ изменился (размер+время) — НЕ читаем и не трогаем
+        old = prev.get(os.path.normcase(path))       # V216: сверка по нормализованному пути
+        _skip = (not full) and _scan_unchanged(old, size, mtime, ctime)
+        if _skip and _verify_hash:
+            # V216: «сверять содержимое» — SHA-256 файла против сохранённого в `meta`.
+            # Нет записи хэша (первый прогон с опцией) или хэш иной ⇒ файл читаем.
+            _nk = os.path.normcase(path)
+            try:
+                _h = _sha256_file(path)
+            except OSError:
+                _h = None
+            _skip = bool(_h is not None and _sha_store.get("sha:" + _nk) == _h)
+        if _skip:
+            skipped += 1                     # НЕ изменился (размер+время[+хэш]) — НЕ читаем и не трогаем
             if old[11] is None or float(old[11] or 0) <= 0:   # дозаполнить «Создан» (без чтения файла)
                 try:
                     con.execute("UPDATE snapshots SET created=? WHERE path=?", (ctime, path))
@@ -2242,6 +2314,15 @@ def do_scan(roots, max_mb, limit, depth=None, progress_cb=None, stop_cb=None, fu
             it = _SN.new_to_old(path, _boxes)
             if con is not None:
                 _SN.write_item(con, path, _boxes)
+            if _verify_hash and _boxes.get("_raw") is not None:
+                # V216: запомнить SHA-256 прочитанного файла (байты уже в руках — второй раз НЕ читаем).
+                try:
+                    _h = _hashlib_media.sha256(_boxes["_raw"]).hexdigest()
+                    _nk = os.path.normcase(path)
+                    _sha_store["sha:" + _nk] = _h
+                    con.execute("INSERT OR REPLACE INTO meta VALUES (?,?)", ("sha:" + _nk, _h))
+                except Exception:
+                    pass
         except Exception as e:
             n_err += 1
             log("ERROR %s: %s" % (path, e))
