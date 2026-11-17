@@ -1,8 +1,8 @@
 {
- "version": "V209",
- "version_num": 209,
+ "version": "V210",
+ "version_num": 210,
  "date": "17.11.2026",
- "notes": "V209: разрыв циклов импортов (4 модуля автономны); схема 31/31 (meta + индексы ix_* в SCHEMA); чистка манифеста и пустот; тесты import_standalone + schema_parity; offline-skip test_links_channels",
+ "notes": "V210: фикс авто-обслуживания при обновлении (scan_config — кортеж, использовали как dict); + tests/test_update_cfg.py",
  "schema_version": 4,
  "remove": [
   "_probe_scan137.py",
@@ -16,8 +16,8 @@
   "plm_creo_parse.py": "129b2f665f8d3c3bbd5d5d242abe850cd59b7ee7384a4f7fae2cd6be55fded76",
   "plm_schema.py": "402edc6dffbf99fafd41fd9138654a765faec0199d6650155ec888e2c11c5be0",
   "plm_asm_parse.py": "1060821b47a95eec3c11964295d776536e12613c07e7e76d23cee231ad7bea7c",
-  "engine.py": "d0d18986d5219054700b8d30506d3c78d738b7e44c98ba9aaab0e08661de5b53",
-  "plm_reader.py": "4434929fda6eda5d258b49e373ee0790dbce262632c086b62c081d80958c2e8c",
+  "engine.py": "151fdd05adfa4f2942498d1f0b1e6efe7064dcc156eaa851364c789ba2f330f6",
+  "plm_reader.py": "4fb4d2f860197efc1668e98cf1673d7ea8a8c722d364acf6fc7f1770ee714a5f",
   "plm_toolwin.py": "4e4f412f9c71b6b97b9e52128174e9288b043a32cce1527e98bcdb589e03b4ee",
   "plm_history.py": "fad8a57b19af99047cd33fb4887d63de76fe3cd496677d4e14b83902485d5818",
   "plm_parse.py": "29e06272f778fce1a1cfdae76a571267904391397f68c70f5ad7b18e7140e218",
@@ -42,7 +42,7 @@
   "plm_graph_build.py": "0016ff6bffc83f05547975a9a11be863e7611f1d1cbc0fe9e09830b7c47d0c9d",
   "plm_scanner.py": "8ac13395647dbdf48a7dd0748e6a22ca7f99dcb8283d33ca30862066861f3c79",
   "plm_db_admin_win.py": "066c4a70b50d2924dca2fe2b481ed41b0e5dc0a9821fbc85a7ec447fb1ed0feb",
-  "STATE.md": "1d75ac73981cfd1d3a9cf0d5e782ddc39251261e03a8819b8b8a6c0ed8671377",
+  "STATE.md": "fdd760c574eb466fb62fa539a4d3702599712be7453c1337763ab05a6b498345",
   "CONCEPT_PLM.md": "6addb5c97847d55b261a2890e8f08a6efc4a2ca468c8d090f357b1b8c2c4ab61"
  }
 }

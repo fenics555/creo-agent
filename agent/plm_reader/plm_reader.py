@@ -34,7 +34,10 @@ if __name__ == "__main__":
     import sys as _sys
     _sys.modules.setdefault("plm_reader", _sys.modules["__main__"])
 
-APP_VERSION = "V209"      # 🔴 V209: разрыв циклов импортов (plm_scan/parse/history/paths_window автономны);
+APP_VERSION = "V210"      # 🔴 V210: авто-обслуживание при обновлении больше не падает
+                          #        (`scan_config()` — кортеж, брали `.get` ⇒ 'tuple' has no attribute 'get').
+                          #        Теперь источник настроек — `_settings_json()` (dict).
+                          # 🔴 V209: разрыв циклов импортов (plm_scan/parse/history/paths_window автономны);
                           #        схема 31/31 (meta + индексы в SCHEMA); чистка манифеста и «прострелов»
                           # 🔴 V208: compact идемпотентен (маркер в бюджете; нет ложного повтора)
                           #        БАГ (живой прогон владельца 16.11.2026): «к переводу 865 039 строк,

@@ -3769,7 +3769,11 @@ def sync_by_manifest(files, timeout=15, remove=None, schema_version=None):
         #  Порядок: канон имён → снятие дублей/само-связей/обрывков → компакт дампов →
         #  VACUUM (по настройке). Каждая операция делает бэкап. Сбои не ломают обновление.
         try:
-            _cfg2 = scan_config() or {}
+            # 🔴 V210 (17.11.2026): `scan_config()` возвращает КОРТЕЖ (roots, exclude), а НЕ настройки!
+            # Живой дефект (лог 17.11 10:33): `update: авто-обслуживание не выполнено:
+            # 'tuple' object has no attribute 'get'` ⇒ normalize/repair/compact/vacuum после
+            # обновления НЕ выполнялись. Берём именно НАСТРОЙКИ (`_settings_json()` возвращает dict).
+            _cfg2 = _settings_json() or {}
             if bool(_cfg2.get("auto_maintenance", True)):
                 import plm_database as _DBm
                 _mdb = os.path.join(HERE, "db", "plm_reader.db")
