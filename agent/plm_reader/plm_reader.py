@@ -34,7 +34,8 @@ if __name__ == "__main__":
     import sys as _sys
     _sys.modules.setdefault("plm_reader", _sys.modules["__main__"])
 
-APP_VERSION = "V210"      # 🔴 V210: авто-обслуживание при обновлении больше не падает
+APP_VERSION = "V211"      # 🔴 V211: настройки без дублей (write_mentions/special); нижний граф читает настройки
+                          # 🔴 V210: авто-обслуживание при обновлении больше не падает
                           #        (`scan_config()` — кортеж, брали `.get` ⇒ 'tuple' has no attribute 'get').
                           #        Теперь источник настроек — `_settings_json()` (dict).
                           # 🔴 V209: разрыв циклов импортов (plm_scan/parse/history/paths_window автономны);

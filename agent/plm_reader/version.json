@@ -1,8 +1,8 @@
 {
- "version": "V210",
- "version_num": 210,
+ "version": "V211",
+ "version_num": 211,
  "date": "17.11.2026",
- "notes": "V210: фикс авто-обслуживания при обновлении (scan_config — кортеж, использовали как dict); + tests/test_update_cfg.py",
+ "notes": "V211: настройки без дублей; граф читает настройки",
  "schema_version": 4,
  "remove": [
   "_probe_scan137.py",
@@ -17,12 +17,12 @@
   "plm_schema.py": "402edc6dffbf99fafd41fd9138654a765faec0199d6650155ec888e2c11c5be0",
   "plm_asm_parse.py": "1060821b47a95eec3c11964295d776536e12613c07e7e76d23cee231ad7bea7c",
   "engine.py": "151fdd05adfa4f2942498d1f0b1e6efe7064dcc156eaa851364c789ba2f330f6",
-  "plm_reader.py": "4fb4d2f860197efc1668e98cf1673d7ea8a8c722d364acf6fc7f1770ee714a5f",
-  "plm_toolwin.py": "4e4f412f9c71b6b97b9e52128174e9288b043a32cce1527e98bcdb589e03b4ee",
+  "plm_reader.py": "69a27f2de2997e68edc69f9cd7c2958d14c40c00a3a827bd8d4462d88a96d294",
+  "plm_toolwin.py": "7d94ef1ff6eca5790283388f00b3aa49cfec909238e65d3e1e95ffa5b43a3ed6",
   "plm_history.py": "fad8a57b19af99047cd33fb4887d63de76fe3cd496677d4e14b83902485d5818",
   "plm_parse.py": "29e06272f778fce1a1cfdae76a571267904391397f68c70f5ad7b18e7140e218",
   "plm_dbview.py": "a1473b3b37716523ef8e47616d8a63cbf3c83358907a1796e51b7c92ad3342b5",
-  "plm_settings.py": "ea319ab27d451799f0f2196344b13a3ce6a4388599f4f9052c952c6de83ee5e6",
+  "plm_settings.py": "a775da30bb220049b761596c2b0cee59c4632d644637fd984bde9257dff090e8",
   "plm_scan.py": "3f3e2581d12d5be290f4c7bff3780fb7708cd61cfdee059d22765591ef00d661",
   "plm_paths_window.py": "ff97a6484a5b5d9a1eec1b3c4a1565c8deda20f198271f3a6469a25992556815",
   "creo_read.py": "ac3504174eed9aff88368020e5f52ca67f3fd56c6be56afa199c06697b3e86e6",
@@ -42,7 +42,7 @@
   "plm_graph_build.py": "0016ff6bffc83f05547975a9a11be863e7611f1d1cbc0fe9e09830b7c47d0c9d",
   "plm_scanner.py": "8ac13395647dbdf48a7dd0748e6a22ca7f99dcb8283d33ca30862066861f3c79",
   "plm_db_admin_win.py": "066c4a70b50d2924dca2fe2b481ed41b0e5dc0a9821fbc85a7ec447fb1ed0feb",
-  "STATE.md": "fdd760c574eb466fb62fa539a4d3702599712be7453c1337763ab05a6b498345",
+  "STATE.md": "0f9044489277d0733e3c9c03d05d4a9eadedd293e476e25678a7a46e538f939d",
   "CONCEPT_PLM.md": "6addb5c97847d55b261a2890e8f08a6efc4a2ca468c8d090f357b1b8c2c4ab61"
  }
 }

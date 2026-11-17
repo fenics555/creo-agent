@@ -2211,11 +2211,17 @@ def run_gui():
     ttk.Button(grctl, text="Обновить", command=lambda: _graph_show(True)).pack(side="left")
     ttk.Label(grctl, text="вниз:").pack(side="left", padx=(8, 2))
     gr_dd = ttk.Spinbox(grctl, from_=1, to=8, width=3)
-    gr_dd.set(4)
+    try:                                          # 🔴 V211: уровень — из НАСТРОЙКИ «граф: уровней…»
+        gr_dd.set(min(8, max(1, int(settings.get("graph_depth", 4) or 4))))
+    except Exception:
+        gr_dd.set(4)
     gr_dd.pack(side="left")
     ttk.Label(grctl, text="вверх:").pack(side="left", padx=(6, 2))
     gr_du = ttk.Spinbox(grctl, from_=1, to=6, width=3)
-    gr_du.set(3)
+    try:
+        gr_du.set(min(6, max(1, int(settings.get("graph_depth", 3) or 3))))
+    except Exception:
+        gr_du.set(3)
     gr_du.pack(side="left")
     ttk.Button(grctl, text="+", width=3, command=lambda: _graph_zoom(1.2)).pack(side="left", padx=(8, 0))
     ttk.Button(grctl, text="−", width=3, command=lambda: _graph_zoom(1 / 1.2)).pack(side="left")
@@ -3552,35 +3558,45 @@ def run_gui():
         nodes[root] = {"kind": "root", "level": 0, "vid": ""}
         down = eng.plm_down_data(root, ddown)
         up = eng.plm_up_data(root, dup)
+        # 🔴 V211: ПРЕДЕЛЫ ГРАФА — ИЗ НАСТРОЕК (раньше были зашиты 1500/безлимит ⇒ «граф не реагирует
+        # на настройки»). Уровни (ddown/dup) приходят из спинбоксов панели, пределы — из реестра.
+        try:
+            cap = max(20, int(settings.get("graph_nodes_max", 120) or 120))
+        except Exception:
+            cap = 120
+        try:
+            child_max = max(1, int(settings.get("graph_children_max", 25) or 25))
+        except Exception:
+            child_max = 25
         level, frontier = 0, [root]                   # вниз: BFS по уровням
-        while frontier and level < ddown and len(nodes) < 1500:
+        while frontier and level < ddown and len(nodes) < cap:
             nxt = []
             for m in frontier:
-                for ch, q in down.get(m, []) or []:
+                for ch, q in (down.get(m, []) or [])[:child_max]:
                     if ch in nodes:
                         edges.append((m, ch, "down", q))     # оба конца есть
-                    elif len(nodes) < 1500:                  # cap: ни узла, ни ребра
+                    elif len(nodes) < cap:                   # cap: ни узла, ни ребра
                         nodes[ch] = {"kind": "down", "level": level + 1}
                         edges.append((m, ch, "down", q))
                         nxt.append(ch)
             frontier, level = nxt, level + 1
         level, frontier = 0, [root]                   # вверх: level отрицательный
-        while frontier and level > -dup and len(nodes) < 1500:
+        while frontier and level > -dup and len(nodes) < cap:
             nxt = []
             for m in frontier:
-                for p, q in up.get(m, []) or []:
+                for p, q in (up.get(m, []) or [])[:child_max]:
                     if p in nodes:                              # узел есть — уровень не двигаем
                         edges.append((m, p, "up", q))
-                    elif len(nodes) < 1500:                     # cap: ни узла, ни ребра
+                    elif len(nodes) < cap:                      # cap: ни узла, ни ребра
                         nodes[p] = {"kind": "up", "level": level - 1}
                         edges.append((m, p, "up", q))
                         nxt.append(p)
             frontier, level = nxt, level - 1
         try:
-            der = eng.derived_bases(root)[:6]         # из чего сделана — слева от корня
+            der = eng.derived_bases(root)[:min(6, child_max)]   # из чего сделана — слева от корня
         except Exception:
             der = []
-        if len(nodes) < 1500:                         # cap: взрывоопасные шаблоны не рисуем целиком
+        if len(nodes) < cap:                          # cap: взрывоопасные шаблоны не рисуем целиком
             for b, k in der:
                 if b and b not in nodes:
                     nodes[b] = {"kind": "der", "level": 0}
