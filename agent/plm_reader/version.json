@@ -1,8 +1,8 @@
 {
- "version": "V211",
- "version_num": 211,
+ "version": "V212",
+ "version_num": 212,
  "date": "17.11.2026",
- "notes": "V211: настройки без дублей; граф читает настройки",
+ "notes": "V212: Река — честная доля правок (river_share_pct) и чтение настроек; Карта — подсказка при наведении и подписи папок в две строки; + tests/test_river_metric.py",
  "schema_version": 4,
  "remove": [
   "_probe_scan137.py",
@@ -17,12 +17,12 @@
   "plm_schema.py": "402edc6dffbf99fafd41fd9138654a765faec0199d6650155ec888e2c11c5be0",
   "plm_asm_parse.py": "1060821b47a95eec3c11964295d776536e12613c07e7e76d23cee231ad7bea7c",
   "engine.py": "151fdd05adfa4f2942498d1f0b1e6efe7064dcc156eaa851364c789ba2f330f6",
-  "plm_reader.py": "69a27f2de2997e68edc69f9cd7c2958d14c40c00a3a827bd8d4462d88a96d294",
-  "plm_toolwin.py": "7d94ef1ff6eca5790283388f00b3aa49cfec909238e65d3e1e95ffa5b43a3ed6",
+  "plm_reader.py": "95cf544b1a3576db7b0d5323f7e51a9166fc2eaff8ef38c7c9c71dbb2896ba29",
+  "plm_toolwin.py": "d31c2158b58a710591c90120d5ed9967d825d19ac313f79d9c1f63383dc923c0",
   "plm_history.py": "fad8a57b19af99047cd33fb4887d63de76fe3cd496677d4e14b83902485d5818",
   "plm_parse.py": "29e06272f778fce1a1cfdae76a571267904391397f68c70f5ad7b18e7140e218",
   "plm_dbview.py": "a1473b3b37716523ef8e47616d8a63cbf3c83358907a1796e51b7c92ad3342b5",
-  "plm_settings.py": "a775da30bb220049b761596c2b0cee59c4632d644637fd984bde9257dff090e8",
+  "plm_settings.py": "f47c9736bbb7f756da5082dcd463be5fc8ebe1261d1649ac5da1a1bbc33b93a1",
   "plm_scan.py": "3f3e2581d12d5be290f4c7bff3780fb7708cd61cfdee059d22765591ef00d661",
   "plm_paths_window.py": "ff97a6484a5b5d9a1eec1b3c4a1565c8deda20f198271f3a6469a25992556815",
   "creo_read.py": "ac3504174eed9aff88368020e5f52ca67f3fd56c6be56afa199c06697b3e86e6",
@@ -42,7 +42,7 @@
   "plm_graph_build.py": "0016ff6bffc83f05547975a9a11be863e7611f1d1cbc0fe9e09830b7c47d0c9d",
   "plm_scanner.py": "8ac13395647dbdf48a7dd0748e6a22ca7f99dcb8283d33ca30862066861f3c79",
   "plm_db_admin_win.py": "066c4a70b50d2924dca2fe2b481ed41b0e5dc0a9821fbc85a7ec447fb1ed0feb",
-  "STATE.md": "0f9044489277d0733e3c9c03d05d4a9eadedd293e476e25678a7a46e538f939d",
+  "STATE.md": "d573a7a7078c876ea2ddf92950f6e1ab57ecf06d82f34e7afa3ba0a25481d52b",
   "CONCEPT_PLM.md": "6addb5c97847d55b261a2890e8f08a6efc4a2ca468c8d090f357b1b8c2c4ab61"
  }
 }

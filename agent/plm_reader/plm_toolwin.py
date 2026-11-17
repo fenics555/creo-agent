@@ -396,6 +396,20 @@ class GenealogyWindow:
 
 
 
+_MAP_TIP_HINT = "наведи курсор на блок — покажу папку/модель и дату последней правки"
+
+
+def river_share_pct(top_sum, rows):
+    """V212: доля правок топ-N среди ВСЕХ правок журнала («Река»), в процентах — ДРОБНО.
+
+    Зачем: прежний показ `int(100.0 * top_sum / rows)` на боевой базе давал ровно «0%»
+    (замер 17.11.2026: топ-10 = 215 событий из 72241 = 0.30%) — правки «размазаны» по
+    десяткам тысяч моделей, и целочисленное усечение ВРАЛО владельцу. Возвращаем float,
+    показ форматирует одну цифру после запятой (см. `_river_show`).
+    """
+    return (100.0 * top_sum / rows) if rows else 0.0
+
+
 def run_gui():
     import tkinter as tk
     from tkinter import ttk, filedialog, messagebox
@@ -1192,6 +1206,10 @@ def run_gui():
     map_canvas.grid(row=0, column=0, sticky="nsew")
     mp_ys.grid(row=0, column=1, sticky="ns")
     mp_xs.grid(row=1, column=0, sticky="ew")
+    # 🔴 V212 (S4): ПОДСКАЗКА ПРИ НАВЕДЕНИИ (владелец: «непонятно, из чего блок/что значит цвет»).
+    # Легенда цвета уже есть выше (mp_leg); это — построчная расшифровка конкретного блока.
+    maps_tip = ttk.Label(tab_map, text=_MAP_TIP_HINT, foreground="#555")
+    maps_tip.pack(anchor="w")
     map_canvas.bind("<Button-1>", lambda ev: _map_press(ev))
     map_canvas.bind("<B1-Motion>", lambda ev: _map_drag(ev))
     map_canvas.bind("<ButtonRelease-1>", lambda ev: _map_release(ev))
@@ -1210,19 +1228,33 @@ def run_gui():
     ttk.Label(rvctl, text="шаг:").pack(side="left", padx=(8, 2))
     rv_step = ttk.Combobox(rvctl, values=("авто", "день", "неделя", "месяц"),
                            state="readonly", width=7)
-    rv_step.set("неделя")                        # V97: по умолчанию неделя (журнал короткий)
+    try:                                         # 🔴 V212: старт из реестра («река: шаг»)
+        rv_step.set(str(settings.get("river_step", "неделя") or "неделя"))
+    except Exception:
+        rv_step.set("неделя")                    # V97: по умолчанию неделя (журнал короткий)
     rv_step.bind("<<ComboboxSelected>>", lambda ev: _river_show(True))
     rv_step.pack(side="left")
     ttk.Label(rvctl, text="периодов:").pack(side="left", padx=(6, 2))
     rv_back = ttk.Spinbox(rvctl, from_=0, to=400, width=4,
                           command=lambda: _river_show(True))
-    rv_back.set(0)                               # 0 = весь журнал целиком
+    try:                                         # 🔴 V212: старт из реестра («река: периодов»)
+        rv_back.set(max(0, min(400, int(settings.get("river_periods", 0) or 0))))
+    except Exception:
+        rv_back.set(0)                           # 0 = весь журнал целиком
     rv_back.pack(side="left")
     rv_new = ttk.Checkbutton(rvctl, text="+ новые (скан)")
+    try:                                         # 🔴 V212: старт из реестра («река: новые»)
+        if settings.get("river_new"):
+            rv_new.state(["selected"])
+    except Exception:
+        pass
     rv_new.pack(side="left", padx=(6, 0))
     ttk.Label(rvctl, text="топ:").pack(side="left", padx=(8, 2))
     rv_top = ttk.Spinbox(rvctl, from_=5, to=20, width=3, command=lambda: _river_show(True))
-    rv_top.set(10)
+    try:                                         # 🔴 V212: старт из реестра («река: потоков»)
+        rv_top.set(max(5, min(20, int(settings.get("river_top", 10) or 10))))
+    except Exception:
+        rv_top.set(10)
     rv_top.pack(side="left")
     ttk.Button(rvctl, text="−", width=2,
                command=lambda: _river_zoom(1 / 1.25)).pack(side="left", padx=(8, 0))
@@ -3166,16 +3198,36 @@ def run_gui():
         _map_show()
 
     def _map_motion(ev):
-        """V94: курсор-«рука»; ставится только при смене состояния; координаты канваса."""
+        """V94: курсор-«рука»; V212 (S4): подсказка — папка/модель + дата последней правки."""
         try:
             x, y = map_canvas.canvasx(ev.x), map_canvas.canvasy(ev.y)
             ids = map_canvas.find_overlapping(x - 2, y - 2, x + 2, y + 2)
             hot = ""
-            if ids and any(t.startswith(("f:", "m:")) for t in map_canvas.gettags(ids[-1])):
-                hot = "hand2"
+            tip = _MAP_TIP_HINT
+            if ids:
+                for t in map_canvas.gettags(ids[-1]):
+                    if t.startswith("f:"):
+                        hot = "hand2"
+                        fn = t[2:]
+                        ms = (_last.get("mp_by_folder") or {}).get(fn) or []
+                        fresh = max((mt for _m, mt in ms), default=0)
+                        tip = "папка: %s — моделей %d · свежесть %s" % (
+                            fn, len(ms),
+                            time.strftime("%d.%m.%Y", time.localtime(fresh))
+                            if fresh else "нет данных")
+                    elif t.startswith("m:"):
+                        hot = "hand2"
+                        mm = t[2:]
+                        mt = (_last.get("mp_meta") or {}).get(mm, 0)
+                        tip = "модель: %s — последняя правка %s" % (
+                            mm, time.strftime("%d.%m.%Y", time.localtime(mt))
+                            if mt else "нет данных")
             if hot != _last.get("mp_cur"):
                 _last["mp_cur"] = hot
                 map_canvas.config(cursor=hot)
+            if tip != _last.get("mp_tip"):
+                _last["mp_tip"] = tip
+                maps_tip.config(text=tip)
         except Exception:
             pass
 
@@ -3427,10 +3479,15 @@ def run_gui():
             top_sum = sum(sum(s[1]) for s in streams)
             peak_i = totals.index(max(totals))
             step_ru = {"d": "день", "w": "неделя", "m": "месяц"}.get(step_res, step_res)
-            rv_sum.config(text="река (шаг %s): правок %d · моделей %d · топ-%d = %d%% правок · "
-                               "пик %s (%d) · клик по потоку = модель · %.1f с"
-                          % (step_ru, _last.get("rv_rows", 0), _last.get("rv_models", 0), top_n,
-                             int(100.0 * top_sum / max(_last.get("rv_rows", 1), 1)),
+            # 🔴 V212: «% правок» показывал 0 ПО СУЩЕСТВУ (правки размазаны по десяткам тысяч
+            # моделей: замер 17.11.2026 — топ-10 = 215 из 72241 = 0.3%). Показываем ДОЛЮ ДРОБНО
+            # (одна цифра) + АБСОЛЮТ, иначе «0%» врало. Доля считается `river_share_pct`.
+            rows_n, nmod = _last.get("rv_rows", 0), _last.get("rv_models", 0)
+            share = river_share_pct(top_sum, rows_n)
+            rv_sum.config(text="река (шаг %s): правок %d · моделей с правками %d · "
+                               "топ-%d = %d правок (%.1f%% всех) · пик %s (%d) · "
+                               "клик по потоку = модель · %.1f с"
+                          % (step_ru, rows_n, nmod, top_n, top_sum, share,
                              bins[peak_i].strftime("%d.%m.%Y"), max(totals), time.time() - t0))
         except Exception as e:                      # вкладка не должна ронять окно
             try:
@@ -3459,11 +3516,19 @@ def run_gui():
             if force or not _last.get("mp_data"):
                 _last["mp_data"] = _map_data()
                 _last["mp_built"] = time.strftime("%d.%m.%Y %H:%M:%S")
+                # 🔴 V212 (S4): индексы для подсказки при наведении (поиск O(1), не по строкам).
+                _last["mp_by_folder"] = {f: ms for f, ms in _last["mp_data"]}
+                _last["mp_meta"] = {m: mt for _f, ms in _last["mp_data"] for m, mt in ms}
             data = _last["mp_data"]
             folder = _last.get("mp_folder") or ""
             map_canvas.delete("all")
             map_canvas.config(cursor="")
             _last["mp_cur"] = ""
+            _last["mp_tip"] = _MAP_TIP_HINT
+            try:                                    # 🔴 V212 (S4): сброс строки подсказки
+                maps_tip.config(text=_MAP_TIP_HINT)
+            except Exception:
+                pass
             w = max(map_canvas.winfo_width(), 600)
             h = max(map_canvas.winfo_height(), 380)
             if not folder:
@@ -3484,10 +3549,22 @@ def run_gui():
                     map_canvas.create_rectangle(fx, fy, fx + fw, fy + fh,
                                                 fill=_heat_color(fresh), outline="#ffffff",
                                                 tags=tg)
-                    short = fname if len(fname) <= 40 else "…" + fname[-38:]
-                    map_canvas.create_text(fx + 8, fy + 8, anchor="nw", text=short,
+                    # 🔴 V212 (S4): подпись в ДВЕ строки — ИМЯ папки (жирно) + хвост пути (мелко).
+                    # Было: одна строка «…последние 38 знаков» — имя папки терялось в хвосте пути.
+                    _parts = [p for p in fname.replace("\\", "/").split("/") if p]
+                    leaf = _parts[-1] if _parts else fname
+                    tail = "/".join(_parts[-3:-1])
+                    if len(leaf) > 34:
+                        leaf = leaf[:32] + "…"
+                    if len(tail) > 34:
+                        tail = "…" + tail[-32:]
+                    map_canvas.create_text(fx + 8, fy + 6, anchor="nw", text=leaf,
                                            font=("Segoe UI", 10, "bold"), fill="#1c2733",
                                            width=max(fw - 16, 30), tags=tg)
+                    if tail and fh >= 44:
+                        map_canvas.create_text(fx + 8, fy + 24, anchor="nw", text=tail,
+                                               font=("Segoe UI", 8), fill="#4a5764",
+                                               width=max(fw - 16, 30), tags=tg)
                     if fh >= 36:
                         map_canvas.create_text(fx + 8, fy + fh - 8, anchor="sw",
                                                text="%d моделей" % cnt,
