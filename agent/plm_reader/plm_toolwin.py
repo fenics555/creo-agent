@@ -418,7 +418,9 @@ def graph_point(xi, lv, vert, nw, nh, step):
     """
     if vert:
         return xi * (nw + 12), lv * step
-    return lv * (nw + 48), xi * step
+    # 🔴 V217-C: шаг уровней по X расширен `nw + 48` → `nw + 95` — подписи рёбер
+    # (`x28`, `x16`) не наезжают на соседнюю колонку карточек.
+    return lv * (nw + 95), xi * step
 
 
 def graph_out(dx, vert, nw, nh):

@@ -26,8 +26,8 @@ xh, yh = tw.graph_point(0, 3, False, NW, NH, STEP)
 print("строй col (уровень вниз):", (xv, yv), "| строй row (уровень вправо):", (xh, yh))
 if (xv, yv) != (0, 3 * STEP):
     fails.append("col: уровень должен идти ВНИЗ (0, 3*step), получено %r" % ((xv, yv),))
-if (xh, yh) != (3 * (NW + 48), 0):
-    fails.append("row: уровень должен идти ВПРАВО (3*(nw+48), 0), получено %r" % ((xh, yh),))
+if (xh, yh) != (3 * (NW + 95), 0):
+    fails.append("row: уровень должен идти ВПРАВО (3*(nw+95), 0), получено %r" % ((xh, yh),))
 
 # индекс раскладки: в col — по горизонтали, в row — по вертикали
 if tw.graph_point(2, 0, True, NW, NH, STEP) != (2 * (NW + 12), 0):

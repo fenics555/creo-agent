@@ -250,7 +250,10 @@ def is_changed(path, known):
         st = os.stat(path)
     except OSError:
         return True
-    return not (int(rec[0]) == st.st_size and abs(float(rec[1]) - st.st_mtime) < 1.0)
+    # 🔴 V217-E: допуск выровнен с `engine._scan_unchanged` (1e-3 вместо 1.0 с).
+    # Прежняя «слепая зона» ±1 с считала изменённый файл неизменным, если правка
+    # уложилась в ту же секунду (быстрое сохранение Creo).
+    return not (int(rec[0]) == st.st_size and abs(float(rec[1]) - st.st_mtime) < 1e-3)
 
 
 # ═════════════════════════════════════════════════════════════════════════════

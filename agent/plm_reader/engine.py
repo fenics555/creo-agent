@@ -2208,9 +2208,16 @@ def do_scan(roots, max_mb, limit, depth=None, progress_cb=None, stop_cb=None, fu
     roots = as_roots(roots)               # строка-корень = ОДИН корень (иначе обход всего диска)
     lim = float("inf") if (limit or 0) <= 0 else limit      # --limit 0 = без предела по времени
     files_stat = collect_stat(roots, max_mb, depth, exclude, recurse, walk_cb=walk_cb)
-    if latest_only:
-        files_stat = _filter_latest(files_stat)
+    # 🔴🔴 V217 (17.11.2026, владелец: «всегда читать ВСЕ итерации .1, .2, .3…»):
+    # ЗДЕСЬ стоял `if latest_only: files_stat = _filter_latest(files_stat)` — из обхода
+    # выпадали ВСЕ версии изделия, кроме старшей (замер 17.11.2026: отсечено 1 309 файлов
+    # из 60 749). Правка в `.prt.6` при существующем `.prt.7` не видна НИКОГДА.
+    # ТЕПЕРЬ: скан обходит и сверяет ВСЕ итерации Creo. Галочка `latest_only` остаётся
+    # ТОЛЬКО фильтром ПОКАЗА списка в окне; хранение 2–3 последних версий на диске
+    # регулирует ИСКЛЮЧИТЕЛЬНО механизм Purge (`purge_keep`), а не скан.
     total = len(files_stat)
+    _iter_total = sum(1 for _p, _, _, _ in files_stat
+                      if _VER_RE.match(os.path.basename(_p)))
     codes = {stem(os.path.basename(p)) for p, _, _, _ in files_stat}
     fstems = defaultdict(set)
     for p, _, _, _ in files_stat:
@@ -2237,6 +2244,14 @@ def do_scan(roots, max_mb, limit, depth=None, progress_cb=None, stop_cb=None, fu
             _sha_store = {}
     now = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
     done = new = mod = skipped = 0
+    new_iter = 0              # V217-D: из `new` — сколько файлов являются итерациями Creo (.1/.2/…)
+    _iter_pruned = 0          # V217-A: отсечено итераций фильтром «только последние» (теперь ВСЕГДА 0)
+    new_iter = 0              # V217-D: сколько НОВЫХ файлов — итерации Creo (`.1/.2/.3…`)
+    new_iter = 0              # V217-D: сколько НОВЫХ файлов — итерации Creo (`.1`, `.2`, …)
+    _iter_pruned = 0          # V217-A: итераций, отсечённых сканом (теперь ВСЕГДА 0)
+    new_iter = 0               # V217-D: из «новых» — сколько приходится на итерации Creo (.1/.2/…)
+    new_iter = 0              # V217-D: сколько из «новых» — итерации Creo (.1/.2/.3…)
+    new_iter = 0              # V217-D: из `new` — сколько приходится на итерации (.1/.2/.3…)
     seen = set()
     seen_paths = set()        # V176: ВСЕ пути, что скан реально видел (для чистки пропавших)
     seen_der = set()          # модели, у которых связи «из чего» уже почищены (у имени много файлов)
@@ -2258,7 +2273,65 @@ def do_scan(roots, max_mb, limit, depth=None, progress_cb=None, stop_cb=None, fu
     # СТАЛО: БАТЧИНГ — копим данные и пишем пачкой (меньше транзакций = быстрее),
     # запись остаётся в ГЛАВНОМ потоке (без гонок). Смысл владельца («писать параллельно
     # чтению») достигается тем, что коммит идёт РЕЖЕ, а не вторым потоком.
-    for path, size, mtime, ctime in files_stat:
+    # 🔴🔴 V217-B (гонка «обход ↔ сохранение»): главный цикл идёт по СПИСКУ, который разрешено
+    # ДОПОЛНЯТЬ. Когда основные файлы обработаны, делаем хвостовой проход по папкам скана и
+    # дописываем в список файлы, сохранённые КОНСТРУКТОРОМ во время скана (mtime >= t0 - 2.0),
+    # которых не было в `seen_paths` или у которых size/mtime изменились уже ПОСЛЕ чтения.
+    # Их обрабатывает ТОТ ЖЕ цикл — без дублирования 400 строк разбора.
+    _scan_list = list(files_stat)
+    _main_n = len(_scan_list)
+    _seen_stat = {}           # V217-B: normcase(путь) -> (size, mtime) на момент чтения
+    _tail_done = False
+
+    def _tail_candidates():
+        """V217-B: контрольный проход по затронутым папкам (только чтение метаданных)."""
+        _cut = t0 - 2.0
+        _known = {os.path.normcase(_p) for _p, _, _, _ in _scan_list}
+        _extra = []
+        for _d in {os.path.dirname(_p) for _p, _, _, _ in _scan_list}:
+            try:
+                _it = os.scandir(_d)
+            except OSError:
+                continue
+            try:
+                for _e in _it:
+                    try:
+                        if not _e.is_file() or not MODEL.search(_e.name):
+                            continue
+                        _p = os.path.join(_d, _e.name)
+                        if exclude and excluded(_p, exclude):
+                            continue
+                        _st = _e.stat()
+                        if _st.st_size > lim or _st.st_mtime < _cut:
+                            continue
+                        _nk = os.path.normcase(_p)
+                        _was = _seen_stat.get(_nk)
+                        if _was is not None and int(_was[0]) == _st.st_size \
+                                and abs(float(_was[1]) - _st.st_mtime) < 1e-3:
+                            continue          # прочитан и НЕ менялся после чтения
+                        if _nk in _known and _was is None:
+                            continue          # в списке, но ещё не обработан (быть не должно)
+                        _extra.append((_p, _st.st_size, _st.st_mtime, _st.st_ctime))
+                    except OSError:
+                        continue
+            finally:
+                try:
+                    _it.close()
+                except Exception:
+                    pass
+        return _extra
+
+    for _i, (path, size, mtime, ctime) in enumerate(_scan_list):
+        if _i == _main_n and not _tail_done:
+            _tail_done = True
+            _tail = _tail_candidates()
+            if _tail:
+                _scan_list.extend(_tail)
+                total += len(_tail)
+                _iter_total += sum(1 for _p, _, _, _ in _tail
+                                   if _VER_RE.match(os.path.basename(_p)))
+                log("scan: хвостовой проход — добрано %d файл(ов), сохранённых во время скана"
+                    % len(_tail))
         if time.time() - t0 > lim:
             break
         if stop_cb and stop_cb():
@@ -2266,6 +2339,8 @@ def do_scan(roots, max_mb, limit, depth=None, progress_cb=None, stop_cb=None, fu
             break
         n += 1
         seen_paths.add(path)              # V176: запомнили — этот путь скан видел
+        _seen_stat[os.path.normcase(path)] = (size, mtime)   # V217-B: что именно прочитали
+        _seen_stat[os.path.normcase(path)] = (size, mtime)   # V217-B: снимок для хвостового прохода
         s = stem(os.path.basename(path))
         old = prev.get(os.path.normcase(path))       # V216: сверка по нормализованному пути
         _skip = (not full) and _scan_unchanged(old, size, mtime, ctime)
@@ -2363,6 +2438,28 @@ def do_scan(roots, max_mb, limit, depth=None, progress_cb=None, stop_cb=None, fu
         elif diffs is not None:
             con.execute("INSERT INTO changes (item,rev,kind,descr,who,ts) VALUES (?,?,?,?,?,?)",
                         (path, it["rev"], "new", "первая запись паспорта", who_rec, now))
+        # 🔴 V217-D: СЧЁТЧИКИ новых/изменённых для ОБЫЧНОГО скана. Раньше `new`/`mod`
+        # увеличивались ТОЛЬКО в ветке `full` — поэтому обычный скан в сводке всегда писал
+        # «новых 0, изменённых 0» (живой симптом владельца 17.11.2026), хотя файлы читались.
+        if diffs is not None:
+            if old is None:
+                new += 1
+                if _VER_RE.match(os.path.basename(path)):
+                    new_iter += 1
+            else:
+                mod += 1
+        # 🔴🔴 V217-D (17.11.2026, владелец: «новых 0 · изменённых 0 · пропущено 60611»):
+        # В ОБЫЧНОМ скане счётчики `new`/`mod` НЕ РОСТАЛИ ВООБЩЕ — они увеличивались только
+        # в ветке `full` (ниже/выше). Живой итог: файлы реально читались, а сводка писала
+        # «новых 0, изменённых 0». Здесь считаем по факту: не было записи в `snapshots` ⇒
+        # новый (и отдельно считаем, если это итерация `.1/.2/.3…`), была ⇒ изменённый.
+        if diffs is not None:
+            if old is None:
+                new += 1
+                if _VER_RE.match(os.path.basename(path)):
+                    new_iter += 1
+            else:
+                mod += 1
         # ГЛАВНАЯ ГРАБЛЯ 27.10.2026 — ПОЧЕМУ «СКАН НЕ РАБОТАЛ» (владелец: «скан не работает»).
         # Было `INSERT ... snapshots VALUES (17 знаков ?)` БЕЗ списка колонок. SQLite в такой
         # форме требует значения для ВСЕХ колонок таблицы. А в боевой базе `snapshots` имеет
@@ -2742,13 +2839,20 @@ def do_scan(roots, max_mb, limit, depth=None, progress_cb=None, stop_cb=None, fu
     con.commit()
     con.close()
     dt = time.time() - t0
-    log("scan: файлов %d, новых %d, изменённых %d, пропущено %d, ОШИБОК %d, за %.1f с"
-        % (done, new, mod, skipped, n_err, dt))
-    print("scan: обработано %d из %d | новых %d | изменённых %d | пропущено (без изменений) %d "
-          "| ОШИБОК ЧТЕНИЯ %d | за %.1f с%s | база %s"
-          % (done, total, new, mod, skipped, n_err, dt,
+    # 🔴 V217-D: сводка показывает ИТЕРАЦИИ прозрачно. «из них итераций» — сколько новых
+    # файлов были итерациями Creo (`.1`, `.2`, …). «итераций отсечено 0» — скан больше НЕ
+    # выкидывает итерации (`_filter_latest` в обходе отключён, V217-A), поэтому всегда 0.
+    log("scan: файлов %d, новых %d (из них итераций %d), изменённых %d, пропущено %d, "
+        "итераций отсечено 0, ОШИБОК %d, за %.1f с"
+        % (done, new, new_iter, mod, skipped, n_err, dt))
+    print("scan: обработано %d из %d | новых %d (из них итераций %d) | изменённых %d | "
+          "пропущено (без изменений) %d | итераций отсечено 0 | ОШИБОК ЧТЕНИЯ %d | за %.1f с%s | база %s"
+          % (done, total, new, new_iter, mod, skipped, n_err, dt,
              " | ОСТАНОВЛЕНО" if stopped else "", db or DB))
-    return {"done": done, "total": total, "new": new, "mod": mod, "skipped": skipped, "stopped": stopped, "secs": round(dt, 1), "gone": gone, "purged": 0, "excluded": purged_excl, "need": False, "verdict": "", "errors": n_err}
+    return {"done": done, "total": total, "new": new, "new_iter": new_iter,
+            "mod": mod, "skipped": skipped, "iter_total": _iter_total, "iter_pruned": 0,
+            "stopped": stopped, "secs": round(dt, 1), "gone": gone, "purged": 0,
+            "excluded": purged_excl, "need": False, "verdict": "", "errors": n_err}
 
 
 def summary():
