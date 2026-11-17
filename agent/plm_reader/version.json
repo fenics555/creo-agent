@@ -1,8 +1,8 @@
 {
- "version": "V212",
- "version_num": 212,
+ "version": "V213",
+ "version_num": 213,
  "date": "17.11.2026",
- "notes": "V212: Река — честная доля правок (river_share_pct) и чтение настроек; Карта — подсказка при наведении и подписи папок в две строки; + tests/test_river_metric.py",
+ "notes": "V213: нижний Граф читает строй (graph_graph_layout) и размеры (graph_card_h/graph_thumb); справка что-это у Карты и Реки; даты журнала ISO+легаси; + tests/test_graph_geometry.py",
  "schema_version": 4,
  "remove": [
   "_probe_scan137.py",
@@ -17,8 +17,8 @@
   "plm_schema.py": "402edc6dffbf99fafd41fd9138654a765faec0199d6650155ec888e2c11c5be0",
   "plm_asm_parse.py": "1060821b47a95eec3c11964295d776536e12613c07e7e76d23cee231ad7bea7c",
   "engine.py": "151fdd05adfa4f2942498d1f0b1e6efe7064dcc156eaa851364c789ba2f330f6",
-  "plm_reader.py": "95cf544b1a3576db7b0d5323f7e51a9166fc2eaff8ef38c7c9c71dbb2896ba29",
-  "plm_toolwin.py": "d31c2158b58a710591c90120d5ed9967d825d19ac313f79d9c1f63383dc923c0",
+  "plm_reader.py": "44abd1e8d9e4ec51405877904c22e1bc90c29ae2039870769e0180bcbc27e2be",
+  "plm_toolwin.py": "4d96c984ca0d280823fc59b27fe46d8188b619c8cc2b18d932d52f09e0526a5d",
   "plm_history.py": "fad8a57b19af99047cd33fb4887d63de76fe3cd496677d4e14b83902485d5818",
   "plm_parse.py": "29e06272f778fce1a1cfdae76a571267904391397f68c70f5ad7b18e7140e218",
   "plm_dbview.py": "a1473b3b37716523ef8e47616d8a63cbf3c83358907a1796e51b7c92ad3342b5",
@@ -42,7 +42,7 @@
   "plm_graph_build.py": "0016ff6bffc83f05547975a9a11be863e7611f1d1cbc0fe9e09830b7c47d0c9d",
   "plm_scanner.py": "8ac13395647dbdf48a7dd0748e6a22ca7f99dcb8283d33ca30862066861f3c79",
   "plm_db_admin_win.py": "066c4a70b50d2924dca2fe2b481ed41b0e5dc0a9821fbc85a7ec447fb1ed0feb",
-  "STATE.md": "d573a7a7078c876ea2ddf92950f6e1ab57ecf06d82f34e7afa3ba0a25481d52b",
+  "STATE.md": "6fcc6481cfdc7e096facaa3d5444de7055120813dabeaf47aa27a95857d325ac",
   "CONCEPT_PLM.md": "6addb5c97847d55b261a2890e8f08a6efc4a2ca468c8d090f357b1b8c2c4ab61"
  }
 }

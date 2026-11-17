@@ -410,6 +410,39 @@ def river_share_pct(top_sum, rows):
     return (100.0 * top_sum / rows) if rows else 0.0
 
 
+def graph_point(xi, lv, vert, nw, nh, step):
+    """V213: (x-индекс раскладки, уровень) -> пиксели (px, py) для нижнего «Графа».
+
+    vert=True — уровни СВЕРХУ ВНИЗ (строй «col», так окно рисовало всегда);
+    vert=False — уровни СЛЕВА НАПРАВО (строй «row», настройка `graph_graph_layout`).
+    """
+    if vert:
+        return xi * (nw + 12), lv * step
+    return lv * (nw + 34), xi * step
+
+
+def graph_out(dx, vert, nw, nh):
+    """V213: смещение точки выхода ребра «к соседнему уровню» (dx=+1 — ниже/правее)."""
+    if vert:
+        return 0, dx * (nh // 2)
+    return dx * (nw // 2), 0
+
+
+def parse_change_date(s):
+    """V213: дата из `changes.ts` — ISO («2026-11-17 10:33:41») ИЛИ легаси «дд.мм.гггг»; иначе None.
+
+    Зачем: легаси-вид журнала хранит `ts` как «31.07.2023 …», и прежний парсер (%Y-%m-%d)
+    молча возвращал None — такие записи выпадали из «Реки».
+    """
+    t = (s or "").strip()[:10]
+    for _fmt in ("%Y-%m-%d", "%d.%m.%Y"):
+        try:
+            return datetime.datetime.strptime(t, _fmt).date()
+        except Exception:
+            pass
+    return None
+
+
 def run_gui():
     import tkinter as tk
     from tkinter import ttk, filedialog, messagebox
@@ -1179,6 +1212,7 @@ def run_gui():
     mpctl = ttk.Frame(tab_map)
     mpctl.pack(anchor="w", pady=2)
     ttk.Button(mpctl, text="Обновить", command=lambda: _map_show(True)).pack(side="left")
+    ttk.Button(mpctl, text="ⓘ что это", command=lambda: _map_help()).pack(side="left", padx=(6, 0))
     btn_map_back = ttk.Button(mpctl, text="← Все папки", state="disabled",
                               command=lambda: _map_open(""))
     btn_map_back.pack(side="left", padx=(6, 0))
@@ -1225,6 +1259,7 @@ def run_gui():
     rvctl = ttk.Frame(tab_river)
     rvctl.pack(anchor="w", pady=2)
     ttk.Button(rvctl, text="Обновить", command=lambda: _river_show(True)).pack(side="left")
+    ttk.Button(rvctl, text="ⓘ что это", command=lambda: _river_help()).pack(side="left", padx=(6, 0))
     ttk.Label(rvctl, text="шаг:").pack(side="left", padx=(8, 2))
     rv_step = ttk.Combobox(rvctl, values=("авто", "день", "неделя", "месяц"),
                            state="readonly", width=7)
@@ -3134,6 +3169,43 @@ def run_gui():
             place(row, rids, x, y, w, h)
         return rects
 
+    def _map_help():
+        """V213: справка «Карта» — владелец: «непонятно, из чего блок и что показывает цвет»."""
+        try:
+            messagebox.showinfo("Карта — что это", (
+                "КАРТА — карта склада (treemap).\n\n"
+                "• РАЗМЕР блока = сколько моделей в папке (крупнее папка — больше моделей).\n"
+                "• ЦВЕТ блока = свежесть последней правки модели в папке; расшифровка — в легенде\n"
+                "  над картой (оранжевый = правки за 30 дней, серый = старше 2 лет / нет данных).\n"
+                "• КЛИК по папке = открыть её модели; клик по модели = выбрать её в нижнем окне.\n"
+                "• «← Все папки» = назад к списку папок.\n"
+                "• НАВЕДИ КУРСОР на блок — покажу папку/модель и дату последней правки.\n"
+                "• Колесо = прокрутка/масштаб, тянуть = двигать, Shift+колесо = вбок.\n\n"
+                "Показаны первые 40 папок; остальные — одним блоком «…прочее»."))
+        except Exception:
+            pass
+
+    def _river_help():
+        """V213: справка «Река» — расшифровка лент, бинов и метрики шапки."""
+        try:
+            messagebox.showinfo("Река — что это", (
+                "РЕКА — журнал правок во времени (таблица changes).\n\n"
+                "• КАЖДАЯ ЛЕНТА (поток) = одна модель; её высота в бине = сколько правок\n"
+                "  в этом периоде (день/неделя/месяц).\n"
+                "• «шаг» — размер бина (авто = день при коротком журнале, иначе неделя/месяц).\n"
+                "• «периодов» — показать только последние N бинов (0 = вся история).\n"
+                "• «топ» — сколько моделей-лент рисовать (самые активные).\n"
+                "• «+ новые (скан)» — учитывать события kind='new' (первая запись паспорта),\n"
+                "  а не только kind='modify' (реальные изменения).\n"
+                "• «топ-T = M правок (X.X% всех)» — сколько правок даёт ТОП из самых активных\n"
+                "  моделей. ВНИМАНИЕ: правки «размазаны» по десяткам тысяч моделей, поэтому доля\n"
+                "  МАЛА (замер 17.11.2026: топ-10 = 215 из 72241 = 0.3%) — это норма, а не ошибка.\n"
+                "• Клик по ленте = выбрать модель в нижнем окне; колесо = прокрутка/зум.\n\n"
+                "Стартовые «шаг/периодов/топ/новые» задаются в ⚙ НАСТРОЙКИ → группа ПОКАЗ\n"
+                "(ключи river_step/river_periods/river_top/river_new)."))
+        except Exception:
+            pass
+
     def _map_data():
         """V91: данные карты — [(папка, [(модель, mtime)])], папки по убыванию числа моделей."""
         con = eng.connect()
@@ -3308,10 +3380,8 @@ def run_gui():
             return [], [], "m", 0, 0
 
         def pdate(s):
-            try:
-                return datetime.datetime.strptime((s or "")[:10], "%Y-%m-%d").date()
-            except Exception:
-                return None
+            # V213: логика форматов вынесена в `parse_change_date` (тестируется отдельно).
+            return parse_change_date(s)
 
         dates = [pdate(r[0]) for r in rows]
         dmin = min((d for d in dates if d), default=None)
@@ -3804,21 +3874,53 @@ def run_gui():
                 grs.config(text="нет данных для карты «%s»" % root)
                 return
             pos = _graph_layout(nodes, edges)
-            unit, row, nw, nh = 170, 64, 158, 40
+            # 🔴 V213 (доделка S2): ГЕОМЕТРИЯ И СТРОЙ — ИЗ НАСТРОЕК. В HTML-консоли они уже есть,
+            # а окно их игнорировало (владелец: «не нашёл настройку, чтобы граф строился не в
+            # горизонталь, а в вертикаль»). Ключи: graph_graph_layout (строй),
+            # graph_card_h (высота узла, px), graph_thumb (шаг между узлами уровня, px).
+            try:
+                _glay = str(settings.get("graph_graph_layout", "row") or "row").strip().lower()
+            except Exception:
+                _glay = "row"
+            _vert = (_glay == "col")                 # уровни СВЕРХУ ВНИЗ (так окно рисовало всегда)
+            try:
+                nh = min(120, max(24, int(settings.get("graph_card_h", 40) or 40)))
+            except Exception:
+                nh = 40
+            try:
+                _gap = max(16, min(200, int(settings.get("graph_thumb", 40) or 40)))
+            except Exception:
+                _gap = 40
+            nw = 158                                 # ширина узла (бейдж типа + подпись Consolas 9)
+            _step = max(nh + 12, _gap + 8)
+
+            def _xy(xi, lv):
+                """(x-индекс раскладки, уровень) -> пиксели. Логика — в `graph_point` (тестируется)."""
+                return graph_point(xi, lv, _vert, nw, nh, _step)
+
+            def _out(dx):
+                """Смещение точки выхода ребра «к соседнему уровню» — см. `graph_out`."""
+                return graph_out(dx, _vert, nw, nh)
             fills = {"root": "#ffe9a8", "up": "#d9e8fb", "down": "#eaf7ea", "der": "#fbe3d0"}
-            for a, b, kind, q in edges:                 # рёбра (сверху вниз по уровню)
+            for a, b, kind, q in edges:                 # рёбра (по уровню и СТРОЮ)
                 if a not in pos or b not in pos:
                     continue
                 xa, ya = pos[a]
                 xb, yb = pos[b]
-                x1, y1, x2, y2 = xa * unit, ya * row, xb * unit, yb * row
-                if kind == "der":
-                    gr_canvas.create_line(x1 + nw // 2, y1, x2 - nw // 2, y2,
-                                          dash=(4, 3), fill="#c47a3a")
-                elif nodes[a]["level"] <= nodes[b]["level"]:
-                    gr_canvas.create_line(x1, y1 + nh // 2, x2, y2 - nh // 2, fill="#8aa0b5")
+                x1, y1 = _xy(xa, ya)
+                x2, y2 = _xy(xb, yb)
+                if kind == "der":                        # «из чего сделана» — пунктир к корню
+                    if _vert:
+                        gr_canvas.create_line(x1 + nw // 2, y1, x2 - nw // 2, y2,
+                                              dash=(4, 3), fill="#c47a3a")
+                    else:
+                        gr_canvas.create_line(x1, y1 + nh // 2, x2, y2 - nh // 2,
+                                              dash=(4, 3), fill="#c47a3a")
                 else:
-                    gr_canvas.create_line(x1, y1 - nh // 2, x2, y2 + nh // 2, fill="#8aa0b5")
+                    _lo = nodes[a]["level"] <= nodes[b]["level"]
+                    ox, oy = _out(1 if _lo else -1)
+                    ex, ey = _out(-1 if _lo else 1)
+                    gr_canvas.create_line(x1 + ox, y1 + oy, x2 + ex, y2 + ey, fill="#8aa0b5")
                 if q and q != 1:
                     gr_canvas.create_text((x1 + x2) / 2 + 8, (y1 + y2) / 2, text="x%s" % q,
                                           fill="#666", font=("Consolas", 8))
@@ -3843,25 +3945,28 @@ def run_gui():
 
             for n, (x, y) in pos.items():               # узлы
                 d = nodes[n]
-                gr_canvas.create_rectangle(x * unit - nw // 2, y * row - nh // 2,
-                                           x * unit + nw // 2, y * row + nh // 2,
+                px, py = _xy(x, y)
+                gr_canvas.create_rectangle(px - nw // 2, py - nh // 2,
+                                           px + nw // 2, py + nh // 2,
                                            fill=fills.get(d["kind"], "#eee"), outline="#555",
                                            tags=("node", "n:" + n))
                 mk, mc = _tmark(n)                       # бейдж типа слева от имени
-                gr_canvas.create_rectangle(x * unit - nw // 2 + 4, y * row - 8,
-                                           x * unit - nw // 2 + 16, y * row + 4,
+                gr_canvas.create_rectangle(px - nw // 2 + 4, py - 8,
+                                           px - nw // 2 + 16, py + 4,
                                            fill=mc, outline="", tags=("node", "n:" + n))
-                gr_canvas.create_text(x * unit - nw // 2 + 10, y * row - 2, text=mk,
+                gr_canvas.create_text(px - nw // 2 + 10, py - 2, text=mk,
                                       font=("Segoe UI", 8, "bold"), fill="#1a1a1a",
                                       tags=("node", "n:" + n))
                 label = n if len(n) <= 22 else n[:20] + "…"
-                gr_canvas.create_text(x * unit + 8, y * row, text=label, font=("Consolas", 9),
+                gr_canvas.create_text(px + 8, py, text=label, font=("Consolas", 9),
                                       tags=("node", "n:" + n))
             # V118: ЛЕГЕНДА ТИПОВ — В ШАПКУ ВКЛАДКИ (а не на холст!). Владелец: «подсказки в окне
             # прям на карточках и двигаются вместе с окном». Причина: легенда рисовалась
             # `gr_canvas.create_text` внутри прокручиваемой области → уезжала при сдвиге и
             # накладывалась на узлы. Теперь она в ЛЕЙБЛЕ над картой — всегда на месте.
-            _leg = "тип: Д деталь · С сборка · М мануфактуринг (ЧПУ) · Ч чертёж"
+            _leg = ("тип: Д деталь · С сборка · М мануфактуринг (ЧПУ) · Ч чертёж · строй: %s"
+                    % ("вертикально (уровни сверху-вниз)" if _vert
+                       else "горизонтально (уровни слева-направо)"))
             gr_canvas.config(scrollregion=gr_canvas.bbox("all"))
             grs.config(text="карта «%s»: узлов %d · рёбер %d · вниз %d / вверх %d · %.2f с"
                             "    |    %s"

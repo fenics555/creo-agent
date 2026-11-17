@@ -34,7 +34,10 @@ if __name__ == "__main__":
     import sys as _sys
     _sys.modules.setdefault("plm_reader", _sys.modules["__main__"])
 
-APP_VERSION = "V212"      # 🔴 V212: «Река» — честная метрика (river_share_pct) + читает настройки;
+APP_VERSION = "V213"      # 🔴 V213: нижний «Граф» ЧИТАЕТ СТРОЙ (graph_graph_layout) и размеры
+                          #        (graph_card_h/graph_thumb); справка «ⓘ» у «Карты»/«Реки»;
+                          #        даты журнала — ISO + легаси «дд.мм.гггг»
+                          # 🔴 V212: «Река» — честная метрика (river_share_pct) + читает настройки;
                           #        «Карта» — подсказка при наведении (maps_tip), подписи в две строки
                           # 🔴 V211: настройки без дублей (write_mentions/special); нижний граф читает настройки
                           # 🔴 V210: авто-обслуживание при обновлении больше не падает
