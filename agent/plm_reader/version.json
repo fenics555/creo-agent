@@ -1,8 +1,8 @@
 {
- "version": "V214",
- "version_num": 214,
+ "version": "V215",
+ "version_num": 215,
  "date": "17.11.2026",
- "notes": "Выпуск V214: бесшовный автопилот БД (auto_maintain) — тихая миграция схемы+индексы, дедуп связей, обрезка дампов unknown_fields, VACUUM при пустых страницах >35% (не чаще 1 раза в сутки); спокойный итог в строке состояния после скана; «Аудит/БД» убран из основного блока в меню «Дополнительно» (для администратора); + tests/test_auto_maintain_v214.py",
+ "notes": "Выпуск V215: Исторический декодер (rescue_legacy_data) — классификация легаси-журнала changes по descr (Purge-safe, без удаления строк), извлечение распознанных имён полей из unknown_fields в params (INSERT OR IGNORE + WHERE NOT EXISTS, идемпотентно), ТОП-30 неразобранных имён по моделям; встроен в auto_maintain однократно (маркер rescue_done); кнопка «Топ-30 неразобранных полей» в окне Аудит/БД; + tests/test_rescue_legacy_v215.py",
  "schema_version": 4,
  "remove": [
   "_probe_scan137.py",
@@ -12,12 +12,12 @@
  ],
  "files": {
   "plm_facade.py": "f774c603b236e038a26ad78d5d523c0fdbf1f85ed2f099a072a02a09b7980b15",
-  "PLM_OPERATIONS.md": "5f80dd871942aa461748df6703d9163239669a0dfaad6d7c154a0bb4bf1b7104",
+  "PLM_OPERATIONS.md": "c8146472a1627cc62f593cd17601efbd29dac8be308fa25af476a3bb66893bc0",
   "plm_creo_parse.py": "129b2f665f8d3c3bbd5d5d242abe850cd59b7ee7384a4f7fae2cd6be55fded76",
   "plm_schema.py": "402edc6dffbf99fafd41fd9138654a765faec0199d6650155ec888e2c11c5be0",
   "plm_asm_parse.py": "1060821b47a95eec3c11964295d776536e12613c07e7e76d23cee231ad7bea7c",
   "engine.py": "151fdd05adfa4f2942498d1f0b1e6efe7064dcc156eaa851364c789ba2f330f6",
-  "plm_reader.py": "9b7a753c0d7d269005de66f8c205960c68b1126e392215f81600abf38cdf7956",
+  "plm_reader.py": "55061d9f313841fdbfa71bb6b34ec7ed0d76f315ddfed8b018e86b4966a7d4c6",
   "plm_toolwin.py": "5cbcc9d31e939c8447cc667dcd80e473b56e96f1d970aa6a426d5de50c314e40",
   "plm_history.py": "fad8a57b19af99047cd33fb4887d63de76fe3cd496677d4e14b83902485d5818",
   "plm_parse.py": "29e06272f778fce1a1cfdae76a571267904391397f68c70f5ad7b18e7140e218",
@@ -38,11 +38,11 @@
   "plm_queries.py": "3fa963038b75cc5551bb7d7bbc3ced5760c03188fe77d47d393c145c390f1977",
   "plm_links.py": "698df65db4fb7571d086cb4343cb8d8391aead559caf96db4715c44e2f397ffe",
   "plm_build_links.py": "ee15ddfe7d8ac2355a73bd3f67a60da66ce8f3551499dd6d5ebceb4f3f0ce66f",
-  "plm_database.py": "ac4e2ec436fa1187d34acd05add72d8b2a32b4144b8dae01be69b9c47e7e759f",
+  "plm_database.py": "f47afd67518e9a848ffde8e69c11f80f18de2de011eff7fa7e8db2489f655d7c",
   "plm_graph_build.py": "0016ff6bffc83f05547975a9a11be863e7611f1d1cbc0fe9e09830b7c47d0c9d",
   "plm_scanner.py": "8ac13395647dbdf48a7dd0748e6a22ca7f99dcb8283d33ca30862066861f3c79",
-  "plm_db_admin_win.py": "066c4a70b50d2924dca2fe2b481ed41b0e5dc0a9821fbc85a7ec447fb1ed0feb",
-  "STATE.md": "86158871448b5893f3d152156c687dc8dbd488aff6aacf86559eee5de41b3fb9",
+  "plm_db_admin_win.py": "e781b728d218bb196aeb8fc5359fc30b4455b7334870daca0ef66947d98961a2",
+  "STATE.md": "42cd38c2dd3b46068f6a8773a6a9c622db89a8040cb5a51c2e081ca5e0200fa4",
   "CONCEPT_PLM.md": "6addb5c97847d55b261a2890e8f08a6efc4a2ca468c8d090f357b1b8c2c4ab61"
  }
 }

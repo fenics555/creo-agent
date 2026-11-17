@@ -49,6 +49,7 @@ SELF_LINK / EMPTY_KEY / MISSING_INDEX / EXTRA_COLUMN).
 import datetime
 import json
 import os
+import re
 import shutil
 import sqlite3
 import sys
@@ -2044,25 +2045,38 @@ def _automaint_cache_path(db_path):
     return db_path + ".automaint.json"
 
 
-def _automaint_may_vacuum(db_path):
-    """VACUUM не чаще 1 раза в сутки: сверить отметку в маркере. Нет/битый — можно."""
+def _automaint_load(db_path):
+    """Содержимое маркера `<база>.automaint.json` (dict). Нет/битый — пустой dict."""
     p = _automaint_cache_path(db_path)
     try:
         if os.path.isfile(p):
             with open(p, encoding="utf-8") as f:
-                return json.load(f).get("last_vacuum") != datetime.date.today().isoformat()
+                d = json.load(f)
+            return d if isinstance(d, dict) else {}
     except (OSError, ValueError):
         pass
-    return True
+    return {}
+
+
+def _automaint_save(db_path, data):
+    """Записать маркер, СОХРАНИВ прочие ключи (last_vacuum / rescue_done)."""
+    d = _automaint_load(db_path)
+    d.update(data or {})
+    try:
+        with open(_automaint_cache_path(db_path), "w", encoding="utf-8") as f:
+            json.dump(d, f, ensure_ascii=False)
+    except OSError:
+        pass
+
+
+def _automaint_may_vacuum(db_path):
+    """VACUUM не чаще 1 раза в сутки: сверить отметку в маркере. Нет/битый — можно."""
+    return _automaint_load(db_path).get("last_vacuum") != datetime.date.today().isoformat()
 
 
 def _automaint_mark_vacuum(db_path):
     """Отметить, что VACUUM сделан сегодня (чтобы не тормозить частые короткие сканы)."""
-    try:
-        with open(_automaint_cache_path(db_path), "w", encoding="utf-8") as f:
-            json.dump({"last_vacuum": datetime.date.today().isoformat()}, f)
-    except OSError:
-        pass
+    _automaint_save(db_path, {"last_vacuum": datetime.date.today().isoformat()})
 
 
 def _plan_has_link_work(plan):
@@ -2133,6 +2147,15 @@ def _auto_maintain_inner(p):
             did.append("дампы обрезаны")
     except Exception as e:                        # noqa: BLE001
         _soft_log("compact: %s" % e)
+    # ── 3б. Исторический декодер V215 (ОДНОКРАТНО, по маркеру в `.automaint.json`) ──
+    try:
+        if not _automaint_load(p).get("rescue_done"):
+            rr = rescue_legacy_data(p, dry_run=False, quiet=True)
+            if rr and rr.get("ok"):
+                _automaint_save(p, {"rescue_done": True})
+                did.append("легаси разобран")
+    except Exception as e:                        # noqa: BLE001
+        _soft_log("rescue: %s" % e)
     # ── 4. VACUUM по фрагментации (> AUTO_VACUUM_PCT, не чаще 1 раза/сутки) ──
     try:
         f = _fragmentation(p)
@@ -2152,6 +2175,198 @@ def _auto_maintain_inner(p):
     if did:
         return "БД обслужена (%s)" % ", ".join(did)
     return "БД в норме"
+
+
+# ════════════════════════════════════════════════════════════════════════════════
+# Ж. ИСТОРИЧЕСКИЙ ДЕКОДЕР (V215): разобрать НАКОПЛЕННОЕ, ничего не удаляя (Purge-safe)
+#    • классификация легаси-журнала `changes` по содержимому `descr` (только ЧТЕНИЕ);
+#    • извлечение знаний из `unknown_fields` (JSON-дамп {имя: счётчик}) → `params`
+#      через INSERT OR IGNORE + защиту от повторов (в `params` НЕТ уникального ключа);
+#    • сводка ТОП-30 оставшихся неразобранных имён полей (счётчик по моделям).
+# ════════════════════════════════════════════════════════════════════════════════
+# Современные виды события, к которым приводится содержимое `descr`.
+CHANGE_KINDS = ("параметр", "материал", "состав", "размер", "файл", "автор", "среда", "прочее")
+
+# Легаси-метки журнала: в живых базах встречается и 'изменён', и 'архив' (замер 17.11.2026).
+LEGACY_CHANGE_KINDS = ("изменён", "изменен", "архив")
+
+# Имя поля Creo: латиница/кириллица/подчёркивание + цифры/точка, 2..31 знак (как `plm_creo_parse`).
+_RX_FIELD_NAME = re.compile(r"^[A-Za-z\u0400-\u04ff_][A-Za-z0-9\u0400-\u04ff_.]{1,30}$")
+
+# Схемные/служебные префиксы — НЕ конструкторские значения (их в `params` не тянем).
+_SERVICE_PREFIXES = ("PTC_", "pt_", "PT_", "pro_", "PRO_", "rel_", "REL_", "sys_", "SYS_")
+
+
+def classify_change_descr(descr, kind=""):
+    """Уточнить СОВРЕМЕННЫЙ вид события журнала по содержимому `descr` (только ЧТЕНИЕ).
+
+    Возвращает один из `CHANGE_KINDS`. Правила — по ЖИВЫМ образцам (замер 17.11.2026):
+      `архив: файл: a.prt.1 -> b.prt.2` → `файл`;  `архив: кто правил: X -> Y` → `автор`;
+      `архив: версия Creo: A -> B` → `среда`;  `material: ...` → `материал`;
+      `role: ...` → `состав`;  `name: ...`/`param...` → `параметр`;  `dim/mass...` → `размер`.
+    """
+    d = (descr or "").lower()
+    if not d:
+        return "прочее"
+    if "файл" in d or "file:" in d or "file " in d:
+        return "файл"
+    if "кто правил" in d or "автор" in d or "author" in d:
+        return "автор"
+    if "версия creo" in d or "creo " in d or "proe" in d:
+        return "среда"
+    if "материал" in d or "material" in d or "mat_name" in d:
+        return "материал"
+    if "role" in d or "состав" in d or "assembl" in d or "компонент" in d:
+        return "состав"
+    if ("dim" in d or "размер" in d or "масса" in d or "mass" in d or "габарит" in d):
+        return "размер"
+    if ("name:" in d or "param" in d or "параметр" in d or "уравнен" in d or "relat" in d):
+        return "параметр"
+    return "прочее"
+
+
+def _looks_like_field_name(nm):
+    """Поле похоже на ИМЯ конструкторского параметра/атрибута (а не схемный токен)."""
+    if not nm or not _RX_FIELD_NAME.match(nm):
+        return False
+    return not nm.startswith(_SERVICE_PREFIXES)
+
+
+def _uf_parse_names(payload):
+    """Имена полей из дампа `unknown_fields.model`.
+
+    Формат (замер по `plm_scanner.extract_unknown_fields`, V160/V188): JSON `{"имя": счётчик, ...}`,
+    усечённый `…(обрезано V188)` — хвост отбрасываем. Не-JSON → грубый разбор по разделителям.
+    """
+    if not payload:
+        return []
+    txt = str(payload).split("…(обрезано")[0]
+    try:
+        d = json.loads(txt)
+        if isinstance(d, dict):
+            return [str(k) for k in d.keys()]
+    except ValueError:
+        pass
+    return [t for t in re.split(r"[,\s\"'{}:]+", txt) if t]
+
+
+def _print_rescue_report(out):
+    """Печать сводки Исторического декодера (V215)."""
+    ch = out.get("changes") or {}
+    uf = out.get("unknown_fields") or {}
+    print("=" * 68)
+    print("ИСТОРИЧЕСКИЙ ДЕКОДЕР (V215) — %s%s"
+          % (os.path.basename(out.get("db") or "—"),
+             "  [DRY-RUN: только отчёт, база не меняется]" if out.get("dry_run") else ""))
+    print("=" * 68)
+    print("  ЖУРНАЛ changes: строк %s | легаси %s (архив НЕ удаляется)"
+          % (ch.get("total"), ch.get("legacy")))
+    for cat, n in sorted((ch.get("legacy_by_category") or {}).items(), key=lambda kv: -kv[1]):
+        print("     %-12s %d" % (cat, n))
+    print("  unknown_fields: строк %s | имён полей %s | распознано %s | перенесено в params %s | осталось %s"
+          % (uf.get("rows"), uf.get("fields"), uf.get("recognized"),
+             uf.get("inserted"), uf.get("remaining")))
+    print("  ТОП-30 НЕРАЗОБРАННЫХ ИМЁН ПОЛЕЙ (число моделей):")
+    top = uf.get("top30") or []
+    if not top:
+        print("     (пусто — неразобранного нет)")
+    for i, pair in enumerate(top, 1):
+        print("     %2d. %-30s %d модел." % (i, pair[0], pair[1]))
+    print("=" * 68)
+
+
+def rescue_legacy_data(db_path=None, dry_run=False, quiet=False):
+    """V215: ИСТОРИЧЕСКИЙ ДЕКОДЕР — разобрать накопленное БЕЗ ПОТЕРИ АРХИВА (Purge-safe).
+
+    Строки НЕ удаляются (никаких DELETE из `changes/history/arch_dims/arch_dim_ch`).
+
+      1) КЛАССИФИКАЦИЯ легаси-журнала `changes`: по `descr` каждой строки определяется
+         современный вид события (`CHANGE_KINDS`). Журнал только ЧИТАЕТСЯ.
+      2) ИЗВЛЕЧЕНИЕ из `unknown_fields`: имена полей из JSON-дампа прогоняются текущими
+         правилами распознавания; распознанные конструкторские имена переносятся в `params`
+         через `INSERT OR IGNORE` + защиту `WHERE NOT EXISTS` (в `params` НЕТ уникального
+         ключа), поэтому повтор НЕ затирает свежие данные и НЕ дублирует строки (идемпотентно).
+         ⚠ ЗНАЧЕНИЕ из дампа восстановить НЕЛЬЗЯ (там имена полей со счётчиками) — переносится
+         ИМЯ как распознанный параметр (`value=''`); само значение прочитает следующий скан.
+      3) `top30` — ТОП-30 оставшихся неразобранных имён полей со счётчиком ПО МОДЕЛЯМ.
+
+    `dry_run=True` — только отчёт, в базу НИЧЕГО не пишется. Возвращает dict со сводкой.
+    """
+    p = _arg_db(db_path)
+    out = {"ok": False, "db": p, "dry_run": bool(dry_run),
+           "changes": {"total": 0, "legacy": 0, "by_category": {}, "legacy_by_category": {}},
+           "unknown_fields": {"rows": 0, "fields": 0, "recognized": 0, "inserted": 0,
+                              "remaining": 0, "top30": []}}
+    if not p or not os.path.isfile(p):
+        print("база не найдена:", p)
+        return out
+    con = connect_safe(p)
+    cur = con.cursor()
+    # ── 1. КЛАССИФИКАЦИЯ ЖУРНАЛА (только ЧТЕНИЕ; ни одной строки не меняем) ──
+    if _has_table(cur, "changes"):
+        ccols = [c[1] for c in cur.execute("PRAGMA table_info(changes)")]
+        sel = "kind, descr" if "descr" in ccols else "kind, NULL"
+        for kind, descr in cur.execute("SELECT %s FROM changes" % sel):
+            cat = classify_change_descr(descr, kind)
+            out["changes"]["total"] += 1
+            bc = out["changes"]["by_category"]
+            bc[cat] = bc.get(cat, 0) + 1
+            if (str(kind or "").strip().lower() in LEGACY_CHANGE_KINDS):
+                out["changes"]["legacy"] += 1
+                lc = out["changes"]["legacy_by_category"]
+                lc[cat] = lc.get(cat, 0) + 1
+    # ── 2. ИЗВЛЕЧЕНИЕ из unknown_fields + 3. рейтинг неразобранного ──
+    try:
+        import creo_read as _CR
+    except Exception as e:                        # noqa: BLE001
+        _CR = None
+        _soft_log("rescue: creo_read недоступен: %s" % e)
+    if _has_table(cur, "unknown_fields"):
+        ucols = [c[1] for c in cur.execute("PRAGMA table_info(unknown_fields)")]
+        q = "SELECT %s FROM unknown_fields" % ", ".join(
+            (c if c in ucols else "NULL") for c in ("path", "model", "name"))
+        remain = {}                               # имя_поля -> set(модель)
+        fld = rec = ins = 0
+        # ⚠ ОТДЕЛЬНЫЙ курсор для записи + чтение через `fetchmany`: `INSERT` тем же курсором
+        # внутри `for ... in cur.execute(q)` ОБРЫВАЛ перебор на первой строке (живая грабля).
+        wcur = con.cursor()
+        cur.execute(q)
+        while True:
+            batch = cur.fetchmany(1000)
+            if not batch:
+                break
+            for path, payload, nm_col in batch:
+                out["unknown_fields"]["rows"] += 1
+                base = os.path.basename(str(path or ""))
+                cm = (_CR.canon_model(base) if _CR else "") or (base or str(path or ""))
+                names = _uf_parse_names(payload)
+                if nm_col and nm_col != "__ALL__" and nm_col not in names:
+                    names = list(names) + [nm_col]  # старый формат: имя поля в колонке `name`
+                for nm in names:
+                    fld += 1
+                    if _looks_like_field_name(nm):
+                        rec += 1
+                        if not dry_run:
+                            wcur.execute(
+                                "INSERT OR IGNORE INTO params(path, model, name, type, value) "
+                                "SELECT ?, ?, ?, 'str', '' "
+                                "WHERE NOT EXISTS (SELECT 1 FROM params "
+                                "                  WHERE path=? AND model=? AND name=?)",
+                                (path, cm, nm, path, cm, nm))
+                            ins += wcur.rowcount if wcur.rowcount > 0 else 0
+                    else:
+                        remain.setdefault(nm, set()).add(cm)
+        if not dry_run:
+            con.commit()
+        top = sorted(remain.items(), key=lambda kv: (-len(kv[1]), kv[0]))[:30]
+        out["unknown_fields"].update({
+            "fields": fld, "recognized": rec, "inserted": ins,
+            "remaining": len(remain), "top30": [[n, len(s)] for n, s in top]})
+    con.close()
+    out["ok"] = True
+    if not quiet:
+        _print_rescue_report(out)
+    return out
 
 
 def backup(db=None):

@@ -110,6 +110,10 @@ class _DBAdminWindow(tk.Toplevel):
                 "Приведёт имена моделей к единому UPPER (убирает ложные «висячие» связи). "
                 "План — через Dry-Run; затем нажмите Vacuum.",
                 self.act_normalize, strong=True)
+        add_btn("Топ-30 неразобранных полей",
+                "READ-ONLY (V215): Исторический декодер — классифицирует легаси-журнал "
+                "и показывает ТОП-30 неразобранных имён полей. Базу НЕ меняет.",
+                self.act_rescue)
         add_btn("Сжать файл базы (Vacuum)",
                 "Может занять время; перезаписывает файл базы (бэкап не создаётся).",
                 self.act_vacuum, strong=True)
@@ -270,6 +274,12 @@ class _DBAdminWindow(tk.Toplevel):
             return
         self._run("Выравнивание регистра имён",
                   lambda: plm_database.normalize_case(self.db_path, dry_run=False))
+
+    def act_rescue(self):
+        """V215: READ-ONLY превью Исторического декодера — ТОП-30 неразобранных имён полей."""
+        import plm_database
+        self._run("Топ-30 неразобранных полей (Исторический декодер)",
+                  lambda: plm_database.rescue_legacy_data(self.db_path, dry_run=True))
 
     def act_vacuum(self):
         """Сжать файл базы (VACUUM) с подтверждением."""
