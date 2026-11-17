@@ -13,9 +13,13 @@
 import os
 import re
 import sys
+import sqlite3
+import tempfile
 
-HERE = r"D:\AI\Tools\agent\plm_reader"
+HERE = r"D:\AI\tools\agent\plm_reader"
 sys.path.insert(0, HERE)
+
+import engine as E  # noqa: E402
 
 fails = []
 
@@ -39,6 +43,13 @@ check("plm_toolwin.py: импорт `from collections import defaultdict`",
 raw_calls = re.findall(r"read_dims_all\(raw\)|read_history\(raw\)|dwg_models\(raw\)|\braw\s*=", tw)
 check("plm_toolwin.py: нет обращения к неопределённой `raw` (_prop_show)",
       not raw_calls, "найдено: %s" % raw_calls)
+# 🔴 V219: реальная причина NameError «Дерева текстом» — отсутствие импорта defaultdict
+# в plm_queries.py (full_tree_lines/do_tree/do_rename_plan) и хелперов в _HELPERS.
+pq = read_text("plm_queries.py")
+check("plm_queries.py: импорт `from collections import defaultdict` (корень NameError)",
+      "from collections import defaultdict" in pq)
+check("plm_queries.py: _HELPERS реэкспортирует _internal_id / copy_from_file / role_bases",
+      "_internal_id" in pq and "copy_from_file" in pq and "role_bases" in pq)
 
 # ── 2) предохранители max_nodes / _g_max_nodes ──
 check("plm_toolwin.py: `max_nodes` в _fill_up (Дерево связей)",
@@ -87,6 +98,39 @@ try:
     check("import plm_graph_build", True)
 except Exception as e:
     check("import plm_graph_build", False, str(e))
+
+# ── 7) engine.full_tree_lines на временной БД (вкладка «Дерево текстом») ──
+db3 = os.path.join(tempfile.gettempdir(), "v219_ftl.db")
+for suf in ("", "-wal", "-shm", "-journal"):
+    try:
+        os.remove(db3 + suf)
+    except OSError:
+        pass
+try:
+    c3 = sqlite3.connect(db3)
+    c3.executescript(E.SCHEMA)
+    c3.executemany("INSERT INTO snapshots(model,path) VALUES(?,?)",
+                   [("A", "/a.ASM.1"), ("B", "/b.PRT.1"), ("C", "/c.PRT.1")])
+    c3.executemany(
+        "INSERT INTO links(parent,child,qty,source,origin) VALUES(?,?,?,?,?)",
+        [("A", "B", 1, "asm_comp", "real"), ("A", "C", 2, "asm_comp", "real")])
+    c3.commit()
+    c3.close()
+    # переключаем движок на ВРЕМЕННУЮ базу (как в test_v195_names) — иначе читается боевая
+    os.environ["PLM_DB"] = db3
+    lines = E.full_tree_lines("A", depth=4)
+    ok_ftl = bool(lines) and any("корень: A" in t for t, _k, _p in lines) \
+        and any("B" in t for t, _k, _p in lines) and any("C" in t for t, _k, _p in lines)
+    check("engine.full_tree_lines(A) → строки дерева (состав вниз B/C)", ok_ftl, "строк=%d" % len(lines))
+except Exception as e:  # noqa: BLE001
+    check("engine.full_tree_lines(A)", False, str(e))
+finally:
+    os.environ.pop("PLM_DB", None)
+    for suf in ("", "-wal", "-shm", "-journal"):
+        try:
+            os.remove(db3 + suf)
+        except OSError:
+            pass
 
 print()
 print("ИТОГ: " + ("ВСЁ ОК" if not fails else "ПРОВАЛЫ: " + "; ".join(fails)))

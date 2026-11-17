@@ -13,6 +13,7 @@
 В `engine.py` на месте каждой осталась КОРОТКАЯ обёртка-прокси — старые вызовы не сломаны.
 """
 import os
+from collections import defaultdict
 
 
 def _engine():
@@ -29,9 +30,12 @@ def connect(ro=False, db=None):
 # ── РЕЭКСПОРТ хелперов сканера: вынесенные функции их используют (`stem`, `service_stems`, …).
 # Берём ЛЕНИВО (в момент вызова), чтобы не создавать цикл импортов при загрузке модуля.
 # Список собран ПО ФАКТУ использования в этом файле (а не «на всякий случай»).
+# 🔴 V219: добавлены имена, использованные ПОСЛЕ распила из engine, но забытые в списке
+# (`full_tree_lines`/`derived_bases`/`model_info`/`plm_tree_data` падали с NameError).
 _HELPERS = ("stem", "active_db", "real", "role", "last_hist", "user_time", "names", "params",
             "service_stems", "config_pro_dirs", "service_models", "scan_config", "warehouse_db_dir",
-            "published", "_versioned", "_base_dir", "norm_path", "family_of")
+            "published", "_versioned", "_base_dir", "norm_path", "family_of",
+            "_internal_id", "copy_from_file", "_hash_like", "role_bases", "_passport_better")
 
 
 def __getattr__(name):

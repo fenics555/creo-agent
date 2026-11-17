@@ -1021,8 +1021,9 @@ def collect_from_graph_db(media_dir=None):
             stem = bn
             if bn[-1:].isdigit() and "." in bn:
                 stem = bn.rsplit(".", 1)[0]
-            if v and (v[0] or (len(v) > 1 and v[1])) and stem not in by_stem:
-                by_stem[stem] = v
+            _cs = canon_model(stem)
+            if v and (v[0] or (len(v) > 1 and v[1])) and _cs not in by_stem:
+                by_stem[_cs] = v
     except Exception:
         lcache, by_stem = {}, {}
     try:
@@ -1037,7 +1038,7 @@ def collect_from_graph_db(media_dir=None):
             if not c:
                 bn = os.path.basename((path or "").lower())
                 stem = bn.rsplit(".", 1)[0] if (bn[-1:].isdigit() and "." in bn) else bn
-                c = by_stem.get(stem)
+                c = by_stem.get(canon_model(stem))
             if c:
                 img = c[0] if len(c) > 0 else ""
                 img2 = c[1] if len(c) > 1 else ""
