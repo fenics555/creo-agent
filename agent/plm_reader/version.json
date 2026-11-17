@@ -1,8 +1,8 @@
 {
- "version": "V216",
- "version_num": 216,
+ "version": "V217",
+ "version_num": 217,
  "date": "17.11.2026",
- "notes": "V216: точное обнаружение обновлённых файлов в сканере (size+mtime точно, без слепой зоны 1с; +опция сверки SHA-256 scan_verify_hash), компактная раскладка нижнего Графа (локальный ранг уровня), автообновление и память вкладки Река, сортировка Сначала свежие в HTML-консоли",
+ "notes": "V217: скан читает ВСЕ итерации Creo (.1/.2/.3...) при любом latest_only, хвостовой проход против гонки обход-сохранение (файлы, сохранённые во время скана), шаг уровней нижнего Графа nw+95, прозрачная сводка скана (новых/итераций/отсечено), единый допуск mtime 1e-3 в plm_scanner.is_changed; + tests/test_scan_all_iterations_v217.py",
  "schema_version": 4,
  "remove": [
   "_probe_scan137.py",
@@ -16,9 +16,9 @@
   "plm_creo_parse.py": "129b2f665f8d3c3bbd5d5d242abe850cd59b7ee7384a4f7fae2cd6be55fded76",
   "plm_schema.py": "402edc6dffbf99fafd41fd9138654a765faec0199d6650155ec888e2c11c5be0",
   "plm_asm_parse.py": "1060821b47a95eec3c11964295d776536e12613c07e7e76d23cee231ad7bea7c",
-  "engine.py": "4c59045debdc684f352eb58024a0f322a6d32cea491364ac5cc5e4730fe0940c",
-  "plm_reader.py": "af9fc380a868ccb6f5270a586d753e95d08a1903916946d06e46a9d8d7bd5d80",
-  "plm_toolwin.py": "8cd0ff6b5e67e0135bccee243d1d29f675c8122c0d19385020075080f1c9848a",
+  "engine.py": "6e3fd3cbbb9f1001e3fd14610fe7ab6185c3d8e2e8425bd05e7d99808d888ebb",
+  "plm_reader.py": "5ede9e746ccc9303bc1599c0972b87cce68652ab96cf1c7a32c2fb0aa900fdb4",
+  "plm_toolwin.py": "5c3d0cd34173bc4efd2b77a09563f0bfc87e47876e4754295835231348b9dbf9",
   "plm_history.py": "fad8a57b19af99047cd33fb4887d63de76fe3cd496677d4e14b83902485d5818",
   "plm_parse.py": "29e06272f778fce1a1cfdae76a571267904391397f68c70f5ad7b18e7140e218",
   "plm_dbview.py": "a1473b3b37716523ef8e47616d8a63cbf3c83358907a1796e51b7c92ad3342b5",
@@ -40,7 +40,7 @@
   "plm_build_links.py": "ee15ddfe7d8ac2355a73bd3f67a60da66ce8f3551499dd6d5ebceb4f3f0ce66f",
   "plm_database.py": "f47afd67518e9a848ffde8e69c11f80f18de2de011eff7fa7e8db2489f655d7c",
   "plm_graph_build.py": "0016ff6bffc83f05547975a9a11be863e7611f1d1cbc0fe9e09830b7c47d0c9d",
-  "plm_scanner.py": "8ac13395647dbdf48a7dd0748e6a22ca7f99dcb8283d33ca30862066861f3c79",
+  "plm_scanner.py": "d8b04caba3346b64fdca8fd1bd58eeba6ebcc7245ffbafe414823f4df0396f45",
   "plm_db_admin_win.py": "e781b728d218bb196aeb8fc5359fc30b4455b7334870daca0ef66947d98961a2",
   "STATE.md": "42cd38c2dd3b46068f6a8773a6a9c622db89a8040cb5a51c2e081ca5e0200fa4",
   "CONCEPT_PLM.md": "6addb5c97847d55b261a2890e8f08a6efc4a2ca468c8d090f357b1b8c2c4ab61"
