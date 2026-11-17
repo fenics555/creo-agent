@@ -1,30 +1,26 @@
 # -*- coding: utf-8 -*-
 """plm_history.py — вынесено из plm_reader.py распилом (см. СПЕКА_РАСПИЛА_PLM_READER.md)."""
-from plm_reader import (
-    DEFAULT_SETTINGS,
-    MODELFILE,
-    VERSION_FIELDS,
-    VER_COLUMNS,
-    changes_line,
-    clean_computer,
-    clean_name,
-    csv,
-    datetime,
-    db_conn,
-    eng,
-    json,
-    kind,
-    log_line,
-    os,
-    parse_changes,
-    queue,
-    re,
-    read_bytes,
-    scan_file,
-    sibling_versions,
-    threading,
-    time,
-)
+# V209 (P1): РАЗРЫВ ЦИКЛА ИМПОРТОВ — имена берём из ИХ РОДНЫХ модулей, а не через plm_reader.
+import csv
+import datetime
+import json
+import os
+import queue
+import re
+import threading
+import time
+
+import engine as eng
+from plm_dbview import db_conn, log_line
+from plm_parse import (MODELFILE, changes_line, clean_computer, clean_name, kind,
+                       parse_changes, read_bytes, sibling_versions)
+from plm_scan import scan_file
+from plm_settings import DEFAULT_SETTINGS
+
+# были plm_reader.py:575/576 (перенесены сюда — единственный потребитель)
+VERSION_FIELDS = ("Ревизия", "Дата", "Пользователь", "Версия Creo", "Объём, мм³", "Габарит, мм")
+VER_COLUMNS = ("Версия", "Ревизия", "Дата", "Пользователь", "Версия Creo", "Объём, мм³",
+               "Габарит, мм", "Изменение")
 
 
 _WINS = {}                    # открытые окна историй: одно окно на название

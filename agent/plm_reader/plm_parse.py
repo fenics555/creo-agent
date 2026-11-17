@@ -1,17 +1,28 @@
 # -*- coding: utf-8 -*-
 """plm_parse.py — вынесено из plm_reader.py распилом (см. СПЕКА_РАСПИЛА_PLM_READER.md)."""
-from plm_reader import (
-    DIM_AFTER_RE,
-    DIM_HEAD_RE,
-    DIM_NAME_RE,
-    DRW_MODEL_RE,
-    PARAM_NUM_RE,
-    TEXT_VALUE_RE,
-    _NOTES_JUNK,
-    os,
-    re,
-    struct,
-)
+# V209 (P1): РАЗРЫВ ЦИКЛА ИМПОРТОВ — модуль автономен, plm_reader больше НЕ импортируется.
+# Константы-регулярки ниже ПЕРЕНЕСЕНЫ СЮДА из plm_reader.py (единственный потребитель — этот файл);
+# plm_reader их реэкспортирует (обратная совместимость сохранена).
+import os
+import re
+import struct
+
+
+# --- 04.10.2026: связь чертёж → модель (`model_names\0 \xf8 <байт> <ИМЯ>\0`) ---
+DRW_MODEL_RE = re.compile(rb"model_names\x00\xf8[\x01-\x0f]([\x20-\x7e\x80-\xff]{3,160}?)\x00",
+                          re.S)
+# --- 04.10.2026: техтребования и ЧИСЛОВЫЕ параметры из тела файла ---
+TEXT_VALUE_RE = re.compile(rb"text_value\x00([^\x00]{2,600}?)\x00", re.S)
+PARAM_NUM_RE = re.compile(rb"\xe3([\x20-\x7e\xc0-\xff]{2,48}?)\x00\xe2\x32", re.S)
+# служебные имена в техтребованиях: DTM1, A_1, RIGHT, ASM_DEF_CSYS …
+_NOTES_JUNK = re.compile(r"^(DTM\d*|A_?\d+|D\d+|PRT|ASM|MFG)\b|"
+                         r"^(RIGHT|LEFT|TOP|BOTTOM|FRONT|BACK|DEFAULT|USER_DEF|"
+                         r"DEF_CSYS|CSYS|HOLDER|TIP|SHEET)\b", re.IGNORECASE)
+# --- 05.10.2026: РАЗМЕРЫ детали и ИСТОРИЯ их изменений ---
+DIM_HEAD_RE = re.compile(rb"\xf1\xf7\x37\xe3\x32", re.S)
+DIM_NAME_RE = re.compile(rb"\xf2\xf7\x38(d\d{1,5})\x00", re.S)
+DIM_AFTER_RE = re.compile(rb"(?<![A-Za-z0-9_])(d\d{1,5})\x00\x37", re.S)
+
 
 
 MODELFILE = re.compile(r"\.([a-z_]{2,4})\.\d+$", re.IGNORECASE)

@@ -1,23 +1,17 @@
 # -*- coding: utf-8 -*-
 """plm_scan.py — вынесено из plm_reader.py распилом (см. СПЕКА_РАСПИЛА_PLM_READER.md)."""
-from plm_reader import (
-    DEFAULT_SETTINGS,
-    MODELFILE,
-    VERSION_RE,
-    datetime,
-    db_rows_map,
-    kind,
-    load_cache,
-    norm_path,
-    os,
-    outline_mm,
-    parameters,
-    provenance,
-    read_bytes,
-    real_value,
-    save_cache,
-    sections,
-)
+# V209 (P1): РАЗРЫВ ЦИКЛА ИМПОРТОВ — имена берём из ИХ РОДНЫХ модулей, а не через plm_reader.
+import datetime
+import os
+import re
+
+from plm_dbview import db_rows_map, load_cache, save_cache
+from plm_parse import (MODELFILE, kind, outline_mm, parameters, provenance,
+                       read_bytes, real_value, sections)
+from plm_settings import DEFAULT_SETTINGS, norm_path
+
+# было plm_reader.py:617 (перенесено сюда — единственный потребитель)
+VERSION_RE = re.compile(r"^(.*)\.([A-Za-z_]{2,4})\.(\d+)$", re.IGNORECASE)
 
 
 def match_filter(row, cols, pattern):

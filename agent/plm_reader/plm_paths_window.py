@@ -1,10 +1,9 @@
 # -*- coding: utf-8 -*-
 """plm_paths_window.py — вынесено из plm_reader.py распилом (см. СПЕКА_РАСПИЛА_PLM_READER.md)."""
-from plm_reader import (
-    norm_path,
-    os,
-    save_settings_file,
-)
+# V209 (P1): РАЗРЫВ ЦИКЛА ИМПОРТОВ — имена берём из plm_settings (родной модуль).
+import os
+
+from plm_settings import norm_path, save_settings_file
 
 
 def _split_list(s):

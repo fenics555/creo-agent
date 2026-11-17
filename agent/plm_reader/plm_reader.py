@@ -41,7 +41,9 @@ if __name__ == "__main__":
     import sys as _sys
     _sys.modules.setdefault("plm_reader", _sys.modules["__main__"])
 
-APP_VERSION = "V208"      # 🔴 V208: compact идемпотентен (маркер в бюджете; нет ложного повтора)
+APP_VERSION = "V209"      # 🔴 V209: разрыв циклов импортов (plm_scan/parse/history/paths_window автономны);
+                          #        схема 31/31 (meta + индексы в SCHEMA); чистка манифеста и «прострелов»
+                          # 🔴 V208: compact идемпотентен (маркер в бюджете; нет ложного повтора)
                           #        БАГ (живой прогон владельца 16.11.2026): «к переводу 865 039 строк,
                           #        переведено 36». ПРИЧИНА: `UPDATE` выполнялся на ТОМ ЖЕ курсоре, что
                           #        итерировал `SELECT DISTINCT` ⇒ итератор сбрасывался и цикл обрывался.
@@ -469,8 +471,7 @@ REPORTS_DIR = os.path.join(os.path.dirname(LOG_DIR), "reports")
 #   1) поле — `model_names` (с S), не `model_name`;
 #   2) кириллица в UTF-8 = D0 9A, а 0x9A не входит в [\x20-\x7e] → нужен \x80-\xff;
 #   3) байт после \xf8 не всегда 0x01 (бывают 0x08, 0x09, 0x0B).
-DRW_MODEL_RE = re.compile(rb"model_names\x00\xf8[\x01-\x0f]([\x20-\x7e\x80-\xff]{3,160}?)\x00",
-                          re.S)
+# V209 (P1): определения перенесены в plm_parse.py (единственный потребитель) — импорт-реэкспорт ниже.
 
 
 
@@ -478,12 +479,9 @@ DRW_MODEL_RE = re.compile(rb"model_names\x00\xf8[\x01-\x0f]([\x20-\x7e\x80-\xff]
 # --- 04.10.2026: техтребования и ЧИСЛОВЫЕ параметры из тела файла --------------------
 # Штатный parameters() даёт 3 параметра там, где из файла читается 9: он ищет только
 # в секциях NeuPrtSld/LargeText и по другому шаблону. Ниже — проверенный разбор.
-TEXT_VALUE_RE = re.compile(rb"text_value\x00([^\x00]{2,600}?)\x00", re.S)
-PARAM_NUM_RE = re.compile(rb"\xe3([\x20-\x7e\xc0-\xff]{2,48}?)\x00\xe2\x32", re.S)
+# V209 (P1): перенесены в plm_parse.py (см. импорт ниже).
 # служебные имена в техтребованиях: DTM1, A_1, RIGHT, ASM_DEF_CSYS …
-_NOTES_JUNK = re.compile(r"^(DTM\d*|A_?\d+|D\d+|PRT|ASM|MFG)\b|"
-                         r"^(RIGHT|LEFT|TOP|BOTTOM|FRONT|BACK|DEFAULT|USER_DEF|"
-                         r"DEF_CSYS|CSYS|HOLDER|TIP|SHEET)\b", re.IGNORECASE)
+# V209 (P1): перенесено в plm_parse.py (см. импорт ниже).
 
 
 
@@ -496,9 +494,7 @@ _NOTES_JUNK = re.compile(r"^(DTM\d*|A_?\d+|D\d+|PRT|ASM|MFG)\b|"
 # Число: 2^(E+1)*(1+F/4096), F — 12 БИТ, маркер первого байта ЛЮБОЙ.
 #   (а) значение ДО имени:   f1 f7 37 e3 32 <3 байта> … f2 f7 38 "d12" 00
 #   (б) значение ПОСЛЕ имени: d11 00 37 e3 0b 08 … <число на +9>
-DIM_HEAD_RE = re.compile(rb"\xf1\xf7\x37\xe3\x32", re.S)
-DIM_NAME_RE = re.compile(rb"\xf2\xf7\x38(d\d{1,5})\x00", re.S)
-DIM_AFTER_RE = re.compile(rb"(?<![A-Za-z0-9_])(d\d{1,5})\x00\x37", re.S)
+# V209 (P1): перенесены в plm_parse.py (см. импорт ниже).
 
 
 
@@ -572,9 +568,7 @@ COLS_WIDTH = {"Обозначение": 130, "Наименование": 210, "�
 
 
 
-VERSION_FIELDS = ("Ревизия", "Дата", "Пользователь", "Версия Creo", "Объём, мм³", "Габарит, мм")
-VER_COLUMNS = ("Версия", "Ревизия", "Дата", "Пользователь", "Версия Creo", "Объём, мм³",
-               "Габарит, мм", "Изменение")
+# V209 (P1): перенесены в plm_history.py (см. импорт ниже).
 
 
 
@@ -614,7 +608,7 @@ import engine as eng   # движок: нужен хелперам ниже (и�
 
 
 
-VERSION_RE = re.compile(r"^(.*)\.([A-Za-z_]{2,4})\.(\d+)$", re.IGNORECASE)
+# V209 (P1): перенесено в plm_scan.py (см. импорт ниже).
 
 
 
@@ -742,7 +736,14 @@ def main():
 
 
 from plm_parse import (
+    DIM_AFTER_RE,
+    DIM_HEAD_RE,
+    DIM_NAME_RE,
+    DRW_MODEL_RE,
     MDL_NAME_RE,
+    PARAM_NUM_RE,
+    TEXT_VALUE_RE,
+    _NOTES_JUNK,
     MODELFILE,
     _dec3_any,
     _dec_ef,
@@ -806,6 +807,7 @@ from plm_settings import (
 
 
 from plm_scan import (
+    VERSION_RE,
     _compose_par,
     exclude_list,
     first_param,
@@ -821,6 +823,8 @@ from plm_scan import (
 
 
 from plm_history import (
+    VER_COLUMNS,
+    VERSION_FIELDS,
     HIST_ALL,
     HIST_DEFAULT,
     HIST_WIDTH,
