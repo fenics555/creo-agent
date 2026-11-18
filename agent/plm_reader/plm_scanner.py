@@ -1664,7 +1664,7 @@ def write_item(con, path, boxes):
     con.execute("INSERT OR IGNORE INTO items(item_key,model,folder,n_files,n_versions,exts,last_mtime) "
                 "VALUES (?,?,?,0,0,'',0)", (pp["item_key"], m, pp["folder"]))
     # СЧИТАЕМ: файлов · УНИКАЛЬНЫХ расширений · УНИКАЛЬНЫХ версий
-    con.execute("UPDATE items SET n_files=n_files+1 WHERE item_key=?", (pp["item_key"],))
+    con.execute("UPDATE items SET n_files = (SELECT COUNT(*) FROM snapshots WHERE item_key=?) WHERE item_key=?", (pp["item_key"], pp["item_key"]))
     # exts: без дублей (проверяем, есть ли уже)
     row = con.execute("SELECT exts FROM items WHERE item_key=?", (pp["item_key"],)).fetchone()
     cur_exts = (row[0] or "") if row else ""
@@ -1678,6 +1678,8 @@ def write_item(con, path, boxes):
         nv = con.execute("SELECT COUNT(DISTINCT version) FROM item_ver WHERE item_key=?",
                          (pp["item_key"],)).fetchone()[0]
         con.execute("UPDATE items SET n_versions=? WHERE item_key=?", (nv, pp["item_key"]))
+        con.execute("UPDATE items SET n_files = (SELECT COUNT(*) FROM item_ver WHERE item_key=?) WHERE item_key=?",
+                    (pp["item_key"], pp["item_key"]))
     n += 1
 
     # --- ПАСПОРТ (snapshots) ---
@@ -1887,3 +1889,4 @@ if __name__ == "__main__":
               f" · equations: {len(b['equations'])} · params: {len(b['params'])}")
         print(f"  health    : {b['health']}")
         print(f"  links     : derived={b['links']['derived']} copy={b['links']['copy_from']!r}")
+

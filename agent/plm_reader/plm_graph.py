@@ -220,6 +220,7 @@ def collect_from_db(media_dir=None):
         return None, None
     nodes, edges = {}, []
     import hashlib
+    _c = _load_media_cache() if media_dir else {}
     try:
         for row in con.execute("SELECT model, path, volume, material, creo, role, size "
                                "FROM snapshots"):
@@ -239,10 +240,9 @@ def collect_from_db(media_dir=None):
             # СКАНЕР в `db\media\` + индекс `media_cache.json` (файл = SHA-256, без дублей).
             # Здесь только берём готовое из кэша/папки. Файл Creo НЕ открываем.
             if media_dir and path:
-                _c = _load_media_cache()
                 _hit = _c.get(path)
                 if _hit:
-                    img, img2 = (_hit + [""])[:1][0], (_hit + ["", ""])[1] if len(_hit) > 1 else ""
+                    img, img2 = (_hit + [""])[0], (_hit[1] if len(_hit) > 1 else "")
                 else:
                     _fname = hashlib.sha256(path.encode("utf-8")).hexdigest()[:20]
                     for _ex in ("jpg", "bmp", "png"):

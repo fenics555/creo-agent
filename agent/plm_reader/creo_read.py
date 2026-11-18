@@ -152,7 +152,7 @@ def params(raw: bytes, toc=None) -> dict:
         chunks.append(raw[off:off + ln])
     if not chunks:
         chunks.append(raw)
-    param_re = re.compile(rb"\xe3([A-Za-z_\x80-\xff][A-Za-z0-9_\x80-\xff]{1,60})\x00([^\xe3]{1,24}?)\xe3(.)([^\x00]{1,160}?)\x00")
+    param_re = re.compile(rb"\xe3([A-Za-z_\x80-\xff][A-Za-z0-9_\-\.\x80-\xff]{1,60})\x00([^\xe3]{1,24}?)\xe3(.)([^\x00]{1,160}?)\x00")
     for ch in chunks:
         for m in param_re.finditer(ch):
             name = smart_decode(m.group(1))

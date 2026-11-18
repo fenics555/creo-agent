@@ -164,5 +164,8 @@ CREATE INDEX IF NOT EXISTS ix_derived_child  ON derived(child);
 CREATE INDEX IF NOT EXISTS ix_derived_base   ON derived(base);
 CREATE INDEX IF NOT EXISTS ix_props_child    ON props(child);
 CREATE INDEX IF NOT EXISTS ix_archdims_date  ON arch_dims(arch_date);
-CREATE INDEX IF NOT EXISTS ix_archdimch_date ON arch_dim_ch(arch_date);
+CREATE INDEX IF NOT EXISTS ix_links_parent_child ON links(parent, child);
+CREATE INDEX IF NOT EXISTS ix_family_instance ON family(instance);
+CREATE INDEX IF NOT EXISTS ix_graph_edges_from_to ON graph_edges("from", "to");
+
 """

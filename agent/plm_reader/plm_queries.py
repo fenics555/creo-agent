@@ -404,6 +404,7 @@ def plm_down_data(model, depth=2):
     try:
         con = connect(ro=True)
         frontier = [stem(model)]
+        seen = set(frontier)
         for _ in range(depth):
             if not frontier:
                 break
@@ -415,7 +416,9 @@ def plm_down_data(model, depth=2):
                 if (ch or "").upper() in svc:
                     continue
                 out.setdefault(par, []).append((ch, qty or 1))
-                nxt.append(ch)
+                if ch not in seen:
+                    seen.add(ch)
+                    nxt.append(ch)
             frontier = nxt
         con.close()
     except Exception:

@@ -34,7 +34,7 @@ if __name__ == "__main__":
     import sys as _sys
     _sys.modules.setdefault("plm_reader", _sys.modules["__main__"])
 
-APP_VERSION = "V219"      # 🔴 V219: доделка по аудиту живых скриншотов владельца + реэкспорт full_tree_lines:
+APP_VERSION = "V220"      # 🔴 V220: полировочный релизца + реэкспорт full_tree_lines:
                           #        1) «История файла» показывает выделенный файл сверху (pick_path/pick_ext);
                           #        2) «Граф» canvas: canon_model при сопоставлении связей (разный регистр не рвёт);
                           #        3) HTML-граф: normcase + canon_model(stem) при поиске картинок media_cache;
@@ -670,4 +670,5 @@ from plm_paths_window import (
 
 if __name__ == "__main__":
     main()
+
 

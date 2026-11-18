@@ -830,6 +830,18 @@ def ensure_indexes(db=None):
             continue
         live_cols = [c[1] for c in cur.execute("PRAGMA table_info(%s)" % t)]
         idx_cols = _indexes_on(cur, t)
+        try:
+            if t == "links":
+                cur.execute('CREATE INDEX IF NOT EXISTS "ix_links_parent_child" ON "links"("parent", "child")')
+                created += 1
+            elif t == "family":
+                cur.execute('CREATE INDEX IF NOT EXISTS "ix_family_instance" ON "family"("instance")')
+                created += 1
+            elif t == "graph_edges":
+                cur.execute('CREATE INDEX IF NOT EXISTS "ix_graph_edges_from_to" ON "graph_edges"("from", "to")')
+                created += 1
+        except sqlite3.Error:
+            pass
         for col in live_cols:
             if col in LINK_COLS and col not in idx_cols:
                 idx_name = "idx_%s_%s" % (t, col)

@@ -25,6 +25,8 @@ import sqlite3
 import struct
 import sys
 import time
+import shutil
+import plm_database as _DBm
 from collections import Counter, defaultdict
 
 HERE = os.path.dirname(os.path.abspath(__file__))
@@ -1234,8 +1236,8 @@ def connect(ro=False, db=None):
     try:
         cols = [r[1] for r in con.execute("PRAGMA table_info(snapshots)")]
         if cols and "folder" not in cols:
-            con.execute("DROP TABLE snapshots")
-            con.execute("DROP TABLE links")
+            shutil.copy2(path, path + ".bak")
+            con.execute("ALTER TABLE snapshots ADD COLUMN folder TEXT")
             con.commit()
         elif cols and "hist" not in cols:                 # 25.09: добавили число записей и версию Creo
             con.execute("ALTER TABLE snapshots ADD COLUMN hist INTEGER")
@@ -1246,8 +1248,12 @@ def connect(ro=False, db=None):
             con.commit()
     except Exception:
         pass
+    _DBm.ensure_indexes(path)
+
     con.executescript(SCHEMA)
     con.commit()
+    _DBm.ensure_indexes(path)
+
     # 🔴 V140: ПРИЗНАК ПРОИСХОЖДЕНИЯ СВЯЗИ — 'real' (прочитана из файла) / 'built' (достроена по базе).
     # Владелец: «ГЛАВНОЕ: либо одно править, либо другое!» — если связь неверна, по `origin` видно,
     # ЧТО править: сканер ('real') или достроитель ('built').
@@ -1811,7 +1817,7 @@ def _publish(draft, to_mirror=True):
     # читатели не увидели полуфайл. Боевой источник остаётся версионным файлом.
     try:
         live_dir = os.path.dirname(prev) if (prev and os.path.isfile(prev)) else d
-        main_db = os.path.join(live_dir, "plm_reader.db")
+        main_db = active_db()
         tmp_main = main_db + ".tmp%d" % os.getpid()
         shutil.copy2(ver, tmp_main)
         os.replace(tmp_main, main_db)            # атомарная подмена
@@ -1831,7 +1837,7 @@ def _publish(draft, to_mirror=True):
             log("mirror: пропущено (зеркало только после полного скана)")
     except Exception as e:
         log("mirror FAIL: %s" % e)               # зеркало не должно рушить уже опубликованный скан
-    return ver
+    return main_db
 
 
 def scan_to_base(roots, max_mb=8, limit=120, depth=None, progress_cb=None, stop_cb=None, full=False,
