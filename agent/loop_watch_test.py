@@ -76,6 +76,15 @@ open(lg, "w", encoding="utf-8").write(
     'x "Desktop chat prompt completed" session aborted id="aborted" "finishReason":"aborted"\n')
 expect("aborted log -> ALERT", run(sd, lg), "ALERT")
 
+big = "\n".join("note: error handling and not found examples in the docs" for _ in range(150))
+expect("read_error_words(big) -> OK", run(make("fp_words", [tu("read_files", {"p": "X"}), tr(big),
+                                                         tu("read_files", {"p": "X"}), tr(big),
+                                                         tu("read_files", {"p": "X"}), tr(big)])), "OK")
+
+ab = [tu("a", {"i": 1}), tr("ok 1"), tu("b", {"i": 2}), tr("ok 2"),
+      tu("a", {"i": 1}), tr("ok 3"), tu("b", {"i": 2}), tr("ok 4")]
+expect("cycle ABAB(no errors) -> ALERT", run(make("abab", ab)), "ALERT")
+
 os.makedirs(os.path.join(BASE, "sess", "empty"), exist_ok=True)
 expect("empty -> OK", run(os.path.join(BASE, "sess", "empty")), "OK")
 

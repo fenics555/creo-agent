@@ -7,6 +7,9 @@ THRESHOLD = 2
 WINDOW = 12
 TXT_WINDOW = 6
 TXT_REPEAT = 3
+CYCLE_PAIRS = 2
+ERR_MAX_LEN = 4000
+COOLDOWN_SEC = 20
 ERR_KEYS = ("error", "not found", "too large", "no replacement",
             "\u043d\u0435 \u043d\u0430\u0439\u0434\u0435\u043d", "\u043e\u0448\u0438\u0431\u043a")
 
@@ -85,6 +88,42 @@ def norm(t):
     return re.sub(r"[^0-9a-z\u0400-\u04ff]+", " ", t.lower()).strip()
 
 
+def is_error_result(rt):
+    if len(rt) > ERR_MAX_LEN:
+        return False
+    low = rt.lower()
+    return any(k in low for k in ERR_KEYS)
+
+
+def cycle_loop(calls):
+    sigs = [h for h, _ in calls]
+    n = CYCLE_PAIRS * 2
+    if len(sigs) < n:
+        return None
+    tail = sigs[-n:]
+    if tail[0] != tail[1] and tail == [tail[0], tail[1]] * CYCLE_PAIRS:
+        return "%s<->%s" % (tail[0], tail[1])
+    return None
+
+
+def session_messages_path(s):
+    p = os.path.join(s, os.path.basename(s) + ".messages.json")
+    if os.path.exists(p):
+        return p
+    meta = os.path.join(s, os.path.basename(s) + ".json")
+    try:
+        d = json.load(open(meta, encoding="utf-8"))
+        mp = d.get("messages_path")
+        if mp:
+            if not os.path.isabs(mp):
+                mp = os.path.join(s, mp)
+            if os.path.exists(mp):
+                return mp
+    except Exception:
+        pass
+    return None
+
+
 def text_loop(msgs):
     texts = assistant_texts(msgs)[-TXT_WINDOW:]
     norms = [n for n in (norm(t) for t in texts) if len(n) >= 20]
@@ -119,8 +158,8 @@ def check():
     s = newest()
     if not s:
         return None
-    p = os.path.join(s, os.path.basename(s) + ".messages.json")
-    if not os.path.exists(p):
+    p = session_messages_path(s)
+    if not p:
         return None
     try:
         data = json.load(open(p, encoding="utf-8"))
@@ -131,12 +170,14 @@ def check():
     if len(calls) >= 2:
         err = {}
         for h, rt in calls:
-            low = rt.lower()
-            if any(k in low for k in ERR_KEYS):
+            if is_error_result(rt):
                 err[h] = err.get(h, 0) + 1
         for h, c in err.items():
             if c >= THRESHOLD:
                 return (os.path.basename(s), c, h, True, "tool-loop")
+    cyc = cycle_loop(calls)
+    if cyc:
+        return (os.path.basename(s), CYCLE_PAIRS * 2, "CYCLE", True, "cycle-loop")
     tl = text_loop(msgs)
     if tl:
         return (os.path.basename(s), TXT_REPEAT, "TEXT-LOOP", True, "text-loop")
@@ -163,9 +204,15 @@ if __name__ == "__main__":
             emit(r)
     else:
         print("watching", SESS, "toolwin", WINDOW, "txtwin", TXT_WINDOW, "txtrepeat", TXT_REPEAT)
+        last = {"sig": None, "ts": 0.0}
         while True:
             r = check()
             if r and r[3]:
-                print("\a" + emit(r))
+                sig = "%s|%s|%s" % (r[4], r[0], r[2])
+                now = time.time()
+                if not (sig == last["sig"] and now - last["ts"] < COOLDOWN_SEC):
+                    last["sig"] = sig
+                    last["ts"] = now
+                    print("\a" + emit(r))
             time.sleep(4)
 
