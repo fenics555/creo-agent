@@ -22,6 +22,8 @@ VARIANTS = [
      "Разведка прежде чтения: файл > 40 КБ — только диапазонами; папка — глубина 1 + счётчики. SKILL_recon.md."),
     ("V6_bold",
      "ОБЯЗАТЕЛЬНО: разведка ДО чтения файла/папки (байты, строки, дети, глубина) — иначе лимит и петля. Регламент SKILL_recon.md \u00a70\u2013\u00a72; правка — SKILL_edit_gotchas.md \u00a70."),
+    ("V7_full",
+     "\U0001F534 [ЗАКОН] РАЗВЕДКА ОБЯЗАТЕЛЬНА (ЛЮБАЯ МОДЕЛЬ): перед чтением/обходом — метрики (Get-Item Length; Get-ChildItem без -Recurse); правка — editor с old_text; UTF-8 — с -Encoding; НЕ powershell -Command с $var. Регламент SKILL_recon.md \u00a70\u2013\u00a72, правка SKILL_edit_gotchas.md \u00a70/\u00a74. Иначе — лимит и петля."),
 ]
 
 WEIGHTS = {"imperative": 2, "skill_ref": 2, "section": 1, "metrics": 2,
@@ -30,10 +32,10 @@ WEIGHTS = {"imperative": 2, "skill_ref": 2, "section": 1, "metrics": 2,
 
 def score(t):
     return {
-        "imperative": 1 if re.search(r"ОБЯЗАН|СТОП|ПЕРЕД", t) else 0,
+        "imperative": 1 if re.search(r"ОБЯЗАН|ОБЯЗАТЕЛЬН|СТОП|ПЕРЕД", t) else 0,
         "skill_ref": 1 if "SKILL_recon.md" in t else 0,
         "section": 1 if "\u00a7" in t else 0,
-        "metrics": 1 if re.search(r"байт|строк|дет|глубин", t) else 0,
+        "metrics": 1 if re.search(r"байт|строк|дет|глубин|Length|Count", t) else 0,
         "antiloop": 1 if re.search(r"петл|лимит", t) else 0,
         "edit_route": 1 if "SKILL_edit_gotchas" in t else 0,
         "universal": 1 if re.search(r"ЛЮБАЯ|Любая|модел", t) else 0,
