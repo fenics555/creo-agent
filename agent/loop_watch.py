@@ -5,6 +5,7 @@ ALERT = r"D:\AI\log\urn\cline\LOOP_ALERT.txt"
 LOG = os.path.join(os.path.expanduser("~"), ".cline", "data", "logs", "code.log")
 THRESHOLD = 2
 ERR_SIG_THRESHOLD = 3
+FAIL_THRESHOLD = 3
 WINDOW = 12
 TXT_WINDOW = 6
 TXT_REPEAT = 3
@@ -250,6 +251,9 @@ def check(prev_size=None):
         for k, c in sigs.items():
             if c >= ERR_SIG_THRESHOLD:
                 return (os.path.basename(s), c, k[:40], True, "error-loop")
+        fails = sum(1 for h, rt in calls if is_error_result(rt))
+        if fails >= FAIL_THRESHOLD:
+            return (os.path.basename(s), fails, "FAILS", True, "fail-loop")
     cyc = cycle_loop(calls)
     if cyc:
         return (os.path.basename(s), CYCLE_PAIRS * 2, "CYCLE", True, "cycle-loop")

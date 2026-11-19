@@ -96,6 +96,12 @@ for i in range(2):
     es2 += [tu("editor", {"path": "p", "n": i}), tr('{"error":"Editor operation failed: file already exists"}')]
 expect("error-sig repeat x2 -> OK", run(make("errsig2", es2)), "OK")
 
+fd = []
+for i, t in enumerate(["command error alpha", "command error beta", "command error gamma"]):
+    fd += [tu("run_commands", {"cmd": i}), tr(t)]
+expect("fail-density x3(diff sigs) -> ALERT", run(make("faildens", fd)), "ALERT")
+expect("fail-density x2 -> OK", run(make("faildens2", fd[:4])), "OK")
+
 def age(sessdir, case, secs):
     p = os.path.join(sessdir, case, case + ".messages.json")
     t = time.time() - secs
