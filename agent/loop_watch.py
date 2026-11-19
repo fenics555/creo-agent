@@ -58,18 +58,15 @@ def check():
     calls = calls_with_results(data["messages"])
     if len(calls) < 2:
         return None
-    run = 1
-    for i in range(len(calls) - 2, -1, -1):
-        if calls[i][0] == calls[i + 1][0]:
-            run += 1
-        else:
-            break
-    if run < THRESHOLD:
-        return None
-    tail = calls[-run:]
-    low = " ".join(r[1].lower() for r in tail)
-    err = any(k in low for k in ("error", "not found", "too large", "не найден", "ошибк"))
-    return (os.path.basename(s), run, calls[-1][0], err)
+    err_by_hash = {}
+    for h, rt in calls:
+        low = rt.lower()
+        if any(k in low for k in ("error", "not found", "too large", "no replacement", "не найден", "ошибк")):
+            err_by_hash[h] = err_by_hash.get(h, 0) + 1
+    for h, c in err_by_hash.items():
+        if c >= THRESHOLD:
+            return (os.path.basename(s), c, h, True)
+    return None
 
 
 if __name__ == "__main__":
