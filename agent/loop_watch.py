@@ -2,6 +2,7 @@ import json, glob, os, time, sys, hashlib
 
 SESS = os.path.join(os.path.expanduser("~"), ".cline", "data", "sessions")
 ALERT = r"D:\AI\log\urn\cline\LOOP_ALERT.txt"
+LOG = os.path.join(os.path.expanduser("~"), ".cline", "data", "logs", "code.log")
 THRESHOLD = 2
 
 
@@ -44,6 +45,22 @@ def calls_with_results(msgs):
     return calls
 
 
+def check_log(session_id):
+    if not os.path.exists(LOG):
+        return None
+    try:
+        lines = open(LOG, encoding="utf-8", errors="replace").read().splitlines()[-5000:]
+    except Exception:
+        return None
+    last = None
+    for ln in lines:
+        if "Desktop chat prompt completed" in ln and session_id in ln:
+            last = ln
+    if last and '"finishReason":"aborted"' in last:
+        return True
+    return None
+
+
 def check():
     s = newest()
     if not s:
@@ -66,6 +83,8 @@ def check():
     for h, c in err_by_hash.items():
         if c >= THRESHOLD:
             return (os.path.basename(s), c, h, True)
+    if check_log(os.path.basename(s)):
+        return (os.path.basename(s), 0, "ABORTED(text-loop)", True)
     return None
 
 
