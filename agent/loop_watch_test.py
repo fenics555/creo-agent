@@ -1,4 +1,4 @@
-import json, os, subprocess, sys, shutil, tempfile
+import json, os, subprocess, sys, shutil, tempfile, time
 
 ROOT = os.path.dirname(os.path.abspath(__file__))
 WATCH = os.path.join(ROOT, "loop_watch.py")
@@ -29,11 +29,13 @@ def make(case, msgs):
     return os.path.join(BASE, "sess", case)
 
 
-def run(sessdir, log=None):
+def run(sessdir, log=None, extra=None):
     if log is None:
         log = os.path.join(BASE, "none.log")
     cmd = [sys.executable, WATCH, "--once", "--sess-dir", sessdir,
            "--log", log, "--alert", os.path.join(BASE, "alert.txt")]
+    if extra:
+        cmd += extra
     out = subprocess.run(cmd, capture_output=True, text=True)
     return (out.stdout or "").strip()
 
@@ -84,6 +86,27 @@ expect("read_error_words(big) -> OK", run(make("fp_words", [tu("read_files", {"p
 ab = [tu("a", {"i": 1}), tr("ok 1"), tu("b", {"i": 2}), tr("ok 2"),
       tu("a", {"i": 1}), tr("ok 3"), tu("b", {"i": 2}), tr("ok 4")]
 expect("cycle ABAB(no errors) -> ALERT", run(make("abab", ab)), "ALERT")
+
+def age(sessdir, case, secs):
+    p = os.path.join(sessdir, case, case + ".messages.json")
+    t = time.time() - secs
+    os.utime(p, (t, t))
+
+
+sp = make("spike", [tt("a" * 300)])
+expect("spike ON -> ALERT", run(sp, extra=["--spike", "--spike-bytes", "100", "--prev-size", "0"]), "ALERT")
+expect("spike OFF -> OK", run(sp), "OK")
+expect("spike below -> OK", run(sp, extra=["--spike", "--spike-bytes", "100000000", "--prev-size", "0"]), "OK")
+
+sl = make("stall", [tu("a", {"i": 1}), tr("ok")])
+age(sl, "stall", 200)
+expect("stall ON(probe yes) -> ALERT", run(sl, extra=["--stall", "--stall-sec", "100", "--probe-reachable", "yes"]), "ALERT")
+expect("stall probe no -> OK", run(sl, extra=["--stall", "--stall-sec", "100", "--probe-reachable", "no"]), "OK")
+expect("stall OFF -> OK", run(sl), "OK")
+
+sl2 = make("stall_old", [tu("a", {"i": 1}), tr("ok")])
+age(sl2, "stall_old", 400)
+expect("stall too old -> OK", run(sl2, extra=["--stall", "--stall-sec", "100", "--probe-reachable", "yes"]), "OK")
 
 os.makedirs(os.path.join(BASE, "sess", "empty"), exist_ok=True)
 expect("empty -> OK", run(os.path.join(BASE, "sess", "empty")), "OK")
