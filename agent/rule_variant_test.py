@@ -1,8 +1,10 @@
-import os, re, sys
+import os, re, sys, hashlib, json, subprocess, tempfile, shutil
 
 REPO = r"D:\AI\repo"
 CL = r"D:\AI\.clinerules"
+CLR = os.path.join(REPO, ".clinerules")
 EG = os.path.join(REPO, "SKILL_edit_gotchas.md")
+DC = r"D:\AI\tools\agent\doctrine_check.py"
 
 # Кандидаты формулировки обязательной разведки (что вставить в красные линии).
 VARIANTS = [
@@ -63,7 +65,53 @@ def main():
     print("INSTALLED variant in law:", found or "NONE (law wording differs)")
     print("law has mandatory marker:", "РАЗВЕДКА ОБЯЗАТЕЛЬНА" in cl)
     print("edit-gotchas Get-Content finding present:", "-Encoding UTF8" in open(EG, encoding="utf-8").read())
-    sys.exit(0)
+
+    # ================= TESTS =================
+    fail = 0
+
+    def expect(label, cond):
+        nonlocal fail
+        if not cond:
+            fail += 1
+        print(("PASS " if cond else "FAIL ") + label)
+
+    def total(t):
+        s = score(t)
+        return sum(WEIGHTS[k] * s[k] for k in s)
+
+    print("=== TESTS ===")
+    expect("scorer: strong variant >= 10", total(dict(VARIANTS)["V4_law"]) >= 10)
+    expect("scorer: vague variant <= 4", total("Читай файлы аккуратно и не спеши.") <= 4)
+    for n, t in VARIANTS:
+        expect("well-formed: refs recon skill [" + n + "]", "SKILL_recon.md" in t)
+    expect("law copies synced",
+           hashlib.sha256(open(CL, "rb").read()).hexdigest() == hashlib.sha256(open(CLR, "rb").read()).hexdigest())
+    expect("law has mandatory marker", "РАЗВЕДКА ОБЯЗАТЕЛЬНА" in cl)
+    expect("law refs recon skill", "SKILL_recon.md" in cl)
+    eg = open(EG, encoding="utf-8").read()
+    expect("edit_gotchas: S0 route present", "МАРШРУТ ПЕРЕД ПРАВКОЙ" in eg)
+    expect("edit_gotchas: Get-Content finding present", "-Encoding UTF8" in eg)
+    dc = open(DC, encoding="utf-8").read()
+    expect("doctrine_check: has read-truncated rule", "read_truncated" in dc)
+    expect("doctrine_check: has recursive rule", "recursive_scan" in dc)
+    expect("doctrine_check: has Get-Content encoding rule", "getcontent_no_encoding" in dc)
+
+    # behavioral: doctrine_check flags a Get-Content-without-encoding fixture
+    base = tempfile.mkdtemp(prefix="rv_")
+    d = os.path.join(base, "c1")
+    os.makedirs(d)
+    msgs = [
+        {"role": "assistant", "content": [{"type": "tool_use", "id": "c1", "name": "run_commands", "input": {"commands": ["Get-Content 'x.json'"]}}]},
+        {"role": "user", "content": [{"type": "tool_result", "tool_use_id": "c1", "content": [{"result": "ok", "query": ""}]}]},
+    ]
+    with open(os.path.join(d, "c1.messages.json"), "w", encoding="utf-8") as f:
+        json.dump({"messages": msgs}, f, ensure_ascii=False)
+    out = subprocess.run([sys.executable, DC, "c1", "--sess-dir", base], capture_output=True, text=True).stdout
+    expect("doctrine_check flags Get-Content w/o -Encoding", "R5_getcontent_no_encoding" in out and "VIOLATION" in out)
+    shutil.rmtree(base, ignore_errors=True)
+
+    print("TOTAL FAIL =", fail)
+    sys.exit(1 if fail else 0)
 
 
 if __name__ == "__main__":

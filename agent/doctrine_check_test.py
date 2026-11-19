@@ -56,7 +56,7 @@ o = run_check(sd, case)
 expect("bad session flagged (TOTAL_VIOLATIONS >= 4)", "TOTAL_VIOLATIONS 4" in o or "TOTAL_VIOLATIONS 5" in o)
 expect("bad R1 powershell -Command detected", "R1_powershell_Command" in o and "VIOLATION" in o)
 
-good = [tu("run_commands", {"commands": ["(Get-Item -LiteralPath 'D:\\AI\\repo\\SKILL_recon.md').Length", "(Get-Content 'D:\\AI\\repo\\SKILL_recon.md').Count"]}), tr("5399\n46"),
+good = [tu("run_commands", {"commands": ["(Get-Item -LiteralPath 'D:\\AI\\repo\\SKILL_recon.md').Length", "(Get-Content 'D:\\AI\\repo\\SKILL_recon.md' -Encoding UTF8).Count"]}), tr("5399\n46"),
         tu("run_commands", {"commands": ["Select-String -Path 'D:\\AI\\repo\\SKILL_recon.md' -Pattern 'ВИЛКА'"]}), tr("L20: ..."),
         tu("read_files", {"path": "D:\\AI\\repo\\SKILL_recon.md", "start_line": 18, "end_line": 24}), tr("1 | ...") ,
         tu("editor", {"path": "p", "old_text": "unique line", "new_text": "new"}), tr("Edited p")]

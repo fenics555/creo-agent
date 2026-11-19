@@ -42,6 +42,7 @@ def check(msgs):
         "R2_read_truncated": [i for (i, nm, s, r) in cs if nm == "read_files" and "truncated" in r],
         "R3_editor_already_exists": [i for (i, nm, s, r) in cs if nm == "editor" and "already exists" in r],
         "R4_recursive_scan": [i for (i, nm, s, r) in cs if nm == "run_commands" and "-Recurse" in s and "-Depth" not in s],
+        "R5_getcontent_no_encoding": [i for (i, nm, s, r) in cs if nm == "run_commands" and "Get-Content" in s and "-Encoding" not in s],
     }
     return cs, v
 
