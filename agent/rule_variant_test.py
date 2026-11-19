@@ -63,7 +63,10 @@ def main():
     except Exception as e:
         print("cannot read law:", e)
         return
-    found = [n for n, t in VARIANTS if t in cl]
+    def _norm(s):
+        return s.replace("*", "").replace("`", "").replace("\u00a0", " ")
+
+    found = [n for n, t in VARIANTS if _norm(t) in _norm(cl)]
     print("INSTALLED variant in law:", found or "NONE (law wording differs)")
     print("law has mandatory marker:", "РАЗВЕДКА ОБЯЗАТЕЛЬНА" in cl)
     print("edit-gotchas Get-Content finding present:", "-Encoding UTF8" in open(EG, encoding="utf-8").read())
@@ -112,6 +115,7 @@ def main():
     expect("doctrine_check flags Get-Content w/o -Encoding", "R5_getcontent_no_encoding" in out and "VIOLATION" in out)
     shutil.rmtree(base, ignore_errors=True)
 
+    expect("law installs V7_full", "V7_full" in found)
     print("TOTAL FAIL =", fail)
     sys.exit(1 if fail else 0)
 
