@@ -4,6 +4,7 @@ SESS = os.path.join(os.path.expanduser("~"), ".cline", "data", "sessions")
 ALERT = r"D:\AI\log\urn\cline\LOOP_ALERT.txt"
 LOG = os.path.join(os.path.expanduser("~"), ".cline", "data", "logs", "code.log")
 THRESHOLD = 2
+ERR_SIG_THRESHOLD = 3
 WINDOW = 12
 TXT_WINDOW = 6
 TXT_REPEAT = 3
@@ -114,6 +115,11 @@ def is_error_result(rt):
         return False
     low = rt.lower()
     return any(k in low for k in ERR_KEYS)
+
+
+def err_signature(rt):
+    s = re.sub(r"\d+", "", rt.lower())
+    return re.sub(r"\s+", " ", s).strip()[:120]
 
 
 def cycle_loop(calls):
@@ -236,6 +242,14 @@ def check(prev_size=None):
         for h, c in err.items():
             if c >= THRESHOLD:
                 return (os.path.basename(s), c, h, True, "tool-loop")
+        sigs = {}
+        for h, rt in calls:
+            if is_error_result(rt):
+                k = err_signature(rt)
+                sigs[k] = sigs.get(k, 0) + 1
+        for k, c in sigs.items():
+            if c >= ERR_SIG_THRESHOLD:
+                return (os.path.basename(s), c, k[:40], True, "error-loop")
     cyc = cycle_loop(calls)
     if cyc:
         return (os.path.basename(s), CYCLE_PAIRS * 2, "CYCLE", True, "cycle-loop")

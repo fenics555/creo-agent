@@ -87,6 +87,15 @@ ab = [tu("a", {"i": 1}), tr("ok 1"), tu("b", {"i": 2}), tr("ok 2"),
       tu("a", {"i": 1}), tr("ok 3"), tu("b", {"i": 2}), tr("ok 4")]
 expect("cycle ABAB(no errors) -> ALERT", run(make("abab", ab)), "ALERT")
 
+es = []
+for i in range(3):
+    es += [tu("editor", {"path": "p", "n": i}), tr('{"error":"Editor operation failed: file already exists"}')]
+expect("error-sig repeat x3 -> ALERT", run(make("errsig", es)), "ALERT")
+es2 = []
+for i in range(2):
+    es2 += [tu("editor", {"path": "p", "n": i}), tr('{"error":"Editor operation failed: file already exists"}')]
+expect("error-sig repeat x2 -> OK", run(make("errsig2", es2)), "OK")
+
 def age(sessdir, case, secs):
     p = os.path.join(sessdir, case, case + ".messages.json")
     t = time.time() - secs
