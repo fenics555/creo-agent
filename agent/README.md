@@ -74,6 +74,11 @@ RC 4 `wrong_active_model`, запись прервана. Проба: `python de
   (они и давали мигание). Сторож `--watch` ходит раз в 60 с; после 3 неудачных подъёмов подряд
   уходит в паузу 10 минут, а не долбит старт (в `startup.log` было 8911 записей «ctl up»
   из-за упавшего импорта `harvest_reader`).
+- **Тихий автосинк GitHub (23.11.2026):** задачи `creo-sync` / `repo-sync` больше не зовут
+  `wscript -> GIT_SYNC*.bat`, а запускают `pythonw.exe git_sync.py tools|repo` — git идёт
+  с `CREATE_NO_WINDOW`, ввод запрещён (`GIT_TERMINAL_PROMPT=0`, `GCM_INTERACTIVE=never`),
+  логи — `D:\AI\log\git_sync\`. Для прочих задач есть универсальная тихая обёртка
+  `pythonw run_hidden.py <команда...>` (лог `D:\AI\log\agent\hidden_run.log`).
 - **Правки интерфейса:** после изменений в `ui/` прогнать `python dev/ui_check.py`
   и `python dev/ui_probe.py`.
 - **Стоп ответа:** пока агент «думает», в окне есть кнопка **■ СТОП** (и клавиша Esc) — она рвёт
