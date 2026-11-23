@@ -1,8 +1,8 @@
 {
  "version": "V220",
  "version_num": 220,
- "date": "18.11.2026",
- "notes": "--help",
+ "date": "23.11.2026",
+ "notes": "rebuild manifest: sync SHA plm_creo_parse.py + plm_scanner.py (fix auto-update)",
  "schema_version": 4,
  "remove": [
   "_probe_scan137.py",
@@ -13,7 +13,7 @@
  "files": {
   "plm_facade.py": "f774c603b236e038a26ad78d5d523c0fdbf1f85ed2f099a072a02a09b7980b15",
   "PLM_OPERATIONS.md": "c8146472a1627cc62f593cd17601efbd29dac8be308fa25af476a3bb66893bc0",
-  "plm_creo_parse.py": "00e99c5a3184d2ab827dfbec53bbae4fde2d7952ea292f8af5df90385d329878",
+  "plm_creo_parse.py": "2b5003b2e6dbcc1fcbf1da2985a14ea204ac72b9dd82e50938798ca727015039",
   "plm_schema.py": "43b5b5da006b36dc6d35ab0dbc0a8fa3397568c726e76da7e0163e2f0f60142a",
   "plm_asm_parse.py": "1060821b47a95eec3c11964295d776536e12613c07e7e76d23cee231ad7bea7c",
   "engine.py": "ae37396089cbcfb2842b690a178e979c4078d9205c546ab3baacabf0be19a180",
@@ -40,7 +40,7 @@
   "plm_build_links.py": "bd1427c85cb7cb425300fcbfa381306ae2bd66a0b3d6fc2413d0a9311cac5955",
   "plm_database.py": "75f50048bcaad8aec11c232eaca428b7d2df7fb39dcf8455012bf7764cc96c1c",
   "plm_graph_build.py": "bf05e9d9f8057b0f8e78758a4ac345409849905b83b2c6903a43ad2352e358d7",
-  "plm_scanner.py": "dcbacbdfabcc66b9142464b9b95061619f643c3d5902b8877e6e36b433064bff",
+  "plm_scanner.py": "e622d872a640c8df3915567bdbe26770ba56653e6e909ca5b7f205c3193aa022",
   "plm_db_admin_win.py": "e781b728d218bb196aeb8fc5359fc30b4455b7334870daca0ef66947d98961a2",
   "STATE.md": "42cd38c2dd3b46068f6a8773a6a9c622db89a8040cb5a51c2e081ca5e0200fa4",
   "CONCEPT_PLM.md": "6addb5c97847d55b261a2890e8f08a6efc4a2ca468c8d090f357b1b8c2c4ab61"
