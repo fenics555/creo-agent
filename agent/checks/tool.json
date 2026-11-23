@@ -1,0 +1,20 @@
+{
+ "id": "checks",
+ "title": "ПРОВЕРКИ ДОМА — единый прогон (движок в корне агента)",
+ "version": 1,
+ "kind": "check",
+ "group": "house",
+ "needs_creo": false,
+ "class": "Р",
+ "engine": "../checks.py",
+ "gui": "gui.py",
+ "gui_bat": "checks_gui.bat",
+ "readme": "README.md",
+ "cli": ["--help"],
+ "inputs": [],
+ "outputs": {"report": "D:\\AI\\log\\reports\\REPORT_checks_run_*.md", "log": "D:\\AI\\log\\checks"},
+ "settings": "",
+ "deps": ["checks_tools", "tool_contract", "ui_common"],
+ "approval": false,
+ "notes": "Движок checks.py живёт в корне агента (его импортируют агент и ночной цикл); папка checks — окно и бат. Перенос: папка + checks.py + checks_tools.py."
+}

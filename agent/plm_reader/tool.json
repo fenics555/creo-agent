@@ -18,7 +18,7 @@
   },
   "settings": "",
   "deps": [
-    "creo_read"
+    "ui_common"
   ],
   "approval": false,
   "ui": "ui_common",

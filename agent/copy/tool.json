@@ -1,0 +1,20 @@
+{
+ "id": "copy",
+ "title": "СЛУЖБА КОПИРОВАНИЯ (copy_server, порт 8000) — код и окно",
+ "version": 1,
+ "kind": "act",
+ "group": "human",
+ "needs_creo": false,
+ "class": "Р",
+ "engine": "copy_server.py",
+ "gui": "gui.py",
+ "gui_bat": "copy_gui.bat",
+ "readme": "README.md",
+ "cli": [],
+ "inputs": [],
+ "outputs": {"report": "", "log": "D:\\AI\\log\\copy"},
+ "settings": "settings/settings.json",
+ "deps": ["ui_common"],
+ "approval": false,
+ "notes": "Код и окно службы. В папке copy_server остался второй контракт (id copy_server) как точка входа — владельцу решить, оставить одну папку."
+}

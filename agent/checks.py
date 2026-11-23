@@ -378,18 +378,35 @@ def _run_rules():
 
 @check("tool_contracts", "Контракты программ целы", "check", "house", "warn")
 def _run_contracts():
-    """Все tool.json программ проходят validate (волна 2)."""
+    """Все tool.json: схема + файлы на диске (engine/gui/readme/settings) + deps + жёсткие пути.
+
+    Усилено 23.11.2026 (слово владельца «программы должны переноситься со своей папкой»):
+    прежняя версия проверяла только читаемость JSON, поэтому битые пути движков
+    (`copy_server`, `rules`) проходили «зелёными».
+    """
     import tool_contract as TC
     cs = TC.all_contracts(AGENT)
     items = []
     bad = 0
+    warns = 0
     for pid, (c, path, err) in cs.items():
-        if err:
+        errs, ws = TC.problems(path.parent, deps_root=AGENT)
+        for e in errs:
             bad += 1
-            items.append({"icon": "⚠️", "verdict": "warn",
-                          "what": "%s: %s" % (pid, err)})
-    return _res(bad == 0, len(cs), 0, bad,
-                "контрактов %d, с замечаниями %d" % (len(cs), bad), items)
+            items.append({"icon": "❌", "verdict": "error", "what": "%s: %s" % (pid, e)})
+        for w in ws:
+            warns += 1
+            items.append({"icon": "⚠️", "verdict": "warn", "what": "%s: %s" % (pid, w)})
+    skip = {"__pycache__", "data", "dev", "TEST", "work", "ui", "_disabled"}
+    naked = [d.name for d in sorted(AGENT.iterdir())
+             if d.is_dir() and d.name not in skip and not (d / "tool.json").exists()]
+    if naked:
+        warns += 1
+        items.append({"icon": "⚠️", "verdict": "warn",
+                      "what": "папки без контракта: %s" % ", ".join(naked)})
+    return _res(bad == 0, len(cs), bad, warns,
+                "контрактов %d, ошибок %d, предупреждений %d" % (len(cs), bad, warns),
+                items[:30])
 
 
 @check("hol_backups", "Архив таблиц отверстий цел", "check", "hole_charts", "warn",

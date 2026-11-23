@@ -1,0 +1,20 @@
+{
+ "id": "qa",
+ "title": "QA — тесты качества агента",
+ "version": 1,
+ "kind": "check",
+ "group": "house",
+ "needs_creo": false,
+ "class": "Р",
+ "engine": "qa_run.py",
+ "gui": "",
+ "gui_bat": "",
+ "readme": "README.md",
+ "cli": [],
+ "inputs": [],
+ "outputs": {"report": "qa_results.json", "log": "D:\\AI\\log\\qa"},
+ "settings": "",
+ "deps": [],
+ "approval": false,
+ "notes": "Отдельное тестовое покрытие, не часть ядра агента. Запуск: python qa\\qa_run.py. Своего окна нет."
+}

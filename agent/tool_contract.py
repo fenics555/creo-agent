@@ -18,6 +18,9 @@
      "deps": ["creo_path"], "approval": false}
 """
 import json
+import importlib.util
+import os
+import re
 from pathlib import Path
 
 AGENT = Path(__file__).resolve().parent
@@ -50,6 +53,57 @@ def validate(d):
     if inp is not None and not isinstance(inp, list):
         errs.append("inputs должен быть списком, а не %s" % type(inp).__name__)
     return errs
+
+
+def resolve(path_str, base):
+    """Путь из контракта: относительный считается от папки программы ('../x.py' разрешён)."""
+    p = Path(str(path_str))
+    return p if p.is_absolute() else (Path(base) / p)
+
+
+def problems(prog_dir, deps_root=None):
+    """(ошибки, предупреждения) контракта по факту диска — для проверки автономности.
+
+    Ошибки: engine/gui/gui_bat/readme/settings отсутствуют на диске; deps не найдены
+    рядом с агентом. Предупреждения: жёсткие пути вида `X:\\...` в коде программы —
+    при переносе на другой компьютер они ломаются (дом допустим: D:\\AI\\log).
+    """
+    d = Path(prog_dir)
+    c, err = load_dir(d)
+    if c is None:
+        return [err or "контракта нет"], []
+    errs = list(validate(c))
+    for f in ("engine", "gui", "gui_bat", "readme", "settings"):
+        v = c.get(f)
+        if not v:
+            continue
+        if not resolve(v, d).exists():
+            errs.append("%s=%s нет на диске" % (f, v))
+    root = Path(deps_root or AGENT)
+    for dep in (c.get("deps") or []):
+        name = str(dep).strip().replace("\\", "/")
+        if not name:
+            continue
+        rel = Path(*name.split("/"))
+        ok = ((root / rel).with_suffix(".py")).exists() or (root / rel).exists()
+        if not ok:
+            # внешняя библиотека (pip) — не наша папка: спрашиваем сборщик модулей
+            try:
+                ok = importlib.util.find_spec(rel.name) is not None
+            except Exception:
+                ok = False
+        if not ok:
+            errs.append("deps=%s нет рядом с агентом" % dep)
+    hard = set()
+    for p in d.glob("*.py"):
+        try:
+            txt = p.read_text(encoding="utf-8", errors="replace")
+        except Exception:
+            continue
+        for m in re.findall(r"[rRuU]?[\"']([A-Za-z]:[\\/][^\"']*)[\"']", txt):
+            hard.add(m[:2].upper())
+    warns = ["жёсткие пути в коде: %s" % ", ".join(sorted(hard))] if hard else []
+    return errs, warns
 
 
 def load(path):

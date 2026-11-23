@@ -209,6 +209,110 @@ def prog_run(prog_id="", args="", **kw):
             % (p["title"], pr.pid, p["id"], lf))
 
 
+EXPORT_ROOT = Path(r"D:\AI\log\export")
+
+
+def _contract_dir(prog_id):
+    """Папка программы по id контракта или по имени папки."""
+    pid = str(prog_id or "").strip()
+    if not pid:
+        return None
+    d = AGENT / pid
+    if (d / "tool.json").exists():
+        return d
+    try:
+        import tool_contract as TC
+        for cid, (c, path, _e) in TC.all_contracts(AGENT).items():
+            if cid == pid:
+                return path.parent
+    except Exception:
+        pass
+    return None
+
+
+def prog_export(prog_id="", out="", **kw):
+    """Собрать программу для ПЕРЕНОСА: папка + настройки + README + deps + манифест.
+
+    Копирует файлы программы (без `__pycache__`), затем модули из `deps`, лежащие в корне
+    агента, и пишет `manifest.json` (что, откуда, когда, python). Существующую папку
+    выгрузки НЕ перезаписывает — просит указать другой `out` (§4.6).
+    """
+    import shutil
+    d = _contract_dir(prog_id)
+    if not d:
+        return "программы %r нет (ни папки, ни контракта)" % prog_id
+    dst = Path(out) if str(out or "").strip() else (EXPORT_ROOT / d.name)
+    if dst.exists():
+        return "папка выгрузки уже есть: %s — укажи другой out или убери её" % dst
+    try:
+        import tool_contract as TC
+        c, _err = TC.load_dir(d)
+    except Exception:
+        c = None
+    copied, deps_copied, missing = [], [], []
+    dst.mkdir(parents=True, exist_ok=True)
+    for p in d.rglob("*"):
+        if p.is_dir() or "__pycache__" in p.parts:
+            continue
+        rel = p.relative_to(d)
+        (dst / rel).parent.mkdir(parents=True, exist_ok=True)
+        shutil.copy2(p, dst / rel)
+        copied.append(str(rel))
+    for dep in ((c or {}).get("deps") or []):
+        name = str(dep).split(".")[0].strip()
+        src = AGENT / (name + ".py")
+        if src.exists():
+            shutil.copy2(src, dst / src.name)
+            deps_copied.append(src.name)
+        elif (AGENT / name).is_dir():
+            shutil.copytree(AGENT / name, dst / name,
+                            ignore=shutil.ignore_patterns("__pycache__"), dirs_exist_ok=True)
+            deps_copied.append(name + "/")
+        else:
+            missing.append(str(dep))
+    man = {"id": (c or {}).get("id") or d.name, "title": (c or {}).get("title"),
+           "exported": datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
+           "source": str(d), "deps": deps_copied, "deps_missing": missing,
+           "files": len(copied), "python": sys.version.split()[0]}
+    (dst / "manifest.json").write_text(json.dumps(man, ensure_ascii=False, indent=1),
+                                       encoding="utf-8")
+    log("prog_export: %s -> %s (файлов %d)" % (man["id"], dst, len(copied)))
+    lines = ["ВЫГРУЗКА %s → %s" % (man["id"], dst),
+             "  файлов программы: %d" % len(copied),
+             "  deps скопированы: %s" % (", ".join(deps_copied) or "нет"),
+             "  manifest.json записан"]
+    if missing:
+        lines.append("  ВНИМАНИЕ, нет рядом: %s" % ", ".join(missing))
+    return "\n".join(lines)
+
+
+def prog_verify(prog_id="", path="", **kw):
+    """Проверка переноса: контракт читается, файлы на месте, deps в комплекте.
+
+    `path` — готовый комплект (как после prog_export): deps ищутся внутри него.
+    Без `path` — проверяется живая папка программы (deps ищутся рядом с агентом).
+    """
+    try:
+        import tool_contract as TC
+    except Exception as e:
+        return "читатель контрактов недоступен: %s" % e
+    if str(path or "").strip():
+        d, root = Path(path), Path(path)
+    else:
+        d, root = _contract_dir(prog_id), AGENT
+    if not d or not d.is_dir():
+        return "папки нет: %s" % (d or prog_id)
+    errs, warns = TC.problems(d, deps_root=root)
+    lines = ["ПРОВЕРКА ПЕРЕНОСА: %s" % d]
+    if not errs and not warns:
+        lines.append("  ✅ контракт, файлы и deps на месте")
+    for e in errs:
+        lines.append("  ❌ " + e)
+    for w in warns:
+        lines.append("  ⚠️ " + w)
+    return "\n".join(lines)
+
+
 def bases_list(as_json=False, **kw):
     """Базы дома: размер, когда обновлялась, свои таблицы или чужие."""
     items = [
@@ -263,6 +367,12 @@ TOOLS = [
     {"name": "prog_contract", "desc": "Контракт программы из tool.json: что умеет, входы, настройки, зависимости (пусто = список всех)",
      "params": {"prog_id": "имя программы или пусто", "as_json": "для витрины"}, "fn": prog_contract,
      "kind": "read", "group": "справочник"},
+    {"name": "prog_export", "desc": "Собрать программу для переноса: папка + настройки + README + deps + манифест",
+     "params": {"prog_id": "имя программы", "out": "папка выгрузки (пусто = D:\\AI\\log\\export\\<id>)"},
+     "fn": prog_export, "kind": "act", "group": "справочник", "approval": True},
+    {"name": "prog_verify", "desc": "Проверка переноса: контракт, файлы, deps (живая папка или комплект)",
+     "params": {"prog_id": "имя программы", "path": "папка комплекта (пусто = живая)"},
+     "fn": prog_verify, "kind": "read", "group": "справочник"},
     {"name": "prog_run", "desc": "Запустить движок программы В ФОНЕ (докладывает в общий журнал)",
      "params": {"prog_id": "имя программы", "args": "аргументы"}, "approval": True, "fn": prog_run},
     {"name": "prog_state", "desc": "Работает ли программа и что в её журнале запуска",

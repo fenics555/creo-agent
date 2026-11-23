@@ -79,6 +79,13 @@ RC 4 `wrong_active_model`, запись прервана. Проба: `python de
   с `CREATE_NO_WINDOW`, ввод запрещён (`GIT_TERMINAL_PROMPT=0`, `GCM_INTERACTIVE=never`),
   логи — `D:\AI\log\git_sync\`. Для прочих задач есть универсальная тихая обёртка
   `pythonw run_hidden.py <команда...>` (лог `D:\AI\log\agent\hidden_run.log`).
+- **Перенос программы (23.11.2026):** `prog_export <id> [out]` собирает комплект — папку программы
+  (без `__pycache__`), её `settings`, `README`, модули из `deps` и `manifest.json`
+  (по умолчанию `D:\AI\log\export\<id>`, существующую папку не перезаписывает);
+  `prog_verify <id|path>` проверяет комплект или живую папку: контракт, наличие
+  `engine/gui/readme/settings`, `deps` и жёсткие пути `X:\` в коде.
+  Контракты теперь проверяются фактами диска (`tool_contract.problems`) — проверка
+  `tool_contracts` ловит битые пути движков, как было у `copy_server` и `rules`.
 - **Правки интерфейса:** после изменений в `ui/` прогнать `python dev/ui_check.py`
   и `python dev/ui_probe.py`.
 - **Стоп ответа:** пока агент «думает», в окне есть кнопка **■ СТОП** (и клавиша Esc) — она рвёт

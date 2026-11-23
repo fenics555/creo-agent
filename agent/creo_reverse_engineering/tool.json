@@ -1,0 +1,20 @@
+{
+ "id": "creo_reverse_engineering",
+ "title": "CR-TOOLKIT — реверс-инжиниринг Creo (набор исследовательских скриптов)",
+ "version": 1,
+ "kind": "read",
+ "group": "Creo",
+ "needs_creo": true,
+ "class": "Р",
+ "engine": "creo_orchestrator.py",
+ "gui": "",
+ "gui_bat": "",
+ "readme": "README.md",
+ "cli": [],
+ "inputs": [],
+ "outputs": {"report": "", "log": "D:\\AI\\log\\creo_reverse_engineering"},
+ "settings": "",
+ "deps": [],
+ "approval": false,
+ "notes": "Переносится ЦЕЛОЙ папкой (скрипты + work/). Своего окна нет: запуск вручную или агентом; настройки пока внутри скриптов (Z:-пути — кандидаты на вынос в settings)."
+}

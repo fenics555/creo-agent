@@ -6,7 +6,7 @@
  "group": "справочник",
  "needs_creo": false,
  "class": "Р",
- "engine": "rules_engine.py",
+ "engine": "..\\rules_engine.py",
  "gui": "gui.py",
  "gui_bat": "rules_gui.bat",
  "readme": "README.md",
