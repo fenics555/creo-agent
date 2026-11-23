@@ -171,6 +171,52 @@ def role_deny_list(role):
     c.close(); return r
 
 
+# ==== ДЕФОЛТНАЯ ПОЛИТИКА РОЛЕЙ (слово владельца 23.11.2026) ====
+# «Админские инструменты — только админу; настройки поведения ИИ и выбора модели — тоже».
+# Политика живёт в БД (role_deny), но здесь зафиксирован дефолт: после чистой установки
+# или пересоздания data он применяется сам (версия растёт — правки владельца не затираются).
+ROLE_POLICY_VERSION = 1
+ADMIN_ONLY_TOOLS = [
+    "user_add", "user_role", "users_list", "role_tools_set",
+    "settings_set",
+    "prog_run", "prog_export",
+    "backup_housekeeping", "purge_execute",
+    "fleet_pull", "fleet_commit", "fleet_push", "fleet_sync",
+    "git_commit", "git_push", "git_pull",
+    "nightly_run", "index_run", "scan_run", "model_rules",
+]
+NON_ADMIN_ROLES = ["Инженер", "CREO-Программист", "Программист", "Технолог",
+                   "Оператор 1С", "Руководитель"]
+
+
+def ensure_role_policy():
+    """Применить дефолтную политику, если её версия в БД меньше текущей. Идемпотентно."""
+    try:
+        c = _perms_db()
+        c.execute("CREATE TABLE IF NOT EXISTS role_policy(ver INTEGER)")
+        row = c.execute("SELECT ver FROM role_policy").fetchone()
+        ver = int(row[0]) if row else 0
+        if ver >= ROLE_POLICY_VERSION:
+            c.close()
+            return ver
+        for role in NON_ADMIN_ROLES:
+            for tool in ADMIN_ONLY_TOOLS:
+                c.execute("INSERT OR IGNORE INTO role_deny(role, tool) VALUES(?,?)", (role, tool))
+        if row:
+            c.execute("UPDATE role_policy SET ver=?", (ROLE_POLICY_VERSION,))
+        else:
+            c.execute("INSERT INTO role_policy(ver) VALUES(?)", (ROLE_POLICY_VERSION,))
+        c.commit(); c.close()
+        try:
+            log("роли: применена дефолтная политика v%d (%d ролей × %d инструментов)"
+                % (ROLE_POLICY_VERSION, len(NON_ADMIN_ROLES), len(ADMIN_ONLY_TOOLS)))
+        except Exception:
+            pass
+    except Exception:
+        return 0
+    return ROLE_POLICY_VERSION
+
+
 def admin_delete_user(login):
     """Удалить пользователя из users.json (любая форма файла). True, если удалил."""
     import json as _json

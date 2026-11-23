@@ -411,7 +411,11 @@ class Hd(BaseHTTPRequestHandler):
             r = users.check_login(b.get("login"), b.get("pw") or b.get("password"))
             self._j(r or {"ok": False}); return
         if p == "/register":
-            okf = users.add_user(b.get("login"), b.get("pw") or b.get("password"))
+            _reg = self._client(b)
+            if not _reg or not users.is_admin(_reg):
+                self._j({"error": "регистрация — только админ"}, 403); return
+            okf = users.add_user(b.get("login"), b.get("pw") or b.get("password"),
+                                 b.get("role") or "Инженер")
             self._j({"msg": "пользователь создан" if okf else "логин занят или пустой"}); return
         cl = self._client(b)
         if not cl:
@@ -480,6 +484,9 @@ class Hd(BaseHTTPRequestHandler):
             self.wfile.write(("data: %s\n\n" % json.dumps({"done": holder.get("r", {})}, ensure_ascii=False)).encode()); self.wfile.flush()
             return
         elif p == "/approve":
+            if not users.is_admin(cl):
+                self._j({"error": "подтверждение операции — только админ"}, 403)
+                return
             self._j(do_approve(b.get("pid"), b.get("ok")))
         elif p == "/wiz_preview":
             import copy_tools as _cp37
@@ -530,8 +537,14 @@ class Hd(BaseHTTPRequestHandler):
         elif p == "/prog_state":
             self._j({"text": prog_tools.prog_state(b.get("prog_id") or "", b.get("tail") or 20)})
         elif p == "/prog_run":
+            if not users.is_admin(cl):
+                self._j({"error": "запуск программ — только админ"}, 403)
+                return
             self._j({"text": prog_tools.prog_run(b.get("prog_id") or "", b.get("args") or "")})
         elif p == "/rescan" or p == "/scan":
+            if not users.is_admin(cl):
+                self._j({"error": "пересканирование дома — только админ"}, 403)
+                return
             # Запуск через prog_tools: движок идёт в фон, а дом получает строки в ОБЩИЙ ЖУРНАЛ РАБОТ
             # («запущено в фоне» … «завершено …»). Раньше был прямой Popen и в журнале ничего не оставалось.
             self._j({"msg": prog_tools.prog_run(prog_id="harvest"),
