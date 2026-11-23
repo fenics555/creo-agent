@@ -343,7 +343,66 @@ def emit(r):
     return line.strip()
 
 
+# 23.11.2026: замок живёт РЯДОМ с файлом сигналов (тест-обвязка изолируется сама, т.к. передаёт свой --alert).
+LOCK = arg("--lock", os.path.join(os.path.dirname(ALERT), "loop_watch.lock"))
+NO_LOCK = "--no-lock" in sys.argv
+
+
+def pid_alive(pid):
+    """Жив ли процесс с таким PID (Windows: OpenProcess; иначе os.kill(pid, 0))."""
+    try:
+        import ctypes
+        h = ctypes.windll.kernel32.OpenProcess(0x1000, False, int(pid))  # PROCESS_QUERY_LIMITED_INFORMATION
+        if h:
+            ctypes.windll.kernel32.CloseHandle(h)
+            return True
+        return False
+    except Exception:
+        try:
+            os.kill(int(pid), 0)
+            return True
+        except Exception:
+            return False
+
+
+def acquire_lock():
+    """ЗАМОК ЕДИНСТВЕННОГО ЭКЗЕМПЛЯРА (23.11.2026): дом-стиль, как data\\harvest.lock.
+    Второй запуск тихо выходит — иначе сигналы дублируются в LOOP_ALERT.txt."""
+    if NO_LOCK:
+        return True
+    try:
+        with open(LOCK, encoding="utf-8") as f:
+            pid = int(json.load(f).get("pid", 0))
+        if pid and pid != os.getpid() and pid_alive(pid):
+            print("loop_watch already running: PID", pid, "- exit (lock:", LOCK + ")")
+            return False
+    except Exception:
+        pass
+    try:
+        os.makedirs(os.path.dirname(LOCK), exist_ok=True)
+        with open(LOCK, "w", encoding="utf-8") as f:
+            json.dump({"pid": os.getpid(), "started": time.strftime("%Y-%m-%d %H:%M:%S")}, f, ensure_ascii=False)
+    except Exception:
+        pass
+    return True
+
+
+def release_lock():
+    """Снимает замок, только если он наш (по PID)."""
+    try:
+        with open(LOCK, encoding="utf-8") as f:
+            if int(json.load(f).get("pid", 0)) == os.getpid():
+                os.remove(LOCK)
+    except Exception:
+        pass
+
+
 if __name__ == "__main__":
+    # 23.11.2026: ОДИН экземпляр сторожа (pid-lock). Второй запуск выходит с сообщением.
+    if not acquire_lock():
+        sys.exit(0)
+    import atexit
+    atexit.register(release_lock)
     # 23.11.2026: автоудаление по времени — при КАЖДОМ запуске (ручном, разовом, фоновом).
     _dropped = prune_alert(ALERT, KEEP_DAYS)
     if _dropped:

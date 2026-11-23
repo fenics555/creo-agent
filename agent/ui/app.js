@@ -1,4 +1,15 @@
 /* app.js — витрина АГЕНТ v15 (23.11.2026): экраны, инструменты, программы, люди, журнал, настройки. */
+window.__AGENT_UI = 1;
+(function uiVersionGuard() {
+  // Защита от старой копии витрины в браузере: при смене версии — одна перезагрузка.
+  try {
+    var meta = document.querySelector('meta[name="ui-ver"]');
+    var ver = meta ? meta.getAttribute('content') : '0';
+    var seen = localStorage.getItem('ui_ver');
+    localStorage.setItem('ui_ver', ver);
+    if (seen && seen !== ver) location.reload();
+  } catch (e) { /* приватный режим — не мешаем */ }
+})();
 var TK = localStorage.getItem('agent_token') || '';
 var ME = null;
 var BASE = '';
@@ -248,6 +259,8 @@ function updateStatus(d) {
   var model = d.model || '—';
   var ctx = d.model_ctx || d.ctx_requested || 0;
   var pill = $('pill-model'); if (pill) pill.innerHTML = 'модель: <b>' + esc(model) + '</b>';
+  var cm = $('chat-model');
+  if (cm) cm.textContent = model + (ctx ? ' · контекст ' + (ctx / 1024).toFixed(0) + 'k' : '');
   var pt = $('pill-tools'); if (pt) pt.innerHTML = 'инструментов: <b>' + (d.tools || 0) + '</b>';
   var kpiModel = $('kpi-model'); if (kpiModel) kpiModel.textContent = model;
   var kpiModelSub = $('kpi-model-sub');
@@ -768,6 +781,10 @@ window.addEventListener('DOMContentLoaded', function () {
   var rs = $('rules-save'); if (rs) rs.addEventListener('click', function () { rulesSave(); });
   var ns = $('btn-new-session'); if (ns) ns.addEventListener('click', newSession);
   var ho = $('btn-handover'); if (ho) ho.addEventListener('click', handover);
+  var chr = $('chat-rules'); if (chr) chr.addEventListener('click', function () { setTab('rules'); });
+  var chh = $('chat-handover'); if (chh) chh.addEventListener('click', handover);
+  var chn = $('chat-new'); if (chn) chn.addEventListener('click', newSession);
+  var chl = $('chat-reload'); if (chl) chl.addEventListener('click', function () { location.reload(true); });
   document.addEventListener('keydown', function (e) {
     if (e.ctrlKey && e.key.toLowerCase() === 'k') {
       e.preventDefault(); setTab('tools');

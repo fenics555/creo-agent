@@ -86,6 +86,8 @@ for _where, _txt, _what in (('index.html', _idx, 'id="login-screen"'), ('index.h
                             ('index.html', _idx, 'id="screen-rules"'), ('index.html', _idx, 'id="rules-files"'),
                             ('index.html', _idx, 'id="rules-preview"'), ('index.html', _idx, 'id="ctx-warn"'),
                             ('index.html', _idx, 'id="btn-new-session"'), ('index.html', _idx, 'id="btn-handover"'),
+                            ('index.html', _idx, 'id="chat-handover"'), ('index.html', _idx, 'id="chat-head"'),
+                            ('index.html', _idx, 'id="boot-error"'),
                             ('app.js', _app, 'function chatSend'), ('app.js', _app, 'function loadStatus'),
                             ('app.js', _app, 'function loadTools'), ('app.js', _app, 'function setTab'),
                             ('app.js', _app, 'function togglePanel'), ('app.js', _app, 'function hasToken'),
