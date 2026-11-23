@@ -39,7 +39,19 @@ REPORT_DIR = Path(r"D:\AI\log\reports")
 SETTINGS = _HERE / "settings" / "settings.json"
 
 # Боевые папки с PDF-чертежами библиотеки стандартных изделий (проба 03.10.2026).
-LIB = Path(r"Z:\PTC\CREO-START\Libraries\Библиотека_стандартных_изделий")
+# 23.11.2026: путь можно задать в settings\settings.json ("lib") — перенос без правки кода.
+
+
+def _cfg_val(key, default):
+    try:
+        if SETTINGS.exists():
+            return json.loads(SETTINGS.read_text(encoding="utf-8")).get(key) or default
+    except Exception:
+        pass
+    return default
+
+
+LIB = Path(_cfg_val("lib", r"Z:\PTC\CREO-START\Libraries\Библиотека_стандартных_изделий"))
 DEFAULT_DIRS = [LIB / "Заклепки" / "pdf", LIB / "Болты_винты" / "pdf",
                 LIB / "Гайки" / "pdf", LIB / "Шайбы" / "pdf"]
 ETALON = LIB / "Заклепки" / "pdf" / "10301-80.pdf"

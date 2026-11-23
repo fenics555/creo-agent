@@ -1,64 +1,109 @@
+# КАНОН КОНТРАКТОВ (пересобран 23.11.2026 по tool.json; формат: папка → id/тип/движок/окно)
+=== batch_params ===
+  id=batch_params kind=act group=Creo class=Ж
+  engine=plan.py (ok) | gui=gui.py (ok) | bat=batch_params_gui.bat
+  settings=settings/settings.json | deps=plm_reader/creo_read,creo_ops_tools,ui_common | needs_creo=True | approval=True
+=== checks ===
+  id=checks kind=check group=house class=Р
+  engine=../checks.py (ok) | gui=gui.py (ok) | bat=checks_gui.bat
+  settings=- | deps=checks_tools,tool_contract,ui_common | needs_creo=False | approval=False
 === cmnm_scan ===
-  README: # cmnm_scan V2 — внутренние имена Creo-файлов (класс Р, без Creo)
-  Title: ['"cmnm_scan V2 — ВНУТРЕННИЕ ИМЕНА (CMNM']
-  Log: True | Time: False | Readme_btn: True
+  id=cmnm_scan kind=act group=human class=Р
+  engine=cmnm_scan.py (ok) | gui=gui.py (ok) | bat=cmnm_scan_gui.bat
+  settings=settings/settings.json | deps=- | needs_creo=False | approval=False
 === config_audit ===
-  README: # config_audit — проверка путей config.pro (класс Р, без Creo)
-  Title: ['"V1 — ПУТИ CONFIG.PRO — что есть, чего нет"']
-  Log: True | Time: True | Readme_btn: True
+  id=config_audit kind=check group=Creo class=Р
+  engine=config_audit.py (ok) | gui=gui.py (ok) | bat=config_audit_gui.bat
+  settings=settings/settings.json | deps=creo_path | needs_creo=False | approval=False
 === copy ===
-  README: # copy_server — служба копирования и переименования (для веб-страниц дома)
-  Title: ['"V1 — СЛУЖБА КОПИРОВАНИЯ (copy_server']
-  Log: True | Time: False | Readme_btn: True
+  id=copy kind=act group=human class=Р
+  engine=copy_server.py (ok) | gui=gui.py (ok) | bat=copy_gui.bat
+  settings=settings/settings.json | deps=ui_common | needs_creo=False | approval=False
+=== copy_server ===
+  id=copy_server kind=act group=human class=Р
+  engine=..\copy\copy_server.py (ok) | gui=..\copy\gui.py (ok) | bat=..\copy\copy_gui.bat
+  settings=- | deps=- | needs_creo=False | approval=False
 === creo_comb ===
-  README: # ЧЕСАЛКА (creo_comb) — JLINK, без CREOSON
-  Title: ['"V1 — ЧЕСАЛКА CREO (creo_comb']
-  Log: True | Time: True | Readme_btn: True
+  id=creo_comb kind=act group=creo class=Ж
+  engine=creo_comb.bat (ok) | gui=gui.py (ok) | bat=creo_comb_gui.bat
+  settings=settings/settings.json | deps=creo_path | needs_creo=True | approval=False
 === creo_export ===
-  README: # CREO EXPORT V2 — экспорт модели из ЖИВОГО Creo (JLINK, без CREOSON)
-  Title: ['"CREO EXPORT V2 — выгрузка из живого Creo (JLINK']
-  Log: True | Time: True | Readme_btn: True
+  id=creo_export kind=act group=creo class=Ж
+  engine=creo_export.bat (ok) | gui=gui.py (ok) | bat=creo_export_gui.bat
+  settings=- | deps=- | needs_creo=True | approval=False
 === creo_pdf ===
-  README: (версия V7: скан и экспорт классифицируют ЧЕРТЕЖИ по внутренним ссылкам `.drw` и не врут)
-  Title: ['"CREO PDF V7 — чертежи, дубли, PDF без модели  ·  дизайн 2"', '"Выбор установки Creo"']
-  Log: True | Time: True | Readme_btn: True
-=== skills_check ===
-  README: # dev — служебные проверки дома
-  Title: ['"V1 — ПРОВЕРКА СКИЛЛОВ (skills_check']
-  Log: True | Time: True | Readme_btn: True
+  id=creo_pdf kind=act group=creo class=Ж
+  engine=creo_pdf.bat (ok) | gui=creo_pdf_gui.bat (ok) | bat=creo_pdf_gui.bat
+  settings=- | deps=creo_path | needs_creo=True | approval=False
+=== creo_reverse_engineering ===
+  id=creo_reverse_engineering kind=read group=Creo class=Р
+  engine=creo_orchestrator.py (ok) | gui= (нет) | bat=-
+  settings=- | deps=- | needs_creo=True | approval=False
+=== db_profile ===
+  id=db_profile kind=check group=prog class=Р
+  engine=db_profile.py (ok) | gui= (нет) | bat=-
+  settings=settings/settings.json | deps=- | needs_creo=False | approval=False
+=== drawing_audit ===
+  id=drawing_audit kind=check group=Creo class=Р
+  engine=drawing_audit.py (ok) | gui=gui.py (ok) | bat=drawing_audit_gui.bat
+  settings=settings/settings.json | deps=ui_common,pymupdf | needs_creo=False | approval=False
 === dup_scan ===
-  README: # ДВОЙНИКИ (dup_scan) — отдельная программа класса Р
-  Title: ['"V1 — ДВОЙНИКИ (одинаковые файлы']
-  Log: True | Time: True | Readme_btn: True
+  id=dup_scan kind=report group=файлы class=Р
+  engine=dup_scan.py (ok) | gui=gui.py (ok) | bat=dup_scan_gui.bat
+  settings=settings/settings.json | deps=- | needs_creo=False | approval=False
 === excel ===
-  README: # excel — модули XLSX спецификаций + окно просмотра
-  Title: ['"V1 — СПЕЦИФИКАЦИЯ XLSX — просмотр"']
-  Log: True | Time: True | Readme_btn: True
+  id=excel kind=act group=human class=Р
+  engine=excel_export.py (ok) | gui=gui.py (ok) | bat=excel_gui.bat
+  settings=settings/settings.json | deps=- | needs_creo=False | approval=False
+=== hol_check ===
+  id=hol_check kind=check group=Creo class=Р
+  engine=hol_check.py (ok) | gui=gui.py (ok) | bat=hol_check_gui.bat
+  settings=settings/settings.json | deps=ui_common | needs_creo=False | approval=False
 === log_clean ===
-  README: # log_clean — УБОРКА ЛОГОВ дома (класс Р, автономная программа)
-  Title: ['"V1 — УБОРКА ЛОГОВ дома"']
-  Log: True | Time: True | Readme_btn: True
+  id=log_clean kind=act group=human class=Р
+  engine=log_clean.bat (ok) | gui=gui.py (ok) | bat=log_clean_gui.bat
+  settings=settings/settings.json | deps=- | needs_creo=False | approval=False
 === make_lst ===
-  README: # make_lst — файл ограничений параметров дома (`list.lst`)
-  Title: ['"V1 — ОГРАНИЧЕНИЯ ПАРАМЕТРОВ (list.lst']
-  Log: True | Time: True | Readme_btn: True
+  id=make_lst kind=act group=human class=Р
+  engine=make_lst.py (ok) | gui=gui.py (ok) | bat=make_lst_gui.bat
+  settings=- | deps=- | needs_creo=False | approval=False
 === navigator ===
-  README: # navigator — НАВИГАТОР ПО ДОМУ (поиск → деталировка → PDF)
-  Title: ['"V1 — НАВИГАТОР ПО ДОМУ — поиск, деталировка, PDF"', '"README — Навигатор"']
-  Log: True | Time: True | Readme_btn: True
+  id=navigator kind=act group=human class=Р
+  engine=navigator.py (ok) | gui=gui.py (ok) | bat=navigator_gui.bat
+  settings=settings/settings.json | deps=creo_tools | needs_creo=False | approval=False
 === orphan_scan ===
-  README: # ORPHAN SCAN (orphan_scan) — чертежи-сироты (нет модели)
-  Title: ['"V1 — ЧЕРТЕЖИ-СИРОТЫ (нет модели рядом']
-  Log: True | Time: True | Readme_btn: True
-=== purge_versions ===
-  README: # purge_versions — ЧИСТИЛЬЩИК склада версий Creo (класс Р, автономная программа)
-  Title: ['"V1 — ОКНО ЧИСТИЛЬЩИКА"', '"README — Очистка версий Creo"']
-  Log: True | Time: True | Readme_btn: True
+  id=orphan_scan kind=act group=human class=Р
+  engine=orphan_scan.py (ok) | gui=gui.py (ok) | bat=orphan_scan_gui.bat
+  settings=settings/settings.json | deps=- | needs_creo=False | approval=False
+=== plan_run ===
+  id=plan_run kind=act group=Creo class=Ж
+  engine=runner.py (ok) | gui=gui.py (ok) | bat=plan_run_gui.bat
+  settings=- | deps=batch_params/apply,ui_common | needs_creo=True | approval=True
 === plm_reader ===
-  README: # PLM Reader V37 — читаем изделия «в лоб» (без Creo)
-  Title: ['title', '"Пути, исключения и база данных"']
-  Log: True | Time: True | Readme_btn: True
-=== plm_tree ===
-  README: NO README
-  Title: ['НЕТ ФАЙЛА plm_tree_gui.py']
-  Log: False | Time: False | Readme_btn: False
+  id=plm_reader kind=act group=human class=Р
+  engine=plm_reader.py (ok) | gui=plm_reader_gui.bat (ok) | bat=plm_reader_gui.bat
+  settings=- | deps=ui_common | needs_creo=False | approval=False
+=== postregen_clean ===
+  id=postregen_clean kind=act group=Creo class=Ж
+  engine=plan.py (ok) | gui=gui.py (ok) | bat=postregen_clean_gui.bat
+  settings=settings/settings.json | deps=creo_tools,ui_common | needs_creo=True | approval=True
+=== purge_versions ===
+  id=purge_versions kind=act group=human class=Р
+  engine=purge_versions.bat (ok) | gui=gui.py (ok) | bat=purge_gui.bat
+  settings=settings/settings.json | deps=purge_versions | needs_creo=False | approval=False
+=== qa ===
+  id=qa kind=check group=house class=Р
+  engine=qa_run.py (ok) | gui= (нет) | bat=-
+  settings=- | deps=- | needs_creo=False | approval=False
+=== rules ===
+  id=rules kind=act group=справочник class=Р
+  engine=..\rules_engine.py (ok) | gui=gui.py (ok) | bat=rules_gui.bat
+  settings=- | deps=rules_engine,ui_common | needs_creo=False | approval=False
+=== services_live ===
+  id=services_live kind=check group=prog class=Р
+  engine=services_live.py (ok) | gui= (нет) | bat=-
+  settings=settings/settings.json | deps=- | needs_creo=False | approval=False
+=== skills_index ===
+  id=skills_index kind=act group=prog class=Р
+  engine=skills_index.py (ok) | gui= (нет) | bat=-
+  settings=settings/settings.json | deps=- | needs_creo=False | approval=False

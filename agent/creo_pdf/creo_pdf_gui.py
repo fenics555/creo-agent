@@ -45,8 +45,17 @@ CFG_BACKUP = os.path.join(CFG_DIR, "backup_settings")
 LEGACY_CFG = os.path.join(HERE, "gui_settings.json")
 LEGACY_BACKUP = os.path.join(CFG_BACKUP, "gui_settings_legacy_2026-10-02.json")
 SETTINGS_VERSION = 3
-DEFAULT_CFG = r"Z:\PTC\CREO-START\START-STD\config.pro"
-DEFAULT_DIR = r"Z:\PTC\Work"
+def _cfg_default(key, default):
+    """Значение из файла настроек окна (creo_pdf_settings.json) либо дефолт."""
+    try:
+        with open(CFG, encoding="utf-8") as f:
+            return (json.load(f) or {}).get(key) or default
+    except Exception:
+        return default
+
+
+DEFAULT_CFG = _cfg_default("config_pro", r"Z:\PTC\CREO-START\START-STD\config.pro")
+DEFAULT_DIR = _cfg_default("work_dir", r"Z:\PTC\Work")
 _PATH_KEYS = ("creo_install", "creo_common", "java_bin", "pfcasync_jar",
               "config_pro", "work_dir", "pdf_out")
 

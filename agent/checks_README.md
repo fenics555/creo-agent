@@ -25,14 +25,12 @@ def _run_hol():
 Результат — единый вид `{ok, total, failed, warned, detail, items}`, поэтому сводка
 считается по любым проверкам.
 
-## ЗАРЕГИСТРИРОВАНЫ (5)
-| id | область | важность | что проверяет |
-|---|---|---|---|
-| `hol_check` | `hole_charts` | error | таблицы `.hol`: разорванные имена колонок, шапка, разделители |
-| `hol_backups` | `hole_charts` | warn | архив бекапов читается (разрывы там ожидаемы) |
-| `config_paths` | `creo` | error | пути из `config.pro` на месте |
-| `rules` | `rules` | error | правила валидны и срабатывают на демо-фактах |
-| `tool_contracts` | `house` | warn | все `tool.json` проходят проверку схемы |
+## ЗАРЕГИСТРИРОВАНО (19)
+Полный список всегда берётся из кода: `python checks.py --list` (инструмент `checks_list`).
+Таблица «5 проверок» устарела 23.11.2026. Сейчас в прогоне: `hol_check`, `hol_backups`,
+`config_paths`, `plugins_registry`, `rules`, `tool_contracts`, `services_live`, `db_size`,
+`window_design`, `ui_integrity`, `culture`, `window_launch`, `registry_contracts`,
+`model_facts`, `drawing_notes`, `hatch_audit`, `cmnm_names`, `dup_files`, `encoding_files`.
 
 ## ГЛАВНОЕ СВОЙСТВО
 **Падение одной проверки не роняет прогон.** Исключение внутри проверки превращается в

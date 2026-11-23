@@ -15,3 +15,16 @@ fix_*.py
 agent_log_*.txt
 agent_trace_*.txt
 crash_*.txt
+
+# 23.11.2026: одноразовые пробы, их вывод, локальные секреты и рабочие папки — не в git
+login.json
+test_req.json
+probe_*.py
+probe_*.txt
+*_run.txt
+*_out.txt
+*_err.txt
+out_*.txt
+env_probe_run.txt
+work/
+pre_lost_*.bak

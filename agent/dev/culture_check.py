@@ -157,12 +157,12 @@ else:
     ok("data\\backup: пустых папок нет")
 
 # --- 10. правила и указатели на месте --------------------------------------------------------
-for p in (REPO / "CULTURE_files.md", REPO / "ИЗУЧЕНО" / "README.md",
+for p in (REPO / "CORE" / "CULTURE_files.md", REPO / "ИЗУЧЕНО" / "README.md",
           REPO / "crash" / "SKILL_crash_constitution.md",
           ROOT / "tools" / "agent" / "log_clean" / "engine.py"):
     if not p.exists():
         bad("нет файла правил: %s" % p)
-if not [1 for p in (REPO / "CULTURE_files.md", REPO / "ИЗУЧЕНО" / "README.md")
+if not [1 for p in (REPO / "CORE" / "CULTURE_files.md", REPO / "ИЗУЧЕНО" / "README.md")
         if not p.exists()]:
     ok("правила и указатели на месте (карта, ИЗУЧЕНО, конституция крахов, движок уборки)")
 

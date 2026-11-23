@@ -126,7 +126,7 @@ class Hd(BaseHTTPRequestHandler):
                      "ctx_requested": int(settings.get("num_ctx") or 0), "ctx_session": _sctx,
                      "is_manager": users.can_manage_users(prof["login"]) if prof else False,
                      "trails": tail, "mode": settings.get_for(cl2["login"], "chat_mode", 1) if cl2 else 1,
-                     "ui_layout": settings.get_for(cl2["login"], "ui_layout", "v2") if cl2 else "v2",
+                     "ui_layout": settings.get_for(cl2["login"], "ui_layout", "v1") if cl2 else "v1",
                      "up_ollama": _alive(11434), "up_creoson": _alive(8080), "up_agent": True})
             return
         elif p == "/health":

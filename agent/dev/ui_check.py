@@ -71,14 +71,15 @@ for _f in (_P(r'D:\AI\tools\agent\_legacy\ui_variants') / 'live.js',):
 
 _idx = (UI / 'index.html').read_text(encoding='utf-8', errors='replace')
 _app = (UI / 'app.js').read_text(encoding='utf-8', errors='replace')
-for _where, _txt, _what in (('index.html', _idx, 'id="rail"'), ('index.html', _idx, 'id="zone"'),
-                            ('index.html', _idx, 'data-act="rl"'), ('app.js', _app, 'function showZone'),
-                            ('app.js', _app, 'function rlJobs'), ('app.js', _app, "a=='rl'"),
-                            ('app.js', _app, 'jobsload'),
-                            ('index.html', _idx, 'id="tabs"'), ('index.html', _idx, 'data-act="lay"'),
-                            ('index.html', _idx, 'lay-v1'), ('index.html', _idx, 'lay-v3'),
-                            ('app.js', _app, 'function applyLayout'), ('app.js', _app, 'function zonePult'),
-                            ('app.js', _app, 'function fillPstate'), ('app.js', _app, "a=='lay'")):
+# 23.11.2026: «вариант 2» (rail/zone/applyLayout) заменён витриной «макет B&W» (коммит d85d546,
+# раскладка v4, затем текущая чат-витрина). Опорные элементы обновлены по фактическому коду.
+for _where, _txt, _what in (('index.html', _idx, 'id="login-screen"'), ('index.html', _idx, 'id="center"'),
+                            ('index.html', _idx, 'id="chat-msgs"'), ('index.html', _idx, 'id="chat-input"'),
+                            ('index.html', _idx, 'id="btn-send"'), ('index.html', _idx, 'id="right"'),
+                            ('index.html', _idx, 'data-tab="overview"'), ('index.html', _idx, 'id="ind-ollama"'),
+                            ('app.js', _app, 'function chatSend'), ('app.js', _app, 'function loadStatus'),
+                            ('app.js', _app, 'function loadTools'), ('app.js', _app, 'function setTab'),
+                            ('app.js', _app, 'function togglePanel'), ('app.js', _app, 'function hasToken')):
     if _what not in _txt:
         print('%s: пропал опорный элемент варианта 2: %s' % (_where, _what))
         bad = True
@@ -89,6 +90,6 @@ for _where, _txt, _what in (('index.html', _idx, 'wiz_pdf'), ('app.js', _app, 'w
         bad = True
 
 if not bad:
-    print('ALL GREEN (экранирование, баланс JS, элементы варианта 2)')
+    print('ALL GREEN (экранирование, баланс JS, опорные элементы витрины)')
 else:
     sys.exit(1)

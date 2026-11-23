@@ -79,7 +79,7 @@ KINDS = ("check", "report", "act", "read", "admin", "other")
 KIND_BY_BLOCK = {
     # проверки и диагностика
     "diagnostic_tools": "check", "scanner_tools": "check", "study_tools": "check",
-    "navigator_tools": "check", "similar_tools": "check", "behavior_tools": "check",
+    "similar_tools": "check", "behavior_tools": "check",
     # отчёты и сводки
     "map_tools": "report", "timeline_tools": "report", "predict_tools": "report",
     # только чтение
@@ -87,32 +87,29 @@ KIND_BY_BLOCK = {
     "knowledge_tools": "read", "passport_tools": "read", "memory_tools": "read",
     "memory_facts_tools": "read", "trail_tools": "read", "spec_tools": "read",
     "help_tools": "read", "graph_tools": "read", "web_tools": "read",
-    "one_c_tools": "read", "nightly_tools": "read",
+    "nightly_tools": "read",
     # служебное/администрирование
     "git_tools": "admin", "fleet_tools": "admin", "users_tools": "admin",
     "role_tools": "admin", "settings_tools": "admin", "sync_tools": "admin",
     "backup_tools": "admin", "purge_tools": "admin", "prog_tools": "admin",
-    "learn_tools": "admin", "diagnostic_admin": "admin",
+    "learn_tools": "admin",
     # действия (согласования, переименование, копирование, Creo)
     "copy_tools": "act", "rename_tools": "act", "file_hand_tools": "act",
-    "draft_tools": "act", "calc_tools": "act", "chat_tools": "act",
+    "draft_tools": "act", "chat_tools": "act",
     "find_tools": "act", "creo_tools": "act", "creo_ops_tools": "act",
-    "creo_pdf_tools": "act", "creo_export_tools": "act", "vision_tools": "act",
-    "vision_audit": "act",
+    "vision_tools": "act", "vision_audit": "act",
 }
 
 GROUP_BY_BLOCK = {
     "diagnostic_tools": "диагностика", "scanner_tools": "диагностика",
-    "study_tools": "диагностика", "navigator_tools": "диагностика",
-    "creo_tools": "Creo", "creo_ops_tools": "Creo", "creo_pdf_tools": "Creo",
-    "creo_export_tools": "Creo",
+    "study_tools": "диагностика",
+    "creo_tools": "Creo", "creo_ops_tools": "Creo",
     "pdf_tools": "PDF", "db_tools": "БД", "plm_reader_tools": "PLM",
     "git_tools": "флот", "fleet_tools": "флот", "sync_tools": "флот",
 }
 
 # блоки, которым живой Creo обязателен (нужна установка/лицензия)
-CREO_BLOCKS = {"creo_tools", "creo_ops_tools", "creo_pdf_tools", "creo_export_tools",
-               "creo_comb_tools"}
+CREO_BLOCKS = {"creo_tools", "creo_ops_tools"}
 
 
 def meta(t, block=None):

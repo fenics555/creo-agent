@@ -30,7 +30,15 @@ DEFAULTS = {"last_config": eng.BOOT.config_path() or KNOWN[0]}
 # Подстановки переменных Creo (манифест п.19: одна база — одно место). Пути к УСТАНОВКЕ
 # здесь больше не хранятся: их даёт общий поиск `creo_path.find()` (бат запуска → реестр →
 # диск). Хранить их в настройках = хранить версию, которая протухнет при переезде домена.
-CREO_VARS = {"$PROSTD": r"Z:\PTC\CREO-START\НАСТРОЙКИ"}
+def _prefs():
+    r"""Настройки окна (settings\settings.json) — для переопределения путей без правки кода."""
+    try:
+        return json.loads(SETTINGS.read_text(encoding="utf-8")) if SETTINGS.exists() else {}
+    except Exception:
+        return {}
+
+
+CREO_VARS = {"$PROSTD": _prefs().get("prostd") or r"Z:\PTC\CREO-START\НАСТРОЙКИ"}
 
 
 class App:
