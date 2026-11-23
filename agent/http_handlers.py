@@ -149,7 +149,8 @@ class Hd(BaseHTTPRequestHandler):
                 _lst = [{"name": t.get("name"), "desc": t.get("desc") or "",
                          "group": g or "", "kind": k or "",
                          "approval": bool(t.get("approval")),
-                         "needs_creo": bool(t.get("needs_creo"))}
+                         "needs_creo": bool(t.get("needs_creo")),
+                         "params": list((t.get("params") or {}).keys())}
                         for k, g, t in _TR.iter_tools()]
             except Exception as _tr_e:
                 return self._j({"error": "реестр не прочитан: %s" % _tr_e, "tools": []})
@@ -534,6 +535,27 @@ class Hd(BaseHTTPRequestHandler):
             settings.set_val(b.get("key"), b.get("value")); _SYS_CACHE.clear(); self._j({"ok": True})
         elif p == "/snap":
             self._j({"msg": "скриншот принимается через Ctrl+V в поле ввода"})
+        elif p == "/tool":
+            # 23.11.2026 (слово владельца «вызов различных инструментов из окна»): прямой вызов
+            # инструмента без модели. Права те же, что в реестре: role_deny + approval только админ.
+            _name = (b.get("name") or "").strip()
+            _args = b.get("args") or {}
+            if not isinstance(_args, dict):
+                self._j({"error": "args должен быть объектом {параметр: значение}"}, 400); return
+            _t = TR.get(_name)
+            if not _t:
+                self._j({"error": "нет инструмента %s" % _name}, 404); return
+            _prof = users.get_profile(cl) or {}
+            _role = _prof.get("role") or "Инженер"
+            if users.role_denied(_role, _name):
+                self._j({"error": "роль «%s» не может выполнить «%s»" % (_role, _name)}, 403); return
+            if _t.get("approval") and not users.is_admin(cl):
+                self._j({"error": "инструмент «%s» требует согласования админа" % _name}, 403); return
+            try:
+                _out = TR.execute(_name, _args, client=cl)
+            except Exception as _e:
+                self._j({"error": "сбой выполнения: %s" % _e}, 500); return
+            self._j({"ok": True, "tool": _name, "result": str(_out)[:40000]})
         elif p == "/prog_state":
             self._j({"text": prog_tools.prog_state(b.get("prog_id") or "", b.get("tail") or 20)})
         elif p == "/prog_run":

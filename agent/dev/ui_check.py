@@ -77,9 +77,14 @@ for _where, _txt, _what in (('index.html', _idx, 'id="login-screen"'), ('index.h
                             ('index.html', _idx, 'id="chat-msgs"'), ('index.html', _idx, 'id="chat-input"'),
                             ('index.html', _idx, 'id="btn-send"'), ('index.html', _idx, 'id="right"'),
                             ('index.html', _idx, 'data-tab="overview"'), ('index.html', _idx, 'id="ind-ollama"'),
+                            ('index.html', _idx, 'id="screen-tools"'), ('index.html', _idx, 'id="tools-list"'),
+                            ('index.html', _idx, 'id="tool-run-btn"'), ('index.html', _idx, 'id="kpi-model"'),
+                            ('index.html', _idx, 'id="screen-people"'), ('index.html', _idx, 'id="settings-list"'),
                             ('app.js', _app, 'function chatSend'), ('app.js', _app, 'function loadStatus'),
                             ('app.js', _app, 'function loadTools'), ('app.js', _app, 'function setTab'),
-                            ('app.js', _app, 'function togglePanel'), ('app.js', _app, 'function hasToken')):
+                            ('app.js', _app, 'function togglePanel'), ('app.js', _app, 'function hasToken'),
+                            ('app.js', _app, 'function runTool'), ('app.js', _app, 'function loadPeople'),
+                            ('app.js', _app, 'function loadSettings'), ('app.js', _app, 'function login')):
     if _what not in _txt:
         print('%s: пропал опорный элемент варианта 2: %s' % (_where, _what))
         bad = True

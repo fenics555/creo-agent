@@ -2,221 +2,325 @@
 <html lang="ru">
 <head>
 <meta charset="utf-8">
-<meta name="viewport" content="width=device-width,initial-scale=1">
-<meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
-<meta http-equiv="Pragma" content="no-cache">
-<meta http-equiv="Expires" content="0">
-<title>АГЕНТ v15 — VS Code Style</title>
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta http-equiv="Cache-Control" content="no-store">
+<title>АГЕНТ v15 — пульт дома</title>
 <style>
-* { box-sizing: border-box; margin: 0; padding: 0; }
-:root { --bg:#1e1e1e; --sidebar:#252526; --accent:#007acc; --text:#cccccc; --text-muted:#858585; --success:#4ec9b0; --warn:#dcdcaa; --error:#f48771; }
-html,body{height:100%;background:var(--bg);color:var(--text);font-family:'Segoe UI',sans-serif;font-size:13px;overflow:hidden;}
-body{display:flex;flex-direction:column;}
-#top{height:32px;background:#202021;border-bottom:1px solid #333;display:flex;align-items:center;padding:0 10px;gap:10px;z-index:100;flex-shrink:0;}
-#top .brand{font-weight:600;color:#569cd6;font-size:13px;letter-spacing:.4px;}
-#top .sep{width:1px;height:14px;background:#444;margin:0 8px;}
-#top .pill{background:#333;border:1px solid #444;border-radius:12px;padding:2px 10px;font-size:11px;color:var(--text-muted);white-space:nowrap;}
-#top .spacer{flex:1;}
-#top .indicator{font-size:11px;color:var(--success);font-weight:600;}
-#top .indicator.off{color:var(--error);}
-#top .btn{background:transparent;border:1px solid #444;color:var(--text);padding:2px 8px;border-radius:4px;font-size:11px;cursor:pointer;}
-#top .btn:hover{background:#333;}
-#main{flex:1;display:flex;overflow:hidden;}
-#sidebar{width:220px;background:var(--sidebar);border-right:1px solid #333;display:flex;flex-direction:column;z-index:50;flex-shrink:0;transition:transform .2s;}
-#sidebar.hidden{transform:translateX(-100%);}
-#sidebar-header{height:40px;background:#2d2d2f;border-bottom:1px solid #333;display:flex;align-items:center;padding:0 12px;font-weight:600;color:#569cd6;font-size:13px;}
-#sidebar-items{flex:1;overflow-y:auto;padding:6px 0;}
-.sb-item{display:flex;align-items:center;gap:10px;padding:8px 12px;cursor:pointer;color:var(--text);border-left:3px solid transparent;font-size:12px;transition:background .15s;white-space:nowrap;}
-.sb-item:hover{background:var(--sidebar-hover);}
-.sb-item.active{background:#333;border-left-color:var(--accent);color:#fff;}
-#center{flex:1;display:flex;flex-direction:column;min-width:0;position:relative;}
-#tabs{height:28px;border-bottom:1px solid #333;display:flex;overflow-x:auto;background:#2d2d2f;flex-shrink:0;}
-.tab{padding:0 14px;height:28px;display:flex;align-items:center;cursor:pointer;color:var(--text-muted);font-size:12px;white-space:nowrap;border-bottom:2px solid transparent;transition:all .15s;}
-.tab:hover{background:#333;color:var(--text);}
-.tab.active{background:#333337;color:#fff;border-bottom-color:var(--accent);}
-#workarea{flex:1;overflow-y:auto;padding:16px;background:var(--bg);}
-.tab-content{display:none;}
-.tab-content.active{display:block;}
-#right{width:300px;background:var(--sidebar);border-left:1px solid #333;display:flex;flex-direction:column;z-index:50;flex-shrink:0;transition:transform .2s;}
-#right.hidden{transform:translateX(100%);}
-#right-header{height:40px;background:#2d2d2f;border-bottom:1px solid #333;display:flex;align-items:center;justify-content:space-between;padding:0 12px;font-weight:600;color:#569cd6;font-size:13px;}
-#right-content{flex:1;overflow-y:auto;padding:12px;}
-.stat-card{background:#2d2d2f;border:1px solid #333;border-radius:6px;padding:12px;margin-bottom:10px;}
-.stat-card h4{color:#569cd6;font-size:12px;margin-bottom:8px;text-transform:uppercase;letter-spacing:.3px;}
-.stat-row{display:flex;justify-content:space-between;margin:5px 0;font-size:12px;}
-.stat-row .val{font-weight:600;color:#d4d4d4;}
-.stat-row .val.ok{color:var(--success);}.stat-row .val.warn{color:var(--warn);}.stat-row .val.err{color:var(--error);}
-.chart{height:120px;margin-top:10px;border:1px solid #333;background:#1e1e1e;border-radius:4px;position:relative;}
-.bar{position:absolute;bottom:4px;width:28px;background:var(--accent);border-radius:2px 2px 0 0;transition:height .3s;}
-#output-panel{height:150px;background:#1e1e1e;border-top:1px solid #333;display:flex;flex-direction:column;z-index:80;flex-shrink:0;transition:transform .2s;}
-#output-panel.hidden{transform:translateY(100%);}
-#output-header{height:26px;background:#2d2d2f;border-bottom:1px solid #333;display:flex;align-items:center;padding:0 10px;font-weight:600;color:#569cd6;font-size:12px;}
-#output-header .spacer{flex:1;}
-#output-header .btn{background:transparent;border:1px solid #444;color:var(--text);padding:1px 6px;border-radius:3px;font-size:11px;cursor:pointer;margin-left:6px;}
-#output-header .btn:hover{background:#333;}
-#output-body{flex:1;overflow-y:auto;padding:8px;font-family:Consolas,'Courier New',monospace;font-size:11px;color:#d4d4d4;}
-.output-line{margin:2px 0;white-space:pre-wrap;word-break:break-word;}
-.output-line.info{color:#9cdcfe;}.output-line.ok{color:var(--success);}.output-line.warn{color:var(--warn);}.output-line.err{color:var(--error);}
-#statusbar{height:24px;background:#007acc;color:#fff;font-size:11px;display:flex;align-items:center;padding:0 10px;gap:16px;flex-shrink:0;z-index:90;}
-#statusbar .item{white-space:nowrap;}
-#statusbar .dot{display:inline-block;width:6px;height:6px;border-radius:50%;margin-right:6px;background:var(--success);}
-#statusbar .dot.off{background:var(--error);}
-.panel-toggle{position:absolute;top:100px;width:24px;height:40px;background:#2d2d2f;border:1px solid #333;cursor:pointer;display:flex;align-items:center;justify-content:center;font-size:14px;color:var(--text-muted);z-index:60;}
-#toggle-sidebar{left:0;border-right:1px solid #333;border-radius:0 4px 4px 0;}
-#toggle-right{right:0;border-left:1px solid #333;border-radius:4px 0 0 4px;}
-#toggle-output{bottom:0;left:50%;transform:translateX(-50%);height:24px;width:100px;border-radius:4px 4px 0 0;border-bottom:none;}
-#sidebar.hidden ~ #center #toggle-sidebar{left:-24px;}
-#right.hidden ~ #center #toggle-right{right:-24px;}
-#chat-msgs{height:calc(100% - 80px);overflow-y:auto;padding:12px;display:flex;flex-direction:column;gap:10px;}
-.msg{max-width:70%;padding:8px 12px;border-radius:10px;margin-bottom:4px;line-height:1.5;}
-.msg.me{background:var(--accent);color:#fff;margin-left:auto;border-bottom-right-radius:2px;}
-.msg.agent{background:#333;color:var(--text);border-bottom-left-radius:2px;}
-.msg.system{font-size:11px;color:var(--text-muted);align-self:center;max-width:100%;text-align:center;padding:4px 8px;background:#2d2d2f;border-radius:4px;}
-#chat-input-area{display:flex;gap:8px;padding:8px;border-top:1px solid #333;background:#2d2d2f;}
-#chat-input{flex:1;background:#1e1e1e;border:1px solid #333;color:var(--text);border-radius:4px;padding:8px 12px;font-family:inherit;font-size:13px;}
-#chat-input:focus{outline:none;border-color:var(--accent);}
-button.send{background:var(--accent);color:#fff;border:none;border-radius:4px;padding:8px 16px;cursor:pointer;font-weight:600;}
-button.send:hover{background:#1177dd;}
-.table{width:100%;border-collapse:collapse;font-size:12px;}
-.table th{text-align:left;padding:6px 8px;color:var(--text-muted);border-bottom:1px solid #333;font-size:11px;text-transform:uppercase;}
-.table td{padding:6px 8px;border-bottom:1px solid #2a2a2a;}
-.table tr:hover{background:#333;}
-#log-body{height:calc(100% - 40px);overflow-y:auto;padding:12px;font-family:Consolas,monospace;font-size:11px;}
-.settings-group{margin-bottom:20px;}
-.settings-group h4{color:#569cd6;margin-bottom:10px;font-size:13px;}
-.setting-row{display:flex;justify-content:space-between;align-items:center;padding:6px 0;border-bottom:1px solid #2a2a2a;}
-.setting-row .name{color:#d4d4d4;}
-.setting-row .val{font-family:Consolas,monospace;color:#ce9178;background:#1e1e1e;padding:2px 6px;border-radius:3px;border:1px solid #333;}
-.empty{color:var(--text-muted);font-style:italic;padding:20px;text-align:center;}
-.hidden{display:none !important;}
-/* RESIZE РУЧКИ (как в VS Code) */
-.panel-toggle.dragging {
-  background: #007acc !important;
-  opacity: 0.8;
+:root{
+  --bg:#1b1d21; --bg2:#202327; --panel:#252a30; --panel2:#2c3238; --line:#3a4149;
+  --text:#e6e9ed; --muted:#98a2ad; --accent:#3d8bfd; --accent2:#2f6fce;
+  --ok:#4ec9b0; --warn:#e2c08d; --err:#f48771; --radius:10px;
+  --font:"Segoe UI",system-ui,-apple-system,"Helvetica Neue",Arial,sans-serif;
+  --mono:"Cascadia Mono",Consolas,"Courier New",monospace;
 }
-#main { position: relative; }
-#sidebar { transition: none; }
-#right { transition: none; }
-/* ==== ЛОГИН-ЭКРАН ==== */
-#login-screen { position: fixed; inset: 0; background: #252526; z-index: 200; display: flex; align-items: center; justify-content: center; }
-#login-screen.hidden { display: none; }
-.login-card { background: #2d2d2f; border: 1px solid #333; border-radius: 8px; padding: 32px; width: 340px; box-shadow: 0 8px 24px rgba(0,0,0,.4); }
-.login-card h2 { color: #569cd6; margin-bottom: 20px; font-size: 18px; text-align: center; }
-.login-row { margin-bottom: 14px; }
-.login-row label { display: block; margin-bottom: 6px; color: #cccccc; font-size: 12px; }
-.login-row input { width: 100%; background: #1e1e1e; border: 1px solid #333; color: #d4d4d4; border-radius: 4px; padding: 8px 10px; font-size: 13px; box-sizing: border-box; }
-.login-row input:focus { outline: none; border-color: #007acc; }
-.login-err { color: #f48771; font-size: 11px; margin-bottom: 12px; display: none; text-align: center; }
-.login-actions { display: flex; gap: 10px; margin-top: 8px; }
-.btn-login { background: #007acc; color: #fff; border: none; border-radius: 4px; padding: 8px 16px; cursor: pointer; font-weight: 600; flex: 1; }
-.btn-login:hover { background: #1177dd; }
-.btn-reg { background: transparent; border: 1px solid #444; color: #cccccc; border-radius: 4px; padding: 8px 12px; cursor: pointer; font-size: 12px; }
-.btn-reg:hover { background: #333; border-color: #007acc; }
+*{box-sizing:border-box;margin:0;padding:0}
+html,body{height:100%}
+body{background:var(--bg);color:var(--text);font-family:var(--font);font-size:13.5px;line-height:1.45;overflow:hidden}
+button{font:inherit;color:inherit;background:none;border:none;cursor:pointer}
+input,select,textarea{font:inherit;color:var(--text);background:var(--bg2);border:1px solid var(--line);border-radius:8px;padding:7px 10px;outline:none}
+input:focus,select:focus,textarea:focus{border-color:var(--accent)}
+::-webkit-scrollbar{width:10px;height:10px}
+::-webkit-scrollbar-thumb{background:#3c444d;border-radius:6px}
+::-webkit-scrollbar-thumb:hover{background:#4a545e}
+::-webkit-scrollbar-track{background:transparent}
 
-/* Кнопка профиля в заголовке */
-#top .user-block { display: flex; align-items: center; gap: 10px; margin-left: 12px; }
-#top .user-name { color: #d4d4d4; font-size: 11px; background: #333; padding: 2px 8px; border-radius: 10px; }
-#top .btn-logout { background: transparent; border: 1px solid #444; color: #cccccc; padding: 2px 8px; border-radius: 4px; font-size: 11px; cursor: pointer; }
-#top .btn-logout:hover { background: #333; }
-#top .btn-admin { background: #4a6f2b; color: #fff; border: none; border-radius: 4px; padding: 2px 8px; font-size: 11px; cursor: pointer; margin-left: 6px; }
-#top .btn-admin:hover { background: #5c8a38; }
+#login-screen{position:fixed;inset:0;display:flex;align-items:center;justify-content:center;
+  background:radial-gradient(1200px 600px at 50% -10%,#2a3d57 0%,var(--bg) 60%);z-index:50}
+.login-card{width:360px;background:var(--panel);border:1px solid var(--line);border-radius:16px;
+  padding:28px 26px;box-shadow:0 18px 50px rgba(0,0,0,.45)}
+.login-card h1{font-size:19px;font-weight:600;margin-bottom:4px}
+.login-card .sub{color:var(--muted);font-size:12.5px;margin-bottom:20px}
+.login-row{display:flex;flex-direction:column;gap:6px;margin-bottom:12px}
+.login-row label{font-size:12px;color:var(--muted)}
+.login-actions{display:flex;gap:10px;margin-top:16px}
+.btn{display:inline-flex;align-items:center;gap:7px;padding:8px 14px;border-radius:8px;
+  background:var(--panel2);border:1px solid var(--line);transition:.15s;white-space:nowrap}
+.btn:hover{background:#343b43;border-color:#4a545e}
+.btn.primary{background:var(--accent);border-color:var(--accent);color:#fff}
+.btn.primary:hover{background:var(--accent2)}
+.btn.ghost{background:transparent}
+.btn.danger{color:var(--err);border-color:#5a3a36}
+.btn.sm{padding:5px 10px;font-size:12px}
+.login-err{display:none;margin-top:12px;color:var(--err);font-size:12.5px}
+
+#app{display:none;height:100%;flex-direction:column}
+#top{display:flex;align-items:center;gap:14px;padding:0 14px;height:48px;
+  background:var(--bg2);border-bottom:1px solid var(--line);flex:0 0 auto}
+.brand{display:flex;align-items:center;gap:8px;font-weight:600;letter-spacing:.2px}
+.brand .dot{width:9px;height:9px;border-radius:50%;background:var(--ok);box-shadow:0 0 10px var(--ok)}
+.pill{display:inline-flex;align-items:center;gap:6px;padding:3px 10px;border-radius:999px;
+  background:var(--panel);border:1px solid var(--line);color:var(--muted);font-size:12px}
+.pill b{color:var(--text);font-weight:600}
+.spacer{flex:1}
+.ind{display:inline-flex;align-items:center;gap:6px;font-size:12px;color:var(--muted)}
+.ind .lamp{width:8px;height:8px;border-radius:50%;background:#5a636d}
+.ind.up .lamp{background:var(--ok);box-shadow:0 0 8px rgba(78,201,176,.7)}
+.ind.down .lamp{background:var(--err)}
+.user-chip{display:flex;align-items:center;gap:8px;background:var(--panel);border:1px solid var(--line);
+  border-radius:999px;padding:3px 4px 3px 12px;font-size:12px}
+.avatar{width:24px;height:24px;border-radius:50%;background:var(--accent);color:#fff;
+  display:grid;place-items:center;font-size:11px;font-weight:700}
+
+#main{display:flex;flex:1;min-height:0}
+#sidebar{width:200px;flex:0 0 auto;background:var(--bg2);border-right:1px solid var(--line);
+  padding:10px 8px;display:flex;flex-direction:column;gap:3px;overflow:auto}
+.sb-item{display:flex;align-items:center;gap:10px;padding:9px 11px;border-radius:8px;color:var(--muted)}
+.sb-item:hover{background:var(--panel);color:var(--text)}
+.sb-item.active{background:var(--panel2);color:var(--text);box-shadow:inset 2px 0 0 var(--accent)}
+.sb-item .ico{width:18px;text-align:center;opacity:.9}
+.sb-sep{height:1px;background:var(--line);margin:8px 4px}
+.sb-hint{color:var(--muted);font-size:11px;padding:6px 11px;line-height:1.5}
+</style>
+<style>
+/* ---------- рабочая область ---------- */
+#center{flex:1;min-width:0;display:flex;flex-direction:column;background:var(--bg)}
+.screen{display:none;flex-direction:column;min-height:0;height:100%;padding:16px 18px;overflow:auto}
+.screen.active{display:flex}
+.screen-head{display:flex;align-items:center;gap:12px;margin-bottom:14px;flex-wrap:wrap}
+.screen-head h2{font-size:16px;font-weight:600}
+.screen-head .sub{color:var(--muted);font-size:12px}
+.grid{display:grid;gap:12px}
+.kpi{grid-template-columns:repeat(auto-fit,minmax(170px,1fr))}
+.card{background:var(--panel);border:1px solid var(--line);border-radius:var(--radius);padding:14px 16px}
+.card h3{font-size:12px;color:var(--muted);font-weight:500;text-transform:uppercase;letter-spacing:.06em;margin-bottom:8px}
+.kpi-val{font-size:22px;font-weight:600;line-height:1.15}
+.kpi-sub{color:var(--muted);font-size:11.5px;margin-top:4px}
+.badge{display:inline-flex;align-items:center;gap:5px;padding:2px 8px;border-radius:999px;font-size:11px;
+  background:var(--panel2);border:1px solid var(--line);color:var(--muted)}
+.badge.ok{color:var(--ok);border-color:#2f5b52}
+.badge.err{color:var(--err);border-color:#5a3a36}
+.badge.warn{color:var(--warn);border-color:#5b4f36}
+.row{display:flex;align-items:center;gap:10px;flex-wrap:wrap}
+.list{display:flex;flex-direction:column;gap:8px}
+.item{display:flex;align-items:center;gap:12px;padding:10px 12px;border:1px solid var(--line);
+  border-radius:9px;background:var(--panel);transition:.12s}
+.item:hover{border-color:#4a545e;background:var(--panel2)}
+.item .t{font-weight:600}
+.item .d{color:var(--muted);font-size:12px}
+.item .grow{flex:1;min-width:0}
+.item .name{font-family:var(--mono);font-size:12.5px;color:var(--accent)}
+.mono{font-family:var(--mono);font-size:12px;white-space:pre-wrap;word-break:break-word}
+pre.out{background:#171a1e;border:1px solid var(--line);border-radius:9px;padding:12px;
+  max-height:46vh;overflow:auto;font-family:var(--mono);font-size:12px;white-space:pre-wrap}
+.empty{color:var(--muted);text-align:center;padding:26px 10px;font-size:12.5px}
+.toolbar{display:flex;gap:8px;align-items:center;margin-bottom:12px;flex-wrap:wrap}
+.toolbar input[type=search]{flex:1;min-width:180px}
+/* чат */
+#chat-screen{padding:0}
+#chat-msgs{flex:1;overflow:auto;padding:18px 20px;display:flex;flex-direction:column;gap:12px}
+.msg{max-width:min(760px,88%);padding:11px 14px;border-radius:12px;border:1px solid var(--line);
+  background:var(--panel);white-space:pre-wrap;word-break:break-word}
+.msg.me{align-self:flex-end;background:#2b3a52;border-color:#3b5271}
+.msg .meta{display:block;color:var(--muted);font-size:11px;margin-top:6px}
+#chat-input-area{border-top:1px solid var(--line);background:var(--bg2);padding:12px 16px;
+  display:flex;gap:10px;align-items:flex-end}
+#chat-input{flex:1;min-height:42px;max-height:160px;resize:vertical}
+/* правая панель */
+#right{width:290px;flex:0 0 auto;background:var(--bg2);border-left:1px solid var(--line);
+  padding:12px;overflow:auto;display:flex;flex-direction:column;gap:10px}
+#right h3{font-size:11px;text-transform:uppercase;letter-spacing:.07em;color:var(--muted);font-weight:600}
+.stat-row{display:flex;justify-content:space-between;gap:8px;font-size:12px;padding:4px 0;border-bottom:1px dashed #31373d}
+.stat-row:last-child{border-bottom:none}
+.stat-row span:last-child{color:var(--text);font-family:var(--mono);font-size:11.5px}
+kbd{background:#111417;border:1px solid var(--line);border-bottom-width:2px;border-radius:5px;
+  padding:1px 6px;font-family:var(--mono);font-size:11px}
+/* формы */
+.field{display:flex;flex-direction:column;gap:5px;margin-bottom:10px}
+.field label{font-size:12px;color:var(--muted)}
+.field .hint{font-size:11px;color:var(--muted);opacity:.8}
+.split{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+@media (max-width:1100px){#right{display:none}}
+@media (max-width:820px){#sidebar{width:64px}.sb-item span.lbl,.sb-hint{display:none}}
 </style>
 </head>
-<body><div id="login-screen">
-  <div class="login-card">
-    <h2>&#128272; Вход в Агент</h2>
-    <div class="login-err" id="login-err">Неверный логин или пароль</div>
-    <div class="login-row"><label>Логин</label><input id="login-login" placeholder="логин"></div>
-    <div class="login-row"><label>Пароль</label><input id="login-pw" type="password" placeholder="пароль"></div>
+<body>
+<!-- ЭКРАН ВХОДА -->
+<div id="login-screen">
+  <form class="login-card" onsubmit="return false">
+    <h1>АГЕНТ v15</h1>
+    <div class="sub">Пульт дома: чат, инструменты, программы, диагностика</div>
+    <div class="login-row"><label for="login-login">Логин</label>
+      <input id="login-login" placeholder="логин" autocomplete="username"></div>
+    <div class="login-row"><label for="login-pw">Пароль</label>
+      <input id="login-pw" type="password" placeholder="пароль" autocomplete="current-password"></div>
     <div class="login-actions">
-      <button class="btn-login" id="btn-do-login">Войти</button>
-      <button class="btn-reg" id="btn-do-reg">Регистрация</button>
+      <button class="btn primary" id="btn-do-login">Войти</button>
+      <button class="btn ghost" id="btn-do-reg">Регистрация</button>
     </div>
-  </div>
+    <div class="login-err" id="login-err">Неверный логин или пароль</div>
+  </form>
 </div>
-<div id="top">
-  <div class="brand">&#9632; АГЕНТ v15</div>
-  <div class="sep"></div>
-  <div class="pill" id="pill-model">модель: —</div>
-  <div class="pill" id="pill-tools">инструментов: —</div>
-  <div class="pill" id="pill-programs">программ: —</div>
-  <div class="spacer"></div>
-  <div class="indicator" id="ind-ollama">Ollama ●</div>
-  <div class="indicator" id="ind-creoson">Creoson ●</div>
-  <div class="indicator" id="ind-agent">Агент ●</div>
-  <button class="btn" id="btn-toggle-right">&#9654; Статистика</button>
-  <div class="user-block" id="user-block" style="display:none;">
-    <span class="user-name" id="user-name">—</span>
-    <button class="btn-admin" id="btn-admin" style="display:none;">Админка</button>
-    <button class="btn-logout" id="btn-logout">Выйти</button>
-  </div>
-  <button class="btn" id="btn-toggle-sidebar">&#9654; Навигация</button>
-</div>
-<div id="main">
-  <div id="sidebar">
-    <div id="sidebar-header">Навигация</div>
-    <div id="sidebar-items">
-      <div class="sb-item active" data-tab="overview"><span class="icon">&#128203;</span>Обзор</div>
-      <div class="sb-item" data-tab="chat"><span class="icon">&#128172;</span>Чат</div>
-      <div class="sb-item" data-tab="tools"><span class="icon">&#128187;</span>Инструменты</div>
-      <div class="sb-item" data-tab="programs"><span class="icon">&#127969;</span>Программы</div>
-      <div class="sb-item" data-tab="settings"><span class="icon">&#9998;</span>Настройки</div>
-      <div class="sb-item" data-tab="log"><span class="icon">&#128197;</span>Лог</div>
-    </div>
-  </div>
-  <div class="panel-toggle" id="toggle-sidebar" title="Навигация">&#9654;</div>
-  <div id="center">
-    <div id="tabs"><div class="tab active" data-tab="overview">Обзор</div></div>
-    <div id="workarea">
-      <div class="tab-content active" id="tab-overview">
-        <div class="stat-card"><h4>Статус системы</h4>
-          <div class="stat-row"><span>Агент</span><span class="val" id="stat-agent">—</span></div>
-          <div class="stat-row"><span>Ollama</span><span class="val" id="stat-ollama">—</span></div>
-          <div class="stat-row"><span>Creoson</span><span class="val" id="stat-creoson">—</span></div>
-          <div class="stat-row"><span>Модель</span><span class="val" id="stat-model">—</span></div>
-          <div class="stat-row"><span>Инструментов</span><span class="val" id="stat-tools">—</span></div>
-          <div class="stat-row"><span>Блоков</span><span class="val" id="stat-blocks">—</span></div>
+
+<!-- ПРИЛОЖЕНИЕ -->
+<div id="app">
+  <header id="top">
+    <div class="brand"><span class="dot"></span> АГЕНТ v15</div>
+    <span class="pill" id="pill-model">модель: <b>—</b></span>
+    <span class="pill" id="pill-tools">инструментов: <b>—</b></span>
+    <span class="pill" id="pill-programs">программ: <b>—</b></span>
+    <span class="spacer"></span>
+    <span class="ind" id="ind-ollama"><span class="lamp"></span>Ollama</span>
+    <span class="ind" id="ind-creoson"><span class="lamp"></span>Creoson</span>
+    <span class="ind" id="ind-agent"><span class="lamp"></span>Агент</span>
+    <span class="user-chip" id="user-block" style="display:none">
+      <span class="user-name" id="user-name">—</span>
+      <span class="avatar" id="user-avatar">?</span>
+    </span>
+    <button class="btn sm" id="btn-logout">Выйти</button>
+  </header>
+
+  <div id="main">
+    <nav id="sidebar">
+      <button class="sb-item active" data-tab="overview"><span class="ico">▦</span><span class="lbl">Обзор</span></button>
+      <button class="sb-item" data-tab="chat"><span class="ico">💬</span><span class="lbl">Чат</span></button>
+      <button class="sb-item" data-tab="tools"><span class="ico">🧰</span><span class="lbl">Инструменты</span></button>
+      <button class="sb-item" data-tab="programs"><span class="ico">🧩</span><span class="lbl">Программы</span></button>
+      <button class="sb-item" data-tab="people"><span class="ico">👥</span><span class="lbl">Люди</span></button>
+      <div class="sb-sep"></div>
+      <button class="sb-item" data-tab="logs"><span class="ico">📜</span><span class="lbl">Журнал</span></button>
+      <button class="sb-item" data-tab="settings"><span class="ico">⚙</span><span class="lbl">Настройки</span></button>
+      <div class="sb-sep"></div>
+      <div class="sb-hint">Ctrl+K — поиск инструмента<br>Ctrl+Enter — отправить<br>Esc — стоп ответа</div>
+    </nav>
+
+    <main id="center">
+      <!-- ОБЗОР -->
+      <section class="screen active" id="screen-overview">
+        <div class="screen-head"><h2>Обзор дома</h2>
+          <span class="sub" id="ov-updated">—</span>
+          <span class="spacer"></span>
+          <button class="btn sm" id="btn-refresh">Обновить</button>
         </div>
-        <div class="stat-card"><h4>Окно контекста</h4>
-          <div class="stat-row"><span>Запрошено</span><span class="val" id="stat-ctx-req">—</span></div>
-          <div class="stat-row"><span>Сессия</span><span class="val" id="stat-ctx-sess">—</span></div>
-          <div class="stat-row"><span>Режим</span><span class="val" id="stat-mode">—</span></div>
+        <div class="grid kpi" id="kpi">
+          <div class="card"><h3>Модель</h3><div class="kpi-val" id="kpi-model">—</div>
+            <div class="kpi-sub" id="kpi-model-sub">контекст —</div></div>
+          <div class="card"><h3>Инструменты</h3><div class="kpi-val" id="kpi-tools">—</div>
+            <div class="kpi-sub" id="kpi-tools-sub">блоков —</div></div>
+          <div class="card"><h3>Программы</h3><div class="kpi-val" id="kpi-programs">—</div>
+            <div class="kpi-sub">с контрактом tool.json</div></div>
+          <div class="card"><h3>Сервисы</h3><div class="kpi-val" id="kpi-services">—</div>
+            <div class="kpi-sub" id="kpi-services-sub">—</div></div>
         </div>
-        <div class="chart" id="chart-tools"><div style="position:absolute;top:6px;left:8px;font-size:11px;color:var(--text-muted);">Инструменты по группам</div></div>
+        <div class="grid" style="grid-template-columns:1fr 1fr;margin-top:12px">
+          <div class="card"><h3>Последние запуски программ</h3><div class="list" id="ov-programs"></div></div>
+          <div class="card"><h3>Подсказки</h3>
+            <div class="mono" style="color:var(--muted)">
+              • Инструменты — поиск и запуск без модели (права: роль + согласование)<br>
+              • Программы — открыть окно или прогнать движок в фоне<br>
+              • Люди — роли и доступы (только администратор)<br>
+              • Настройки — модель, контекст, поведение ИИ (только администратор)
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- ЧАТ -->
+      <section class="screen" id="chat-screen">
+        <div id="chat-msgs"></div>
+        <div id="chat-input-area">
+          <textarea id="chat-input" rows="1" placeholder="Спросите агента…  (Ctrl+Enter — отправить)"></textarea>
+          <button class="btn primary" id="btn-send">Отправить</button>
+          <button class="btn danger" id="btn-stop" title="Остановить ответ (Esc)">■</button>
+          <button class="btn ghost sm" id="btn-clear-output" title="Очистить ленту">Очистить</button>
+        </div>
+      </section>
+      <!-- ИНСТРУМЕНТЫ -->
+      <section class="screen" id="screen-tools">
+        <div class="screen-head"><h2>Инструменты</h2><span class="sub" id="tools-count">—</span>
+          <span class="spacer"></span><span class="sub">запуск без модели · права проверяет дом</span></div>
+        <div class="toolbar">
+          <input type="search" id="tool-search" placeholder="поиск: имя, описание, группа…   (Ctrl+K)">
+          <select id="tool-group"><option value="">все группы</option></select>
+        </div>
+        <div class="split" style="grid-template-columns:minmax(280px,44%) 1fr;min-height:0">
+          <div class="list" id="tools-list" style="overflow:auto;max-height:62vh"></div>
+          <div class="card" style="display:flex;flex-direction:column;gap:10px;min-height:0">
+            <h3 id="tool-run-title">Выберите инструмент слева</h3>
+            <div id="tool-args" class="mono" style="color:var(--muted)"></div>
+            <div class="row">
+              <button class="btn primary" id="tool-run-btn" disabled>Запустить</button>
+              <span class="badge" id="tool-run-badge">—</span>
+            </div>
+            <pre class="out" id="tool-result">Результат появится здесь.</pre>
+          </div>
+        </div>
+      </section>
+
+      <!-- ПРОГРАММЫ -->
+      <section class="screen" id="screen-programs">
+        <div class="screen-head"><h2>Программы дома</h2><span class="sub" id="programs-count">—</span>
+          <span class="spacer"></span>
+          <input type="search" id="programs-search" placeholder="поиск программы…"></div>
+        <div class="list" id="programs-list"></div>
+      </section>
+
+      <!-- ЛЮДИ -->
+      <section class="screen" id="screen-people">
+        <div class="screen-head"><h2>Люди и роли</h2>
+          <span class="sub">админские инструменты и настройки — только роли «Администратор»</span>
+          <span class="spacer"></span><button class="btn sm" id="people-refresh">Обновить</button></div>
+        <div class="list" id="people-list"></div>
+        <div class="card" style="margin-top:12px">
+          <h3>Добавить пользователя</h3>
+          <div class="row">
+            <input id="new-login" placeholder="логин">
+            <input id="new-pw" type="password" placeholder="пароль">
+            <select id="new-role"></select>
+            <button class="btn primary sm" id="btn-add-user">Создать</button>
+          </div>
+          <div class="mono" id="people-msg" style="margin-top:8px;color:var(--muted)"></div>
+        </div>
+      </section>
+
+      <!-- ЖУРНАЛ -->
+      <section class="screen" id="screen-logs">
+        <div class="screen-head"><h2>Журнал агента</h2><span class="sub" id="log-updated">—</span>
+          <span class="spacer"></span><button class="btn sm" id="logs-refresh">Обновить</button></div>
+        <pre class="out" id="log-body" style="max-height:70vh">—</pre>
+      </section>
+
+      <!-- НАСТРОЙКИ -->
+      <section class="screen" id="screen-settings">
+        <div class="screen-head"><h2>Настройки</h2>
+          <span class="sub">глобальные (модель, контекст, поведение ИИ) — только администратор</span>
+          <span class="spacer"></span><button class="btn sm" id="settings-refresh">Обновить</button></div>
+        <div class="list" id="settings-list"></div>
+      </section>
+    </main>
+    <aside id="right">
+      <div>
+        <h3>Сессия</h3>
+        <div class="stat-row"><span>Пользователь</span><span id="st-user">—</span></div>
+        <div class="stat-row"><span>Роль</span><span id="st-role">—</span></div>
+        <div class="stat-row"><span>Модель</span><span id="st-model">—</span></div>
+        <div class="stat-row"><span>Контекст</span><span id="st-ctx">—</span></div>
+        <div class="stat-row"><span>Инструментов</span><span id="st-tools">—</span></div>
+        <div class="stat-row"><span>Блоков</span><span id="st-blocks">—</span></div>
       </div>
-      <div class="tab-content" id="tab-chat">
-        <div id="chat-msgs"><div class="msg system">Подключено к агенту. Готово к сообщениям.</div></div>
-        <div id="chat-input-area"><input id="chat-input" placeholder="Сообщение агенту…" autocomplete="off"><button class="send" id="btn-send">Отправить</button></div>
+      <div>
+        <h3>Последний ответ</h3>
+        <div class="stat-row"><span>Время</span><span id="st-last-time">—</span></div>
+        <div class="stat-row"><span>Токены</span><span id="st-last-tokens">—</span></div>
+        <div class="stat-row"><span>Шагов</span><span id="st-last-steps">—</span></div>
       </div>
-      <div class="tab-content" id="tab-tools"><table class="table"><thead><tr><th>Имя</th><th>Группа</th><th>Описание</th></tr></thead><tbody id="tools-body"></tbody></table></div>
-      <div class="tab-content" id="tab-programs"><table class="table"><thead><tr><th>ID</th><th>Название</th><th>Статус</th></tr></thead><tbody id="programs-body"></tbody></table></div>
-      <div class="tab-content" id="tab-settings"><div id="settings-body"></div></div>
-      <div class="tab-content" id="tab-log"><div id="log-body"></div></div>
-    </div>
-  </div>
-  <div class="panel-toggle" id="toggle-right" title="Статистика">&#9654;</div>
-  <div id="right">
-    <div id="right-header">Информация <span id="btn-close-right" style="cursor:pointer;font-size:11px;color:var(--text-muted);">&#10006;</span></div>
-    <div id="right-content">
-      <div class="stat-card"><h4>Ресурсы</h4>
-        <div class="stat-row"><span>Моделей</span><span class="val" id="stat-models">—</span></div>
-        <div class="stat-row"><span>Скилов</span><span class="val" id="stat-skills">—</span></div>
-        <div class="stat-row"><span>Чанков</span><span class="val" id="stat-chunks">—</span></div>
-        <div class="stat-row"><span>Баз</span><span class="val" id="stat-bases">—</span></div>
+      <div>
+        <h3>Горячие клавиши</h3>
+        <div class="stat-row"><span>Поиск инструмента</span><span><kbd>Ctrl</kbd>+<kbd>K</kbd></span></div>
+        <div class="stat-row"><span>Отправить</span><span><kbd>Ctrl</kbd>+<kbd>Enter</kbd></span></div>
+        <div class="stat-row"><span>Стоп ответа</span><span><kbd>Esc</kbd></span></div>
       </div>
-      <div class="stat-card"><h4>Нагрузка</h4><div class="chart" id="chart-load"></div></div>
-      <div class="stat-card"><h4>События</h4><div id="right-events" style="font-size:11px;color:var(--text-muted);"></div></div>
-    </div>
+      <div>
+        <h3>Как это работает</h3>
+        <div class="mono" style="color:var(--muted);font-size:11.5px">
+          Инструменты вызываются напрямую (<span style="color:var(--accent)">/tool</span>),
+          программы — через <span style="color:var(--accent)">/prog_run</span>,
+          настройки — <span style="color:var(--accent)">/setcfg</span>.
+          Дом сам отклоняет то, что роли нельзя.
+        </div>
+      </div>
+    </aside>
   </div>
 </div>
-<div id="output-panel">
-  <div id="output-header">Вывод <span class="spacer"></span><button class="btn" id="btn-clear-output">Очистить</button><button class="btn" id="btn-toggle-output">&#9660;</button></div>
-  <div id="output-body"></div>
-</div>
-<div id="statusbar"><div class="item"><span class="dot" id="sb-dot"></span><span id="sb-status">Готов</span></div><div class="item" id="sb-time">—</div><div class="item" id="sb-user">—</div><div class="item" id="sb-layout">v2</div></div>
-<script src="/ui/app.js?v=4"></script>
+<script src="app.js"></script>
 </body>
 </html>
-
-
-
