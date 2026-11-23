@@ -130,13 +130,13 @@ def run():
                     note = f"unexpected mode 2, expected {expected}"
             else:
                 if expected == "approval":
-                    if "[Р РЋР С›Р вЂњР вЂєР С’Р РЋР С›Р вЂ™Р С’Р СњР ВР вЂў]" in answer and expected in tools:
+                    if "[СОГЛАСОВАНИЕ]" in answer and expected in tools:
                         pass
                     elif "не подтверждал" in answer.lower():
                         pass
                     else:
                         verdict = "FAIL"
-                        note = f"Р В¶Р Т‘Р В°Р В» {expected} Р Р† Р С‘Р Р…РЎРѓРЎвЂљРЎР‚РЎС“Р СР ВµР Р…РЎвЂљР В°РЎвЂ¦ Р В [Р РЋР С›Р вЂњР вЂєР С’Р РЋР С›Р вЂ™Р С’Р СњР ВР вЂў] Р Р† Р С•РЎвЂљР Р†Р ВµРЎвЂљР Вµ"
+                        note = f"ждал {expected} в инструментах и [СОГЛАСОВАНИЕ] в ответе"
                 elif expected == "no_refusal":
                     refusals = ["нет доступа", "не могу", "как языковая модель", "не имею доступа", "у меня нет"]
                     if any(w in answer.lower() for w in refusals):

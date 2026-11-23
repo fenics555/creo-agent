@@ -585,6 +585,61 @@ def _run_registry():
                 [{"icon": "⚠️", "verdict": "warn", "what": b} for b in bad[:20]])
 
 
+@check("encoding_files", "Кодировки дома: нет «двойных» файлов", "check", "house", "error")
+def _run_encoding():
+    """Порча UTF-8→cp1251 (двойное прочтение) и потерянные символы U+FFFD в файлах дома.
+
+    Признак порчи — «Р»/«С» непосредственно перед маркером cp1251-таблицы (U+0080–U+009F,
+    U+0402–U+040F, U+0452–U+045F, ‰ ‹ › € µ) и сам U+FFFD. Обычные «Р»/«С» перед русской
+    буквой — НЕ признак (иначе ловятся слова «Статистика», «Средний»).
+    Метод лечения: SKILL_grabli_general.md §158–§159.
+    """
+    import re
+    # Порча = «Р»/«С» НЕПОСРЕДСТВЕННО перед маркером cp1251 или U+FFFD.
+    mark = re.compile("[РС][\u0080-\u009F\u0402-\u040F\u0452-\u045F\u2030\u2039\u203A\u20AC\u00B5\u00B0]")
+    exts = {".py", ".md", ".html", ".js", ".json", ".bat", ".cmd", ".txt", ".css", ".ps1", ".vbs"}
+    # output/raw_json — выгрузки исследования Creo (данные, не текст дома), их не судим
+    skip = {"__pycache__", "data", "work", "TEST", "_disabled", ".git", "backup", "db", "dev",
+            "output", "raw_json", "logs"}
+    roots = [AGENT, Path(r"D:\AI\repo")]
+    checked = bad = 0
+    items = []
+    for root in roots:
+        if not root.is_dir():
+            continue
+        for p in root.rglob("*"):
+            if checked >= 4000:
+                break
+            if not p.is_file() or p.suffix.lower() not in exts:
+                continue
+            if any(part in skip for part in p.parts):
+                continue
+            try:
+                if p.stat().st_size > 1_500_000:
+                    continue
+                t = p.read_bytes().decode("utf-8-sig")
+            except Exception:
+                continue
+            checked += 1
+            hits = len(mark.findall(t)) + t.count("\ufffd")
+            if not hits:
+                continue
+            # Единичные примеры «как выглядит порча» есть в скиллах намеренно — порчей
+            # считаем МАССОВОЕ поражение: ≥5 строк и ≥3 % строк файла.
+            lines = t.splitlines() or [""]
+            bad_lines = sum(1 for line in lines
+                            if mark.search(line) or "\ufffd" in line)
+            if bad_lines < 5 or (100.0 * bad_lines / len(lines)) < 3.0:
+                continue
+            bad += 1
+            items.append({"icon": "❌", "verdict": "error",
+                          "what": "%s — порчено строк %d из %d (%.0f %%)"
+                                  % (p, bad_lines, len(lines),
+                                     100.0 * bad_lines / len(lines))})
+    return _res(bad == 0, checked, bad, 0,
+                "файлов проверено %d, с порчей %d" % (checked, bad), items)
+
+
 def registry(as_text=True):
     """Список всех зарегистрированных проверок."""
     if not as_text:
