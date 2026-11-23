@@ -26,8 +26,22 @@ for _p in (_AGENT,):
 LOG_DIR = Path(r"D:\AI\log\hol_check")
 REPORT_DIR = Path(r"D:\AI\log\reports")
 
-# Боевые папки: основная и СТАРОЕ (план, этап 1: обход ГОСТ/DIN/source/СТАРОЕ)
-HOLE_ROOT = Path(r"Z:\PTC\CREO-START\НАСТРОЙКИ\ТАБЛИЦА_ОТВЕРСТИЙ")
+# Боевые папки: основная и СТАРОЕ (план, этап 1: обход ГОСТ/DIN/source/СТАРОЕ).
+# 23.11.2026: корень задаётся в settings\settings.json ("hole_root"), код — дефолт.
+SETTINGS_FILE = _HERE / "settings" / "settings.json"
+
+
+def _settings():
+    try:
+        import json
+        return (json.loads(SETTINGS_FILE.read_text(encoding="utf-8"))
+                if SETTINGS_FILE.exists() else {})
+    except Exception:
+        return {}
+
+
+HOLE_ROOT = Path(_settings().get("hole_root")
+                 or r"Z:\PTC\CREO-START\НАСТРОЙКИ\ТАБЛИЦА_ОТВЕРСТИЙ")
 DEFAULT_DIRS = [HOLE_ROOT, HOLE_ROOT / "СТАРОЕ"]
 ETALON = HOLE_ROOT / "g6111_konich_60.hol"
 

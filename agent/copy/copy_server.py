@@ -21,7 +21,7 @@ HERE = Path(__file__).resolve().parent
 # data\copy_settings.json (его пишет окно) и в config.json (`copy_port`, который не читал
 # никто). Теперь источник ОДИН: файл настроек службы; константа осталась только как
 # последний рубеж, когда файла ещё нет (первый запуск).
-SETTINGS_FILE = Path(r"D:\AI\tools\agent\data\copy_settings.json")
+SETTINGS_FILE = HERE / "settings" / "settings.json"
 
 
 def load_port(default=PORT):

@@ -22,7 +22,7 @@ from tkinter import filedialog, messagebox   # noqa: E402
 import hol_check as eng                      # noqa: E402
 import ui_common as U                         # noqa: E402
 
-SETTINGS = Path(r"D:\AI\tools\agent\data\hol_check_settings.json")
+SETTINGS = _HERE / "settings" / "settings.json"
 DEFAULTS = {"folders": [str(d) for d in eng.DEFAULT_DIRS], "show_ok": "нет"}
 ICON_TAG = {"ok": ("ok", U.ICON_OK), "warn": ("warn", U.ICON_WARN),
             "error": ("fail", U.ICON_ERR)}

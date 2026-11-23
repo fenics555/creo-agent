@@ -9,8 +9,19 @@ from datetime import datetime
 CREO_EXT_PATTERN = re.compile(r"\.(drw|drw\.\d+)$", re.I)
 DB_AGENT = r"D:\AI\tools\agent\data\agent.sqlite"
 DB_HARVEST = r"D:\AI\tools\agent\data\harvest.db"
-SEARCH_PRO = r"Z:\PTC\Work\search.pro"
-WORK_ROOT = r"Z:\PTC\Work"       # эталон «верхней папки» для распределения сирот
+# 23.11.2026: пути задаются в settings\settings.json ("search_pro", "work_root"),
+# код — дефолт, чтобы перенос на другой компьютер не требовал правки программы.
+_CFG = {}
+try:
+    import json as _json
+    _sp = os.path.join(os.path.dirname(os.path.abspath(__file__)), "settings", "settings.json")
+    if os.path.exists(_sp):
+        _CFG = _json.load(open(_sp, encoding="utf-8")) or {}
+except Exception:
+    _CFG = {}
+
+SEARCH_PRO = _CFG.get("search_pro") or r"Z:\PTC\Work\search.pro"
+WORK_ROOT = _CFG.get("work_root") or r"Z:\PTC\Work"       # эталон «верхней папки» для распределения сирот
 LOG_DIR = r"D:\AI\log\orphan_scan"
 REPORT_DIR = r"D:\AI\log\reports"
 REPORT_PREFIX = "REPORT_orphan_scan"          # имя отчёта не привязано к номеру спеки

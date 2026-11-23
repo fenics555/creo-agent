@@ -31,10 +31,22 @@ import creo_read as CR   # noqa: E402
 
 LOG_DIR = Path(r"D:\AI\log\batch_params")
 REPORT_DIR = Path(r"D:\AI\log\reports")
-SETTINGS = _AGENT / "data" / "batch_params_settings.json"
+SETTINGS = _HERE / "settings" / "settings.json"
 
 # Боевая библиотека стандартных изделий - откуда берём модели для плана (только чтение).
-DEFAULT_ROOT = Path(r"Z:\PTC\CREO-START\Libraries\Библиотека_стандартных_изделий")
+# 23.11.2026: путь задаётся в settings\settings.json ("root"), код — дефолт.
+
+
+def _settings():
+    try:
+        return (json.loads(SETTINGS.read_text(encoding="utf-8"))
+                if SETTINGS.exists() else {})
+    except Exception:
+        return {}
+
+
+DEFAULT_ROOT = Path(_settings().get("root")
+                    or r"Z:\PTC\CREO-START\Libraries\Библиотека_стандартных_изделий")
 MODEL_EXT = (".prt", ".asm")
 MAX_FILES = 300          # предохранитель: план не должен уходить в бесконечный обход
 

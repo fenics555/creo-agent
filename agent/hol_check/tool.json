@@ -16,7 +16,7 @@
    "desc": "папки с .hol; по умолчанию боевая + СТАРОЕ"}
  ],
  "outputs": {"report": "REPORT_hol_check_*.md", "log": "hol_check_*.csv"},
- "settings": "",
+ "settings": "settings/settings.json",
  "deps": ["ui_common"],
  "approval": false,
  "ui": "ui_common",
