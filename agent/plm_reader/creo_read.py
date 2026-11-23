@@ -8,6 +8,9 @@ from collections import Counter
 
 TAIL = re.compile(rb"\xf7(.)\xe3([0-9]{1,7})\x00\x00(.{0,220}?)\x00((?:Creo )?[0-9][0-9.]*)\x00", re.S)
 STAMP = re.compile(rb"\xf7\x14([\x20-\x7e\xc0-\xff]{1,24}?)\x00\xe2(.)(.)(.)(.)(.)(.)", re.S)
+# 23.11.2026: ВТОРАЯ раскладка штампа истории (была утеряна в V181 вместе с passport).
+# Без неё user_time() находит 0 штампов -> author/revdate паспорта пустые.
+STAMP2 = re.compile(rb"\xe1\xf6\xe1([\x20-\x7e\xc0-\xff]{1,24}?)\x00\xe2(.)(.)(.)(.)(.)(.)", re.S)
 NAME_B = re.compile(rb"[\x00-\x1f\x80-\xff]([A-Za-z0-9][A-Za-z0-9_\-\.]{3,47}\.(?:PRT|ASM))", re.IGNORECASE)
 
 def clean_creo_font(s: str) -> str:
@@ -300,14 +303,15 @@ def role(raw: bytes, stems=frozenset(), me=""):
 
 def user_time(raw: bytes):
     out = []
-    for m in STAMP.finditer(raw):
-        s, mi, h, d, mo, y = (b for b in m.groups()[1:])
-        try: dt = datetime.datetime(1900 + y, mo + 1, d, h, mi, s)
-        except ValueError: continue
-        if 1990 <= dt.year <= 2030:
-            try: who = m.group(1).decode("utf-8")
-            except UnicodeDecodeError: who = m.group(1).decode("cp1251", "replace")
-            out.append((m.start(), who, dt))
+    for rx in (STAMP, STAMP2):    # 23.11.2026: обе раскладки (STAMP2 вернулся вместе с passport)
+        for m in rx.finditer(raw):
+            s, mi, h, d, mo, y = (b[0] for b in m.groups()[1:])   # 23.11.2026: группы — bytes, нужен int
+            try: dt = datetime.datetime(1900 + y, mo + 1, d, h, mi, s)
+            except ValueError: continue
+            if 1990 <= dt.year <= 2030:
+                try: who = m.group(1).decode("utf-8")
+                except UnicodeDecodeError: who = m.group(1).decode("cp1251", "replace")
+                out.append((m.start(), who, dt))
     return sorted(set(out))
 
 def last_hist(raw: bytes):
@@ -326,6 +330,55 @@ def names(raw: bytes):
     for m in NAME_B.finditer(raw):
         c[stem(m.group(1).decode("latin-1"))] += 1
     return c
+
+
+def params_legacy(raw: bytes) -> dict:
+    """Параметры по схеме ДО V181 (возвращено 23.11.2026 вместе с passport).
+
+    ЗАЧЕМ: текущий `params()` (схема V181) ищет теги иначе и на эталонном файле не находит
+    `PTC_MASTER_MATERIAL` и `НАИМЕНОВАНИЕ` (проверено diag4: 1 ключ против 5 у легаси).
+    Скан: секция NeuPrtSld, затем ВЕСЬ файл (часть параметров лежит вне секции).
+    """
+    out = {}
+    off, ln = parse_toc(raw).get("NeuPrtSld", (0, 0))
+    tag_re = re.compile(rb"([\x20-\xff]{3,32})\x00(?:\xe2\x33|\x27\x88\x20\xe3\x33)(.{0,80}?)\x00", re.S)
+    for src in (raw[off:off + ln], raw):
+        for m in tag_re.finditer(src):
+            t = re.search(r"[\w]+$", m.group(1).decode("utf-8", "replace"))
+            try:
+                v = m.group(2).decode("utf-8")
+            except UnicodeDecodeError:
+                continue
+            if t and v and "\x00" not in v:
+                out.setdefault(t.group(0), " ".join(v.split()))
+    return out
+
+
+def passport(path, stems=()):
+    """Паспорт модели из файла (Creo не нужен).
+
+    ВОЗВРАЩЁН 23.11.2026: функция исчезла в коммите f3fcfb4 (Release V181, 16.11.2026),
+    хотя SKILL_creo_raw_reader.md и SUITE.md п.18 продолжали на неё ссылаться.
+    Эталон дома (проверено на бэкапе 30.09.2026 и повторно 23.11.2026):
+      passport(r'D:\\AI\\PROBA\\models\\00080-03.prt') ->
+      size=61414, material=PTC_SYSTEM_MTRL_PROPS, rev=114, author=KAMESH, revdate='05.01.24 10:15'
+    Регресс-проверка: tmp\\run_2026-11-23\\selftest_creo.py
+    """
+    raw = read(path)
+    toc = parse_toc(raw)
+    pr = params_legacy(raw)                      # схема до V181: материал / наименование / обозначение
+    for k, v in params(raw, toc).items():
+        pr.setdefault(k, v)                      # схема V181: добирает то, чего нет в легаси
+    vol = real(raw, "volume") or real(raw, "mtrl_volume")
+    nm = names(raw)
+    refs = {c: nm[c] for c in nm if c != stem(os.path.basename(path)) and c in stems and len(c) >= 5}
+    h = last_hist(raw) or ("", "", "")
+    return {"path": path, "size": len(raw), "mtime": os.path.getmtime(path),
+            "volume": vol or 0.0, "material": pr.get("PTC_MASTER_MATERIAL") or "",
+            "name": pr.get("\u041d\u0410\u0418\u041c\u0415\u041d\u041e\u0412\u0410\u041d\u0418\u0415") or "",
+            "designation": pr.get("\u041e\u0411\u041e\u0417\u041d\u0410\u0427\u0415\u041d\u0418\u0415") or "",
+            "rev": h[0], "author": h[1], "revdate": h[2],
+            "role": role(raw, stems, stem(os.path.basename(path))), "refs": refs}
 
 def get_structural_data(raw: bytes) -> dict:
     return {"outline_mm": outline_bbox_mm(raw), "params": params(raw)}
