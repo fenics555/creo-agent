@@ -2,7 +2,7 @@
  "version": "V220",
  "version_num": 220,
  "date": "23.11.2026",
- "notes": "rebuild manifest: sync SHA plm_creo_parse.py + plm_scanner.py (fix auto-update)",
+ "notes": "STATE.md: log V220 manifest-fix (sync SHA)",
  "schema_version": 4,
  "remove": [
   "_probe_scan137.py",
@@ -42,7 +42,7 @@
   "plm_graph_build.py": "bf05e9d9f8057b0f8e78758a4ac345409849905b83b2c6903a43ad2352e358d7",
   "plm_scanner.py": "e622d872a640c8df3915567bdbe26770ba56653e6e909ca5b7f205c3193aa022",
   "plm_db_admin_win.py": "e781b728d218bb196aeb8fc5359fc30b4455b7334870daca0ef66947d98961a2",
-  "STATE.md": "42cd38c2dd3b46068f6a8773a6a9c622db89a8040cb5a51c2e081ca5e0200fa4",
+  "STATE.md": "62ecb7a5154b8239d1539bff2e8613c9dbb3a22dd01032038ddc5630be5a467a",
   "CONCEPT_PLM.md": "6addb5c97847d55b261a2890e8f08a6efc4a2ca468c8d090f357b1b8c2c4ab61"
  }
 }
