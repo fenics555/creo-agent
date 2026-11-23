@@ -129,6 +129,43 @@ kbd{background:#111417;border:1px solid var(--line);border-bottom-width:2px;bord
 .field label{font-size:12px;color:var(--muted)}
 .field .hint{font-size:11px;color:var(--muted);opacity:.8}
 .split{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+/* ---------- инфографика и модель ---------- */
+.model-pick{display:inline-flex;align-items:center;gap:6px;background:var(--panel);border:1px solid var(--line);
+  border-radius:999px;padding:2px 6px 2px 10px}
+.model-pick .ico{font-size:13px;opacity:.9}
+.model-pick select{background:transparent;border:none;padding:4px 6px;font-size:12.5px;max-width:260px}
+.model-pick select:disabled{opacity:.55;cursor:not-allowed}
+.model-pick.pulse{animation:pulse 1.2s ease}
+@keyframes pulse{0%{box-shadow:0 0 0 0 rgba(61,139,253,.55)}100%{box-shadow:0 0 0 12px rgba(61,139,253,0)}}
+.donut-wrap{position:relative;width:150px;height:150px;margin:2px auto 0}
+.donut{width:150px;height:150px;transform:rotate(-90deg)}
+.donut path{transition:opacity .15s}
+.donut path:hover{opacity:.75}
+.donut-center{position:absolute;inset:0;display:grid;place-content:center;text-align:center}
+.donut-center b{font-size:19px;line-height:1.1}
+.donut-center span{display:block;color:var(--muted);font-size:10.5px;letter-spacing:.04em}
+.bars{display:flex;flex-direction:column;gap:7px}
+.bar-row{display:grid;grid-template-columns:150px 1fr 40px;gap:10px;align-items:center;font-size:12px}
+.bar-track{height:9px;border-radius:99px;background:#171a1e;border:1px solid var(--line);overflow:hidden}
+.bar-fill{height:100%;border-radius:99px;background:linear-gradient(90deg,#3d8bfd,#59b0ff)}
+.bar-row .n{color:var(--muted);text-align:right;font-family:var(--mono);font-size:11px}
+.progress{height:10px;border-radius:99px;background:#171a1e;border:1px solid var(--line);overflow:hidden}
+.progress i{display:block;height:100%;width:0;border-radius:99px;
+  background:linear-gradient(90deg,var(--ok),#7ee0c9);transition:width .4s ease}
+.spark{width:100%;height:60px}
+.spark polyline{fill:none;stroke:var(--accent);stroke-width:2;stroke-linejoin:round;stroke-linecap:round}
+.spark circle{fill:var(--accent)}
+.legend-item{display:flex;align-items:center;gap:8px;font-size:12px;color:var(--muted)}
+.legend-item i{width:10px;height:10px;border-radius:3px;flex:0 0 auto}
+.legend-item b{color:var(--text);font-weight:600}
+.card{box-shadow:0 2px 14px rgba(0,0,0,.16)}
+.kpi .card{background:linear-gradient(160deg,#272d34 0%,#22272c 100%)}
+.streaming .msg:last-child{border-color:var(--accent);box-shadow:0 0 0 1px rgba(61,139,253,.25)}
+.typing:after{content:'▍';animation:blink 1s steps(1) infinite;color:var(--accent)}
+@keyframes blink{50%{opacity:0}}
+.think{margin-top:8px;border-top:1px dashed #3a4149;padding-top:6px;color:var(--muted);font-size:12px}
+.think summary{cursor:pointer;color:var(--muted);font-size:11.5px;user-select:none}
+.think .mono{margin-top:6px;max-height:180px;overflow:auto;color:#b9c2cc;font-size:11.5px}
 @media (max-width:1100px){#right{display:none}}
 @media (max-width:820px){#sidebar{width:64px}.sb-item span.lbl,.sb-hint{display:none}}
 </style>
@@ -155,7 +192,11 @@ kbd{background:#111417;border:1px solid var(--line);border-bottom-width:2px;bord
 <div id="app">
   <header id="top">
     <div class="brand"><span class="dot"></span> АГЕНТ v15</div>
-    <span class="pill" id="pill-model">модель: <b>—</b></span>
+    <span class="pill" id="pill-model" style="display:none">модель: <b>—</b></span>
+    <label class="model-pick" title="Модель дома — смена применяется сразу (только админ)">
+      <span class="ico">🧠</span>
+      <select id="model-select"><option value="">— модели —</option></select>
+    </label>
     <span class="pill" id="pill-tools">инструментов: <b>—</b></span>
     <span class="pill" id="pill-programs">программ: <b>—</b></span>
     <span class="spacer"></span>
@@ -176,6 +217,7 @@ kbd{background:#111417;border:1px solid var(--line);border-bottom-width:2px;bord
       <button class="sb-item" data-tab="tools"><span class="ico">🧰</span><span class="lbl">Инструменты</span></button>
       <button class="sb-item" data-tab="programs"><span class="ico">🧩</span><span class="lbl">Программы</span></button>
       <button class="sb-item" data-tab="people"><span class="ico">👥</span><span class="lbl">Люди</span></button>
+      <button class="sb-item" data-tab="maint"><span class="ico">🛠</span><span class="lbl">Обслуживание</span></button>
       <div class="sb-sep"></div>
       <button class="sb-item" data-tab="logs"><span class="ico">📜</span><span class="lbl">Журнал</span></button>
       <button class="sb-item" data-tab="settings"><span class="ico">⚙</span><span class="lbl">Настройки</span></button>
@@ -201,14 +243,30 @@ kbd{background:#111417;border:1px solid var(--line);border-bottom-width:2px;bord
           <div class="card"><h3>Сервисы</h3><div class="kpi-val" id="kpi-services">—</div>
             <div class="kpi-sub" id="kpi-services-sub">—</div></div>
         </div>
+        <div class="grid" style="grid-template-columns:340px 1fr;margin-top:12px">
+          <div class="card"><h3>Инструменты по группам</h3>
+            <div class="donut-wrap">
+              <svg id="donut" viewBox="0 0 120 120" class="donut" aria-label="доли групп"></svg>
+              <div class="donut-center"><b id="donut-total">—</b><span>инструментов</span></div>
+            </div>
+            <div class="list" id="donut-legend" style="margin-top:10px"></div>
+          </div>
+          <div class="card"><h3>Крупнейшие группы</h3><div id="bars" class="bars"></div>
+            <h3 style="margin-top:14px">Контекст модели</h3>
+            <div class="progress"><i id="ctx-bar" style="width:0%"></i></div>
+            <div class="mono" id="ctx-info" style="color:var(--muted);font-size:11.5px;margin-top:6px">—</div>
+            <h3 style="margin-top:14px">Время ответов (последние 20)</h3>
+            <svg id="spark" viewBox="0 0 300 60" class="spark" aria-label="время ответов"></svg>
+          </div>
+        </div>
         <div class="grid" style="grid-template-columns:1fr 1fr;margin-top:12px">
-          <div class="card"><h3>Последние запуски программ</h3><div class="list" id="ov-programs"></div></div>
+          <div class="card"><h3>Последние программы</h3><div class="list" id="ov-programs"></div></div>
           <div class="card"><h3>Подсказки</h3>
             <div class="mono" style="color:var(--muted)">
+              • Модель меняется в шапке — сразу, без перезапуска<br>
               • Инструменты — поиск и запуск без модели (права: роль + согласование)<br>
-              • Программы — открыть окно или прогнать движок в фоне<br>
-              • Люди — роли и доступы (только администратор)<br>
-              • Настройки — модель, контекст, поведение ИИ (только администратор)
+              • Обслуживание — проверки дома, git-статус, обновление кода<br>
+              • Ctrl+K — поиск инструмента · Ctrl+Enter — отправить · Esc — стоп
             </div>
           </div>
         </div>
@@ -279,7 +337,32 @@ kbd{background:#111417;border:1px solid var(--line);border-bottom-width:2px;bord
         <pre class="out" id="log-body" style="max-height:70vh">—</pre>
       </section>
 
-      <!-- НАСТРОЙКИ -->
+      <!-- ОБСЛУЖИВАНИЕ -->
+      <section class="screen" id="screen-maint">
+        <div class="screen-head"><h2>Обслуживание</h2>
+          <span class="sub">проверки дома, тесты, обновление кода</span>
+          <span class="spacer"></span><button class="btn sm" id="maint-refresh">Git-статус</button></div>
+        <div class="grid" style="grid-template-columns:repeat(auto-fit,minmax(230px,1fr))">
+          <div class="card"><h3>Проверки дома</h3>
+            <div class="d" style="color:var(--muted);font-size:11.5px">единый прогон checks.py: контракты,
+              кодировки, витрина, культура, сервисы</div>
+            <div class="row" style="margin-top:10px">
+              <button class="btn primary sm" id="run-checks">Прогнать всё</button>
+              <button class="btn sm" id="run-checks-house">Только house</button>
+            </div></div>
+          <div class="card"><h3>Список проверок</h3>
+            <div class="d" style="color:var(--muted);font-size:11.5px">что зарегистрировано в доме сейчас</div>
+            <div class="row" style="margin-top:10px">
+              <button class="btn sm" id="btn-checks-list">Показать</button></div></div>
+          <div class="card"><h3>Обновление кода</h3>
+            <div class="d" style="color:var(--muted);font-size:11.5px">git статус и подтяжка изменений (админ)</div>
+            <div class="row" style="margin-top:10px">
+              <button class="btn sm" id="btn-git-status">Статус</button>
+              <button class="btn sm" id="btn-git-pull">Обновить (pull)</button>
+            </div></div>
+        </div>
+        <pre class="out" id="maint-out" style="margin-top:12px;max-height:56vh">Готово к работе.</pre>
+      </section>
       <section class="screen" id="screen-settings">
         <div class="screen-head"><h2>Настройки</h2>
           <span class="sub">глобальные (модель, контекст, поведение ИИ) — только администратор</span>
@@ -321,6 +404,6 @@ kbd{background:#111417;border:1px solid var(--line);border-bottom-width:2px;bord
     </aside>
   </div>
 </div>
-<script src="app.js"></script>
+<script src="/ui/app.js?v=15"></script>
 </body>
 </html>

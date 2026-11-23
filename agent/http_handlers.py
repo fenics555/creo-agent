@@ -163,6 +163,19 @@ class Hd(BaseHTTPRequestHandler):
                             "groups": [{"id": g, "title": g, "icon": "•", "n": n}
                                        for g, n in sorted(_gs.items(), key=lambda kv: -kv[1])],
                             "error": None})
+        elif p == "/api/models":
+            # 23.11.2026: мгновенный выбор модели из шапки витрины. Список — живые модели Ollama,
+            # текущая — из настроек; смена только админом (см. /setmodel).
+            if not users.token_info(self.headers.get("X-Token") or ""):
+                return self._j({"error": "нужен вход", "models": []})
+            try:
+                import panel as _pn
+                _ms = _pn.models() or []
+            except Exception:
+                _ms = []
+            return self._j({"models": sorted(_ms), "current": settings.get("llm_model"),
+                            "num_ctx": settings.get("num_ctx"),
+                            "error": None})
         elif p == "/api/bases":
             if not users.token_info(self.headers.get("X-Token") or ""):
                 return self._j({"error": "нужен вход"})

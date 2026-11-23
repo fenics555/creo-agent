@@ -80,14 +80,25 @@ for _where, _txt, _what in (('index.html', _idx, 'id="login-screen"'), ('index.h
                             ('index.html', _idx, 'id="screen-tools"'), ('index.html', _idx, 'id="tools-list"'),
                             ('index.html', _idx, 'id="tool-run-btn"'), ('index.html', _idx, 'id="kpi-model"'),
                             ('index.html', _idx, 'id="screen-people"'), ('index.html', _idx, 'id="settings-list"'),
+                            ('index.html', _idx, 'id="model-select"'), ('index.html', _idx, 'id="screen-maint"'),
+                            ('index.html', _idx, 'id="run-checks"'), ('index.html', _idx, 'id="donut"'),
+                            ('index.html', _idx, 'id="spark"'), ('index.html', _idx, 'id="ctx-bar"'),
                             ('app.js', _app, 'function chatSend'), ('app.js', _app, 'function loadStatus'),
                             ('app.js', _app, 'function loadTools'), ('app.js', _app, 'function setTab'),
                             ('app.js', _app, 'function togglePanel'), ('app.js', _app, 'function hasToken'),
                             ('app.js', _app, 'function runTool'), ('app.js', _app, 'function loadPeople'),
-                            ('app.js', _app, 'function loadSettings'), ('app.js', _app, 'function login')):
+                            ('app.js', _app, 'function loadSettings'), ('app.js', _app, 'function login'),
+                            ('app.js', _app, 'function loadModels'), ('app.js', _app, 'function modelChanged'),
+                            ('app.js', _app, 'function renderDonut'), ('app.js', _app, 'function renderSpark'),
+                            ('app.js', _app, 'function maintRun'), ('app.js', _app, 'function refreshSpark')):
     if _what not in _txt:
         print('%s: пропал опорный элемент варианта 2: %s' % (_where, _what))
         bad = True
+if '<script src="/ui/app.js' not in _idx:
+    # 23.11.2026 (живой баг): при `<script src="app.js">` сервер отдавал index.html вместо JS
+    # (статику он раздаёт только по /ui/<файл>), и витрина молча не работала.
+    print('index.html: скрипт витрины не подключён через /ui/app.js — JS не загрузится')
+    bad = True
 for _where, _txt, _what in (('index.html', _idx, 'wiz_pdf'), ('app.js', _app, 'wiz_pdf'),
                             ('app.js', _app, 'open_pdf_wizard')):
     if _what in _txt:

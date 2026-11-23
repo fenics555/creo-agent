@@ -4,6 +4,7 @@ var ME = null;
 var BASE = '';
 var TOOLS = [];
 var CUR_TOOL = null;
+var STREAM_CTRL = null;
 
 function $(id) { return document.getElementById(id); }
 function esc(s) {
@@ -29,6 +30,128 @@ function api(path, body, cb, errCb) {
   }).then(function (d) { if (d && cb) cb(d); }).catch(function (e) { if (errCb) errCb({ error: e.message }); });
 }
 function hasToken() { return !!(TK && TK.length); }
+
+/* ---------- модели (мгновенная смена в шапке) ---------- */
+function loadModels() {
+  api('/api/models', null, function (d) {
+    var sel = $('model-select');
+    if (!sel) return;
+    var cur = d.current || '';
+    sel.innerHTML = '';
+    (d.models || []).forEach(function (m) {
+      var o = document.createElement('option');
+      o.value = m; o.textContent = m;
+      if (m === cur) o.selected = true;
+      sel.appendChild(o);
+    });
+    if (!(d.models || []).length) {
+      var o2 = document.createElement('option');
+      o2.value = cur; o2.textContent = cur || 'модели не найдены';
+      sel.appendChild(o2);
+    }
+    var admin = !!(ME && ME.role === 'Администратор');
+    sel.disabled = !admin;
+    sel.title = admin ? 'Сменить модель дома (сразу)' : 'Смена модели — только администратор';
+  }, function () {});
+}
+function modelChanged() {
+  var sel = $('model-select');
+  if (!sel || !sel.value) return;
+  var pick = sel.closest('.model-pick');
+  sel.setAttribute('data-hold', '1');
+  api('/setmodel', { model: sel.value }, function () {
+    if (pick) { pick.classList.add('pulse'); setTimeout(function () { pick.classList.remove('pulse'); }, 1300); }
+    var st = $('st-model'); if (st) st.textContent = sel.value;
+    loadStatus();
+    sel.removeAttribute('data-hold');
+  }, function (e) {
+    alert('модель не сменена: ' + (e.error || 'нет прав'));
+    sel.removeAttribute('data-hold');
+    loadStatus();
+  });
+}
+
+/* ---------- инфографика ---------- */
+var PALETTE = ['#3d8bfd', '#4ec9b0', '#e2c08d', '#c586c0', '#f48771', '#7ee0c9', '#9cdcfe', '#d7ba7d'];
+function renderDonut(groups) {
+  groups = groups || [];
+  var svg = $('donut');
+  if (!svg) return;
+  var total = groups.reduce(function (s, g) { return s + g.n; }, 0);
+  var dt = $('donut-total'); if (dt) dt.textContent = total || '—';
+  var R = 48, C = 2 * Math.PI * R, off = 0, parts = [];
+  groups.forEach(function (g, i) {
+    var len = total ? C * (g.n / total) : 0;
+    parts.push('<circle cx="60" cy="60" r="' + R + '" fill="none" stroke="' +
+      PALETTE[i % PALETTE.length] + '" stroke-width="14" stroke-dasharray="' +
+      len.toFixed(2) + ' ' + (C - len).toFixed(2) + '" stroke-dashoffset="' + (-off).toFixed(2) + '"/>');
+    off += len;
+  });
+  svg.innerHTML = parts.join('') || '<circle cx="60" cy="60" r="48" fill="none" stroke="#3a4149" stroke-width="14"/>';
+  var legend = $('donut-legend');
+  if (legend) {
+    legend.innerHTML = groups.map(function (g, i) {
+      return '<div class="legend-item"><i style="background:' + PALETTE[i % PALETTE.length] + '"></i>' +
+        '<span>' + esc(g.id) + '</span><span class="spacer"></span><b>' + g.n + '</b></div>';
+    }).join('');
+  }
+  renderBars(groups);
+}
+function renderBars(groups) {
+  var box = $('bars');
+  if (!box) return;
+  groups = (groups || []).slice(0, 8);
+  var max = groups.reduce(function (m, g) { return Math.max(m, g.n); }, 1);
+  box.innerHTML = groups.map(function (g) {
+    return '<div class="bar-row"><span>' + esc(g.id) + '</span>' +
+      '<span class="bar-track"><i class="bar-fill" style="width:' +
+      Math.round(100 * g.n / max) + '%"></i></span>' +
+      '<span class="n">' + g.n + '</span></div>';
+  }).join('') || '<div class="empty">нет данных</div>';
+}
+function sparkPush(sec) {
+  var arr = [];
+  try { arr = JSON.parse(localStorage.getItem('agent_rt') || '[]'); } catch (e) { arr = []; }
+  arr.push(Number(sec) || 0);
+  if (arr.length > 20) arr = arr.slice(-20);
+  localStorage.setItem('agent_rt', JSON.stringify(arr));
+  renderSpark(arr);
+}
+function renderSpark(arr) {
+  var svg = $('spark');
+  if (!svg) return;
+  if (!arr || !arr.length) { svg.innerHTML = ''; return; }
+  var max = Math.max.apply(null, arr) || 1, W = 300, H = 60;
+  var step = arr.length > 1 ? W / (arr.length - 1) : W;
+  var pts = arr.map(function (v, i) {
+    return (i * step).toFixed(1) + ',' + (H - 6 - (v / max) * (H - 12)).toFixed(1);
+  });
+  svg.innerHTML = '<polyline points="' + pts.join(' ') + '"></polyline>' +
+    arr.map(function (v, i) {
+      return '<circle cx="' + (i * step).toFixed(1) + '" cy="' +
+        (H - 6 - (v / max) * (H - 12)).toFixed(1) + '" r="2"></circle>';
+    }).join('');
+}
+function refreshSpark() {
+  var arr = [];
+  try { arr = JSON.parse(localStorage.getItem('agent_rt') || '[]'); } catch (e) { arr = []; }
+  renderSpark(arr);
+}
+
+/* ---------- обслуживание ---------- */
+function maintRun(tool, args, label) {
+  var out = $('maint-out');
+  if (!out) return;
+  out.style.color = 'var(--muted)';
+  out.textContent = label + ' …';
+  api('/tool', { name: tool, args: args || {} }, function (d) {
+    out.style.color = 'var(--text)';
+    out.textContent = d.result || '(пусто)';
+  }, function (e) {
+    out.style.color = 'var(--err)';
+    out.textContent = 'ОТКАЗ: ' + (e.error || 'нет прав');
+  });
+}
 function setTab(tabId) {
   document.querySelectorAll('.sb-item').forEach(function (i) {
     i.classList.toggle('active', i.getAttribute('data-tab') === tabId);
@@ -36,7 +159,7 @@ function setTab(tabId) {
   document.querySelectorAll('.screen').forEach(function (s) { s.classList.remove('active'); });
   var scr = $('screen-' + tabId);
   if (scr) scr.classList.add('active');
-  if (tabId === 'overview') { loadStatus(); loadPrograms(true); }
+  if (tabId === 'overview') { loadStatus(); loadPrograms(true); loadTools(); refreshSpark(); }
   if (tabId === 'tools') loadTools();
   if (tabId === 'programs') loadPrograms();
   if (tabId === 'people') loadPeople();
@@ -67,6 +190,13 @@ function updateStatus(d) {
   var stCtx = $('st-ctx'); if (stCtx) stCtx.textContent = ctx ? (ctx / 1024).toFixed(0) + 'k' : '—';
   var stTools = $('st-tools'); if (stTools) stTools.textContent = d.tools || 0;
   var stBlocks = $('st-blocks'); if (stBlocks) stBlocks.textContent = d.blocks || 0;
+  var used = d.ctx_session || 0, max = d.model_ctx || d.ctx_requested || 0;
+  var pct = max ? Math.min(100, Math.round(100 * used / max)) : 0;
+  var cbar = $('ctx-bar'); if (cbar) cbar.style.width = pct + '%';
+  var cinfo = $('ctx-info');
+  if (cinfo) cinfo.textContent = max ? (used + ' из ' + max + ' (' + pct + '%)') : '—';
+  var sel = $('model-select');
+  if (sel && d.model && sel.value !== d.model && !sel.getAttribute('data-hold')) sel.value = d.model;
   ['ollama', 'creoson', 'agent'].forEach(function (k) {
     var el = $('ind-' + k);
     if (!el) return;
@@ -114,32 +244,96 @@ function chatSend() {
   if (!text || !hasToken()) return;
   inp.value = '';
   chatAdd(text, true);
-  var wait = chatAdd('…думаю', false);
-  var t0 = Date.now();
-  api('/ask', { q: text, mode: 1 }, function (d) {
-    var secs = ((Date.now() - t0) / 1000).toFixed(1);
-    wait.textContent = d.answer || '(пусто)';
-    wait.className = 'msg';
+  var wait = chatAdd('', false);
+  wait.classList.add('typing');
+  var box = $('chat-msgs');
+  box.parentNode.classList.add('streaming');
+  var t0 = Date.now(), toks = '', steps = [];
+  var ctrl = new AbortController();
+  STREAM_CTRL = ctrl;
+
+  function finish(done, stopped) {
+    var secs = (Date.now() - t0) / 1000;
+    wait.classList.remove('typing');
+    box.parentNode.classList.remove('streaming');
+    var ans = (done && done.answer) || toks || (stopped ? 'остановлено' : '(пусто)');
+    wait.textContent = ans;
     var meta = [];
-    if (d.steps) meta.push('шагов: ' + d.steps);
-    if (d.log && d.log.length) meta.push(String(d.log[0]).replace(/\s+/g, ' ').slice(0, 110));
-    meta.push(secs + ' с');
+    if (done && done.steps) meta.push('шагов: ' + done.steps);
+    if (steps.length) meta.push(String(steps[0]).replace(/\s+/g, ' ').slice(0, 100));
+    meta.push(secs.toFixed(1) + ' с');
     var m = document.createElement('span');
     m.className = 'meta';
     m.textContent = meta.join(' · ');
     wait.appendChild(m);
-    $('st-last-time').textContent = secs + ' с';
-    $('st-last-steps').textContent = d.steps || '—';
-    var mm = (d.log || []).join(' ').match(/(\d+)\s*ток/);
-    $('st-last-tokens').textContent = mm ? mm[1] + ' ток' : '—';
-  }, function (e) {
-    wait.textContent = 'ошибка: ' + (e.error || 'нет ответа');
-    wait.className = 'msg';
-    wait.style.borderColor = 'var(--err)';
+    if (done && done.think) {
+      var det = document.createElement('details');
+      det.className = 'think';
+      var sum = document.createElement('summary');
+      sum.textContent = '🧠 рассуждение';
+      var body = document.createElement('div');
+      body.className = 'mono';
+      body.textContent = done.think;
+      det.appendChild(sum); det.appendChild(body);
+      wait.appendChild(det);
+    }
+    var lt = $('st-last-time'); if (lt) lt.textContent = secs.toFixed(1) + ' с';
+    var ls = $('st-last-steps'); if (ls) ls.textContent = (done && done.steps) || '—';
+    var lg = ((done && done.log) || []).join(' ') + ' ' + steps.join(' ');
+    var mm = lg.match(/(\d+)\s*ток/);
+    var lk = $('st-last-tokens'); if (lk) lk.textContent = mm ? mm[1] + ' ток' : '—';
+    sparkPush(secs);
+    STREAM_CTRL = null;
+  }
+
+  fetch('/ask_stream', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', 'X-Token': TK },
+    body: JSON.stringify({ q: text, mode: 1 }),
+    signal: ctrl.signal
+  }).then(function (r) {
+    if (!r.ok) throw new Error('HTTP ' + r.status);
+    var reader = r.body.getReader();
+    var dec = new TextDecoder('utf-8');
+    var buf = '';
+    function pump() {
+      return reader.read().then(function (res) {
+        if (res.done) { finish(null, false); return; }
+        buf += dec.decode(res.value, { stream: true });
+        var idx;
+        while ((idx = buf.indexOf('\n\n')) >= 0) {
+          var chunk = buf.slice(0, idx);
+          buf = buf.slice(idx + 2);
+          chunk.split('\n').forEach(function (line) {
+            if (line.indexOf('data: ') !== 0) return;
+            var d = null;
+            try { d = JSON.parse(line.slice(6)); } catch (e) { return; }
+            if (d.tok) {
+              toks += Array.isArray(d.tok) ? d.tok.join('') : String(d.tok);
+              if (toks) wait.textContent = toks;
+            }
+            if (d.step) {
+              steps.push(d.step);
+              if (!toks) wait.textContent = '… ' + String(d.step).slice(0, 90);
+            }
+            if (d.error) { wait.textContent = 'ошибка: ' + d.error; }
+            if (d.done) { finish(d.done, false); }
+          });
+        }
+        return pump();
+      });
+    }
+    return pump();
+  }).catch(function (e) {
+    if (e.name === 'AbortError') { finish(null, true); return; }
+    wait.classList.remove('typing');
+    wait.textContent = 'ошибка: ' + e.message;
+    finish(null, true);
   });
 }
 function chatStop() {
-  api('/ask_cancel', {}, function () { chatAdd('— остановлено —', false); }, function () {});
+  if (STREAM_CTRL) { try { STREAM_CTRL.abort(); } catch (e) {} }
+  api('/ask_cancel', {}, function () { }, function () { });
 }
 function chatClear() {
   var box = $('chat-msgs');
@@ -163,6 +357,7 @@ function loadTools() {
       });
     }
     renderTools();
+    renderDonut(d.groups || []);
   }, function (e) { var l = $('tools-list'); if (l) l.innerHTML = '<div class="empty">' + esc(e.error) + '</div>'; });
 }
 function renderTools() {
@@ -416,6 +611,8 @@ function showApp() {
   $('app').style.display = 'flex';
   loadStatus();
   loadPrograms(true);
+  loadModels();
+  refreshSpark();
   if (!$('chat-msgs').children.length) {
     chatAdd('Здравствуйте. Я агент дома: спросите что угодно или откройте «Инструменты».', false);
   }
@@ -468,6 +665,20 @@ window.addEventListener('DOMContentLoaded', function () {
   $('btn-add-user').addEventListener('click', addUser);
   $('logs-refresh').addEventListener('click', loadLog);
   $('settings-refresh').addEventListener('click', loadSettings);
+  var msel = $('model-select');
+  if (msel) msel.addEventListener('change', modelChanged);
+  var rch = $('run-checks');
+  if (rch) rch.addEventListener('click', function () { maintRun('checks_run', { scope: '' }, 'Проверки дома'); });
+  var rchh = $('run-checks-house');
+  if (rchh) rchh.addEventListener('click', function () { maintRun('checks_run', { scope: 'house' }, 'Проверки house'); });
+  var cl = $('btn-checks-list');
+  if (cl) cl.addEventListener('click', function () { maintRun('checks_list', {}, 'Список проверок'); });
+  var gs = $('btn-git-status');
+  if (gs) gs.addEventListener('click', function () { maintRun('git_status', {}, 'Git-статус'); });
+  var gp = $('btn-git-pull');
+  if (gp) gp.addEventListener('click', function () { maintRun('git_pull', {}, 'Обновление (git pull)'); });
+  var mr = $('maint-refresh');
+  if (mr) mr.addEventListener('click', function () { maintRun('git_status', {}, 'Git-статус'); });
   document.addEventListener('keydown', function (e) {
     if (e.ctrlKey && e.key.toLowerCase() === 'k') {
       e.preventDefault(); setTab('tools');
