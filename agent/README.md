@@ -68,6 +68,12 @@ RC 4 `wrong_active_model`, запись прервана. Проба: `python de
   (Ollama 11434, CREOSON 8080, copy-server 8000, агент 8765).
   Статус: `python ctl.py status` · сторож: `python ctl.py --watch` ·
   стоп: `python ctl.py down` · рестарт: `python ctl.py restart`.
+- **Тихий запуск (23.11.2026):** все процессы стека поднимаются **без окон** — `pythonw.exe`
+  (окна не создаёт вовсе) + `DETACHED_PROCESS` + `CREATE_NO_WINDOW`, вывод пишется в
+  `D:\AI\log\agent\<имя>_out.txt|_err.txt`. PowerShell и `cmd /c start` из пути запуска убраны
+  (они и давали мигание). Сторож `--watch` ходит раз в 60 с; после 3 неудачных подъёмов подряд
+  уходит в паузу 10 минут, а не долбит старт (в `startup.log` было 8911 записей «ctl up»
+  из-за упавшего импорта `harvest_reader`).
 - **Правки интерфейса:** после изменений в `ui/` прогнать `python dev/ui_check.py`
   и `python dev/ui_probe.py`.
 - **Стоп ответа:** пока агент «думает», в окне есть кнопка **■ СТОП** (и клавиша Esc) — она рвёт

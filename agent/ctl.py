@@ -2,7 +2,7 @@
 """АГЕНТ v15 — ctl.py: единый пуск/стоп/сторож стека (Ollama, CREOSON, агент).
 up [--browser] [--hidden] — идемпотентный пуск: поднимает ТОЛЬКО недостающее.
 down — явный стоп. restart — down+up. status — таблица портов. --watch — сторож 60 сек."""
-import os, sys, time, socket, subprocess, datetime
+import os, sys, time, socket, subprocess, datetime, shutil, webbrowser
 
 # ==== СКРЫТИЕ КОНСОЛЬНЫХ ОКОН (живая находка 24.09.2026 — «моргает синим») ====
 # Сторож дома (AI-WATCH -> pythonw ctl.py --watch) каждые 60 с вызывал _kill_stray_agents(),
@@ -39,6 +39,32 @@ def _cfg(key, defl):
 
 CREOSON_DIR = _cfg("creoson_dir", r"D:\PTC\CREO-LOCAL-SETUP\creoson")
 LOG = TOOLS + r"\startup.log"
+
+# ==== БЕЗОКОННЫЙ ЗАПУСК (23.11.2026 — слово владельца «моргают окна PowerShell, надоело») ====
+# Причина моргания: up() поднимал процессы через `powershell Start-Process ... -WindowStyle Hidden`
+# и `cmd /c start`. Окно консоли при таком пути всё равно создаётся и мигает.
+# МЕТОД ЗАМЕНЁН: pythonw.exe (окна не создаёт вовсе) + DETACHED_PROCESS + CREATE_NO_WINDOW,
+# вывод пишется в файлы data\tmp\<имя>_out.txt / _err.txt. PowerShell и окна из пути убраны.
+_PYW = os.path.join(os.path.dirname(sys.executable), "pythonw.exe")
+if not os.path.exists(_PYW):
+    _PYW = sys.executable
+_NW = getattr(subprocess, "CREATE_NO_WINDOW", 0x08000000)
+_DET = getattr(subprocess, "DETACHED_PROCESS", 0x00000008)
+
+
+def _spawn(argv, cwd, name):
+    r"""Запуск БЕЗ окна: своя сессия, потоки в файл D:\AI\log\agent (культура дома)."""
+    tmp = os.path.join(os.path.dirname(TOOLS), "log", "agent")
+    os.makedirs(tmp, exist_ok=True)
+    out = open(os.path.join(tmp, name + "_out.txt"), "ab")
+    err = open(os.path.join(tmp, name + "_err.txt"), "ab")
+    try:
+        return subprocess.Popen(argv, cwd=cwd, stdin=subprocess.DEVNULL,
+                                stdout=out, stderr=err,
+                                creationflags=_NW | _DET, close_fds=True)
+    finally:
+        out.close()
+        err.close()
 
 
 def log(line):
@@ -79,36 +105,24 @@ def start_ollama():
     # ОДНА МОДЕЛЬ НА ДОМ (24.09.2026): держим веса в памяти, вторую модель не грузим.
     os.environ.setdefault("OLLAMA_KEEP_ALIVE", "1h")
     os.environ.setdefault("OLLAMA_MAX_LOADED_MODELS", "1")
-    wd = TOOLS + r"\OLLAMA-WD.bat"
-    if os.path.exists(wd):
-        subprocess.Popen('cmd /c start "" /B "%s"' % wd, shell=True)
-    else:
-        subprocess.Popen('cmd /c start "" /B ollama serve', shell=True)
+    # 23.11.2026: без окна — ollama.exe напрямую (прежний `cmd /c start` создавал консоль).
+    exe = shutil.which("ollama") or r"C:\Users\User\AppData\Local\Programs\Ollama\ollama.exe"
+    _spawn([exe, "serve"], TOOLS, "ollama")
 
 
 def start_creoson():
-    subprocess.Popen('cmd /c start "" /B /D "%s" creoson_run.bat' % CREOSON_DIR, shell=True)
+    # bat нужен (setvars Creoson), но окна не будет: cmd живёт в невидимой сессии (_spawn).
+    _spawn(["cmd", "/c", "creoson_run.bat"], CREOSON_DIR, "creoson")
 
 
 def start_copyserver():
-    os.makedirs(AG + r"\data\tmp", exist_ok=True)
-    subprocess.Popen(["powershell", "-NoProfile", "-Command",
-        "Start-Process python -ArgumentList 'copy\\copy_server.py' "
-        "-WorkingDirectory '%s' -WindowStyle Hidden "
-        "-RedirectStandardOutput '%s\\data\\tmp\\copy_out.txt' "
-        "-RedirectStandardError '%s\\data\\tmp\\copy_err.txt'" % (AG, AG, AG)])
+    _spawn([_PYW, os.path.join("copy", "copy_server.py")], AG, "copy")
 
 
-def start_agent(hidden):
-    if hidden:
-        os.makedirs(AG + r"\data\tmp", exist_ok=True)
-        subprocess.Popen(["powershell", "-NoProfile", "-Command",
-            "Start-Process python -ArgumentList 'agent.py' "
-            "-WorkingDirectory '%s' -WindowStyle Hidden "
-            "-RedirectStandardOutput '%s\\data\\tmp\\agent_out.txt' "
-            "-RedirectStandardError '%s\\data\\tmp\\agent_err.txt'" % (AG, AG, AG)])
-    else:
-        subprocess.Popen('start "АГЕНТ v15" cmd /c "cd /d %s && python agent.py"' % AG, shell=True)
+def start_agent(hidden=True):
+    # 23.11.2026: агент ВСЕГДА без окна (pythonw) — окна консоли больше не открываются.
+    # Состояние смотреть: `python ctl.py status` и data\tmp\agent_err.txt.
+    _spawn([_PYW, "agent.py"], AG, "agent")
 
 
 def verify_agent():
@@ -126,9 +140,15 @@ def verify_agent():
     if not pid:
         return False, "порт слушается, но agent.pid пуст — нечем управлять"
     # PID из файла должен совпадать с живым процессом, который держит порт
-    out = subprocess.run(["powershell", "-NoProfile", "-Command",
-                          "(Get-NetTCPConnection -LocalPort 8765 -State Listen).OwningProcess"],
-                         capture_output=True, text=True, timeout=20).stdout.strip()
+    out = ""
+    try:
+        for _p in subprocess.run(["netstat", "-ano"], capture_output=True, text=True,
+                                 errors="replace", timeout=20).stdout.splitlines():
+            if ":8765" in _p and "LISTENING" in _p:
+                out = _p.split()[-1]
+                break
+    except Exception:
+        out = ""
     if out and out.isdigit() and int(out) != pid:
         return False, "порт держит процесс %s, а в agent.pid %s — не совпадают" % (out, pid)
     return True, "порт 8765 держит PID %s (совпадает с agent.pid)" % pid
@@ -173,16 +193,24 @@ def up(browser=False, hidden=False):
             log("ВНИМАНИЕ: агент не поднялся за 60 сек")
             log("хвост вывода агента: %s" % agent_stderr_tail())
     if browser:
-        subprocess.Popen('cmd /c start "" http://%s:8765' % socket.gethostname(), shell=True)
+        webbrowser.open("http://%s:8765" % socket.gethostname())
 
 
 def down():
     log("== ctl down ==")
     kill_pid(AG + r"\agent.pid")
     kill_pid(TOOLS + r"\ollama_wd.pid")
-    subprocess.run(["powershell", "-NoProfile", "-Command",
-        "Get-CimInstance Win32_Process -Filter \"Name='java.exe'\" | Where-Object { $_.CommandLine -like '*creoson*' } | ForEach-Object { $_.Terminate() }"],
-        capture_output=True)
+    # 23.11.2026: без PowerShell — PID CREOSON ищем по порту 8080 и снимаем taskkill (без окна).
+    try:
+        for _l in subprocess.run(["netstat", "-ano"], capture_output=True, text=True,
+                                 errors="replace", timeout=20).stdout.splitlines():
+            if ":8080" in _l and "LISTENING" in _l:
+                _pid = _l.split()[-1]
+                subprocess.run(["taskkill", "/PID", _pid, "/F"], capture_output=True)
+                log("CREOSON снят по PID %s" % _pid)
+                break
+    except Exception as e:
+        log("down: CREOSON не снят (%s)" % e)
     log("стоп завершён")
 
 
@@ -220,17 +248,20 @@ def _kill_stray_agents():
                 break
     except Exception:
         holder = 0
-    if holder:
-        keep = holder          # эталон = держатель порта; pid-файл может протухнуть
-    subprocess.run(["powershell", "-NoProfile", "-Command",
-        "Get-CimInstance Win32_Process -Filter \"Name='python.exe'\" | "
-        "Where-Object { $_.CommandLine -like '*agent.py*' -and $_.ProcessId -ne %d } | "
-        "ForEach-Object { taskkill /PID $_.ProcessId /F | Out-Null }" % keep],
-        capture_output=True)
+    # 23.11.2026: PowerShell и убийства убраны (мигали окнами и роняли живой агент).
+    # Эталон жизни — ПОРТ: pid-файл подтягиваем к держателю 8765, чужие процессы не трогаем.
+    if holder and holder != keep:
+        try:
+            with open(AG + r"\agent.pid", "w", encoding="utf-8") as f:
+                f.write(str(holder))
+            log("agent.pid подтянут к держателю порта 8765: %s" % holder)
+        except Exception as e:
+            log("agent.pid не обновлён: %s" % e)
 
 
 def watch():
     log("== ctl watch старт ==")
+    fails = 0
     while True:
         try:
             if not (alive(11434) and alive(8765)):   # CREOSON не обязателен: он поднимается по требованию
@@ -238,9 +269,20 @@ def watch():
                 if not (alive(11434) and alive(8765)):
                     up(browser=False, hidden=True)
             if alive(8765):
-                _kill_stray_agents()  # Q3 дедуп: всё, что не в agent.pid
+                fails = 0
+                _kill_stray_agents()  # Q3: pid-файл = держатель порта (без убийств)
+            else:
+                fails += 1
         except Exception as e:
+            fails += 1
             log("watch err: %s" % e)
+        # 23.11.2026 BACKOFF: агент падал на импорте, а сторож перезапускал его каждые ~70 с
+        # (8911 записей «ctl up» в startup.log). Теперь 3 неудачи подряд = пауза 10 минут, одна строка.
+        if fails >= 3:
+            log("watch: %d неудач подряд — повтор через 10 минут" % fails)
+            time.sleep(600)
+            fails = 0
+            continue
         time.sleep(60)
 
 
