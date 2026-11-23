@@ -1,4 +1,4 @@
-import json, glob, os, time, sys, hashlib, re, urllib.request, urllib.error
+import json, glob, os, time, sys, hashlib, re, datetime, urllib.request, urllib.error
 
 SESS = os.path.join(os.path.expanduser("~"), ".cline", "data", "sessions")
 ALERT = r"D:\AI\log\urn\cline\LOOP_ALERT.txt"
@@ -27,6 +27,64 @@ STALL_SEC = 110
 RECENT_SEC = 300
 SPIKE_BYTES = 65536
 PROBE_TIMEOUT = 1.5
+# 23.11.2026: АВТОУДАЛЕНИЕ ПО ВРЕМЕНИ (не кнопкой). Срок — из дома: D:\AI\log\retention.json,
+#   ключ "urn" (сигналы лежат в urn-папке: log\urn\cline\). По умолчанию 14 дней.
+RETENTION_FILE = r"D:\AI\log\retention.json"
+KEEP_DAYS_DEFAULT = 14
+MAX_ALERT_BYTES = 1000000        # страховка: даже внутри срока файл не растёт больше 1 МБ
+
+
+def keep_days_file():
+    """Срок хранения из retention.json (ключ 'urn'); при сбое — 14 дней."""
+    try:
+        with open(RETENTION_FILE, encoding="utf-8") as f:
+            return int(json.load(f).get("urn", KEEP_DAYS_DEFAULT))
+    except Exception:
+        return KEEP_DAYS_DEFAULT
+
+
+def prune_alert(path, days):
+    """Удаляет записи старше `days` дней. Новый формат строки — с датой 'YYYY-MM-DD HH:MM:SS'.
+    Старые строки без даты судятся по дате файла (mtime) — чтобы не удалить свежий файл целиком.
+    Возвращает число удалённых строк."""
+    if not path or not os.path.exists(path):
+        return 0
+    days = int(days or KEEP_DAYS_DEFAULT)
+    cutoff = datetime.date.today() - datetime.timedelta(days=days)
+    try:
+        legacy_date = datetime.date.fromtimestamp(os.path.getmtime(path))
+    except Exception:
+        legacy_date = datetime.date.today()
+    kept, dropped = [], 0
+    changed = False
+    try:
+        with open(path, encoding="utf-8", errors="replace") as f:
+            lines = f.read().splitlines()
+    except Exception:
+        return 0
+    for ln in lines:
+        m = re.match(r"^(\d{4})-(\d{2})-(\d{2}) ", ln)
+        if m:
+            d = datetime.date(int(m.group(1)), int(m.group(2)), int(m.group(3)))
+        else:
+            # миграция 23.11.2026: строка без даты получает дату файла (иначе не состарится никогда)
+            d = legacy_date
+            ln = legacy_date.isoformat() + " " + ln
+            changed = True
+        if d >= cutoff:
+            kept.append(ln)
+        else:
+            dropped += 1
+    while kept and len("\n".join(kept).encode("utf-8")) > MAX_ALERT_BYTES:
+        kept.pop(0)
+        dropped += 1
+    if dropped or changed:
+        try:
+            with open(path, "w", encoding="utf-8") as f:
+                f.write("\n".join(kept) + ("\n" if kept else ""))
+        except Exception:
+            return 0
+    return dropped
 
 
 def arg(name, default=None):
@@ -41,6 +99,8 @@ SESSION_ID = arg("--session")
 SESS = arg("--sess-dir", SESS)
 LOG = arg("--log", LOG)
 ALERT = arg("--alert", ALERT)
+# 23.11.2026: срок хранения записей (дней). Перебивается ключом --keep-days, иначе из retention.json.
+KEEP_DAYS = int(arg("--keep-days", "0")) or keep_days_file()
 WINDOW = int(arg("--window", WINDOW))
 TXT_WINDOW = int(arg("--txt-window", TXT_WINDOW))
 TXT_REPEAT = int(arg("--txt-repeat", TXT_REPEAT))
@@ -272,16 +332,22 @@ def check(prev_size=None):
 
 
 def emit(r):
-    line = "%s LOOP kind=%s session=%s repeats=%d call=%s\n" % (
-        time.strftime("%H:%M:%S"), r[4], r[0], r[1], r[2])
+    # 23.11.2026: в строку добавлена ДАТА (для автоудаления по времени), после записи — чистка старых.
+    line = "%s %s LOOP kind=%s session=%s repeats=%d call=%s\n" % (
+        time.strftime("%Y-%m-%d"), time.strftime("%H:%M:%S"), r[4], r[0], r[1], r[2])
     try:
         open(ALERT, "a", encoding="utf-8").write(line)
+        prune_alert(ALERT, KEEP_DAYS)
     except Exception:
         pass
     return line.strip()
 
 
 if __name__ == "__main__":
+    # 23.11.2026: автоудаление по времени — при КАЖДОМ запуске (ручном, разовом, фоновом).
+    _dropped = prune_alert(ALERT, KEEP_DAYS)
+    if _dropped:
+        print("pruned", _dropped, "old alert line(s), keep_days =", KEEP_DAYS)
     if "--once" in sys.argv:
         prev = int(PREV_SIZE) if PREV_SIZE is not None else None
         r = check(prev_size=prev)

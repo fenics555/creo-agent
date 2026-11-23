@@ -113,8 +113,12 @@ pre.out{background:#171a1e;border:1px solid var(--line);border-radius:9px;paddin
 .msg.me{align-self:flex-end;background:#2b3a52;border-color:#3b5271}
 .msg .meta{display:block;color:var(--muted);font-size:11px;margin-top:6px}
 #chat-input-area{border-top:1px solid var(--line);background:var(--bg2);padding:12px 16px;
-  display:flex;gap:10px;align-items:flex-end}
-#chat-input{flex:1;min-height:42px;max-height:160px;resize:vertical}
+  display:flex;gap:10px;align-items:stretch}
+#chat-input{flex:1;min-height:52px;max-height:180px;resize:vertical}
+.chat-actions{display:flex;gap:8px;flex-wrap:wrap;justify-content:flex-end;max-width:430px}
+.ctx-warn{padding:8px 16px;background:#3a2f1f;border-bottom:1px solid #5b4f36;color:var(--warn);
+  font-size:12px;line-height:1.4}
+.ctx-warn.danger{background:#3a2420;border-color:#5a3a36;color:var(--err)}
 /* правая панель */
 #right{width:290px;flex:0 0 auto;background:var(--bg2);border-left:1px solid var(--line);
   padding:12px;overflow:auto;display:flex;flex-direction:column;gap:10px}
@@ -212,12 +216,13 @@ kbd{background:#111417;border:1px solid var(--line);border-bottom-width:2px;bord
 
   <div id="main">
     <nav id="sidebar">
-      <button class="sb-item active" data-tab="overview"><span class="ico">▦</span><span class="lbl">Обзор</span></button>
-      <button class="sb-item" data-tab="chat"><span class="ico">💬</span><span class="lbl">Чат</span></button>
+      <button class="sb-item" data-tab="overview"><span class="ico">▦</span><span class="lbl">Обзор</span></button>
+      <button class="sb-item active" data-tab="chat"><span class="ico">💬</span><span class="lbl">Чат</span></button>
       <button class="sb-item" data-tab="tools"><span class="ico">🧰</span><span class="lbl">Инструменты</span></button>
       <button class="sb-item" data-tab="programs"><span class="ico">🧩</span><span class="lbl">Программы</span></button>
       <button class="sb-item" data-tab="people"><span class="ico">👥</span><span class="lbl">Люди</span></button>
       <button class="sb-item" data-tab="maint"><span class="ico">🛠</span><span class="lbl">Обслуживание</span></button>
+      <button class="sb-item" data-tab="rules"><span class="ico">📕</span><span class="lbl">Правила</span></button>
       <div class="sb-sep"></div>
       <button class="sb-item" data-tab="logs"><span class="ico">📜</span><span class="lbl">Журнал</span></button>
       <button class="sb-item" data-tab="settings"><span class="ico">⚙</span><span class="lbl">Настройки</span></button>
@@ -227,7 +232,7 @@ kbd{background:#111417;border:1px solid var(--line);border-bottom-width:2px;bord
 
     <main id="center">
       <!-- ОБЗОР -->
-      <section class="screen active" id="screen-overview">
+      <section class="screen" id="screen-overview">
         <div class="screen-head"><h2>Обзор дома</h2>
           <span class="sub" id="ov-updated">—</span>
           <span class="spacer"></span>
@@ -273,13 +278,18 @@ kbd{background:#111417;border:1px solid var(--line);border-bottom-width:2px;bord
       </section>
 
       <!-- ЧАТ -->
-      <section class="screen" id="chat-screen">
+      <section class="screen active" id="chat-screen">
+        <div class="ctx-warn" id="ctx-warn" style="display:none"></div>
         <div id="chat-msgs"></div>
         <div id="chat-input-area">
-          <textarea id="chat-input" rows="1" placeholder="Спросите агента…  (Ctrl+Enter — отправить)"></textarea>
-          <button class="btn primary" id="btn-send">Отправить</button>
-          <button class="btn danger" id="btn-stop" title="Остановить ответ (Esc)">■</button>
-          <button class="btn ghost sm" id="btn-clear-output" title="Очистить ленту">Очистить</button>
+          <textarea id="chat-input" rows="2" placeholder="Спросите агента…  (Ctrl+Enter — отправить)"></textarea>
+          <div class="chat-actions">
+            <button class="btn primary" id="btn-send">Отправить</button>
+            <button class="btn danger" id="btn-stop" title="Остановить ответ (Esc)">■</button>
+            <button class="btn ghost sm" id="btn-clear-output" title="Очистить ленту">Очистить</button>
+            <button class="btn ghost sm" id="btn-new-session" title="Очистить историю диалога (новый контекст)">Новая сессия</button>
+            <button class="btn ghost sm" id="btn-handover" title="Сохранить эстафету в D:\AI\ЭСТАФЕТЫ">Эстафета</button>
+          </div>
         </div>
       </section>
       <!-- ИНСТРУМЕНТЫ -->
@@ -363,6 +373,35 @@ kbd{background:#111417;border:1px solid var(--line);border-bottom-width:2px;bord
         </div>
         <pre class="out" id="maint-out" style="margin-top:12px;max-height:56vh">Готово к работе.</pre>
       </section>
+      <!-- ПРАВИЛА -->
+      <section class="screen" id="screen-rules">
+        <div class="screen-head"><h2>Правила в промте</h2>
+          <span class="sub">как .clinerules в Cline: файлы подмешиваются к системному промту</span>
+          <span class="spacer"></span><button class="btn sm" id="rules-refresh">Обновить</button></div>
+        <div class="grid" style="grid-template-columns:minmax(320px,44%) 1fr;align-items:start">
+          <div class="card">
+            <h3>Файлы правил</h3>
+            <div class="list" id="rules-files"></div>
+            <div class="field" style="margin-top:12px"><label>Добавить файл правил (полный путь)</label>
+              <div class="row"><input id="rule-new-path" placeholder="D:\AI\repo\МОИ_ПРАВИЛА.md"
+                  style="flex:1"><button class="btn sm" id="rule-add">Добавить</button></div>
+              <div class="hint">Например: свой свод правил .md — попадёт в промт сразу после сохранения.</div>
+            </div>
+            <div class="field"><label>Лимит правил в промте (символов)</label>
+              <div class="row"><input id="rules-limit" type="number" min="1000" step="500"
+                  style="width:150px"><button class="btn sm primary" id="rules-save">Сохранить</button></div>
+              <div class="hint">Защита контекста: при превышении текст обрезается с пометкой.</div>
+            </div>
+            <div class="mono" id="rules-status" style="color:var(--muted);font-size:11.5px">—</div>
+          </div>
+          <div class="card" style="min-height:0">
+            <h3>Текст, который видит модель</h3>
+            <pre class="out" id="rules-preview" style="max-height:64vh">—</pre>
+          </div>
+        </div>
+      </section>
+
+      <!-- НАСТРОЙКИ -->
       <section class="screen" id="screen-settings">
         <div class="screen-head"><h2>Настройки</h2>
           <span class="sub">глобальные (модель, контекст, поведение ИИ) — только администратор</span>

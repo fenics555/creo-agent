@@ -1,6 +1,7 @@
 # -*- coding: utf-8 -*-
 """АГЕНТ v15 — http_handlers.py: HTTP-обработчики витрины (do_GET/do_POST)."""
 import json, os, socket, threading, datetime, re, subprocess, sys, time
+from pathlib import Path
 from urllib.parse import urlparse, parse_qs
 from http.server import ThreadingHTTPServer, BaseHTTPRequestHandler
 import core
@@ -176,6 +177,22 @@ class Hd(BaseHTTPRequestHandler):
             return self._j({"models": sorted(_ms), "current": settings.get("llm_model"),
                             "num_ctx": settings.get("num_ctx"),
                             "error": None})
+        elif p == "/api/rules":
+            # 23.11.2026: витрина показывает, какие файлы правил реально идут в промт.
+            if not users.token_info(self.headers.get("X-Token") or ""):
+                return self._j({"error": "нужен вход", "files": []})
+            try:
+                import loop as _lp
+                _files = _lp.rules_state()
+                _text = _lp.load_rules()
+            except Exception as e:
+                return self._j({"error": "правила не прочитаны: %s" % e, "files": []})
+            try:
+                _lim = int(settings.get("rules_max_chars") or 12000)
+            except Exception:
+                _lim = 12000
+            return self._j({"files": _files, "chars": len(_text), "limit": _lim,
+                            "preview": _text[:6000], "error": None})
         elif p == "/api/bases":
             if not users.token_info(self.headers.get("X-Token") or ""):
                 return self._j({"error": "нужен вход"})
@@ -546,6 +563,65 @@ class Hd(BaseHTTPRequestHandler):
             if not users.is_admin(cl):
                 self._j({"error": "настройки — только админ"}, 403); return
             settings.set_val(b.get("key"), b.get("value")); _SYS_CACHE.clear(); self._j({"ok": True})
+        elif p == "/setrules":
+            # 23.11.2026: список файлов правил (как .clinerules) — только админ.
+            if not users.is_admin(cl):
+                self._j({"error": "правила — только админ"}, 403); return
+            _files = b.get("files")
+            if isinstance(_files, str):
+                _files = [x.strip() for x in _files.split(";") if x.strip()]
+            if not isinstance(_files, list):
+                self._j({"error": "files должен быть списком путей"}, 400); return
+            settings.set_val("rules_files", [str(x).strip() for x in _files if str(x).strip()])
+            if b.get("max_chars"):
+                settings.set_val("rules_max_chars", int(b.get("max_chars")))
+            try:
+                import loop as _lp
+                _lp._RULES_CACHE["sig"] = None       # пересчитать правила сразу
+            except Exception:
+                pass
+            _SYS_CACHE.clear()
+            self._j({"ok": True, "files": settings.get("rules_files")})
+        elif p == "/history/clear":
+            # «Новая сессия»: чистим историю диалога ЭТОГО клиента (контекст не переполнится).
+            try:
+                c = core.db()
+                c.execute("DELETE FROM history WHERE client=?", (cl,))
+                c.commit(); c.close()
+            except Exception as e:
+                self._j({"ok": False, "error": "не очищено: %s" % e}, 500); return
+            self._j({"ok": True, "msg": "история сессии очищена"})
+        elif p == "/session/handover":
+            # «Эстафета»: сохранить состояние диалога в файл, чтобы продолжить в новом контексте.
+            try:
+                c = core.db()
+                rows = c.execute("SELECT q,a,ts FROM history WHERE client=? ORDER BY id DESC LIMIT 40",
+                                 (cl,)).fetchall()
+                c.close()
+                _st = {k: settings.get(k) for k in ("llm_model", "num_ctx", "steps_max")}
+                _ts = datetime.datetime.now().strftime("%Y%m%d_%H%M%S")
+                folder = r"D:\AI\ЭСТАФЕТЫ"
+                os.makedirs(folder, exist_ok=True)
+                f_path = os.path.join(folder, "ESTAFETA_agent_%s.md" % _ts)
+                lines = ["# ЭСТАФЕТА агента (%s)" % cl,
+                         "",
+                         "**Модель:** %s · **num_ctx:** %s · **steps_max:** %s" %
+                         (_st.get("llm_model"), _st.get("num_ctx"), _st.get("steps_max")),
+                         "**Создана:** %s" % datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
+                         "", "## Последние реплики (старые → новые)", ""]
+                for q, a, ts in reversed(rows):
+                    lines.append("### %s" % ts)
+                    lines.append("**Вопрос:** %s" % (q or "")[:1500])
+                    lines.append("")
+                    lines.append("**Ответ:** %s" % (a or "")[:2000])
+                    lines.append("")
+                with open(f_path, "w", encoding="utf-8") as fh:
+                    fh.write("\n".join(lines))
+            except Exception as e:
+                log("эстафета: ошибка %s: %s" % (type(e).__name__, e))
+                self._j({"ok": False, "error": "эстафета не записана: %s" % e}, 500); return
+            self._j({"ok": True, "path": f_path, "lines": len(rows),
+                     "msg": "эстафета записана: %s" % f_path})
         elif p == "/snap":
             self._j({"msg": "скриншот принимается через Ctrl+V в поле ввода"})
         elif p == "/tool":

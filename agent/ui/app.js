@@ -138,6 +138,73 @@ function refreshSpark() {
   renderSpark(arr);
 }
 
+/* ---------- правила (как .clinerules в Cline) ---------- */
+var RULES = { files: [], limit: 12000 };
+
+function loadRules() {
+  api('/api/rules', null, function (d) {
+    RULES.files = (d.files || []).map(function (f) { return f.path; });
+    RULES.limit = d.limit || 12000;
+    var box = $('rules-files');
+    if (box) {
+      box.innerHTML = (d.files || []).map(function (f) {
+        var st = f.exists
+          ? '<span class="badge ok">' + f.lines + ' строк · ' + esc(f.mtime) + '</span>'
+          : '<span class="badge err">нет файла</span>';
+        return '<div class="item"><div class="grow"><div class="name">' + esc(f.path) +
+          '</div></div>' + st +
+          '<button class="btn sm ghost" data-rule-del="' + esc(f.path) + '">Убрать</button></div>';
+      }).join('') || '<div class="empty">файлов правил нет</div>';
+      box.querySelectorAll('[data-rule-del]').forEach(function (b) {
+        b.addEventListener('click', function () { ruleRemove(b.getAttribute('data-rule-del')); });
+      });
+    }
+    var lim = $('rules-limit'); if (lim) lim.value = RULES.limit;
+    var pv = $('rules-preview'); if (pv) pv.textContent = d.preview || '(пусто)';
+    var stt = $('rules-status');
+    if (stt) {
+      var n = (d.files || []).filter(function (f) { return f.exists; }).length;
+      stt.textContent = 'в промт идёт ' + (d.chars || 0) + ' из ' + RULES.limit +
+        ' симв. · существующих файлов: ' + n;
+    }
+  }, function (e) {
+    var stt = $('rules-status'); if (stt) stt.textContent = 'ошибка: ' + (e.error || '');
+  });
+}
+function rulesSave(files) {
+  var lim = $('rules-limit');
+  api('/setrules', { files: files || RULES.files, max_chars: lim ? parseInt(lim.value, 10) : 0 },
+    function () { loadRules(); },
+    function (e) { alert('правила не сохранены: ' + (e.error || 'нет прав')); });
+}
+function ruleAdd() {
+  var inp = $('rule-new-path');
+  var v = ((inp && inp.value) || '').trim();
+  if (!v) return;
+  var files = RULES.files.slice();
+  if (files.indexOf(v) < 0) files.push(v);
+  if (inp) inp.value = '';
+  rulesSave(files);
+}
+function ruleRemove(path) {
+  rulesSave(RULES.files.filter(function (x) { return x !== path; }));
+}
+
+/* ---------- сессия: новая / эстафета ---------- */
+function newSession() {
+  if (!confirm('Очистить историю диалога? Контекст начнётся с нуля.')) return;
+  api('/history/clear', {}, function () {
+    chatClear();
+    chatAdd('Новая сессия: история диалога очищена.', false);
+    loadStatus();
+  }, function (e) { alert('не очищено: ' + (e.error || '')); });
+}
+function handover() {
+  api('/session/handover', {}, function (d) {
+    alert(d.msg || ('эстафета: ' + d.path));
+  }, function (e) { alert('эстафета не записана: ' + (e.error || '')); });
+}
+
 /* ---------- обслуживание ---------- */
 function maintRun(tool, args, label) {
   var out = $('maint-out');
@@ -165,6 +232,7 @@ function setTab(tabId) {
   if (tabId === 'people') loadPeople();
   if (tabId === 'logs') loadLog();
   if (tabId === 'settings') loadSettings();
+  if (tabId === 'rules') loadRules();
   if (tabId === 'chat') { var ci = $('chat-input'); if (ci) ci.focus(); }
 }
 function togglePanel(id) {
@@ -195,6 +263,20 @@ function updateStatus(d) {
   var cbar = $('ctx-bar'); if (cbar) cbar.style.width = pct + '%';
   var cinfo = $('ctx-info');
   if (cinfo) cinfo.textContent = max ? (used + ' из ' + max + ' (' + pct + '%)') : '—';
+  var warn = $('ctx-warn');
+  if (warn) {
+    if (pct >= 80) {
+      warn.style.display = 'block';
+      warn.className = 'ctx-warn danger';
+      warn.textContent = '⚠ Контекст заполнен на ' + pct + '%. Нажмите «Эстафета» (сохранит диалог в файл), затем «Новая сессия» — иначе ответы начнут урезаться.';
+    } else if (pct >= 70) {
+      warn.style.display = 'block';
+      warn.className = 'ctx-warn';
+      warn.textContent = 'Контекст заполнен на ' + pct + '% (порог дома 70%). Скоро понадобится «Эстафета» и «Новая сессия».';
+    } else {
+      warn.style.display = 'none';
+    }
+  }
   var sel = $('model-select');
   if (sel && d.model && sel.value !== d.model && !sel.getAttribute('data-hold')) sel.value = d.model;
   ['ollama', 'creoson', 'agent'].forEach(function (k) {
@@ -613,6 +695,8 @@ function showApp() {
   loadPrograms(true);
   loadModels();
   refreshSpark();
+  setTab('chat');
+  var ci = $('chat-input'); if (ci) ci.focus();
   if (!$('chat-msgs').children.length) {
     chatAdd('Здравствуйте. Я агент дома: спросите что угодно или откройте «Инструменты».', false);
   }
@@ -679,6 +763,11 @@ window.addEventListener('DOMContentLoaded', function () {
   if (gp) gp.addEventListener('click', function () { maintRun('git_pull', {}, 'Обновление (git pull)'); });
   var mr = $('maint-refresh');
   if (mr) mr.addEventListener('click', function () { maintRun('git_status', {}, 'Git-статус'); });
+  var rr = $('rules-refresh'); if (rr) rr.addEventListener('click', loadRules);
+  var ra = $('rule-add'); if (ra) ra.addEventListener('click', ruleAdd);
+  var rs = $('rules-save'); if (rs) rs.addEventListener('click', function () { rulesSave(); });
+  var ns = $('btn-new-session'); if (ns) ns.addEventListener('click', newSession);
+  var ho = $('btn-handover'); if (ho) ho.addEventListener('click', handover);
   document.addEventListener('keydown', function (e) {
     if (e.ctrlKey && e.key.toLowerCase() === 'k') {
       e.preventDefault(); setTab('tools');

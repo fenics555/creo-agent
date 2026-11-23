@@ -2,6 +2,7 @@
 """АГЕНТ v15 — loop.py: очистка, стриминг, протокол, системный промт, ходовый цикл."""
 import json, re, os, socket, threading, time, datetime
 from concurrent.futures import ThreadPoolExecutor
+from pathlib import Path
 import core
 from core import log, trace
 import settings
@@ -185,6 +186,70 @@ def load_skill(name):
     except Exception: return ""
 
 
+_RULES_CACHE = {"sig": None, "text": ""}
+
+
+def rules_state():
+    """Список файлов правил (как .clinerules в Cline) + факт их наличия.
+
+    Возвращает [{path, exists, size, mtime, lines}]. Список берётся из настроек
+    `rules_files`; отсутствующие файлы не ошибка — просто не попадут в промт.
+    """
+    try:
+        files = settings.get("rules_files") or [r"D:\AI\.clinerules"]
+    except Exception:
+        files = [r"D:\AI\.clinerules"]
+    if isinstance(files, str):
+        files = [files]
+    out = []
+    for f in files:
+        p = Path(str(f))
+        row = {"path": str(p), "exists": False, "size": 0, "mtime": "", "lines": 0}
+        try:
+            if p.exists():
+                st = p.stat()
+                txt = p.read_text(encoding="utf-8-sig", errors="replace")
+                row.update(exists=True, size=st.st_size,
+                           mtime=datetime.datetime.fromtimestamp(st.st_mtime).strftime("%Y-%m-%d %H:%M"),
+                           lines=len(txt.splitlines()))
+        except Exception:
+            pass
+        out.append(row)
+    return out
+
+
+def load_rules():
+    """Текст правил из файлов `rules_files` с кэшем по mtime/размеру и лимитом символов.
+
+    Именно это даёт «правила добавляются к промту» как в Cline: агент видит .clinerules
+    без ручного копирования. Лимит `rules_max_chars` защищает контекст от переполнения.
+    """
+    rows = rules_state()
+    sig = tuple((r["path"], r["mtime"], r["size"]) for r in rows)
+    if _RULES_CACHE["sig"] == sig:
+        return _RULES_CACHE["text"]
+    parts = []
+    for r in rows:
+        if not r["exists"]:
+            continue
+        try:
+            txt = Path(r["path"]).read_text(encoding="utf-8-sig", errors="replace")
+        except Exception:
+            continue
+        parts.append("--- %s (%d строк) ---\n%s" % (r["path"], r["lines"], txt))
+    try:
+        limit = int(settings.get("rules_max_chars") or 12000)
+    except Exception:
+        limit = 12000
+    text = "\n\n".join(parts)
+    if len(text) > limit:
+        text = text[:limit] + ("\n[... правила обрезаны: показано %d из %d симв. — подними "
+                               "«Лимит правил» в настройках ...]" % (limit, len(text)))
+    _RULES_CACHE["sig"] = sig
+    _RULES_CACHE["text"] = text
+    return text
+
+
 _CORE = (
     "creo_get_active", "creo_status", "creo_session", "creo_list_files",
     "models_find", "plm_item", "plm_tree", "plm_where", "plm_summary",
@@ -246,6 +311,15 @@ def build_system(mode=1, question=""):
     )
     _rules = ((load_skill("MANIFEST.md") or "") + "\n\n" + (load_skill("SKILL_agent_protocol.md") or DEFAULT_PROTO)).strip()
     p = _head + "\n=== ПРАВИЛА ДОМА (главные) ===\n" + _rules + "\n=== КОНЕЦ ПРАВИЛ ===\n"
+    # 23.11.2026 (слово владельца): .clinerules подмешивается в промт как в Cline —
+    # файлы берутся из настроек `rules_files`, кэш по mtime, лимит `rules_max_chars`.
+    try:
+        _cl = load_rules()
+    except Exception:
+        _cl = ""
+    if _cl:
+        p += ("\n=== ПРАВИЛА ДОМА: .clinerules (как в Cline, высший приоритет) ===\n"
+              + _cl + "\n=== КОНЕЦ .clinerules ===\n")
     # ЗАРЯД ЗНАНИЙ (решение дома 24.09.2026). Раньше база знаний лежала в РАМ целиком (16 ГБ) и агент
     # «уже знал» скиллы; теперь память — FTS5-поиск, поэтому карта скиллов и стартовый набор Creo/CREOSON
     # подаются прямо в промпт (собирает dev\skills_charge.py). Главное направление дома — CREO.

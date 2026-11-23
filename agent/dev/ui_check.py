@@ -83,6 +83,9 @@ for _where, _txt, _what in (('index.html', _idx, 'id="login-screen"'), ('index.h
                             ('index.html', _idx, 'id="model-select"'), ('index.html', _idx, 'id="screen-maint"'),
                             ('index.html', _idx, 'id="run-checks"'), ('index.html', _idx, 'id="donut"'),
                             ('index.html', _idx, 'id="spark"'), ('index.html', _idx, 'id="ctx-bar"'),
+                            ('index.html', _idx, 'id="screen-rules"'), ('index.html', _idx, 'id="rules-files"'),
+                            ('index.html', _idx, 'id="rules-preview"'), ('index.html', _idx, 'id="ctx-warn"'),
+                            ('index.html', _idx, 'id="btn-new-session"'), ('index.html', _idx, 'id="btn-handover"'),
                             ('app.js', _app, 'function chatSend'), ('app.js', _app, 'function loadStatus'),
                             ('app.js', _app, 'function loadTools'), ('app.js', _app, 'function setTab'),
                             ('app.js', _app, 'function togglePanel'), ('app.js', _app, 'function hasToken'),
@@ -90,7 +93,9 @@ for _where, _txt, _what in (('index.html', _idx, 'id="login-screen"'), ('index.h
                             ('app.js', _app, 'function loadSettings'), ('app.js', _app, 'function login'),
                             ('app.js', _app, 'function loadModels'), ('app.js', _app, 'function modelChanged'),
                             ('app.js', _app, 'function renderDonut'), ('app.js', _app, 'function renderSpark'),
-                            ('app.js', _app, 'function maintRun'), ('app.js', _app, 'function refreshSpark')):
+                            ('app.js', _app, 'function maintRun'), ('app.js', _app, 'function refreshSpark'),
+                            ('app.js', _app, 'function loadRules'), ('app.js', _app, 'function rulesSave'),
+                            ('app.js', _app, 'function newSession'), ('app.js', _app, 'function handover')):
     if _what not in _txt:
         print('%s: пропал опорный элемент варианта 2: %s' % (_where, _what))
         bad = True
