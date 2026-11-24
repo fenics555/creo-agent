@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <meta http-equiv="Cache-Control" content="no-store">
-<meta name="ui-ver" content="20">
+<meta name="ui-ver" content="21">
 <title>АГЕНТ v15 — пульт дома</title>
 <style>
 :root{
@@ -191,6 +191,9 @@ kbd{background:#111417;border:1px solid var(--line);border-bottom-width:2px;bord
   background:linear-gradient(90deg,var(--ok),#7ee0c9);transition:width .4s ease}
 .mini-ctx.warn i{background:linear-gradient(90deg,var(--warn),#f0d9a8)}
 .mini-ctx.danger i{background:linear-gradient(90deg,var(--err),#f6b0a3)}
+.mode-pick{display:inline-flex;align-items:center;background:var(--panel);border:1px solid var(--line);
+  border-radius:999px;padding:2px 6px}
+.mode-pick select{background:transparent;border:none;padding:3px 4px;font-size:12px}
 .think{margin-top:8px;border-top:1px dashed #3a4149;padding-top:6px;color:var(--muted);font-size:12px}
 .think summary{cursor:pointer;color:var(--muted);font-size:11.5px;user-select:none}
 .think .mono{margin-top:6px;max-height:180px;overflow:auto;color:#b9c2cc;font-size:11.5px}
@@ -317,6 +320,12 @@ kbd{background:#111417;border:1px solid var(--line);border-bottom-width:2px;bord
           <span class="mini-ctx" id="chat-ctx" title="Заполнение окна контекста">
             <i id="chat-ctx-bar"></i></span>
           <span class="sub" id="chat-ctx-pct">—</span>
+          <label class="mode-pick" title="Режим ответа: Агент — инструменты дома; Обычный — просто собеседник">
+            <select id="chat-mode">
+              <option value="1">Агент</option>
+              <option value="2">Обычный</option>
+            </select>
+          </label>
           <span class="spacer"></span>
           <button class="btn sm" id="chat-rules" title="Какие правила идут в промт">📕 Правила</button>
           <button class="btn sm" id="chat-handover" title="Сохранить эстафету в D:\AI\ЭСТАФЕТЫ">Эстафета</button>
@@ -512,6 +521,6 @@ setTimeout(function () {
   }
 }, 2500);
 </script>
-<script src="/ui/app.js?v=20"></script>
+<script src="/ui/app.js?v=21"></script>
 </body>
 </html>

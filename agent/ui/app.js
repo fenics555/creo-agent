@@ -27,6 +27,7 @@ var BASE = '';
 var TOOLS = [];
 var CUR_TOOL = null;
 var CUR_TOOL_ABORT = null;
+var CHAT_BUSY = false;
 var STREAM_CTRL = null;
 
 function $(id) { return document.getElementById(id); }
@@ -53,6 +54,16 @@ function api(path, body, cb, errCb) {
   }).then(function (d) { if (d && cb) cb(d); }).catch(function (e) { if (errCb) errCb({ error: e.message }); });
 }
 function hasToken() { return !!(TK && TK.length); }
+
+/* 24.11.2026: модель иногда отдаёт служебные теги — в ленте их показывать нельзя. */
+function cleanAnswer(t) {
+  var s = String(t == null ? '' : t);
+  s = s.replace(/\[\/?ANSWER\]/gi, '');
+  s = s.replace(/\[THINK\][\s\S]*?\[\/THINK\]/gi, '');
+  s = s.replace(/\[TOOL:[^\]]*\]/gi, '');
+  s = s.replace(/\n{3,}/g, '\n\n');
+  return s.trim();
+}
 
 /* ---------- модели (мгновенная смена в шапке) ---------- */
 function loadModels() {
@@ -92,6 +103,17 @@ function modelChanged() {
     sel.removeAttribute('data-hold');
     loadStatus();
   });
+}
+
+/* ---------- режим ответа (Агент / Обычный) ---------- */
+function modeChanged() {
+  var sel = $('chat-mode');
+  if (!sel) return;
+  api('/setcfg', { key: 'chat_mode', value: parseInt(sel.value, 10) }, function () {
+    chatAdd(sel.value === '2'
+      ? 'Режим «Обычный»: собеседник без инструментов дома.'
+      : 'Режим «Агент»: доступны инструменты, файлы и базы дома.', false);
+  }, function (e) { alert('режим не сменён: ' + (e.error || '')); });
 }
 
 /* ---------- инфографика ---------- */
@@ -306,6 +328,8 @@ function updateStatus(d) {
   }
   var ccpct = $('chat-ctx-pct');
   if (ccpct) ccpct.textContent = want ? (pct + '% контекста') : 'контекст —';
+  var cmsel = $('chat-mode');
+  if (cmsel && d.mode) cmsel.value = String(d.mode);
   var cinfo = $('ctx-info');
   if (cinfo) {
     cinfo.textContent = want
@@ -374,6 +398,9 @@ function chatSend() {
   var inp = $('chat-input');
   var text = (inp.value || '').trim();
   if (!text || !hasToken()) return;
+  if (CHAT_BUSY) { chatAdd('Дождитесь ответа или нажмите ■ (Esc).', false); return; }
+  CHAT_BUSY = true;
+  var sbtn = $('btn-send'); if (sbtn) { sbtn.disabled = true; sbtn.textContent = 'Ждём…'; }
   inp.value = '';
   chatAdd(text, true);
   var wait = chatAdd('', false);
@@ -397,10 +424,12 @@ function chatSend() {
     if (finished) return;
     finished = true;
     clearInterval(thinkTmr);
+    CHAT_BUSY = false;
+    var sb = $('btn-send'); if (sb) { sb.disabled = false; sb.textContent = 'Отправить'; }
     var secs = (Date.now() - t0) / 1000;
     wait.classList.remove('typing');
     box.parentNode.classList.remove('streaming');
-    var ans = (done && done.answer) || toks || (stopped ? 'остановлено' : '(пусто)');
+    var ans = cleanAnswer((done && done.answer) || toks || (stopped ? 'остановлено' : '(пусто)'));
     wait.textContent = ans;
     var meta = [];
     if (done && done.steps) meta.push('шагов: ' + done.steps);
@@ -457,7 +486,7 @@ function chatSend() {
               toks += Array.isArray(d.tok) ? d.tok.join('') : String(d.tok);
               if (toks) {
                 if (wasEmpty) clearInterval(thinkTmr);
-                wait.textContent = toks;
+                wait.textContent = cleanAnswer(toks);
               }
             }
             if (d.step) {
@@ -936,6 +965,7 @@ window.addEventListener('DOMContentLoaded', function () {
   var md = $('modal'); if (md) md.addEventListener('click', function (e) { if (e.target === md) closeModal(); });
   var oh = $('ov-handover'); if (oh) oh.addEventListener('click', handover);
   var onw = $('ov-new'); if (onw) onw.addEventListener('click', newSession);
+  var cms = $('chat-mode'); if (cms) cms.addEventListener('change', modeChanged);
   document.addEventListener('keydown', function (e) {
     if (e.ctrlKey && e.key.toLowerCase() === 'k') {
       e.preventDefault(); setTab('tools');
