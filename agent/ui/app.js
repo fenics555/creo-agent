@@ -358,8 +358,17 @@ function chatSend() {
   var t0 = Date.now(), toks = '', steps = [];
   var ctrl = new AbortController();
   STREAM_CTRL = ctrl;
+  var spin = '<span class="dots"><i></i><i></i><i></i></span>';
+  wait.innerHTML = spin + ' думает… <b class="tmr">0 с</b>';
+  var thinkTmr = setInterval(function () {
+    if (!toks) {
+      wait.innerHTML = spin + ' думает… <b class="tmr">' +
+        ((Date.now() - t0) / 1000).toFixed(0) + ' с</b>';
+    }
+  }, 400);
 
   function finish(done, stopped) {
+    clearInterval(thinkTmr);
     var secs = (Date.now() - t0) / 1000;
     wait.classList.remove('typing');
     box.parentNode.classList.remove('streaming');
@@ -416,8 +425,12 @@ function chatSend() {
             var d = null;
             try { d = JSON.parse(line.slice(6)); } catch (e) { return; }
             if (d.tok) {
+              var wasEmpty = !toks;
               toks += Array.isArray(d.tok) ? d.tok.join('') : String(d.tok);
-              if (toks) wait.textContent = toks;
+              if (toks) {
+                if (wasEmpty) clearInterval(thinkTmr);
+                wait.textContent = toks;
+              }
             }
             if (d.step) {
               steps.push(d.step);
@@ -736,37 +749,63 @@ function loadLog() {
 
 /* ---------- настройки ---------- */
 function loadSettings() {
-  api('/settings', null, function (d) {
-    var box = $('settings-list');
-    var items = d.items || [];
-    box.innerHTML = items.map(function (it, i) {
-      var isBool = (it.type === 'bool') || it.kind === 'bool';
-      var input = isBool
-        ? '<select id="set-' + i + '"><option' + (it.value ? ' selected' : '') + '>да</option>' +
-          '<option' + (!it.value ? ' selected' : '') + '>нет</option></select>'
-        : '<input id="set-' + i + '" value="' + esc(it.value) + '">';
-      return '<div class="item"><div class="grow"><div class="t">' + esc(it.name || it.key) + '</div>' +
-        '<div class="d">' + esc(it.space || '') + ' · ' + esc(it.key) + ' — ' + esc(it.desc || '') + '</div></div>' +
-        input + '<button class="btn sm" data-set="' + i + '">Применить</button></div>';
-    }).join('') || '<div class="empty">настроек нет</div>';
-    box.querySelectorAll('[data-set]').forEach(function (b) {
-      b.addEventListener('click', function () {
-        var i = parseInt(b.getAttribute('data-set'), 10);
-        var it = items[i];
-        var raw = $('set-' + i).value;
-        var val = raw;
-        if (it.type === 'int') val = parseInt(raw, 10) || 0;
-        if (it.type === 'float') val = parseFloat(String(raw).replace(',', '.')) || 0;
-        if (it.type === 'bool') val = (raw === 'да');
-        api('/setcfg', { key: it.key, value: val }, function () {
-          b.textContent = 'Готово'; setTimeout(function () { b.textContent = 'Применить'; }, 1200);
-        }, function (e) {
-          b.textContent = 'Отказ';
-          b.title = e.error || '';
-          setTimeout(function () { b.textContent = 'Применить'; }, 1600);
+  api('/api/models', null, function (mm) {
+    var MODELS = mm.models || [];
+    api('/settings', null, function (d) {
+      var box = $('settings-list');
+      var items = d.items || [];
+      box.innerHTML = items.map(function (it, i) {
+        var isBool = (it.type === 'bool') || it.kind === 'bool';
+        var isModel = (it.key === 'llm_model') || String(it.key).indexOf('model_') === 0;
+        var input;
+        if (isBool) {
+          input = '<select id="set-' + i + '"><option' + (it.value ? ' selected' : '') + '>да</option>' +
+            '<option' + (!it.value ? ' selected' : '') + '>нет</option></select>';
+        } else if (isModel) {
+          var cur = String(it.value == null ? '' : it.value);
+          var opts = ['<option value="">— не задано —</option>'];
+          MODELS.forEach(function (m) {
+            opts.push('<option value="' + esc(m) + '"' + (m === cur ? ' selected' : '') + '>' +
+              esc(m) + '</option>');
+          });
+          if (cur && MODELS.indexOf(cur) < 0) {
+            opts.push('<option value="' + esc(cur) + '" selected>' + esc(cur) + ' (нет в Ollama)</option>');
+          }
+          input = '<select id="set-' + i + '">' + opts.join('') + '</select>';
+        } else {
+          input = '<input id="set-' + i + '" value="' + esc(it.value == null ? '' : it.value) + '">';
+        }
+        var badge = it.used === false ? '<span class="badge warn" title="ключ не читается кодом агента — задел">не влияет</span>' : '';
+        return '<div class="item"><div class="grow"><div class="t">' + esc(it.name || it.key) + '</div>' +
+          '<div class="d">' + esc(it.space || '') + ' · ' + esc(it.key) + ' — ' + esc(it.desc || '') + '</div></div>' +
+          badge + input + '<button class="btn sm" data-set="' + i + '">Применить</button></div>';
+      }).join('') || '<div class="empty">настроек нет</div>';
+      box.querySelectorAll('[data-set]').forEach(function (b) {
+        b.addEventListener('click', function () {
+          var i = parseInt(b.getAttribute('data-set'), 10);
+          var it = items[i];
+          var raw = $('set-' + i).value;
+          var val = raw;
+          if (it.type === 'int') val = parseInt(raw, 10) || 0;
+          if (it.type === 'float') val = parseFloat(String(raw).replace(',', '.')) || 0;
+          if (it.type === 'bool') val = (raw === 'да');
+          if (it.type === 'list') val = String(raw).split(/[;,]/).map(function (x) { return x.trim(); })
+            .filter(function (x) { return x; });
+          api('/setcfg', { key: it.key, value: val }, function () {
+            b.textContent = '✓ применено';
+            setTimeout(function () { b.textContent = 'Применить'; }, 1400);
+            if (it.key === 'llm_model') loadStatus();
+          }, function (e) {
+            b.textContent = 'Отказ';
+            b.title = e.error || '';
+            setTimeout(function () { b.textContent = 'Применить'; }, 1800);
+          });
         });
       });
     });
+  }, function () {
+    var st = $('settings-list');
+    if (st) st.innerHTML = '<div class="empty">не удалось получить список моделей</div>';
   });
 }
 

@@ -32,7 +32,7 @@ REGISTRY = [
     # её читает get_for(login, "ui_layout") в http_handlers.py:129, а НЕ config.json.
     # Значит правка здесь общую не меняет, а меняет вид окна у конкретного человека. Помечено честно.
     ("Главное", "ui_layout", "Вид окна агента", "str", "v2", "Личный вид окна (по логину!): v1 вкладки сверху / v2 боковое меню / v3 пульт.", True),
-    ("Разум", "log_days", "Дней хранить лог", "int", 14, "Автоочистка логов.", True),
+    ("Разум", "log_days", "Дней хранить лог", "int", 14, "Автоочистка логов. Ведёт уборщик: log_clean\\settings\\settings.json (ключ days) — здесь для справки.", True),
     ("Разум", "verbose_trace", "Подробный trace", "bool", False, "Сырые JSON в trace-файл.", False),
     ("Разум", "think_mode", "Глубина рассуждений 0-2", "int", 2, "0=выкл, 1=кратко, 2=полно (блок [THINK] по-русски).", True),
     ("Разум", "llm_timeout", "Таймаут ответа модели, сек", "int", 240, "Предел времени на один ответ. Защита от зацикливания (GPU не жжём впустую).", True),
@@ -172,6 +172,10 @@ def list_ui():
         if "password" in str(k):
             v = "••••••"
         e = {"space": space, "key": k, "name": name, "type": typ, "value": v, "desc": desc}
+        try:
+            e["used"] = (k in used_keys())
+        except Exception:
+            e["used"] = True
         if typ in ("int", "float") and k in B:
             lo, hi, st = B[k]
             e["min"], e["max"], e["step"] = lo, hi, st
@@ -187,6 +191,43 @@ def list_ui():
 def model_for(role):
     v = get("model_" + role)
     return v or get("llm_model")
+
+
+_USED_CACHE = {"ts": 0.0, "keys": None}
+
+
+def used_keys():
+    """Ключи настройки, которые РЕАЛЬНО встречаются в коде агента (грубый, но честный скан).
+
+    23.11.2026 (слово владельца «настройки вроде не подцепляются»): панель показывает по каждому
+    ключу пометку «не влияет», если он объявлен, но нигде не читается. Скан кэшируется на 10 минут.
+    """
+    import time as _t
+    if _USED_CACHE["keys"] is not None and (_t.time() - _USED_CACHE["ts"]) < 600:
+        return _USED_CACHE["keys"]
+    here = __import__("pathlib").Path(__file__).resolve().parent
+    skip = {"__pycache__", "data", "dev", "TEST", "work", "ui", "_disabled"}
+    blob = []
+    for p in here.rglob("*.py"):
+        if any(x in p.parts for x in skip) or p.name == "settings.py":
+            continue
+        try:
+            blob.append(p.read_text(encoding="utf-8", errors="replace"))
+        except Exception:
+            pass
+    text = "\n".join(blob)
+    keys = set()
+    for _sp, k, _nm, _tp, _dl, _ds, _ui in REGISTRY:
+        if ('"%s"' % k) in text or ("'%s'" % k) in text:
+            keys.add(k)
+        elif k.startswith("model_"):
+            role = k[len("model_"):]
+            if ('model_for("%s")' % role) in text or ("model_for('%s')" % role) in text:
+                keys.add(k)
+    _USED_CACHE["keys"] = keys
+    _USED_CACHE["ts"] = _t.time()
+    return keys
+
 
 PERSONAL_KEYS = ["chat_mode", "ui_layout"]
 PREF_FILE = DATA_DIR / "user_prefs.json"
