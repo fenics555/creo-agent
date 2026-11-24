@@ -84,12 +84,26 @@ def main():
             tag = m.group(1) if m else '?'
             ggufs.append((gb, tag, p))
 
-        ggufs.sort()
-        print('  %-6s %-9s %-8s %s' % ('GB', 'quant', 'bit/wt', 'verdict'))
+        # 24.11.2026: ШИНЫ (shards) складываем — у больших моделей файл разбит на N частей,
+        # и поштучный размер вводил в заблуждение. Группируем по кванту (+ MTP-драфт отдельно).
+        groups = {}
         for gb, tag, p in ggufs:
-            print('  %-6.2f %-9s %-8s %s   %s' % (gb, tag, bpw(gb, a.param_B), verdict(gb), p.split('/')[-1]))
+            low = p.lower()
+            suffix = ' +MTP' if ('mtp' in low or 'draft' in low) else ''
+            key = (tag.upper() + suffix, suffix)
+            g = groups.setdefault(key, [0.0, 0, p])
+            g[0] += gb
+            g[1] += 1
+            # 24.11.2026: держим имя первого шина (для точной закачки hf_download.py --file)
+            if '-00001-of-' in p or (g[1] == 1 and '-of-' not in g[2]):
+                g[2] = p
+        print('  %-14s %-8s %-9s %s' % ('quant', 'GB(сумма)', 'bit/wt', 'вердикт (шин)'))
+        for (key, suffix), (total, n, sample) in sorted(groups.items(), key=lambda kv: kv[1][0]):
+            print('  %-14s %-8.2f %-9s %s  (%d файл.)'
+                  % (key, total, bpw(total, a.param_B), verdict(total), n))
+            print('        file: %s' % sample.split('/')[-1])
         for p, gb in extra:
-            print('  + %.2f GB  %s' % (gb, p))
+            print('  + %.2f GB  %s' % (gb, p.split('/')[-1]))
 
 
 if __name__ == '__main__':
