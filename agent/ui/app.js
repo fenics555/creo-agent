@@ -857,6 +857,8 @@ window.addEventListener('DOMContentLoaded', function () {
   var chl = $('chat-reload'); if (chl) chl.addEventListener('click', function () { location.reload(true); });
   var mc = $('modal-close'); if (mc) mc.addEventListener('click', closeModal);
   var md = $('modal'); if (md) md.addEventListener('click', function (e) { if (e.target === md) closeModal(); });
+  var oh = $('ov-handover'); if (oh) oh.addEventListener('click', handover);
+  var onw = $('ov-new'); if (onw) onw.addEventListener('click', newSession);
   document.addEventListener('keydown', function (e) {
     if (e.ctrlKey && e.key.toLowerCase() === 'k') {
       e.preventDefault(); setTab('tools');
