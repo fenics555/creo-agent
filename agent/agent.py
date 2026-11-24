@@ -38,6 +38,15 @@ if __name__ == "__main__":
     log("=== старт АГЕНТ v15 на %s ===" % socket.gethostname())
     import users as _users
     _users.ensure_role_policy()   # дефолт: админские инструменты и настройки — только админу
+    try:
+        import loop as _lp
+        _rs = _lp.rules_state()
+        _rt = _lp.load_rules()
+        log("правила в промт: файлов %d, символов %d%s" % (
+            sum(1 for r in _rs if r["exists"]), len(_rt),
+            " (.clinerules обрезан лимитом!)" if "правила обрезаны" in _rt else ""))
+    except Exception as _re:
+        log("правила: не прочитаны (%s)" % _re)
     # ДИАГНОСТИКА ТИХОЙ СМЕРТИ (04.10.2026, крах agent_silent-death_noport-8765): агент умер
     # без единой строки в журнале, и по нему нельзя было понять — сам упал или убит снаружи.
     # Три факта теперь пишутся всегда: PID старта, PID завершения, код возврата.

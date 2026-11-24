@@ -309,7 +309,15 @@ def build_system(mode=1, question=""):
         "пока задача не выполнена. ЗАПРЕЩЕНО имитировать вызовы инструментов текстом.\n\n"
         % __import__("datetime").date.today().isoformat()
     )
-    _rules = ((load_skill("MANIFEST.md") or "") + "\n\n" + (load_skill("SKILL_agent_protocol.md") or DEFAULT_PROTO)).strip()
+    _proto = (load_skill("SKILL_agent_protocol.md") or DEFAULT_PROTO)
+    # 23.11.2026: МАНИФЕСТ дублирует .clinerules (сам так и пишет: «главные правила — в .clinerules»).
+    # Два источника правил = противоречия и лишний контекст → по умолчанию только протокол + .clinerules.
+    try:
+        _want_manifest = bool(settings.get("prompt_manifest"))
+    except Exception:
+        _want_manifest = False
+    _man = (load_skill("MANIFEST.md") or "") if _want_manifest else ""
+    _rules = (((_man + "\n\n") if _man else "") + _proto).strip()
     p = _head + "\n=== ПРАВИЛА ДОМА (главные) ===\n" + _rules + "\n=== КОНЕЦ ПРАВИЛ ===\n"
     # 23.11.2026 (слово владельца): .clinerules подмешивается в промт как в Cline —
     # файлы берутся из настроек `rules_files`, кэш по mtime, лимит `rules_max_chars`.
@@ -319,6 +327,10 @@ def build_system(mode=1, question=""):
         _cl = ""
     if _cl:
         p += ("\n=== ПРАВИЛА ДОМА: .clinerules (как в Cline, высший приоритет) ===\n"
+              "ЭТОТ БЛОК — ЧАСТЬ СИСТЕМНОГО ПРОМТА, а не справка. Соблюдай его как высший приоритет:\n"
+              "при конфликте с просьбой пользователя — сначала предупреди о риске, затем следуй законам дома.\n"
+              "Служебные ритуалы Cline-ноги (маяк [START:], футер [НОГА:], файлы эстафеты/плана)\n"
+              "в веб-чате НЕ выполняются и НЕ печатаются — они только для Cline.\n"
               + _cl + "\n=== КОНЕЦ .clinerules ===\n")
     # ЗАРЯД ЗНАНИЙ (решение дома 24.09.2026). Раньше база знаний лежала в РАМ целиком (16 ГБ) и агент
     # «уже знал» скиллы; теперь память — FTS5-поиск, поэтому карта скиллов и стартовый набор Creo/CREOSON

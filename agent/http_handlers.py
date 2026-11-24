@@ -71,6 +71,26 @@ def _serve_file(handler, rel):
 class Hd(BaseHTTPRequestHandler):
     def log_message(self, *a): pass
 
+    def handle_one_request(self):
+        """23.11.2026: раньше исключение в обработчике молча рвало соединение (RemoteDisconnected):
+        ни строки в логе, ни ответа клиенту. Теперь пишем traceback в журнал и отвечаем 500."""
+        try:
+            super().handle_one_request()
+        except (BrokenPipeError, ConnectionResetError):
+            pass
+        except Exception as e:
+            try:
+                import traceback
+                log("HTTP %s %s: %s: %s" % (getattr(self, "command", "?"),
+                                            getattr(self, "path", "?"), type(e).__name__, e))
+                log(traceback.format_exc()[:1800])
+            except Exception:
+                pass
+            try:
+                self._j({"error": "внутренняя ошибка сервера: %s" % e}, 500)
+            except Exception:
+                pass
+
     def _j(self, d, code=200):
         b = json.dumps(d, ensure_ascii=False).encode()
         self.send_response(code)
