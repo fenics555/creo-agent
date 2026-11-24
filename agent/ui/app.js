@@ -1,13 +1,24 @@
 /* app.js — витрина АГЕНТ v15 (23.11.2026): экраны, инструменты, программы, люди, журнал, настройки. */
 window.__AGENT_UI = 1;
 (function uiVersionGuard() {
-  // Защита от старой копии витрины в браузере: при смене версии — одна перезагрузка.
+  // Защита от старой копии витрины в браузере. 24.11.2026: БЕЗ авто-перезагрузки —
+  // она рвала активные запросы чата (появлялось «остановлено»). Теперь только подсказка.
   try {
     var meta = document.querySelector('meta[name="ui-ver"]');
     var ver = meta ? meta.getAttribute('content') : '0';
     var seen = localStorage.getItem('ui_ver');
     localStorage.setItem('ui_ver', ver);
-    if (seen && seen !== ver) location.reload();
+    if (seen && seen !== ver) {
+      var be = document.getElementById('boot-error');
+      if (be) {
+        be.style.display = 'block';
+        be.style.color = 'var(--warn)';
+        be.style.borderColor = '#5b4f36';
+        be.style.background = '#3a2f1f';
+        be.textContent = 'Витрина обновлена (версия ' + ver + '). Нажмите Ctrl+F5, чтобы увидеть новую.';
+        setTimeout(function () { be.style.display = 'none'; }, 8000);
+      }
+    }
   } catch (e) { /* приватный режим — не мешаем */ }
 })();
 var TK = localStorage.getItem('agent_token') || '';
@@ -286,6 +297,13 @@ function updateStatus(d) {
   var used = d.ctx_session || 0, max = d.model_ctx || d.ctx_requested || 0;
   var pct = max ? Math.min(100, Math.round(100 * used / max)) : 0;
   var cbar = $('ctx-bar'); if (cbar) cbar.style.width = pct + '%';
+  var ccbar = $('chat-ctx-bar'); if (ccbar) ccbar.style.width = pct + '%';
+  var ccbox = $('chat-ctx');
+  if (ccbox) {
+    ccbox.className = 'mini-ctx' + (pct >= 80 ? ' danger' : (pct >= 70 ? ' warn' : ''));
+  }
+  var ccpct = $('chat-ctx-pct');
+  if (ccpct) ccpct.textContent = max ? (pct + '% контекста') : 'контекст —';
   var cinfo = $('ctx-info');
   if (cinfo) cinfo.textContent = max ? (used + ' из ' + max + ' (' + pct + '%)') : '—';
   var warn = $('ctx-warn');
@@ -356,6 +374,7 @@ function chatSend() {
   var box = $('chat-msgs');
   box.parentNode.classList.add('streaming');
   var t0 = Date.now(), toks = '', steps = [];
+  var finished = false;
   var ctrl = new AbortController();
   STREAM_CTRL = ctrl;
   var spin = '<span class="dots"><i></i><i></i><i></i></span>';
@@ -368,6 +387,8 @@ function chatSend() {
   }, 400);
 
   function finish(done, stopped) {
+    if (finished) return;
+    finished = true;
     clearInterval(thinkTmr);
     var secs = (Date.now() - t0) / 1000;
     wait.classList.remove('typing');
@@ -446,9 +467,19 @@ function chatSend() {
     return pump();
   }).catch(function (e) {
     if (e.name === 'AbortError') { finish(null, true); return; }
-    wait.classList.remove('typing');
-    wait.textContent = 'ошибка: ' + e.message;
-    finish(null, true);
+    // 24.11.2026: поток может не дойти (браузер/сеть) — ЗАПАСНОЙ путь: обычный /ask.
+    wait.textContent = 'поток недоступен — спрашиваю обычным способом…';
+    api('/ask', { q: text, mode: 1 }, function (d2) {
+      if (d2 && d2.answer) { wait.textContent = d2.answer; }
+      finish(d2, false);
+      if (d2 && d2.answer) wait.textContent = d2.answer;
+    }, function (e2) {
+      wait.classList.remove('typing');
+      if (!finished) {
+        wait.textContent = 'ошибка: ' + (e2.error || e.message);
+        finish(null, true);
+      }
+    });
   });
 }
 function chatStop() {
@@ -904,7 +935,10 @@ window.addEventListener('DOMContentLoaded', function () {
       var f = $('tool-search'); if (f) f.focus();
     }
     if (e.ctrlKey && e.key === 'Enter') { e.preventDefault(); chatSend(); }
-    if (e.key === 'Escape') { if ($('modal').style.display === 'flex') closeModal(); else chatStop(); }
+    if (e.key === 'Escape') {
+      if ($('modal') && $('modal').style.display === 'flex') { closeModal(); return; }
+      if (STREAM_CTRL) chatStop();   // отменяем ТОЛЬКО активный поток, не мешаем остальному
+    }
   });
   if (hasToken()) showApp(); else $('login-screen').style.display = 'flex';
 });
