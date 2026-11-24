@@ -15,6 +15,7 @@ var ME = null;
 var BASE = '';
 var TOOLS = [];
 var CUR_TOOL = null;
+var CUR_TOOL_ABORT = null;
 var STREAM_CTRL = null;
 
 function $(id) { return document.getElementById(id); }
@@ -251,6 +252,17 @@ function togglePanel(id) {
   if (!el) return;
   el.style.display = (el.style.display === 'none' || !el.style.display) ? 'flex' : 'none';
 }
+function showModal(title, text) {
+  var m = $('modal');
+  if (!m) return;
+  $('modal-title').textContent = title || '';
+  $('modal-body').textContent = text || '';
+  m.style.display = 'flex';
+}
+function closeModal() {
+  var m = $('modal');
+  if (m) m.style.display = 'none';
+}
 
 /* ---------- статус и KPI ---------- */
 function updateStatus(d) {
@@ -486,14 +498,30 @@ function selectTool(name) {
   if (!t) return;
   CUR_TOOL = t;
   $('tool-run-title').textContent = t.name;
+  var descEl = $('tool-desc');
+  if (descEl) descEl.textContent = t.desc || '';
+  var warn = $('tool-warn');
+  var notes = [];
+  if (t.approval) notes.push('требует согласования (пишет в дом / Creo)');
+  if (t.needs_creo) notes.push('нужен живой Creo/CREOSON');
+  if (warn) {
+    if (notes.length) {
+      warn.style.display = 'block';
+      warn.textContent = '⚠ ' + notes.join(' · ');
+    } else {
+      warn.style.display = 'none';
+    }
+  }
   var args = $('tool-args');
-  var params = t.params || [];
-  if (!params.length) {
+  var pd = t.params || {};
+  var keys = Object.keys(pd);
+  if (!keys.length) {
     args.innerHTML = '<span style="color:var(--muted)">параметров нет — запускается сразу</span>';
   } else {
-    args.innerHTML = params.map(function (p) {
-      return '<div class="field"><label>' + esc(p) + '</label>' +
-        '<input id="arg-' + esc(p) + '" placeholder="' + esc(p) + '"></div>';
+    args.innerHTML = keys.map(function (k) {
+      return '<div class="field"><label>' + esc(k) + ' — ' +
+        esc(pd[k] || 'параметр') + '</label>' +
+        '<input id="arg-' + esc(k) + '" placeholder="' + esc(pd[k] || k) + '"></div>';
     }).join('');
   }
   var b = $('tool-run-btn');
@@ -557,6 +585,7 @@ function renderPrograms(list) {
       (canWin ? '<button class="btn sm" data-win="' + esc(p.id) + '">Открыть окно</button>' : '') +
       '<button class="btn sm" data-run="' + esc(p.id) + '">Запустить</button>' +
       '<button class="btn sm ghost" data-state="' + esc(p.id) + '">Журнал</button>' +
+      '<button class="btn sm ghost" data-readme="' + esc(p.id) + '">README</button>' +
       '</div></div>';
   }).join('');
   box.querySelectorAll('[data-win]').forEach(function (b) {
@@ -568,6 +597,15 @@ function renderPrograms(list) {
   box.querySelectorAll('[data-state]').forEach(function (b) {
     b.addEventListener('click', function () { programState(b.getAttribute('data-state')); });
   });
+  box.querySelectorAll('[data-readme]').forEach(function (b) {
+    b.addEventListener('click', function () { openProgramReadme(b.getAttribute('data-readme')); });
+  });
+}
+function openProgramReadme(id) {
+  showModal('README · ' + id, 'Читаю…');
+  api('/api/program_readme?id=' + encodeURIComponent(id), null, function (d) {
+    showModal('README · ' + id + (d.lines ? ' · ' + d.lines + ' строк' : ''), d.text || '(пусто)');
+  }, function (e) { showModal('README · ' + id, 'ошибка: ' + (e.error || '')); });
 }
 function openProgramWindow(id) {
   api('/wiz_run_gui', { program: id }, function (d) {
@@ -603,7 +641,10 @@ function loadPeople() {
         roles.map(function (r) {
           return '<option' + (r === u.role ? ' selected' : '') + '>' + esc(r) + '</option>';
         }).join('') + '</select>' +
-        '<button class="btn sm" data-setrole="' + esc(u.login) + '">Сменить роль</button></div>';
+        '<button class="btn sm" data-setrole="' + esc(u.login) + '">Сменить роль</button>' +
+        ((ME && ME.login === u.login) ? '' :
+          '<button class="btn sm danger" data-del-user="' + esc(u.login) + '">Удалить</button>') +
+        '</div>';
     }).join('') || '<div class="empty">нет пользователей</div>';
     box.querySelectorAll('[data-setrole]').forEach(function (b) {
       b.addEventListener('click', function () {
@@ -611,6 +652,16 @@ function loadPeople() {
         var selEl = box.querySelector('[data-role-for="' + lg + '"]');
         api('/admin/users', { op: 'role', login: lg, role: selEl.value }, function (r) {
           $('people-msg').textContent = r.msg || 'готово';
+          loadPeople();
+        }, function (e) { $('people-msg').textContent = 'отказ: ' + (e.error || ''); });
+      });
+    });
+    box.querySelectorAll('[data-del-user]').forEach(function (b) {
+      b.addEventListener('click', function () {
+        var lg = b.getAttribute('data-del-user');
+        if (!confirm('Удалить пользователя «' + lg + '»? Доступ будет потерян.')) return;
+        api('/admin/users', { op: 'delete', login: lg }, function (r) {
+          $('people-msg').textContent = r.msg || 'удалено';
           loadPeople();
         }, function (e) { $('people-msg').textContent = 'отказ: ' + (e.error || ''); });
       });
@@ -633,24 +684,43 @@ function addUser() {
 /* ---------- запуск инструмента (кнопка) ---------- */
 function runTool() {
   if (!CUR_TOOL) return;
+  if (CUR_TOOL.approval && !confirm('«' + CUR_TOOL.name + '» меняет дом или Creo.\nПодтвердить запуск?')) return;
   var args = {};
-  (CUR_TOOL.params || []).forEach(function (p) {
+  Object.keys(CUR_TOOL.params || {}).forEach(function (p) {
     var el = $('arg-' + p);
     var v = el ? el.value.trim() : '';
     if (v) args[p] = v;
   });
   var b = $('tool-run-btn');
+  var out = $('tool-result');
   b.disabled = true;
-  $('tool-result').textContent = 'Выполняю ' + CUR_TOOL.name + ' …';
-  $('tool-result').style.color = 'var(--muted)';
-  api('/tool', { name: CUR_TOOL.name, args: args }, function (d) {
+  var t0 = Date.now();
+  var ctrl = (typeof AbortController !== 'undefined') ? new AbortController() : null;
+  var timer = setInterval(function () {
+    out.textContent = 'Выполняю ' + CUR_TOOL.name + ' … ' +
+      ((Date.now() - t0) / 1000).toFixed(0) + ' с (Esc — отменить)';
+  }, 500);
+  out.style.color = 'var(--muted)';
+  function done(text, isErr) {
+    clearInterval(timer);
     b.disabled = false;
-    $('tool-result').style.color = 'var(--text)';
-    $('tool-result').textContent = d.result || '(пусто)';
-  }, function (e) {
-    b.disabled = false;
-    $('tool-result').style.color = 'var(--err)';
-    $('tool-result').textContent = 'ОТКАЗ: ' + (e.error || 'нет прав');
+    out.style.color = isErr ? 'var(--err)' : 'var(--text)';
+    out.textContent = text;
+  }
+  var opts = { method: 'POST', headers: { 'Content-Type': 'application/json', 'X-Token': TK },
+               body: JSON.stringify({ name: CUR_TOOL.name, args: args }) };
+  if (ctrl) opts.signal = ctrl.signal;
+  CUR_TOOL_ABORT = ctrl;
+  fetch('/tool', opts).then(function (r) {
+    return r.text().then(function (t) {
+      var d = {};
+      try { d = JSON.parse(t); } catch (e) { d = { result: t }; }
+      if (!r.ok) { done('ОТКАЗ: ' + (d.error || ('HTTP ' + r.status)), true); return; }
+      done(d.result || '(пусто)', false);
+    });
+  }).catch(function (e) {
+    if (e.name === 'AbortError') { done('Отменено пользователем', true); return; }
+    done('ошибка связи: ' + e.message, true);
   });
 }
 
@@ -785,13 +855,15 @@ window.addEventListener('DOMContentLoaded', function () {
   var chh = $('chat-handover'); if (chh) chh.addEventListener('click', handover);
   var chn = $('chat-new'); if (chn) chn.addEventListener('click', newSession);
   var chl = $('chat-reload'); if (chl) chl.addEventListener('click', function () { location.reload(true); });
+  var mc = $('modal-close'); if (mc) mc.addEventListener('click', closeModal);
+  var md = $('modal'); if (md) md.addEventListener('click', function (e) { if (e.target === md) closeModal(); });
   document.addEventListener('keydown', function (e) {
     if (e.ctrlKey && e.key.toLowerCase() === 'k') {
       e.preventDefault(); setTab('tools');
       var f = $('tool-search'); if (f) f.focus();
     }
     if (e.ctrlKey && e.key === 'Enter') { e.preventDefault(); chatSend(); }
-    if (e.key === 'Escape') chatStop();
+    if (e.key === 'Escape') { if ($('modal').style.display === 'flex') closeModal(); else chatStop(); }
   });
   if (hasToken()) showApp(); else $('login-screen').style.display = 'flex';
 });

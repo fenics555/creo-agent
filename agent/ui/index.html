@@ -124,6 +124,13 @@ pre.out{background:#171a1e;border:1px solid var(--line);border-radius:9px;paddin
   background:var(--bg2);flex-wrap:wrap;flex:0 0 auto}
 .chat-head b{font-size:13px}
 .chat-head .sub{color:var(--muted);font-size:11.5px}
+.modal{position:fixed;inset:0;background:rgba(0,0,0,.55);display:flex;align-items:center;
+  justify-content:center;z-index:80;padding:24px}
+.modal-card{width:min(960px,100%);max-height:90vh;display:flex;flex-direction:column;
+  background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:14px;
+  box-shadow:0 20px 60px rgba(0,0,0,.5)}
+.modal-head{display:flex;align-items:center;gap:12px;margin-bottom:10px}
+.modal-card .out{max-height:68vh}
 /* правая панель */
 #right{width:290px;flex:0 0 auto;background:var(--bg2);border-left:1px solid var(--line);
   padding:12px;overflow:auto;display:flex;flex-direction:column;gap:10px}
@@ -318,6 +325,8 @@ kbd{background:#111417;border:1px solid var(--line);border-bottom-width:2px;bord
           <div class="list" id="tools-list" style="overflow:auto;max-height:62vh"></div>
           <div class="card" style="display:flex;flex-direction:column;gap:10px;min-height:0">
             <h3 id="tool-run-title">Выберите инструмент слева</h3>
+            <div class="d" id="tool-desc" style="color:var(--muted);font-size:12px"></div>
+            <div class="ctx-warn" id="tool-warn" style="display:none;border-radius:8px"></div>
             <div id="tool-args" class="mono" style="color:var(--muted)"></div>
             <div class="row">
               <button class="btn primary" id="tool-run-btn" disabled>Запустить</button>
@@ -455,6 +464,16 @@ kbd{background:#111417;border:1px solid var(--line);border-bottom-width:2px;bord
         </div>
       </div>
     </aside>
+  </div>
+</div>
+<div class="modal" id="modal" style="display:none">
+  <div class="modal-card">
+    <div class="modal-head">
+      <b id="modal-title">—</b>
+      <span class="spacer"></span>
+      <button class="btn sm" id="modal-close">Закрыть</button>
+    </div>
+    <pre class="out" id="modal-body">—</pre>
   </div>
 </div>
 <div id="boot-error" style="display:none;position:fixed;left:16px;right:16px;bottom:16px;z-index:99;

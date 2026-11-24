@@ -116,6 +116,7 @@ class Hd(BaseHTTPRequestHandler):
 
     def do_GET(self):
         p = urlparse(self.path).path
+        qs = parse_qs(urlparse(self.path).query)
         print(f"DEBUG: p={p}")
         if p == "/status":
             token = self.headers.get("X-Token") or ""
@@ -171,7 +172,7 @@ class Hd(BaseHTTPRequestHandler):
                          "group": g or "", "kind": k or "",
                          "approval": bool(t.get("approval")),
                          "needs_creo": bool(t.get("needs_creo")),
-                         "params": list((t.get("params") or {}).keys())}
+                         "params": dict(t.get("params") or {})}
                         for k, g, t in _TR.iter_tools()]
             except Exception as _tr_e:
                 return self._j({"error": "реестр не прочитан: %s" % _tr_e, "tools": []})
@@ -213,6 +214,34 @@ class Hd(BaseHTTPRequestHandler):
                 _lim = 12000
             return self._j({"files": _files, "chars": len(_text), "limit": _lim,
                             "preview": _text[:6000], "error": None})
+        elif p == "/api/program_readme":
+            # 23.11.2026 (слово владельца «непонятно, что подпрограмма делает»):
+            # README программы как в её папке, так и через контракт tool.json.
+            if not users.token_info(self.headers.get("X-Token") or ""):
+                return self._j({"error": "нужен вход"})
+            pid = (qs.get("id", [""])[0] or "").strip()
+            if not pid:
+                return self._j({"error": "укажите id программы"}, 400)
+            cand = []
+            base = os.path.join(os.path.dirname(os.path.abspath(__file__)), pid)
+            cand.append(os.path.join(base, "README.md"))
+            try:
+                import tool_contract as _tc
+                c, _e = _tc.load_dir(base)
+                if c and c.get("readme"):
+                    cand.insert(0, os.path.join(base, str(c["readme"])))
+            except Exception:
+                pass
+            path = next((x for x in cand if os.path.isfile(x)), "")
+            if not path:
+                return self._j({"id": pid, "found": False,
+                                "text": "README не найден: %s\\README.md" % pid})
+            try:
+                txt = open(path, encoding="utf-8-sig", errors="replace").read()
+            except Exception as e:
+                return self._j({"id": pid, "found": False, "text": "README не читается: %s" % e})
+            return self._j({"id": pid, "found": True, "path": path,
+                            "text": txt[:20000], "lines": len(txt.splitlines())})
         elif p == "/api/bases":
             if not users.token_info(self.headers.get("X-Token") or ""):
                 return self._j({"error": "нужен вход"})
