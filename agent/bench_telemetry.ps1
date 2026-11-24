@@ -12,8 +12,8 @@
 # ============================================================================
 param(
     [string[]]$Models = @(),
-    [int]$NumCtx = 16384,
-    [int]$NumPredict = 600,
+    [int]$NumCtx = 204800,
+    [int]$NumPredict = 2000,
     [string]$OutDir = 'D:\AI\log\urn\cline\bench_audit'
 )
 
