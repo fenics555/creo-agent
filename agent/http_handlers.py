@@ -143,9 +143,28 @@ class Hd(BaseHTTPRequestHandler):
                 _sctx = _st50.loaded_ctx()
             except Exception:
                 _mctx = None
+            # ЧЕСТНАЯ ПОЛОСА КОНТЕКСТА (24.11.2026): раньше витрина делила num_ctx на окно модели
+            # и вечно показывала ~77 %, из-за чего «Новая сессия» визуально ничего не меняла.
+            # Теперь считаем реально занятое: системный промт + история этого клиента (в символах).
+            try:
+                import loop as _lp
+                _prompt_chars = int(getattr(_lp, "LAST_PROMPT_CHARS", 0) or 0)
+            except Exception:
+                _prompt_chars = 0
+            _hist_chars = 0
+            if cl2:
+                try:
+                    _c = core.db()
+                    _rows = _c.execute("SELECT q,a FROM history WHERE client=? ORDER BY id DESC LIMIT 40",
+                                       (cl2["login"],)).fetchall()
+                    _c.close()
+                    _hist_chars = sum(len(str(q or "")) + len(str(a or "")) for q, a in _rows)
+                except Exception:
+                    _hist_chars = 0
             self._j({"host": HOSTNAME, "model": settings.get("llm_model"), "blocks": len(TR.BLOCKS),
                      "tools": len(TR.TOOLS), "user": prof, "model_ctx": _mctx,
                      "ctx_requested": int(settings.get("num_ctx") or 0), "ctx_session": _sctx,
+                     "prompt_chars": _prompt_chars, "hist_chars": _hist_chars,
                      "is_manager": users.can_manage_users(prof["login"]) if prof else False,
                      "trails": tail, "mode": settings.get_for(cl2["login"], "chat_mode", 1) if cl2 else 1,
                      "ui_layout": settings.get_for(cl2["login"], "ui_layout", "v1") if cl2 else "v1",

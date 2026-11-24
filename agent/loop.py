@@ -187,6 +187,7 @@ def load_skill(name):
 
 
 _RULES_CACHE = {"sig": None, "text": ""}
+LAST_PROMPT_CHARS = 0      # длина последнего собранного системного промта (для честной полосы контекста)
 
 
 def rules_state():
@@ -387,6 +388,10 @@ def build_system(mode=1, question=""):
         # «Размер размышлений, строк» — ползунок в настройках (дом: мысли нужны целиком, но по делу)
         think_rule = think_rule.replace("PLACEHOLDER", str(int(settings.get("think_lines_max") or 8)))
     _SYS_CACHE[("v", mode, _heavy)] = p + "\n\n" + tail + "\n\n" + think_rule + "\n\n" + hard
+    try:
+        globals()["LAST_PROMPT_CHARS"] = len(_SYS_CACHE[("v", mode, _heavy)])
+    except Exception:
+        pass
     return _SYS_CACHE[("v", mode, _heavy)]
 
 

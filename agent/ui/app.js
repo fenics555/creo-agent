@@ -294,8 +294,10 @@ function updateStatus(d) {
   var stCtx = $('st-ctx'); if (stCtx) stCtx.textContent = ctx ? (ctx / 1024).toFixed(0) + 'k' : '—';
   var stTools = $('st-tools'); if (stTools) stTools.textContent = d.tools || 0;
   var stBlocks = $('st-blocks'); if (stBlocks) stBlocks.textContent = d.blocks || 0;
-  var used = d.ctx_session || 0, max = d.model_ctx || d.ctx_requested || 0;
-  var pct = max ? Math.min(100, Math.round(100 * used / max)) : 0;
+  var want = d.ctx_requested || d.model_ctx || 0;        // окно сессии (num_ctx)
+  var pch = d.prompt_chars || 0, hch = d.hist_chars || 0;
+  var used_tok = Math.round((pch + hch) / 3.5);          // оценка токенов по символам
+  var pct = want ? Math.min(100, Math.round(100 * used_tok / want)) : 0;
   var cbar = $('ctx-bar'); if (cbar) cbar.style.width = pct + '%';
   var ccbar = $('chat-ctx-bar'); if (ccbar) ccbar.style.width = pct + '%';
   var ccbox = $('chat-ctx');
@@ -303,9 +305,14 @@ function updateStatus(d) {
     ccbox.className = 'mini-ctx' + (pct >= 80 ? ' danger' : (pct >= 70 ? ' warn' : ''));
   }
   var ccpct = $('chat-ctx-pct');
-  if (ccpct) ccpct.textContent = max ? (pct + '% контекста') : 'контекст —';
+  if (ccpct) ccpct.textContent = want ? (pct + '% контекста') : 'контекст —';
   var cinfo = $('ctx-info');
-  if (cinfo) cinfo.textContent = max ? (used + ' из ' + max + ' (' + pct + '%)') : '—';
+  if (cinfo) {
+    cinfo.textContent = want
+      ? ('~' + used_tok + ' токенов из ' + want + ' (' + pct + '%) · промт ~' +
+         Math.round(pch / 3.5) + ', история ~' + Math.round(hch / 3.5))
+      : '—';
+  }
   var warn = $('ctx-warn');
   if (warn) {
     if (pct >= 80) {
