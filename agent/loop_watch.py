@@ -99,6 +99,8 @@ SESSION_ID = arg("--session")
 SESS = arg("--sess-dir", SESS)
 LOG = arg("--log", LOG)
 ALERT = arg("--alert", ALERT)
+# 25.11.2026 (владелец): INBOX — файл-инъекция КРАХА для модели (см. emit()).
+INBOX = arg("--inbox", r"D:\AI\INBOX.md")
 # 23.11.2026: срок хранения записей (дней). Перебивается ключом --keep-days, иначе из retention.json.
 KEEP_DAYS = int(arg("--keep-days", "0")) or keep_days_file()
 WINDOW = int(arg("--window", WINDOW))
@@ -338,6 +340,15 @@ def emit(r):
     try:
         open(ALERT, "a", encoding="utf-8").write(line)
         prune_alert(ALERT, KEEP_DAYS)
+    except Exception:
+        pass
+    # 25.11.2026 (владелец): ИНЪЕКЦИЯ КРАХА в INBOX — модель САМА откроет REVIVE и разберёт причину.
+    # Признак (kind) обязателен: с ним модель даёт осмысленный разбор, без него — формальный REVIVE.
+    try:
+        open(INBOX, "w", encoding="utf-8").write(
+            "КРАХ — признак %s (повторов %d). Открой REVIVE (4 пункта), разбери ПРИЧИНУ по признаку "
+            "и предложи действие (инструмент или смена метода). Затем очисти этот файл.\n"
+            % (r[4], r[1]))
     except Exception:
         pass
     return line.strip()
