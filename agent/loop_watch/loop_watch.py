@@ -196,6 +196,37 @@ def cycle_loop(calls):
     return None
 
 
+# 25.11.2026 (владелец): НОВЫЕ ПРИЗНАКИ из крах-скиллов (все — только ФАКТ, без рекомендаций).
+PATTERNS = {
+    "edit-miss": ("text not found", "editor-mismatch"),        # SKILL_crash-editor-mismatch
+    "edit-big": ("too large", "editor_too_large"),             # SKILL_editor_too_large
+    "plan-loop": ("план", "plan-loop-replan-no-exec"),         # повтор плана без вызовов
+    "migration": ("[migration]", "searchcodebase-migration"),  # маркер миграции
+    "path-guess": ("pathnotfound", "path-guessed-by-analogy"), # путь по аналогии
+    "buffer": ("(пусто)", "probe-buffer-swallows-output"),     # пустой вывод прогона
+    "context-death": ("context length", "cline_longsession_context_death"),
+}
+
+
+def pattern_loop(calls, msgs):
+    """Ищет признаки крах-скиллов в результатах вызовов и текстах. Возвращает (kind, key) или None."""
+    hits = {}
+    for _h, rt in calls:
+        low = (rt or "").lower()
+        for kind, (mark, _skill) in PATTERNS.items():
+            if mark in low:
+                hits[kind] = hits.get(kind, 0) + 1
+    for kind, c in hits.items():
+        if c >= 2:
+            return kind, PATTERNS[kind][1]
+    # plan-loop: текст-план повторён 3 раза без вызовов (уже есть text_loop, но с ключом плана)
+    txts = assistant_texts(msgs)[-TXT_WINDOW:]
+    plans = sum(1 for t in txts if "план" in t.lower() and "вызов" not in t.lower())
+    if plans >= 3:
+        return "plan-loop", "plan-loop-replan-no-exec"
+    return None
+
+
 def session_messages_path(s):
     p = os.path.join(s, os.path.basename(s) + ".messages.json")
     if os.path.exists(p):
@@ -319,6 +350,9 @@ def check(prev_size=None):
     cyc = cycle_loop(calls)
     if cyc:
         return (os.path.basename(s), CYCLE_PAIRS * 2, "CYCLE", True, "cycle-loop")
+    pl = pattern_loop(calls, msgs)
+    if pl:
+        return (os.path.basename(s), 2, pl[1], True, pl[0])
     tl = text_loop(msgs)
     if tl:
         return (os.path.basename(s), TXT_REPEAT, "TEXT-LOOP", True, "text-loop")
@@ -342,13 +376,18 @@ def emit(r):
         prune_alert(ALERT, KEEP_DAYS)
     except Exception:
         pass
-    # 25.11.2026 (владелец): ИНЪЕКЦИЯ КРАХА в INBOX — модель САМА откроет REVIVE и разберёт причину.
-    # Признак (kind) обязателен: с ним модель даёт осмысленный разбор, без него — формальный REVIVE.
+    # 25.11.2026 (владелец): ИНЪЕКЦИЯ КРАХА в INBOX. Только ФАКТ + имя крах-скилла (без рекомендаций):
+    # REVIVE (§5.1-5.2) сам обяжет сверить SKILL_crash_index.md и зафиксировать сбой по конституции.
+    SKILL_MAP = {
+        "tool-loop": "SKILL_crash_execution-loop", "error-loop": "SKILL_crash_handling",
+        "fail-loop": "SKILL_crash_handling", "cycle-loop": "SKILL_crash_execution-loop",
+        "text-loop": "SKILL_crash_plan-loop-replan-no-exec", "aborted": "SKILL_crash_session-interruption",
+        "stall": "SKILL_crash_cline_longsession_context_death", "context-spike": "SKILL_crash_context-limit-interruption",
+    }
+    skill = SKILL_MAP.get(r[4], "SKILL_crash_handling")
     try:
         open(INBOX, "w", encoding="utf-8").write(
-            "КРАХ — признак %s (повторов %d). Открой REVIVE (4 пункта), разбери ПРИЧИНУ по признаку "
-            "и предложи действие (инструмент или смена метода). Затем очисти этот файл.\n"
-            % (r[4], r[1]))
+            "КРАХ — признак %s (повторов %d). Крах-скилл: %s\n" % (r[4], r[1], skill))
     except Exception:
         pass
     return line.strip()

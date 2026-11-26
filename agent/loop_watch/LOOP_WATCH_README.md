@@ -34,9 +34,38 @@ python D:\AI\tools\agent\loop_watch.py --session <id>   # конкретная �
 | `--stall` (выкл. по умолчанию) | сессия не растёт `STALL_SEC`, бэкенд жив | `STALL_SEC=110` |
 | `--spike` (выкл. по умолчанию) | файл сессии вырос за тик | `SPIKE_BYTES=65536` |
 
+### Новые признаки из крах-скиллов (25.11.2026)
+
+| `kind` | что ловит | крах-скилл |
+|---|---|---|
+| `edit-miss` | `text not found` ≥2 раз | `SKILL_crash-editor-mismatch` |
+| `edit-big` | `Editor input too large` ≥2 | `SKILL_editor_too_large` |
+| `plan-loop` | план повторён 3 раза без вызовов | `SKILL_crash_plan-loop-replan-no-exec` |
+| `migration` | `[migration] Tool result missing` ≥2 | `SKILL_crash_searchcodebase-*` |
+| `path-guess` | `PathNotFound` ≥2 | `crash_path-guessed-by-analogy` |
+| `buffer` | пустой вывод прогона ≥2 | `SKILL_crash_probe-buffer-swallows-output` |
+| `context-death` | `context length` ≥2 | `SKILL_crash_cline_longsession_context_death` |
+
+### INBOX-инъекция КРАХА (25.11.2026) — самолечение
+
+При любом сигнале сторож пишет в **`D:\AI\INBOX.md`** (аргумент `--inbox`):
+```
+КРАХ — признак <kind> (повторов N). Крах-скилл: <SKILL_crash_...>
+```
+**Только ФАКТ + имя крах-скилла, без рекомендаций** — правило `.clinerules` (КРАСНЫЕ ЛИНИИ) обязывает
+модель при §4.7-триггере прочитать INBOX → вывести `REVIVE:` (4 пункта) → **сверить `SKILL_crash_index.md`
+и зафиксировать сбой по `SKILL_crash_constitution.md`** (§5.2) → очистить INBOX.
+**Проверено:** инъекция «КРАХ» посередине диалога → модель открывает REVIVE; с признаком — даёт разбор.
+
 Окно наблюдения — последние `WINDOW=12` вызовов (старые ошибки не дают вечный ALERT).
 Крупные чтения файлов со словом «error» ложных срабатываний **не** дают (`ERR_MAX_LEN=4000`).
 Антиспам: `COOLDOWN_SEC=20` на повтор того же события.
+
+### Область применения (решение владельца, 25.11.2026)
+
+**Сторож — ТОЛЬКО для Cline (реальная работа).** Под стенд (`AGENT_SETTINGS`) `loop_watch` **НЕ применяется** —
+стенд не для этого. Если сторож поймает крах **во время работы со стендом** (Cline правит/запускает стенд) —
+это нормально: Cline разберётся по REVIVE. Отдельный режим `--log` для лога стенда **не делается**.
 
 ## Куда пишет
 
