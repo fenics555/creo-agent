@@ -1,4 +1,4 @@
-import json, glob, os, time, sys, hashlib, re, datetime, urllib.request, urllib.error
+﻿import json, glob, os, time, sys, hashlib, re, datetime, urllib.request, urllib.error
 
 SESS = os.path.join(os.path.expanduser("~"), ".cline", "data", "sessions")
 ALERT = r"D:\AI\log\urn\cline\LOOP_ALERT.txt"
@@ -11,7 +11,9 @@ TXT_WINDOW = 6
 TXT_REPEAT = 3
 CYCLE_PAIRS = 2
 ERR_MAX_LEN = 4000
-COOLDOWN_SEC = 20
+# 26.11.2026 (владелец): было 20 — сторож «бибикал» каждые 20 сек на одном и том же
+# fail-loop в живой сессии. 300 сек = один сигнал на 5 минут, чтобы не спамить владельца.
+COOLDOWN_SEC = 300
 ERR_KEYS = ("error", "not found", "too large", "no replacement",
             "\u043d\u0435 \u043d\u0430\u0439\u0434\u0435\u043d", "\u043e\u0448\u0438\u0431\u043a")
 BACKEND_PROBES = (
@@ -101,6 +103,8 @@ LOG = arg("--log", LOG)
 ALERT = arg("--alert", ALERT)
 # 25.11.2026 (владелец): INBOX — файл-инъекция КРАХА для модели (см. emit()).
 INBOX = arg("--inbox", r"D:\AI\INBOX.md")
+# 26.11.2026: статистика срабатываний (ответ на «сколько раз помог»). hits++ в emit().
+STATS = arg("--stats", r"D:\AI\log\urn\cline\loop_watch_stats.json")
 # 23.11.2026: срок хранения записей (дней). Перебивается ключом --keep-days, иначе из retention.json.
 KEEP_DAYS = int(arg("--keep-days", "0")) or keep_days_file()
 WINDOW = int(arg("--window", WINDOW))
@@ -174,10 +178,32 @@ def norm(t):
 
 
 def is_error_result(rt):
-    if len(rt) > ERR_MAX_LEN:
-        return False
+    """26.11.2026 (K1/K2): провал подтверждается СТРУКТУРНО, а не словом где угодно.
+    Было: `any(k in low for k in ERR_KEYS)` — «error» как подстрока ловил слово
+    в ЗАПРОСЕ (движок склеивает result+query), в выводе команды, в тексте файла
+    при read_files → ложные fail-loop на нормальной работе.
+    Стало: три формы реального провала (по замеру сессий: 43+6+1+1 из 577):
+      1) код возврата:  [Command exited with code N] при N != 0;
+      2) ошибки-классы: Traceback / PathNotFound / text not found / no replacement;
+      3) явный префикс: строка начинается с Error:/ERROR: (после отступа).
+    Слово «error» внутри текста БОЛЬШЕ НЕ считается провалом само по себе.
+    """
     low = rt.lower()
-    return any(k in low for k in ERR_KEYS)
+    # 1) код возврата (основная форма: 43 из 577)
+    for m in re.finditer(r"\[command exited with code (\d+)", low):
+        if m.group(1) != "0":
+            return True
+    # 2) ошибки-классы (структурные маркеры инструментов)
+    if any(k in low for k in ("traceback (most recent call last)",
+                              "pathnotfound", "text not found",
+                              "no replacement performed", "no replacement was performed")):
+        return True
+    # 3) явный префикс ошибки в начале строки (не где угодно)
+    for line in low.splitlines():
+        s = line.lstrip()
+        if s.startswith("error:") or s.startswith("error "):
+            return True
+    return False
 
 
 def err_signature(rt):
@@ -208,6 +234,21 @@ PATTERNS = {
 }
 
 
+def _edit_miss_streak(calls):
+    """26.11.2026: считает «text not found» ПОДРЯД (между ними нет успешного editor).
+    Точнее ловит «модель долбится в один якорь», отсекает ложные на разных файлах."""
+    streak = 0
+    best = 0
+    for _h, rt in calls:
+        low = (rt or "").lower()
+        if "text not found" in low or "no replacement performed" in low:
+            streak += 1
+            best = max(best, streak)
+        elif "successfully" in low or "file created" in low or "edited" in low:
+            streak = 0  # успешная правка — сброс серии
+    return best
+
+
 def pattern_loop(calls, msgs):
     """Ищет признаки крах-скиллов в результатах вызовов и текстах. Возвращает (kind, key) или None."""
     hits = {}
@@ -216,6 +257,9 @@ def pattern_loop(calls, msgs):
         for kind, (mark, _skill) in PATTERNS.items():
             if mark in low:
                 hits[kind] = hits.get(kind, 0) + 1
+    # 26.11.2026: edit-miss — серия подряд (не «2 в окне»), проверяем ПЕРВОЙ.
+    if _edit_miss_streak(calls) >= 2:
+        return "edit-miss", PATTERNS["edit-miss"][1]
     for kind, c in hits.items():
         if c >= 2:
             return kind, PATTERNS[kind][1]
@@ -383,11 +427,51 @@ def emit(r):
         "fail-loop": "SKILL_crash_handling", "cycle-loop": "SKILL_crash_execution-loop",
         "text-loop": "SKILL_crash_plan-loop-replan-no-exec", "aborted": "SKILL_crash_session-interruption",
         "stall": "SKILL_crash_cline_longsession_context_death", "context-spike": "SKILL_crash_context-limit-interruption",
+        # 26.11.2026 S11: детектор возвращает kind="generation-stall", а не "stall".
+        # Без этого ключа .get() не находил → дефолт SKILL_crash_handling (терялся правильный скилл).
+        "generation-stall": "SKILL_crash_cline_longsession_context_death",
+        # 26.11.2026: маппинг для признаков из PATTERNS (были забыты — в INBOX шёл неверный скилл).
+        "edit-miss": "SKILL_crash-editor-mismatch", "edit-big": "SKILL_editor_too_large",
+        "plan-loop": "SKILL_crash_plan-loop-replan-no-exec", "migration": "SKILL_crash_searchcodebase-any-pattern-migration-marker",
+        "path-guess": "crash_path-guessed-by-analogy", "buffer": "SKILL_crash_probe-buffer-swallows-output",
+        "context-death": "SKILL_crash_cline_longsession_context_death",
     }
     skill = SKILL_MAP.get(r[4], "SKILL_crash_handling")
+    # 26.11.2026: было "w" (перезапись) — второй сигнал затирал первый. Теперь append,
+    # но при размере > 2 КБ файл перезаписывается (защита от роста).
     try:
-        open(INBOX, "w", encoding="utf-8").write(
+        if os.path.exists(INBOX) and os.path.getsize(INBOX) > 2048:
+            open(INBOX, "w", encoding="utf-8").write("")
+        open(INBOX, "a", encoding="utf-8").write(
             "КРАХ — признак %s (повторов %d). Крах-скилл: %s\n" % (r[4], r[1], skill))
+    except Exception:
+        pass
+    # 26.11.2026: счётчик срабатываний по признаку. by_session — видно «одна петля или разные»;
+    # ДЕДУП между запусками (seen) — иначе при рестарте старые сигналы снова попадают в hits.
+    try:
+        st = {}
+        if os.path.exists(STATS):
+            st = json.load(open(STATS, encoding="utf-8"))
+        sess = r[0]
+        rec = st.setdefault(r[4], {"hits": 0, "first_ts": "", "last_ts": "",
+                                   "by_session": {}, "seen": {}})
+        # дедуп: ключ сигнала = сессия|повторы|вызов (не считаем один и тот же дважды)
+        key = "%s|%s|%s" % (sess, r[1], r[2])
+        seen = rec.setdefault("seen", {})
+        if key not in seen:
+            now = time.strftime("%Y-%m-%d %H:%M:%S")
+            rec["hits"] = rec.get("hits", 0) + 1
+            rec["last_ts"] = now
+            if not rec.get("first_ts"):
+                rec["first_ts"] = now
+            bs = rec.setdefault("by_session", {})
+            bs[sess] = bs.get(sess, 0) + 1
+            seen[key] = now
+            # чистим старые ключи seen (держать не больше 200 на признак)
+            if len(seen) > 200:
+                for k in list(seen.keys())[:100]:
+                    del seen[k]
+        json.dump(st, open(STATS, "w", encoding="utf-8"), ensure_ascii=False, indent=1)
     except Exception:
         pass
     return line.strip()
@@ -415,17 +499,47 @@ def pid_alive(pid):
             return False
 
 
+def pid_is_loop_watch(pid):
+    """26.11.2026: замок залипал, т.к. PID переиспользован (VS Code занял PID 13248).
+    Проверяем не только «жив ли PID», но и «это python/loop_watch, а не чужой процесс»."""
+    try:
+        import ctypes
+        from ctypes import wintypes
+        PROCESS_QUERY_LIMITED_INFORMATION = 0x1000
+        h = ctypes.windll.kernel32.OpenProcess(PROCESS_QUERY_LIMITED_INFORMATION, False, int(pid))
+        if not h:
+            return False
+        try:
+            buf = ctypes.create_unicode_buffer(1024)
+            size = wintypes.DWORD(1024)
+            if not ctypes.windll.kernel32.QueryFullProcessImageNameW(h, 0, buf, ctypes.byref(size)):
+                return False
+            exe = buf.value.lower()
+            # 26.11.2026: было `"python" in exe` — слишком широко (любой путь с «python»).
+            # Проверяем ИМЯ файла-образа, а не вхождение подстроки.
+            base = os.path.basename(exe)
+            return base in ("python.exe", "pythonw.exe", "py.exe", "python3.exe") \
+                or "loop_watch" in exe
+        finally:
+            ctypes.windll.kernel32.CloseHandle(h)
+    except Exception:
+        return False
+
+
 def acquire_lock():
     """ЗАМОК ЕДИНСТВЕННОГО ЭКЗЕМПЛЯРА (23.11.2026): дом-стиль, как data\\harvest.lock.
-    Второй запуск тихо выходит — иначе сигналы дублируются в LOOP_ALERT.txt."""
+    Второй запуск тихо выходит — иначе сигналы дублируются в LOOP_ALERT.txt.
+    26.11.2026: осиротевший замок (PID переиспользован чужим процессом) теперь снимается."""
     if NO_LOCK:
         return True
     try:
         with open(LOCK, encoding="utf-8") as f:
             pid = int(json.load(f).get("pid", 0))
-        if pid and pid != os.getpid() and pid_alive(pid):
+        if pid and pid != os.getpid() and pid_alive(pid) and pid_is_loop_watch(pid):
             print("loop_watch already running: PID", pid, "- exit (lock:", LOCK + ")")
             return False
+        elif pid and pid != os.getpid() and pid_alive(pid):
+            print("stale lock: PID", pid, "is not loop_watch (PID reused) - taking over")
     except Exception:
         pass
     try:
@@ -477,7 +591,9 @@ if __name__ == "__main__":
                 if not (sig == last["sig"] and now - last["ts"] < COOLDOWN_SEC):
                     last["sig"] = sig
                     last["ts"] = now
-                    print("\a" + emit(r))
+                    # 26.11.2026 (владелец): убран "\a" (bell) — в фоне он бесконечно
+                    # бибикал. Сигнал теперь только в LOOP_ALERT.txt + INBOX.
+                    print(emit(r))
             p = session_messages_path(s) if s else None
             if p:
                 last["size"][name] = os.path.getsize(p)
