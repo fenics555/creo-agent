@@ -277,8 +277,14 @@ def h_db_repair(cmd, api):
 
 # ---------- D: логи/окно ----------
 def _log_dir():
-    """Папка логов дома для PLM (паспорт класса Р п.3): D:\\AI\\log\\plm_reader."""
-    return os.path.join('D:\\AI\\log', 'plm_reader')
+    """Папка логов: дома — общий D:\\AI\\log\\plm_reader, на чужой машине — рядом (как engine.py).
+
+    Приём переносимости дома: если D:\\AI\\log нет — пишем в <папка программы>\\log.
+    """
+    home = os.path.join('D:', os.sep, 'AI', 'log', 'plm_reader')
+    if os.path.isdir(os.path.join('D:', os.sep, 'AI', 'log')):
+        return home
+    return os.path.join(HERE, 'log')
 
 
 def h_log_list(cmd, api):
