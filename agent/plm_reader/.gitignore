@@ -1,5 +1,8 @@
 ﻿db/
 settings/
+# V221: рабочие папки API-слоя (команды/ответы) — генерируются на месте, в git не идут.
+api/in/
+api/out/
 log/
 __pycache__/
 scan_cache.json

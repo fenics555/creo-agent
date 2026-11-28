@@ -486,6 +486,29 @@ def parse_change_date(s):
     return None
 
 
+def _api_ui_tick(root, interval=5000):
+    """V221: периодически обновлять вкладку «API» (журнал) — пока окно живо."""
+    try:
+        _fn = getattr(_API_GLOBAL, 'ui_refresh', None)
+        if _fn:
+            _fn()
+    except Exception:
+        pass
+    try:
+        root.after(interval, lambda: _api_ui_tick(root, interval))
+    except Exception:
+        pass
+
+
+class _ApiGlobal:
+    """Держатель API-сервера (чтобы переменная не терялась в run_gui)."""
+    server = None
+    ui_refresh = None
+
+
+_API_GLOBAL = _ApiGlobal()
+
+
 def run_gui():
     import tkinter as tk
     from tkinter import ttk, filedialog, messagebox
@@ -1378,6 +1401,57 @@ def run_gui():
     except Exception:
         rv_top.set(10)
     rv_top.pack(side="left")
+
+    # ==== 28.11.2026 (V221): вкладка «API» — управление PLM без вспомогательных скриптов.
+    # ИИ кладёт JSON в api\in — PLM исполняет и кладёт ответ в api\out. Здесь — живой журнал.
+    tab_api = ttk.Frame(nb, padding=4)
+    nb.add(tab_api, text=" API ")
+    ttk.Label(tab_api, text="API: управление без скриптов — команда в api\\in\\*.json → ответ в api\\out\\*.json "
+                            "(каркас plm_api.py, 21 команда)").pack(anchor="w")
+    apictl = ttk.Frame(tab_api)
+    apictl.pack(anchor="w", pady=2)
+    ttk.Button(apictl, text="Обновить журнал",
+               command=lambda: _api_refresh_log()).pack(side="left")
+    ttk.Button(apictl, text="Открыть папку API",
+               command=lambda: _api_open_dir()).pack(side="left", padx=6)
+    ttk.Label(apictl, text="сколько команд исполнено — счётчик ниже; журнал: api\\out\\_api_journal.log",
+              foreground="#666").pack(side="left", padx=6)
+    apibox = ttk.Frame(tab_api)
+    apibox.pack(fill="both", expand=True)
+    atv = tk.Text(apibox, font=("Consolas", 9), wrap="none", bg="#fbfbfb", state="disabled")
+    asb = ttk.Scrollbar(apibox, orient="vertical", command=atv.yview)
+    atv.configure(yscrollcommand=asb.set)
+    asb.pack(side="right", fill="y")
+    atv.pack(side="left", fill="both", expand=True)
+
+    def _api_dir():
+        return os.path.join(os.path.dirname(os.path.abspath(__file__)), "api")
+
+    def _api_refresh_log():
+        try:
+            jp = os.path.join(_api_dir(), "out", "_api_journal.log")
+            atv.configure(state="normal")
+            atv.delete("1.0", "end")
+            if os.path.isfile(jp):
+                with open(jp, encoding="utf-8", errors="replace") as fh:
+                    lines = fh.readlines()[-400:]
+                atv.insert("end", "".join(lines))
+            else:
+                atv.insert("end", "журнал пока пуст: %s\n" % jp)
+            atv.see("end")
+            atv.configure(state="disabled")
+        except Exception as exc:  # noqa: BLE001
+            try:
+                atv.insert("end", "ошибка чтения журнала: %s\n" % exc)
+            except Exception:
+                pass
+
+    def _api_open_dir():
+        try:
+            import subprocess
+            subprocess.Popen(["explorer", _api_dir()])
+        except Exception:
+            pass
 
     def _river_persist():
         """V216: запомнить панель «Река» в settings.json.
@@ -5682,4 +5756,17 @@ def run_gui():
         root.after(2500, lambda: check_updates_ui(False))
     except Exception:
         pass
+    # ==== 28.11.2026 (V221): API-поток — управление PLM без вспомогательных скриптов.
+    # Единственный исполнитель — этот процесс окна; команды из api\in, ответы в api\out.
+    try:
+        import plm_api_adapter as _api_mod
+        _API_GLOBAL.server = _api_mod.build_api()
+        _API_GLOBAL.server.start()
+        _API_GLOBAL.ui_refresh = _api_refresh_log    # вкладка «API» обновляет свой журнал
+        root.after(5000, lambda: _api_ui_tick(root))
+    except Exception as _e:                        # API не должен ронять окно
+        try:
+            log_line("API: не поднялся (%s)" % _e)
+        except Exception:
+            pass
     root.mainloop()

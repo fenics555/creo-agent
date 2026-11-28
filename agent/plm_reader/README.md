@@ -6,6 +6,26 @@
 
 ---
 
+## 🔌 API: УПРАВЛЕНИЕ БЕЗ ВСПОМОГАТЕЛЬНЫХ СКРИПТОВ (V221, 28.11.2026)
+
+PLM умеет управлять собой через **файловый API**: ИИ (или внешний вызов) кладёт JSON-команду
+в `api\in\<имя>.json` — PLM исполняет её **своим методом** (как кнопку) и кладёт ответ
+в `api\out\<имя>.json`. **Никаких внешних скриптов-обёрток.**
+
+- **Каркас:** `plm_api.py` (транспорт, поток, реестр команд, `schema`).
+- **Адаптер:** `plm_api_adapter.py` — **21 команда** (A–E): `status`; `settings_get/set/reset/spec`;
+  `db_info/stats/tables/query/doctor/backup/repair`; `log_list/log_tail/window_state`;
+  `op_where/op_tree/op_changes/op_check/scan_start/scan_status`.
+- **Окно:** вкладка **«API»** — живой журнал команд и ответов (`api\out\_api_journal.log`).
+- **Безопасность:** read свободно; write (`settings_set`, `db_backup`, `db_repair`, `scan_start`) —
+  только с флагом `"apply": true`; настройки — через `plm_settings` (бэкап `.pre_`); база — через
+  `plm_database` (`db_query` только SELECT); **`Z:`/UNC — только чтение**.
+- **Пример:** `{"cmd": "db_stats"}` → ответ с счётчиками; `{"cmd": "settings_set", "key": "max_size_mb", "value": 32, "apply": true}`.
+- Подробно (транспорт, все команды, ограничения) — раздел `README_API_SECTION.md`; дорожная карта —
+  `D:\AI\ЭСТАФЕТЫ\PLAN_AGENT_API.md`.
+
+---
+
 ## 🏛️ АРХИТЕКТУРА: ТРИ ИНСТРУМЕНТА + ОБСЛУЖИВАНИЕ БАЗЫ
 
 > ### 🔴🔴 ГЛАВНЫЙ ЗАКОН (слово владельца, 03.11.2026)
